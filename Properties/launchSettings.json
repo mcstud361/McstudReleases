@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "McStudDesktop.WinUI (Unpackaged)": {
+      "commandName": "Project",
+      "commandLineArgs": "",
+      "environmentVariables": {
+        "DOTNET_MODIFIABLE_ASSEMBLIES": "debug"
+      }
+    }
+  }
+}

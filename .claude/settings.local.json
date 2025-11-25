@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(powershell \"Stop-Process -Id 37820 -Force\")",
+      "Bash(dotnet build:*)",
+      "Bash(powershell \"Stop-Process -Id 35176,19336 -Force\")",
+      "Bash(powershell \"Stop-Process -Id 9828 -Force\")",
+      "Bash(dotnet --list-sdks:*)",
+      "Bash(dotnet workload:*)",
+      "Bash(winget list:*)",
+      "Bash(reg query \"HKLM\\SOFTWARE\\Microsoft\\WindowsAppRuntime\" /s)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
