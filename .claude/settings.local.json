@@ -26,7 +26,8 @@
       "Bash(powershell \"Get-Process -Name McStudDesktop -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(timeout /t 5)",
       "Bash(ps:*)",
-      "Bash(timeout /t 2)"
+      "Bash(timeout /t 2)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
