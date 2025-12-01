@@ -14,7 +14,19 @@
       "Bash(winget list:*)",
       "Bash(reg query \"HKLM\\SOFTWARE\\Microsoft\\WindowsAppRuntime\" /s)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: McStud Desktop WinUI 3 application\n\n- WinUI 3 desktop app with system tray support\n- Dark mode UI with monochrome black/gray theme\n- Window recreation on tray icon click\n- 1080x768 window size\n- Premium button effects with hover animations\n- Tray icon with context menu (Show/Hide, Exit)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git config:*)",
+      "Bash(powershell \"Stop-Process -Id 35936 -Force\")",
+      "Bash(powershell -Command:*)",
+      "Bash(python -c:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(dotnet run)",
+      "Bash(powershell \"Get-Process -Name McStudDesktop -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(timeout /t 5)",
+      "Bash(ps:*)",
+      "Bash(timeout /t 2)"
     ],
     "deny": [],
     "ask": []

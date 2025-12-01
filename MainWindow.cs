@@ -3,12 +3,20 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using WinRT.Interop;
 using Windows.UI;
+using McStudDesktop.Views;
 
 namespace McStudDesktop;
 
 public sealed class MainWindow : Window
 {
     public Grid RootGrid { get; private set; }
+    private Grid? _contentGrid;
+    private Views.LoginPage? _loginPage;
+    private Views.RegisterPage? _registerPage;
+    private Views.AdminPanel? _adminPanel;
+    private Grid? _mainAppContent;
+    private bool _isAuthenticated = false;
+    private string? _currentUsername;
 
     public MainWindow()
     {
@@ -19,9 +27,16 @@ public sealed class MainWindow : Window
         var windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
         var appWindow = AppWindow.GetFromWindowId(windowId);
 
+        // Set window icon
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "appicon.ico");
+        if (File.Exists(iconPath))
+        {
+            appWindow.SetIcon(iconPath);
+        }
+
         // Set window size to 1080x768 and center on screen
-        int width = 1080;
-        int height = 768;
+        int width = 1080*2;
+        int height = 768*2;
 
         // Get display area
         var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
@@ -51,14 +66,68 @@ public sealed class MainWindow : Window
         };
 
         // Create content grid for UI elements (separate from tray icon)
-        var contentGrid = new Grid
+        _contentGrid = new Grid
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch
         };
-        Canvas.SetZIndex(contentGrid, 1);
+        Canvas.SetZIndex(_contentGrid, 1);
 
-        // Create a StackPanel to hold multiple test controls
+        RootGrid.Children.Add(_contentGrid);
+        Content = RootGrid;
+
+        // Show login page on startup
+        ShowLoginPage();
+    }
+
+    private void ShowLoginPage()
+    {
+        if (_contentGrid == null) return;
+
+        _contentGrid.Children.Clear();
+
+        _loginPage = new Views.LoginPage();
+        _loginPage.LoginSuccessful += LoginPage_LoginSuccessful;
+        _loginPage.NavigateToRegister += LoginPage_NavigateToRegister;
+
+        _contentGrid.Children.Add(_loginPage);
+        System.Diagnostics.Debug.WriteLine("[MainWindow] Showing login page");
+    }
+
+    private void ShowRegisterPage()
+    {
+        if (_contentGrid == null) return;
+
+        _contentGrid.Children.Clear();
+
+        _registerPage = new Views.RegisterPage();
+        _registerPage.RegistrationSuccessful += RegisterPage_RegistrationSuccessful;
+        _registerPage.NavigateToLogin += RegisterPage_NavigateToLogin;
+
+        _contentGrid.Children.Add(_registerPage);
+        System.Diagnostics.Debug.WriteLine("[MainWindow] Showing register page");
+    }
+
+    private void ShowMainApp()
+    {
+        if (_contentGrid == null) return;
+
+        _contentGrid.Children.Clear();
+
+        _mainAppContent = CreateMainAppContent();
+        _contentGrid.Children.Add(_mainAppContent);
+
+        System.Diagnostics.Debug.WriteLine("[MainWindow] Showing main app content");
+    }
+
+    private Grid CreateMainAppContent()
+    {
+        var mainGrid = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+
         var stackPanel = new StackPanel
         {
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -79,7 +148,7 @@ public sealed class MainWindow : Window
         // Add a subtitle TextBlock
         var subtitleText = new TextBlock
         {
-            Text = "Professional Dark Mode • Premium Effects",
+            Text = "Estimating Tool • Professional Dark Mode",
             FontSize = 16,
             HorizontalAlignment = HorizontalAlignment.Center,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
@@ -108,7 +177,7 @@ public sealed class MainWindow : Window
 
         var button = new Button
         {
-            Content = "Get to Work",
+            Content = "Start Estimating",
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Padding = new Thickness(0),
@@ -118,7 +187,7 @@ public sealed class MainWindow : Window
             Foreground = new SolidColorBrush(Colors.White),
             BorderThickness = new Thickness(0)
         };
-        button.Click += Button_Click;
+        button.Click += EstimatingButton_Click;
         button.PointerEntered += (s, e) =>
         {
             primaryButtonBorder.Scale = new System.Numerics.Vector3(1.05f, 1.05f, 1);
@@ -129,8 +198,8 @@ public sealed class MainWindow : Window
         };
         primaryButtonBorder.Child = button;
 
-        // Create secondary button with darker gray gradient
-        var secondaryButtonBorder = new Border
+        // Create admin panel button
+        var adminButtonBorder = new Border
         {
             Width = 280,
             Height = 60,
@@ -149,9 +218,9 @@ public sealed class MainWindow : Window
             BorderThickness = new Thickness(2)
         };
 
-        var testButton = new Button
+        var adminButton = new Button
         {
-            Content = "Settings & Options",
+            Content = "Admin Panel",
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Padding = new Thickness(0),
@@ -161,45 +230,130 @@ public sealed class MainWindow : Window
             Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
             BorderThickness = new Thickness(0)
         };
-        testButton.Click += TestButton_Click;
-        testButton.PointerEntered += (s, e) =>
+        adminButton.Click += AdminButton_Click;
+        adminButton.PointerEntered += (s, e) =>
         {
-            secondaryButtonBorder.Scale = new System.Numerics.Vector3(1.05f, 1.05f, 1);
-            testButton.Foreground = new SolidColorBrush(Colors.White);
+            adminButtonBorder.Scale = new System.Numerics.Vector3(1.05f, 1.05f, 1);
+            adminButton.Foreground = new SolidColorBrush(Colors.White);
         };
-        testButton.PointerExited += (s, e) =>
+        adminButton.PointerExited += (s, e) =>
         {
-            secondaryButtonBorder.Scale = new System.Numerics.Vector3(1, 1, 1);
-            testButton.Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180));
+            adminButtonBorder.Scale = new System.Numerics.Vector3(1, 1, 1);
+            adminButton.Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180));
         };
-        secondaryButtonBorder.Child = testButton;
+        adminButtonBorder.Child = adminButton;
+
+        // Create logout button
+        var logoutButtonBorder = new Border
+        {
+            Width = 280,
+            Height = 50,
+            CornerRadius = new CornerRadius(10),
+            Background = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            BorderThickness = new Thickness(1)
+        };
+
+        var logoutButton = new Button
+        {
+            Content = "Logout",
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Padding = new Thickness(0),
+            FontSize = 16,
+            Background = new SolidColorBrush(Colors.Transparent),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            BorderThickness = new Thickness(0)
+        };
+        logoutButton.Click += LogoutButton_Click;
+        logoutButton.PointerEntered += (s, e) =>
+        {
+            logoutButtonBorder.Scale = new System.Numerics.Vector3(1.02f, 1.02f, 1);
+            logoutButton.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
+        };
+        logoutButton.PointerExited += (s, e) =>
+        {
+            logoutButtonBorder.Scale = new System.Numerics.Vector3(1, 1, 1);
+            logoutButton.Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180));
+        };
+        logoutButtonBorder.Child = logoutButton;
 
         // Add all controls to the StackPanel
         stackPanel.Children.Add(titleText);
         stackPanel.Children.Add(subtitleText);
         stackPanel.Children.Add(primaryButtonBorder);
-        stackPanel.Children.Add(secondaryButtonBorder);
+        stackPanel.Children.Add(adminButtonBorder);
+        stackPanel.Children.Add(logoutButtonBorder);
 
-        contentGrid.Children.Add(stackPanel);
-        RootGrid.Children.Add(contentGrid);
-        Content = RootGrid;
+        mainGrid.Children.Add(stackPanel);
+        return mainGrid;
     }
 
-    private void Button_Click(object sender, RoutedEventArgs e)
+    private void LoginPage_LoginSuccessful(object? sender, EventArgs e)
     {
-        if (sender is Button btn)
-        {
-            btn.Content = "Let's Go! 🚀";
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Primary button clicked - Get to Work!");
-        }
+        _isAuthenticated = true;
+        ShowMainApp();
     }
 
-    private void TestButton_Click(object sender, RoutedEventArgs e)
+    private void LoginPage_NavigateToRegister(object? sender, EventArgs e)
     {
-        if (sender is Button btn)
+        ShowRegisterPage();
+    }
+
+    private void RegisterPage_RegistrationSuccessful(object? sender, EventArgs e)
+    {
+        ShowLoginPage();
+    }
+
+    private void RegisterPage_NavigateToLogin(object? sender, EventArgs e)
+    {
+        ShowLoginPage();
+    }
+
+    private void EstimatingButton_Click(object sender, RoutedEventArgs e)
+    {
+        System.Diagnostics.Debug.WriteLine("[MainWindow] Estimating tool button clicked");
+        ShowEstimatingTool();
+    }
+
+    private void ShowEstimatingTool()
+    {
+        if (_contentGrid == null) return;
+
+        _contentGrid.Children.Clear();
+
+        var estimatingTool = new Views.EstimatingToolView_NEW();
+        estimatingTool.BackToMenu += (s, e) => ShowMainApp();
+
+        _contentGrid.Children.Add(estimatingTool);
+        System.Diagnostics.Debug.WriteLine("[MainWindow] Estimating tool opened");
+    }
+
+    private void AdminButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contentGrid == null) return;
+
+        // Show admin panel overlay
+        _adminPanel = new Views.AdminPanel();
+        _adminPanel.ClosePanel += (s, e) =>
         {
-            btn.Content = "Settings Opened ⚙️";
-            System.Diagnostics.Debug.WriteLine("[MainWindow] Secondary button clicked - Settings & Options!");
-        }
+            if (_contentGrid != null && _adminPanel != null)
+            {
+                _contentGrid.Children.Remove(_adminPanel);
+            }
+        };
+
+        Canvas.SetZIndex(_adminPanel, 100);
+        _contentGrid.Children.Add(_adminPanel);
+
+        System.Diagnostics.Debug.WriteLine("[MainWindow] Admin panel opened");
+    }
+
+    private void LogoutButton_Click(object sender, RoutedEventArgs e)
+    {
+        _isAuthenticated = false;
+        _currentUsername = null;
+        ShowLoginPage();
+        System.Diagnostics.Debug.WriteLine("[MainWindow] User logged out");
     }
 }

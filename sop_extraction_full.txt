@@ -1,0 +1,29 @@
+ROW 29:
+  A29: Single
+  C29: Yes
+  G29: 0
+  H29: 0
+  I29: 0
+  J29: 0
+  K29: 0
+  L29: 0
+  M29: Rpr
+  N29: 0
+  O29: =IF(A29="Single", "Disconnect and Reconnect Battery", IF(A29="Dual", "Disconnect and Reconnect 2x Battery", ""))
+  P29: 0
+  Q29: 1
+  R29: 0
+  S29: 0
+  T29: 0
+  U29: 0
+  V29: =IF(A29="Single", 0.4, IF(A29="Dual", 0.8, ""))
+  W29: M
+  X29: 0
+
+ROW 30:
+Traceback (most recent call last):
+  File "<stdin>", line 31, in <module>
+  File "C:\Users\mcnee\AppData\Local\Programs\Python\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u25bc' in position 7: character maps to <undefined>

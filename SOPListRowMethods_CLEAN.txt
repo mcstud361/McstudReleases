@@ -1,0 +1,977 @@
+﻿
+    // BATTERY/ELECTRICAL OPERATIONS (continued)
+
+    private void AddRow_TestBatteryCondition(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Test Battery Yes/No
+        _testBatteryCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _testBatteryCombo.SelectedIndex = 0;
+        Grid.SetRow(_testBatteryCombo, rowIndex);
+        Grid.SetColumn(_testBatteryCombo, 0);
+        grid.Children.Add(_testBatteryCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(A31="Yes", ...)
+        _testBatteryCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_testBatteryCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Test Battery Condition";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_ElectronicReset(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Rpr", "Electronic Reset", "1", "0", "0.5", "M", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+        // No update needed - static values
+    }
+
+    private void AddRow_CoverElectrical(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Rpr", "Cover and Protect Electrical Connections", "1", "5", "0.3", "M", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+        // No update needed - static values
+    }
+
+    private void AddRow_BatterySupport(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Battery Support Yes/No
+        _batterySupportCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _batterySupportCombo.SelectedIndex = 0;
+        Grid.SetRow(_batterySupportCombo, rowIndex);
+        Grid.SetColumn(_batterySupportCombo, 0);
+        grid.Children.Add(_batterySupportCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(A33="Yes", ...)
+        _batterySupportCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_batterySupportCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Battery Support";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_VehicleTypeInput(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Vehicle Type
+        _vehicleTypeCombo = CreateComboBox(new[] { "", "Gas", "Hybrid", "EV" }, isInputCell: true);
+        _vehicleTypeCombo.SelectedIndex = 0;
+        Grid.SetRow(_vehicleTypeCombo, rowIndex);
+        Grid.SetColumn(_vehicleTypeCombo, 0);
+        grid.Children.Add(_vehicleTypeCombo);
+
+        // This is an input-only row - no direct outputs
+        // But we need to trigger updates when it changes
+        _vehicleTypeCombo.SelectionChanged += (s, e) =>
+        {
+            // This will trigger updates in dependent rows
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_ChargeMaintainBattery(Grid grid, int rowIndex)
+    {
+        // OUTPUTS (depend on vehicle type and ADAS)
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // Update function to be called when inputs change
+        Action updateRow = () =>
+        {
+            var vehicleType = GetComboValue(_vehicleTypeCombo);
+            var adas = GetComboValue(_adasCombo);
+
+            // FORMULA: IF(OR(A35="EV", C29="Yes"), ...)
+            if (vehicleType == "EV" || adas == "Yes")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.6";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+
+                // Description varies
+                if (vehicleType == "EV")
+                {
+                    row.Description!.Text = "Charge and Maintain Battery";
+                }
+                else if (adas == "Yes" && (vehicleType == "Gas" || vehicleType == "Hybrid"))
+                {
+                    row.Description!.Text = "Charge and Maintain Battery during ADAS";
+                }
+                else
+                {
+                    ClearOperationRow(row);
+                }
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        // Attach to input changes
+        if (_vehicleTypeCombo != null) _vehicleTypeCombo.SelectionChanged += (s, e) => updateRow();
+        if (_adasCombo != null) _adasCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_MobileCart(Grid grid, int rowIndex)
+    {
+        // OUTPUTS (depend on vehicle type)
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // Update function
+        Action updateRow = () =>
+        {
+            var vehicleType = GetComboValue(_vehicleTypeCombo);
+
+            // FORMULA: IF(A35="Hybrid", ..., IF(A35="EV", ...))
+            if (vehicleType == "Hybrid" || vehicleType == "EV")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "50";
+                row.Labor!.Text = "0.5";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+
+                if (vehicleType == "Hybrid")
+                    row.Description!.Text = "Mobile Cart for Hybrid";
+                else
+                    row.Description!.Text = "Mobile Cart for EV";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        // Attach to input changes
+        if (_vehicleTypeCombo != null) _vehicleTypeCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_VerifyNoHighVoltage(Grid grid, int rowIndex)
+    {
+        // OUTPUTS (depend on vehicle type)
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // Update function
+        Action updateRow = () =>
+        {
+            var vehicleType = GetComboValue(_vehicleTypeCombo);
+
+            // FORMULA: IF(OR(A35="Hybrid", A35="EV"), ...)
+            if (vehicleType == "Hybrid" || vehicleType == "EV")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Verify No High Voltage";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        // Attach to input changes
+        if (_vehicleTypeCombo != null) _vehicleTypeCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_ServiceMode(Grid grid, int rowIndex)
+    {
+        // OUTPUTS (depend on vehicle type - EV only)
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // Update function
+        Action updateRow = () =>
+        {
+            var vehicleType = GetComboValue(_vehicleTypeCombo);
+
+            // FORMULA: IF(A35="EV", ...)
+            if (vehicleType == "EV")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Service Mode";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.1";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        // Attach to input changes
+        if (_vehicleTypeCombo != null) _vehicleTypeCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    // VEHICLE DIAGNOSTICS OPERATIONS
+
+    private void AddRow_PreScan(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Scan Tool Type
+        _scanToolTypeCombo = CreateComboBox(new[] { "", "Gas", "Rivian", "Tesla" }, isInputCell: true);
+        _scanToolTypeCombo.SelectedIndex = 0;
+        Grid.SetRow(_scanToolTypeCombo, rowIndex);
+        Grid.SetColumn(_scanToolTypeCombo, 0);
+        grid.Children.Add(_scanToolTypeCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: Different values based on scan tool type
+        _scanToolTypeCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_scanToolTypeCombo);
+            row.Quantity!.Text = "1";
+            row.Refinish!.Text = "0";
+            row.Category!.Text = "M";
+
+            if (selected == "Gas")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "Pre-Scan";
+                row.Price!.Text = "150";
+                row.Labor!.Text = "0";
+            }
+            else if (selected == "Rivian")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Pre-Scan";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "1";
+            }
+            else if (selected == "Tesla")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Trim to Access Scanner";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_InProcessScan(Grid grid, int rowIndex)
+    {
+        // OUTPUTS (depend on scan tool type)
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // Update function
+        Action updateRow = () =>
+        {
+            var selected = GetComboValue(_scanToolTypeCombo);
+            row.Quantity!.Text = "1";
+            row.Refinish!.Text = "0";
+            row.Category!.Text = "M";
+
+            if (selected == "Gas")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "In-Process Scan";
+                row.Price!.Text = "150";
+                row.Labor!.Text = "0";
+            }
+            else if (selected == "Rivian")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "In-Process Scan";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "1";
+            }
+            else if (selected == "Tesla")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Tesla Toolbox Scan";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "1";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        // Attach to input changes
+        if (_scanToolTypeCombo != null) _scanToolTypeCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_PostScan(Grid grid, int rowIndex)
+    {
+        // OUTPUTS (depend on scan tool type)
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // Update function
+        Action updateRow = () =>
+        {
+            var selected = GetComboValue(_scanToolTypeCombo);
+            row.Quantity!.Text = "1";
+            row.Refinish!.Text = "0";
+            row.Category!.Text = "M";
+
+            if (selected == "Gas")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "Post Scan";
+                row.Price!.Text = "150";
+                row.Labor!.Text = "0";
+            }
+            else if (selected == "Rivian")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Post Scan";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "1";
+            }
+            else if (selected == "Tesla")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Tesla Software Script Programming";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        // Attach to input changes
+        if (_scanToolTypeCombo != null) _scanToolTypeCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_SetupScanTool(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Setup Scan Tool Yes/No
+        _setupScanToolCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _setupScanToolCombo.SelectedIndex = 0;
+        Grid.SetRow(_setupScanToolCombo, rowIndex);
+        Grid.SetColumn(_setupScanToolCombo, 0);
+        grid.Children.Add(_setupScanToolCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(A81="Yes", ...)
+        _setupScanToolCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_setupScanToolCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "R&I";
+                row.Description!.Text = "Setup Scan Tool";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_DynamicSystemsVerification(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Rpr", "Dynamic Systems Verification", "1", "0", "0", "M", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+        // No update needed - static values
+    }
+
+    private void AddRow_OEMResearch(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Custom price, Column B - Custom labor
+        _customPriceText = new TextBox
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            BorderThickness = new Thickness(1),
+            Height = 30,
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetRow(_customPriceText, rowIndex);
+        Grid.SetColumn(_customPriceText, 0);
+        grid.Children.Add(_customPriceText);
+
+        _customLaborText = new TextBox
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            BorderThickness = new Thickness(1),
+            Height = 30,
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetRow(_customLaborText, rowIndex);
+        Grid.SetColumn(_customLaborText, 1);
+        grid.Children.Add(_customLaborText);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: R84=MAX(A83, 50), V84=MAX(A85, 1)
+        Action updateRow = () =>
+        {
+            double price = 0;
+            double labor = 0;
+
+            if (double.TryParse(_customPriceText?.Text ?? "", out price) ||
+                double.TryParse(_customLaborText?.Text ?? "", out labor))
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "OEM Research and Repair Procedures";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = Math.Max(price, 50).ToString("F0");
+                row.Labor!.Text = Math.Max(labor, 1).ToString("F1");
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        _customPriceText.TextChanged += (s, e) => updateRow();
+        _customLaborText.TextChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_GatewayUnlock(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Gateway Unlock Yes/No
+        _gatewayUnlockCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _gatewayUnlockCombo.SelectedIndex = 0;
+        Grid.SetRow(_gatewayUnlockCombo, rowIndex);
+        Grid.SetColumn(_gatewayUnlockCombo, 0);
+        grid.Children.Add(_gatewayUnlockCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(A87="Yes", ...)
+        _gatewayUnlockCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_gatewayUnlockCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Gateway (Unlock)";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.1";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_ADASDiagnosticReport(Grid grid, int rowIndex)
+    {
+        // INPUT: Column B - ADAS Diagnostic Yes/No
+        _adasDiagnosticCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _adasDiagnosticCombo.SelectedIndex = 0;
+        Grid.SetRow(_adasDiagnosticCombo, rowIndex);
+        Grid.SetColumn(_adasDiagnosticCombo, 1);
+        grid.Children.Add(_adasDiagnosticCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(B79="Yes", ...)
+        _adasDiagnosticCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_adasDiagnosticCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "ADAS Diagnostic Report";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "25";
+                row.Labor!.Text = "0";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_SimulateFluids(Grid grid, int rowIndex)
+    {
+        // INPUT: Column B - Simulate Fluids Yes/No
+        _simulateFluidsCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _simulateFluidsCombo.SelectedIndex = 0;
+        Grid.SetRow(_simulateFluidsCombo, rowIndex);
+        Grid.SetColumn(_simulateFluidsCombo, 1);
+        grid.Children.Add(_simulateFluidsCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(OR(B79="No",B79=""), "", IF(B81="Yes", ...))
+        Action updateRow = () =>
+        {
+            var adasDiag = GetComboValue(_adasDiagnosticCombo);
+            var simulate = GetComboValue(_simulateFluidsCombo);
+
+            if (adasDiag != "No" && adasDiag != "" && simulate == "Yes")
+            {
+                row.OperationType!.Text = "R&I";
+                row.Description!.Text = "Simulate Full Fluids for ADAS Calibrations";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        _simulateFluidsCombo.SelectionChanged += (s, e) => updateRow();
+        if (_adasDiagnosticCombo != null) _adasDiagnosticCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_CheckTirePressure(Grid grid, int rowIndex)
+    {
+        // INPUT: Column B - Check Tire Pressure Yes/No
+        _checkTirePressureCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _checkTirePressureCombo.SelectedIndex = 0;
+        Grid.SetRow(_checkTirePressureCombo, rowIndex);
+        Grid.SetColumn(_checkTirePressureCombo, 1);
+        grid.Children.Add(_checkTirePressureCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(OR(B79="No",B79=""), "", IF(B83="Yes", ...))
+        Action updateRow = () =>
+        {
+            var adasDiag = GetComboValue(_adasDiagnosticCombo);
+            var checkTire = GetComboValue(_checkTirePressureCombo);
+
+            if (adasDiag != "No" && adasDiag != "" && checkTire == "Yes")
+            {
+                row.OperationType!.Text = "R&I";
+                row.Description!.Text = "Check and Adjust Tire Pressure for ADAS Calibrations";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        _checkTirePressureCombo.SelectionChanged += (s, e) => updateRow();
+        if (_adasDiagnosticCombo != null) _adasDiagnosticCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_RemoveBelongings(Grid grid, int rowIndex)
+    {
+        // INPUT: Column B - Remove Belongings Yes/No
+        _removesBelongingsCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _removesBelongingsCombo.SelectedIndex = 0;
+        Grid.SetRow(_removesBelongingsCombo, rowIndex);
+        Grid.SetColumn(_removesBelongingsCombo, 1);
+        grid.Children.Add(_removesBelongingsCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(OR(B79="No",B79=""), "", IF(B85="Yes", ...))
+        Action updateRow = () =>
+        {
+            var adasDiag = GetComboValue(_adasDiagnosticCombo);
+            var remove = GetComboValue(_removesBelongingsCombo);
+
+            if (adasDiag != "No" && adasDiag != "" && remove == "Yes")
+            {
+                row.OperationType!.Text = "R&I";
+                row.Description!.Text = "Remove Customer Belongings for ADAS Calibrations";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+
+        _removesBelongingsCombo.SelectionChanged += (s, e) => updateRow();
+        if (_adasDiagnosticCombo != null) _adasDiagnosticCombo.SelectionChanged += (s, e) => updateRow();
+    }
+
+    private void AddRow_DriveCycle(Grid grid, int rowIndex)
+    {
+        // INPUT: Column B - Drive Cycle Yes/No
+        _driveCycleCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _driveCycleCombo.SelectedIndex = 0;
+        Grid.SetRow(_driveCycleCombo, rowIndex);
+        Grid.SetColumn(_driveCycleCombo, 1);
+        grid.Children.Add(_driveCycleCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(B87="Yes", ...)
+        _driveCycleCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_driveCycleCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Rpr";
+                row.Description!.Text = "Drive Cycle Operational Verification";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.7";
+                row.Category!.Text = "M";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    // MISCELLANEOUS OPERATIONS
+
+    private void AddRow_CleanForDelivery(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Replace", "Clean for Delivery", "1", "15", "0.5", "0", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+    }
+
+    private void AddRow_GlassCleaner(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Replace", "Glass Cleaner", "1", "5", "0.1", "0", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+    }
+
+    private void AddRow_MaskProtectComponents(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Replace", "Mask and Protect Components", "1", "3", "0.2", "0", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+    }
+
+    private void AddRow_PartsDisposal(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Replace", "Parts Disposal", "1", "10", "0.3", "0", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+    }
+
+    private void AddRow_HazardousWaste(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Replace", "Hazardous Waste Disposal", "1", "5", "0.2", "0", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+    }
+
+    private void AddRow_MiscHardware(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Replace", "Misc Hardware", "1", "10", "0.3", "0", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+    }
+
+    private void AddRow_SteeringWheelCover(Grid grid, int rowIndex)
+    {
+        // Static outputs (always shown)
+        var row = CreateOperationRow("Replace", "Steering Wheel Cover, Seat Cover, and Floor Mat", "1", "5", "0.1", "0", "0");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+    }
+
+    private void AddRow_PreWash(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Pre Wash Yes/No
+        _preWashCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _preWashCombo.SelectedIndex = 0;
+        Grid.SetRow(_preWashCombo, rowIndex);
+        Grid.SetColumn(_preWashCombo, 0);
+        grid.Children.Add(_preWashCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(A129="Yes", ...)
+        _preWashCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_preWashCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "Pre Wash and Degrease";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "10";
+                row.Labor!.Text = "0.5";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_CollisionWrap(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Collision Wrap quantity (text input)
+        _collisionWrapText = new TextBox
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            BorderThickness = new Thickness(1),
+            Height = 30,
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetRow(_collisionWrapText, rowIndex);
+        Grid.SetColumn(_collisionWrapText, 0);
+        grid.Children.Add(_collisionWrapText);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: Description="Collision Wrap " & A131 & "x", Price=A131*25, Labor=A131*0.3
+        _collisionWrapText.TextChanged += (s, e) =>
+        {
+            var text = _collisionWrapText.Text;
+            if (!string.IsNullOrEmpty(text) && double.TryParse(text, out double value))
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = $"Collision Wrap {value}x";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = (value * 25).ToString("F0");
+                row.Labor!.Text = (value * 0.3).ToString("F1");
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_BioHazard(Grid grid, int rowIndex)
+    {
+        // INPUT: Column A - Bio Hazard Yes/No
+        _bioHazardCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _bioHazardCombo.SelectedIndex = 0;
+        Grid.SetRow(_bioHazardCombo, rowIndex);
+        Grid.SetColumn(_bioHazardCombo, 0);
+        grid.Children.Add(_bioHazardCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(A133="Yes", ...)
+        _bioHazardCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_bioHazardCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "Bio Hazard Cleanup";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "25";
+                row.Labor!.Text = "1";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_IPAWipe(Grid grid, int rowIndex)
+    {
+        // INPUT: Column B - IPA Wipe quantity (text input)
+        _ipaWipeText = new TextBox
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            BorderThickness = new Thickness(1),
+            Height = 30,
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        Grid.SetRow(_ipaWipeText, rowIndex);
+        Grid.SetColumn(_ipaWipeText, 1);
+        grid.Children.Add(_ipaWipeText);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: Description="IPA Wipe " & B129 & "x", Price=B129*2, Labor=0.1
+        _ipaWipeText.TextChanged += (s, e) =>
+        {
+            var text = _ipaWipeText.Text;
+            if (!string.IsNullOrEmpty(text) && double.TryParse(text, out double value))
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = $"IPA Wipe {value}x";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = (value * 2).ToString("F0");
+                row.Labor!.Text = "0.1";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_RemoveShippingLabels(Grid grid, int rowIndex)
+    {
+        // INPUT: Column C - Remove Shipping Labels Yes/No
+        _shippingLabelsCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _shippingLabelsCombo.SelectedIndex = 0;
+        Grid.SetRow(_shippingLabelsCombo, rowIndex);
+        Grid.SetColumn(_shippingLabelsCombo, 2);
+        grid.Children.Add(_shippingLabelsCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(C129="Yes", ...)
+        _shippingLabelsCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_shippingLabelsCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "Replace";
+                row.Description!.Text = "Remove Shipping/Part Labels";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "2";
+                row.Labor!.Text = "0.1";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }
+
+    private void AddRow_Scaffolding(Grid grid, int rowIndex)
+    {
+        // INPUT: Column D - Scaffolding Yes/No
+        _scaffoldingCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true);
+        _scaffoldingCombo.SelectedIndex = 0;
+        Grid.SetRow(_scaffoldingCombo, rowIndex);
+        Grid.SetColumn(_scaffoldingCombo, 3);
+        grid.Children.Add(_scaffoldingCombo);
+
+        // OUTPUTS
+        var row = CreateOperationRow("", "", "", "", "", "", "");
+        AddOutputCellsToGrid(grid, rowIndex, row);
+        _operationRows.Add(row);
+
+        // FORMULA: IF(D129="Yes", ...)
+        _scaffoldingCombo.SelectionChanged += (s, e) =>
+        {
+            var selected = GetComboValue(_scaffoldingCombo);
+            if (selected == "Yes")
+            {
+                row.OperationType!.Text = "R&I";
+                row.Description!.Text = "Scaffolding Equipment";
+                row.Quantity!.Text = "1";
+                row.Price!.Text = "0";
+                row.Labor!.Text = "0.2";
+                row.Category!.Text = "0";
+                row.Refinish!.Text = "0";
+            }
+            else ClearOperationRow(row);
+            UpdateTotals();
+        };
+    }

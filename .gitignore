@@ -101,3 +101,24 @@ Package.StoreAssociation.xml
 *.temp
 *.log
 *.tlog
+
+# Python scripts and analysis files (development/extraction tools)
+*.py
+*.pyc
+__pycache__/
+excel_*.txt
+*_analysis.txt
+*_extraction.txt
+*_extracted.txt
+sop_structure.txt
+sop_data.json
+operations_extracted.txt
+formulas_extracted.txt
+logic_analysis.txt
+
+# Excel files (source data)
+*.xlsx
+*.xls
+
+# Temporary/null files
+nul
