@@ -398,7 +398,11 @@ public class EstimatingToolView : Grid
     {
         if (_tabView?.SelectedItem is not TabViewItem selectedTab) return;
 
-        var contentGrid = new Grid();
+        var contentGrid = new Grid
+        {
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
+        };
         contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) }); // Section buttons
         contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 400 }); // Inputs
         contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star), MinWidth = 500 }); // Operations
@@ -406,16 +410,24 @@ public class EstimatingToolView : Grid
         _sectionButtonsGrid = new Grid
         {
             Background = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20)),
-            Padding = new Thickness(10)
+            Padding = new Thickness(10),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
         };
         Grid.SetColumn(_sectionButtonsGrid, 0);
 
         var inputScrollViewer = new ScrollViewer
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Padding = new Thickness(15)
+            Padding = new Thickness(15),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
         };
-        _inputsGrid = new Grid();
+        _inputsGrid = new Grid
+        {
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
+        };
         inputScrollViewer.Content = _inputsGrid;
         Grid.SetColumn(inputScrollViewer, 1);
 
@@ -423,9 +435,15 @@ public class EstimatingToolView : Grid
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Padding = new Thickness(15),
-            Background = new SolidColorBrush(Color.FromArgb(255, 12, 12, 12))
+            Background = new SolidColorBrush(Color.FromArgb(255, 12, 12, 12)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
         };
-        _operationsGrid = new Grid();
+        _operationsGrid = new Grid
+        {
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
+        };
         operationsScrollViewer.Content = _operationsGrid;
         Grid.SetColumn(operationsScrollViewer, 2);
 

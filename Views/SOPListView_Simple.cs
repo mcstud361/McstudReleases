@@ -14,7 +14,9 @@ namespace McStudDesktop.Views;
 public class SOPListView_Simple : Grid
 {
     private string _currentSection = "Electrical";
-    private Grid? _contentGrid;
+
+    // Pre-created section grids
+    private Dictionary<string, Grid> _sectionGrids = new Dictionary<string, Grid>();
 
     // Input controls
     private ComboBox? _batteryTypeCombo;
@@ -40,10 +42,16 @@ public class SOPListView_Simple : Grid
         Grid.SetColumn(sidebar, 0);
         Children.Add(sidebar);
 
-        // Content area
-        _contentGrid = CreateContentForSection(_currentSection);
-        Grid.SetColumn(_contentGrid, 1);
-        Children.Add(_contentGrid);
+        // Pre-create all section grids
+        var sections = new[] { "Electrical", "Vehicle Diagnostics", "Misc" };
+        foreach (var section in sections)
+        {
+            var grid = CreateContentForSection(section);
+            Grid.SetColumn(grid, 1);
+            grid.Visibility = (section == _currentSection) ? Visibility.Visible : Visibility.Collapsed;
+            _sectionGrids[section] = grid;
+            Children.Add(grid);
+        }
     }
 
     private StackPanel CreateSidebar()
@@ -80,18 +88,18 @@ public class SOPListView_Simple : Grid
 
     private void SwitchSection(string sectionName)
     {
-        _currentSection = sectionName;
-
-        // Remove old content
-        if (_contentGrid != null)
+        // Hide current section
+        if (_sectionGrids.ContainsKey(_currentSection))
         {
-            Children.Remove(_contentGrid);
+            _sectionGrids[_currentSection].Visibility = Visibility.Collapsed;
         }
 
-        // Create new content
-        _contentGrid = CreateContentForSection(sectionName);
-        Grid.SetColumn(_contentGrid, 1);
-        Children.Add(_contentGrid);
+        // Show new section
+        _currentSection = sectionName;
+        if (_sectionGrids.ContainsKey(sectionName))
+        {
+            _sectionGrids[sectionName].Visibility = Visibility.Visible;
+        }
     }
 
     private Grid CreateContentForSection(string sectionName)

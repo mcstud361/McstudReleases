@@ -30,6 +30,21 @@ public class EstimatingToolView_NEW : Grid
     // Store the grids for SOP sections to toggle visibility
     private Dictionary<string, Grid> _sopSectionGrids = new Dictionary<string, Grid>();
 
+    // Cached brushes for performance (avoid creating new brushes repeatedly)
+    private static readonly SolidColorBrush _inputCellBrush = new(Color.FromArgb(255, 45, 60, 80));
+    private static readonly SolidColorBrush _outputCellBrush = new(Color.FromArgb(255, 35, 35, 35));
+    private static readonly SolidColorBrush _borderBrush = new(Color.FromArgb(255, 100, 100, 100));
+    private static readonly SolidColorBrush _inputBorderBrush = new(Color.FromArgb(255, 120, 120, 120));
+    private static readonly SolidColorBrush _textBrush = new(Color.FromArgb(255, 220, 220, 220));
+    private static readonly SolidColorBrush _bgBrush = new(Color.FromArgb(255, 30, 30, 30));
+    private static readonly SolidColorBrush _textSecondaryBrush = new(Color.FromArgb(255, 200, 200, 200));
+    private static readonly SolidColorBrush _borderDarkBrush = new(Color.FromArgb(255, 50, 50, 50));
+    private static readonly SolidColorBrush _headerBgBrush = new(Color.FromArgb(255, 45, 45, 45));
+
+    // Lazy loading support
+    private Dictionary<string, Action<Grid>> _sectionBuilders = new Dictionary<string, Action<Grid>>();
+    private HashSet<string> _builtSections = new HashSet<string>();
+
     // SOP List input controls (stored for cross-row formulas)
     private ComboBox? _batteryTypeCombo;      // A29
     private ComboBox? _adasCombo;             // C29
@@ -65,6 +80,12 @@ public class EstimatingToolView_NEW : Grid
         public TextBlock? Labor { get; set; }
         public TextBlock? Category { get; set; }
         public TextBlock? Refinish { get; set; }
+
+        // Performance Optimization: Store numeric values directly to avoid UI parsing
+        public double PriceVal { get; set; }
+        public double LaborVal { get; set; }
+        public double RefinishVal { get; set; }
+        public double QuantityVal { get; set; }
     }
 
     public event EventHandler? BackToMenu;
@@ -219,7 +240,9 @@ public class EstimatingToolView_NEW : Grid
         // Create main container with sidebar
         var mainContainer = new Grid
         {
-            Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30))
+            Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
         };
 
         mainContainer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) }); // Sidebar
@@ -257,7 +280,9 @@ public class EstimatingToolView_NEW : Grid
             HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
-            Padding = new Thickness(0)
+            Padding = new Thickness(0),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            BorderThickness = new Thickness(1)
         };
 
         Grid? contentGrid = tabName switch
@@ -366,6 +391,16 @@ public class EstimatingToolView_NEW : Grid
     {
         // Update the current section
         _currentSOPSection = sectionName;
+
+        // Lazy Load: Build the section if it hasn't been built yet
+        if (_sopSectionGrids.TryGetValue(sectionName, out var grid) &&
+            !_builtSections.Contains(sectionName) &&
+            _sectionBuilders.TryGetValue(sectionName, out var builder))
+        {
+            System.Diagnostics.Debug.WriteLine($"[Performance] Lazy building section: {sectionName}");
+            builder(grid);
+            _builtSections.Add(sectionName);
+        }
 
         // Toggle visibility of the grids
         if (_sopSectionGrids.Count > 0)
@@ -497,10 +532,10 @@ public class EstimatingToolView_NEW : Grid
 
         var summaryText = new TextBlock
         {
-            Text = $"📊 Total Operations: {_currentEstimate.TotalOperationsCount}\n" +
-                   $"💲 Total Price: ${_currentEstimate.TotalPrice:F2}\n" +
-                   $"🛠 Total Labor Hours: {_currentEstimate.TotalLaborHours:F1}\n" +
-                   $"🎨 Total Refinish Hours: {_currentEstimate.TotalRefinishHours:F1}",
+            Text = $"📊 Total Operations: {_totalOperationsCount}\n" +
+                   $"💲 Total Price: ${_totalPrice:F2}\n" +
+                   $"🛠 Total Labor Hours: {_totalLaborHours:F1}\n" +
+                   $"🎨 Total Refinish Hours: {_totalRefinishHours:F1}",
             FontSize = 28,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
@@ -518,12 +553,16 @@ public class EstimatingToolView_NEW : Grid
         // Removed debug logs for performance
         _operationRows.Clear();
         _sopSectionGrids.Clear();
+        _sectionBuilders.Clear();
+        _builtSections.Clear();
 
         // Master container that holds headers and the swappable content
         var masterGrid = new Grid
         {
-            Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
-            Padding = new Thickness(20, 10, 20, 10)
+            Background = _bgBrush,
+            Padding = new Thickness(20, 10, 20, 10),
+            BorderBrush = _borderBrush,
+            BorderThickness = new Thickness(1)
         };
 
         // Define columns for the master grid
@@ -571,12 +610,16 @@ public class EstimatingToolView_NEW : Grid
         // Helper to setup a section grid with same columns
         Grid CreateSectionGrid()
         {
-            var g = new Grid();
+            var g = new Grid
+            {
+                BorderBrush = _borderBrush,
+                BorderThickness = new Thickness(1)
+            };
             for (int i = 0; i < columnWidths.Length; i++)
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(columnWidths[i]) });
 
-            // Add enough rows definition
-            for (int i = 0; i < 30; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            // Add enough rows definition (Increased buffer to 60 to prevent clipping)
+            for (int i = 0; i < 60; i++) g.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             Grid.SetRow(g, masterRowIndex); // Place in the content row of master grid
             Grid.SetColumn(g, 0);
@@ -584,32 +627,26 @@ public class EstimatingToolView_NEW : Grid
             return g;
         }
 
-        // 1. Electrical
+        // 1. Electrical - Set up grid and builder (lazy load)
         var electricalGrid = CreateSectionGrid();
-        int row = 0;
-        AddElectricalSection(electricalGrid, ref row);
         _sopSectionGrids["Electrical"] = electricalGrid;
         masterGrid.Children.Add(electricalGrid);
+        _sectionBuilders["Electrical"] = (g) => { int r = 0; AddElectricalSection(g, ref r); };
 
-        // 2. Vehicle Diagnostics
+        // 2. Vehicle Diagnostics - Set up grid and builder (lazy load)
         var diagGrid = CreateSectionGrid();
-        row = 0; // Reset row counter for new grid
-        AddVehicleDiagnosticsSection(diagGrid, ref row);
         _sopSectionGrids["Vehicle Diagnostics"] = diagGrid;
         masterGrid.Children.Add(diagGrid);
+        _sectionBuilders["Vehicle Diagnostics"] = (g) => { int r = 0; AddVehicleDiagnosticsSection(g, ref r); };
 
-        // 3. Misc
+        // 3. Misc - Set up grid and builder (lazy load)
         var miscGrid = CreateSectionGrid();
-        row = 0;
-        AddMiscSection(miscGrid, ref row);
         _sopSectionGrids["Misc"] = miscGrid;
         masterGrid.Children.Add(miscGrid);
+        _sectionBuilders["Misc"] = (g) => { int r = 0; AddMiscSection(g, ref r); };
 
-        // Set initial visibility
-        foreach (var kvp in _sopSectionGrids)
-        {
-            kvp.Value.Visibility = kvp.Key == _currentSOPSection ? Visibility.Visible : Visibility.Collapsed;
-        }
+        // Trigger initial build for the current section (usually Electrical)
+        ScrollToSection(_currentSOPSection);
 
         return masterGrid;
     }
@@ -813,11 +850,11 @@ public class EstimatingToolView_NEW : Grid
         Grid.SetColumn(_batteryTypeCombo, 0);
         grid.Children.Add(_batteryTypeCombo);
 
-        // INPUT: Column C - ADAS
+        // INPUT: Column B - ADAS (moved from C to reduce gap)
         _adasCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "ADAS Required?");
         _adasCombo.SelectedIndex = 0;
         Grid.SetRow(_adasCombo, rowIndex);
-        Grid.SetColumn(_adasCombo, 2);
+        Grid.SetColumn(_adasCombo, 1);
         grid.Children.Add(_adasCombo);
 
         // OUTPUTS
@@ -832,23 +869,11 @@ public class EstimatingToolView_NEW : Grid
             System.Diagnostics.Debug.WriteLine($"[Battery Disconnect] Selected: '{selected}'");
             if (selected == "Single")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Disconnect and Reconnect Battery";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.4";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Disconnect and Reconnect Battery", 1, 0, 0.4, "M", 0);
             }
             else if (selected == "Dual")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Disconnect and Reconnect 2x Battery";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.8";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Disconnect and Reconnect 2x Battery", 1, 0, 0.8, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -878,13 +903,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_testBatteryCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Test Battery Condition";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Test Battery Condition", 1, 0, 0.2, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -895,18 +914,22 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Rpr", "Electronic Reset", "1", "0", "0.5", "M", "0");
+        // Initialize backing data for static rows
+        row.QuantityVal = 1; row.PriceVal = 0; row.LaborVal = 0.5; row.RefinishVal = 0;
+
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
-        // No update needed - static values
     }
 
     private void AddRow_CoverElectrical(Grid grid, int rowIndex)
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Rpr", "Cover and Protect Electrical Connections", "1", "5", "0.3", "M", "0");
+        // Initialize backing data for static rows
+        row.QuantityVal = 1; row.PriceVal = 5; row.LaborVal = 0.3; row.RefinishVal = 0;
+
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
-        // No update needed - static values
     }
 
     private void AddRow_BatterySupport(Grid grid, int rowIndex)
@@ -929,13 +952,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_batterySupportCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Battery Support";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Battery Support", 1, 0, 0.2, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -976,21 +993,15 @@ public class EstimatingToolView_NEW : Grid
             // FORMULA: IF(OR(A35="EV", C29="Yes"), ...)
             if (vehicleType == "EV" || adas == "Yes")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.6";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
-
-                // Description varies
+                string desc = "";
                 if (vehicleType == "EV")
-                {
-                    row.Description!.Text = "Charge and Maintain Battery";
-                }
+                    desc = "Charge and Maintain Battery";
                 else if (adas == "Yes" && (vehicleType == "Gas" || vehicleType == "Hybrid"))
+                    desc = "Charge and Maintain Battery during ADAS";
+
+                if (!string.IsNullOrEmpty(desc))
                 {
-                    row.Description!.Text = "Charge and Maintain Battery during ADAS";
+                    SetRowData(row, "Rpr", desc, 1, 0, 0.6, "M", 0);
                 }
                 else
                 {
@@ -1021,17 +1032,8 @@ public class EstimatingToolView_NEW : Grid
             // FORMULA: IF(A35="Hybrid", ..., IF(A35="EV", ...))
             if (vehicleType == "Hybrid" || vehicleType == "EV")
             {
-                row.OperationType!.Text = "Replace";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "50";
-                row.Labor!.Text = "0.5";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
-
-                if (vehicleType == "Hybrid")
-                    row.Description!.Text = "Mobile Cart for Hybrid";
-                else
-                    row.Description!.Text = "Mobile Cart for EV";
+                string desc = vehicleType == "Hybrid" ? "Mobile Cart for Hybrid" : "Mobile Cart for EV";
+                SetRowData(row, "Replace", desc, 1, 50, 0.5, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1056,13 +1058,7 @@ public class EstimatingToolView_NEW : Grid
             // FORMULA: IF(OR(A35="Hybrid", A35="EV"), ...)
             if (vehicleType == "Hybrid" || vehicleType == "EV")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Verify No High Voltage";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Verify No High Voltage", 1, 0, 0.2, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1087,13 +1083,7 @@ public class EstimatingToolView_NEW : Grid
             // FORMULA: IF(A35="EV", ...)
             if (vehicleType == "EV")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Service Mode";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.1";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Service Mode", 1, 0, 0.1, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1123,30 +1113,18 @@ public class EstimatingToolView_NEW : Grid
         _scanToolTypeCombo.SelectionChanged += (s, e) =>
         {
             var selected = GetComboValue(_scanToolTypeCombo);
-            row.Quantity!.Text = "1";
-            row.Refinish!.Text = "0";
-            row.Category!.Text = "M";
 
             if (selected == "Gas")
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "Pre-Scan";
-                row.Price!.Text = "150";
-                row.Labor!.Text = "0";
+                SetRowData(row, "Replace", "Pre-Scan", 1, 150, 0, "M", 0);
             }
             else if (selected == "Rivian")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Pre-Scan";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "1";
+                SetRowData(row, "Rpr", "Pre-Scan", 1, 0, 1, "M", 0);
             }
             else if (selected == "Tesla")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Trim to Access Scanner";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
+                SetRowData(row, "Rpr", "Trim to Access Scanner", 1, 0, 0.2, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1164,30 +1142,18 @@ public class EstimatingToolView_NEW : Grid
         Action updateRow = () =>
         {
             var selected = GetComboValue(_scanToolTypeCombo);
-            row.Quantity!.Text = "1";
-            row.Refinish!.Text = "0";
-            row.Category!.Text = "M";
 
             if (selected == "Gas")
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "In-Process Scan";
-                row.Price!.Text = "150";
-                row.Labor!.Text = "0";
+                SetRowData(row, "Replace", "In-Process Scan", 1, 150, 0, "M", 0);
             }
             else if (selected == "Rivian")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "In-Process Scan";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "1";
+                SetRowData(row, "Rpr", "In-Process Scan", 1, 0, 1, "M", 0);
             }
             else if (selected == "Tesla")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Tesla Toolbox Scan";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "1";
+                SetRowData(row, "Rpr", "Tesla Toolbox Scan", 1, 0, 1, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1208,30 +1174,18 @@ public class EstimatingToolView_NEW : Grid
         Action updateRow = () =>
         {
             var selected = GetComboValue(_scanToolTypeCombo);
-            row.Quantity!.Text = "1";
-            row.Refinish!.Text = "0";
-            row.Category!.Text = "M";
 
             if (selected == "Gas")
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "Post Scan";
-                row.Price!.Text = "150";
-                row.Labor!.Text = "0";
+                SetRowData(row, "Replace", "Post Scan", 1, 150, 0, "M", 0);
             }
             else if (selected == "Rivian")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Post Scan";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "1";
+                SetRowData(row, "Rpr", "Post Scan", 1, 0, 1, "M", 0);
             }
             else if (selected == "Tesla")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Tesla Software Script Programming";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0";
+                SetRowData(row, "Rpr", "Tesla Software Script Programming", 1, 0, 0, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1261,13 +1215,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_setupScanToolCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "R&I";
-                row.Description!.Text = "Setup Scan Tool";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "R&I", "Setup Scan Tool", 1, 0, 0.2, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1278,9 +1226,11 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Rpr", "Dynamic Systems Verification", "1", "0", "0", "M", "0");
+        // Initialize backing data
+        row.QuantityVal = 1; row.PriceVal = 0; row.LaborVal = 0; row.RefinishVal = 0;
+
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
-        // No update needed - static values
     }
 
     private void AddRow_OEMResearch(Grid grid, int rowIndex)
@@ -1288,16 +1238,17 @@ public class EstimatingToolView_NEW : Grid
         // INPUT: Column A - Custom price, Column B - Custom labor
         _customPriceText = new TextBox
         {
-            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            Background = _inputCellBrush,
+            Foreground = _textBrush,
+            BorderBrush = _inputBorderBrush,
             BorderThickness = new Thickness(1),
             Height = 32,
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             PlaceholderText = "Price $",
-            Padding = new Thickness(8, 4, 8, 4)
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0.5)
         };
         Grid.SetRow(_customPriceText, rowIndex);
         Grid.SetColumn(_customPriceText, 0);
@@ -1305,16 +1256,17 @@ public class EstimatingToolView_NEW : Grid
 
         _customLaborText = new TextBox
         {
-            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            Background = _inputCellBrush,
+            Foreground = _textBrush,
+            BorderBrush = _inputBorderBrush,
             BorderThickness = new Thickness(1),
             Height = 32,
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             PlaceholderText = "Labor Hrs",
-            Padding = new Thickness(8, 4, 8, 4)
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0.5)
         };
         Grid.SetRow(_customLaborText, rowIndex);
         Grid.SetColumn(_customLaborText, 1);
@@ -1334,13 +1286,9 @@ public class EstimatingToolView_NEW : Grid
             if (double.TryParse(_customPriceText?.Text ?? "", out price) ||
                 double.TryParse(_customLaborText?.Text ?? "", out labor))
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "OEM Research and Repair Procedures";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = Math.Max(price, 50).ToString("F0");
-                row.Labor!.Text = Math.Max(labor, 1).ToString("F1");
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                double finalPrice = Math.Max(price, 50);
+                double finalLabor = Math.Max(labor, 1);
+                SetRowData(row, "Replace", "OEM Research and Repair Procedures", 1, finalPrice, finalLabor, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1370,13 +1318,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_gatewayUnlockCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Gateway (Unlock)";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.1";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Gateway (Unlock)", 1, 0, 0.1, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1385,11 +1327,11 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_ADASDiagnosticReport(Grid grid, int rowIndex)
     {
-        // INPUT: Column B - ADAS Diagnostic Yes/No
+        // INPUT: Column A - ADAS Diagnostic Yes/No
         _adasDiagnosticCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "ADAS Diag?");
         _adasDiagnosticCombo.SelectedIndex = 0;
         Grid.SetRow(_adasDiagnosticCombo, rowIndex);
-        Grid.SetColumn(_adasDiagnosticCombo, 1);
+        Grid.SetColumn(_adasDiagnosticCombo, 0);
         grid.Children.Add(_adasDiagnosticCombo);
 
         // OUTPUTS
@@ -1403,13 +1345,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_adasDiagnosticCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "ADAS Diagnostic Report";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "25";
-                row.Labor!.Text = "0";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Replace", "ADAS Diagnostic Report", 1, 25, 0, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1418,11 +1354,11 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_SimulateFluids(Grid grid, int rowIndex)
     {
-        // INPUT: Column B - Simulate Fluids Yes/No
+        // INPUT: Column A - Simulate Fluids Yes/No
         _simulateFluidsCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "Sim Fluids?");
         _simulateFluidsCombo.SelectedIndex = 0;
         Grid.SetRow(_simulateFluidsCombo, rowIndex);
-        Grid.SetColumn(_simulateFluidsCombo, 1);
+        Grid.SetColumn(_simulateFluidsCombo, 0);
         grid.Children.Add(_simulateFluidsCombo);
 
         // OUTPUTS
@@ -1438,13 +1374,7 @@ public class EstimatingToolView_NEW : Grid
 
             if (adasDiag != "No" && adasDiag != "" && simulate == "Yes")
             {
-                row.OperationType!.Text = "R&I";
-                row.Description!.Text = "Simulate Full Fluids for ADAS Calibrations";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "R&I", "Simulate Full Fluids for ADAS Calibrations", 1, 0, 0.2, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1456,11 +1386,11 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_CheckTirePressure(Grid grid, int rowIndex)
     {
-        // INPUT: Column B - Check Tire Pressure Yes/No
+        // INPUT: Column A - Check Tire Pressure Yes/No
         _checkTirePressureCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "Check Tire Press?");
         _checkTirePressureCombo.SelectedIndex = 0;
         Grid.SetRow(_checkTirePressureCombo, rowIndex);
-        Grid.SetColumn(_checkTirePressureCombo, 1);
+        Grid.SetColumn(_checkTirePressureCombo, 0);
         grid.Children.Add(_checkTirePressureCombo);
 
         // OUTPUTS
@@ -1476,13 +1406,7 @@ public class EstimatingToolView_NEW : Grid
 
             if (adasDiag != "No" && adasDiag != "" && checkTire == "Yes")
             {
-                row.OperationType!.Text = "R&I";
-                row.Description!.Text = "Check and Adjust Tire Pressure for ADAS Calibrations";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "R&I", "Check and Adjust Tire Pressure for ADAS Calibrations", 1, 0, 0.2, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1494,11 +1418,11 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_RemoveBelongings(Grid grid, int rowIndex)
     {
-        // INPUT: Column B - Remove Belongings Yes/No
+        // INPUT: Column A - Remove Belongings Yes/No
         _removesBelongingsCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "Remv Items?");
         _removesBelongingsCombo.SelectedIndex = 0;
         Grid.SetRow(_removesBelongingsCombo, rowIndex);
-        Grid.SetColumn(_removesBelongingsCombo, 1);
+        Grid.SetColumn(_removesBelongingsCombo, 0);
         grid.Children.Add(_removesBelongingsCombo);
 
         // OUTPUTS
@@ -1514,13 +1438,7 @@ public class EstimatingToolView_NEW : Grid
 
             if (adasDiag != "No" && adasDiag != "" && remove == "Yes")
             {
-                row.OperationType!.Text = "R&I";
-                row.Description!.Text = "Remove Customer Belongings for ADAS Calibrations";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "R&I", "Remove Customer Belongings for ADAS Calibrations", 1, 0, 0.2, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1532,11 +1450,11 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_DriveCycle(Grid grid, int rowIndex)
     {
-        // INPUT: Column B - Drive Cycle Yes/No
+        // INPUT: Column A - Drive Cycle Yes/No
         _driveCycleCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "Drive Cycle?");
         _driveCycleCombo.SelectedIndex = 0;
         Grid.SetRow(_driveCycleCombo, rowIndex);
-        Grid.SetColumn(_driveCycleCombo, 1);
+        Grid.SetColumn(_driveCycleCombo, 0);
         grid.Children.Add(_driveCycleCombo);
 
         // OUTPUTS
@@ -1550,13 +1468,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_driveCycleCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Rpr";
-                row.Description!.Text = "Drive Cycle Operational Verification";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.7";
-                row.Category!.Text = "M";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Rpr", "Drive Cycle Operational Verification", 1, 0, 0.7, "M", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1569,6 +1481,7 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Replace", "Clean for Delivery", "1", "15", "0.5", "0", "0");
+        row.QuantityVal = 1; row.PriceVal = 15; row.LaborVal = 0.5; row.RefinishVal = 0;
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
     }
@@ -1577,6 +1490,7 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Replace", "Glass Cleaner", "1", "5", "0.1", "0", "0");
+        row.QuantityVal = 1; row.PriceVal = 5; row.LaborVal = 0.1; row.RefinishVal = 0;
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
     }
@@ -1585,6 +1499,7 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Replace", "Mask and Protect Components", "1", "3", "0.2", "0", "0");
+        row.QuantityVal = 1; row.PriceVal = 3; row.LaborVal = 0.2; row.RefinishVal = 0;
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
     }
@@ -1593,6 +1508,7 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Replace", "Parts Disposal", "1", "10", "0.3", "0", "0");
+        row.QuantityVal = 1; row.PriceVal = 10; row.LaborVal = 0.3; row.RefinishVal = 0;
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
     }
@@ -1601,6 +1517,7 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Replace", "Hazardous Waste Disposal", "1", "5", "0.2", "0", "0");
+        row.QuantityVal = 1; row.PriceVal = 5; row.LaborVal = 0.2; row.RefinishVal = 0;
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
     }
@@ -1609,6 +1526,7 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Replace", "Misc Hardware", "1", "10", "0.3", "0", "0");
+        row.QuantityVal = 1; row.PriceVal = 10; row.LaborVal = 0.3; row.RefinishVal = 0;
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
     }
@@ -1617,6 +1535,7 @@ public class EstimatingToolView_NEW : Grid
     {
         // Static outputs (always shown)
         var row = CreateOperationRow("Replace", "Steering Wheel Cover, Seat Cover, and Floor Mat", "1", "5", "0.1", "0", "0");
+        row.QuantityVal = 1; row.PriceVal = 5; row.LaborVal = 0.1; row.RefinishVal = 0;
         AddOutputCellsToGrid(grid, rowIndex, row);
         _operationRows.Add(row);
     }
@@ -1641,13 +1560,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_preWashCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "Pre Wash and Degrease";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "10";
-                row.Labor!.Text = "0.5";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Replace", "Pre Wash and Degrease", 1, 10, 0.5, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1659,16 +1572,17 @@ public class EstimatingToolView_NEW : Grid
         // INPUT: Column A - Collision Wrap quantity (text input)
         _collisionWrapText = new TextBox
         {
-            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            Background = _inputCellBrush,
+            Foreground = _textBrush,
+            BorderBrush = _inputBorderBrush,
             BorderThickness = new Thickness(1),
             Height = 32,
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             PlaceholderText = "Wrap Qty",
-            Padding = new Thickness(8, 4, 8, 4)
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0.5)
         };
         Grid.SetRow(_collisionWrapText, rowIndex);
         Grid.SetColumn(_collisionWrapText, 0);
@@ -1685,13 +1599,7 @@ public class EstimatingToolView_NEW : Grid
             var text = _collisionWrapText.Text;
             if (!string.IsNullOrEmpty(text) && double.TryParse(text, out double value))
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = $"Collision Wrap {value}x";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = (value * 25).ToString("F0");
-                row.Labor!.Text = (value * 0.3).ToString("F1");
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Replace", $"Collision Wrap {value}x", 1, value * 25, value * 0.3, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1718,13 +1626,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_bioHazardCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "Bio Hazard Cleanup";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "25";
-                row.Labor!.Text = "1";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Replace", "Bio Hazard Cleanup", 1, 25, 1, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1733,22 +1635,23 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_IPAWipe(Grid grid, int rowIndex)
     {
-        // INPUT: Column B - IPA Wipe quantity (text input)
+        // INPUT: Column A - IPA Wipe quantity (text input)
         _ipaWipeText = new TextBox
         {
-            Background = new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)),
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            Background = _inputCellBrush,
+            Foreground = _textBrush,
+            BorderBrush = _inputBorderBrush,
             BorderThickness = new Thickness(1),
             Height = 32,
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             PlaceholderText = "Wipe Qty",
-            Padding = new Thickness(8, 4, 8, 4)
+            Padding = new Thickness(8, 4, 8, 4),
+            Margin = new Thickness(0.5)
         };
         Grid.SetRow(_ipaWipeText, rowIndex);
-        Grid.SetColumn(_ipaWipeText, 1);
+        Grid.SetColumn(_ipaWipeText, 0);
         grid.Children.Add(_ipaWipeText);
 
         // OUTPUTS
@@ -1762,13 +1665,7 @@ public class EstimatingToolView_NEW : Grid
             var text = _ipaWipeText.Text;
             if (!string.IsNullOrEmpty(text) && double.TryParse(text, out double value))
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = $"IPA Wipe {value}x";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = (value * 2).ToString("F0");
-                row.Labor!.Text = "0.1";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Replace", $"IPA Wipe {value}x", 1, value * 2, 0.1, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1777,11 +1674,11 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_RemoveShippingLabels(Grid grid, int rowIndex)
     {
-        // INPUT: Column C - Remove Shipping Labels Yes/No
+        // INPUT: Column A - Remove Shipping Labels Yes/No
         _shippingLabelsCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "Labels?");
         _shippingLabelsCombo.SelectedIndex = 0;
         Grid.SetRow(_shippingLabelsCombo, rowIndex);
-        Grid.SetColumn(_shippingLabelsCombo, 2);
+        Grid.SetColumn(_shippingLabelsCombo, 0);
         grid.Children.Add(_shippingLabelsCombo);
 
         // OUTPUTS
@@ -1795,13 +1692,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_shippingLabelsCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "Replace";
-                row.Description!.Text = "Remove Shipping/Part Labels";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "2";
-                row.Labor!.Text = "0.1";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "Replace", "Remove Shipping/Part Labels", 1, 2, 0.1, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1810,11 +1701,11 @@ public class EstimatingToolView_NEW : Grid
 
     private void AddRow_Scaffolding(Grid grid, int rowIndex)
     {
-        // INPUT: Column D - Scaffolding Yes/No
+        // INPUT: Column A - Scaffolding Yes/No
         _scaffoldingCombo = CreateComboBox(new[] { "", "Yes", "No" }, isInputCell: true, placeholder: "Scaffolding?");
         _scaffoldingCombo.SelectedIndex = 0;
         Grid.SetRow(_scaffoldingCombo, rowIndex);
-        Grid.SetColumn(_scaffoldingCombo, 3);
+        Grid.SetColumn(_scaffoldingCombo, 0);
         grid.Children.Add(_scaffoldingCombo);
 
         // OUTPUTS
@@ -1828,13 +1719,7 @@ public class EstimatingToolView_NEW : Grid
             var selected = GetComboValue(_scaffoldingCombo);
             if (selected == "Yes")
             {
-                row.OperationType!.Text = "R&I";
-                row.Description!.Text = "Scaffolding Equipment";
-                row.Quantity!.Text = "1";
-                row.Price!.Text = "0";
-                row.Labor!.Text = "0.2";
-                row.Category!.Text = "0";
-                row.Refinish!.Text = "0";
+                SetRowData(row, "R&I", "Scaffolding Equipment", 1, 0, 0.2, "0", 0);
             }
             else ClearOperationRow(row);
             UpdateTotals();
@@ -1842,6 +1727,24 @@ public class EstimatingToolView_NEW : Grid
     }
 
     // Helper methods for creating and managing operation rows
+
+    private void SetRowData(OperationRow row, string opType, string desc, double qty, double price, double labor, string category, double refinish)
+    {
+        // Update UI
+        if (row.OperationType != null) row.OperationType.Text = opType;
+        if (row.Description != null) row.Description.Text = desc;
+        if (row.Quantity != null) row.Quantity.Text = qty.ToString();
+        if (row.Price != null) row.Price.Text = price.ToString("F0");
+        if (row.Labor != null) row.Labor.Text = labor.ToString("F1");
+        if (row.Category != null) row.Category.Text = category;
+        if (row.Refinish != null) row.Refinish.Text = refinish.ToString("F1");
+
+        // Update Data (Fast Access)
+        row.PriceVal = price;
+        row.LaborVal = labor;
+        row.RefinishVal = refinish;
+        row.QuantityVal = qty;
+    }
 
     private OperationRow CreateOperationRow(string opType, string desc, string qty, string price, string labor, string category, string refinish)
     {
@@ -1889,15 +1792,15 @@ public class EstimatingToolView_NEW : Grid
     {
         textBlock.Padding = new Thickness(8, 6, 8, 6);
         textBlock.FontSize = 13;
-        textBlock.Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200));
+        textBlock.Foreground = _textBrush;
         textBlock.VerticalAlignment = VerticalAlignment.Center;
 
         return new Border
         {
             Child = textBlock,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-            BorderThickness = new Thickness(0.5),
-            Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+            BorderBrush = _borderBrush,
+            BorderThickness = new Thickness(1),
+            Background = _outputCellBrush,
             MinHeight = 32,
             MinWidth = 40,
             Margin = new Thickness(0)
@@ -1912,6 +1815,7 @@ public class EstimatingToolView_NEW : Grid
 
     private void ClearOperationRow(OperationRow row)
     {
+        // Clear UI
         row.OperationType!.Text = "";
         row.Description!.Text = "";
         row.Quantity!.Text = "";
@@ -1919,6 +1823,12 @@ public class EstimatingToolView_NEW : Grid
         row.Labor!.Text = "";
         row.Category!.Text = "";
         row.Refinish!.Text = "";
+
+        // Clear Data
+        row.PriceVal = 0;
+        row.LaborVal = 0;
+        row.RefinishVal = 0;
+        row.QuantityVal = 0;
     }
 
     private Border CreateCell(string text, bool isBold = false, bool isHeader = false, bool isOutput = false)
@@ -1928,9 +1838,7 @@ public class EstimatingToolView_NEW : Grid
             Text = text,
             Padding = new Thickness(8, 6, 8, 6),
             FontSize = 13,
-            Foreground = isHeader
-                ? new SolidColorBrush(Color.FromArgb(255, 220, 220, 220))
-                : new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+            Foreground = isHeader ? _textBrush : _textSecondaryBrush,
             TextWrapping = TextWrapping.NoWrap,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -1943,13 +1851,9 @@ public class EstimatingToolView_NEW : Grid
         var border = new Border
         {
             Child = textBlock,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+            BorderBrush = _borderDarkBrush,
             BorderThickness = new Thickness(0.5),
-            Background = isHeader
-                ? new SolidColorBrush(Color.FromArgb(255, 45, 45, 45))
-                : (isOutput
-                    ? new SolidColorBrush(Color.FromArgb(255, 35, 35, 35))
-                    : new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)))
+            Background = isHeader ? _headerBgBrush : _outputCellBrush
         };
 
         return border;
@@ -1959,11 +1863,9 @@ public class EstimatingToolView_NEW : Grid
     {
         var combo = new ComboBox
         {
-            Background = isInputCell
-                ? new SolidColorBrush(Color.FromArgb(255, 45, 60, 80)) // Dark blue for input cells
-                : new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            Background = isInputCell ? _inputCellBrush : _outputCellBrush,
+            Foreground = _textBrush,
+            BorderBrush = _inputBorderBrush,
             BorderThickness = new Thickness(1),
             Height = 32,
             MinHeight = 32,
@@ -1971,7 +1873,7 @@ public class EstimatingToolView_NEW : Grid
             FontSize = 13,
             VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(1),
+            Margin = new Thickness(0.5),
             Padding = new Thickness(8, 4, 8, 4)
         };
 
@@ -2012,10 +1914,42 @@ public class EstimatingToolView_NEW : Grid
         Children.Add(footerGrid);
     }
 
+    // Store totals locally since Estimate model properties are readonly calculated properties
+    private int _totalOperationsCount = 0;
+    private double _totalPrice = 0;
+    private double _totalLaborHours = 0;
+    private double _totalRefinishHours = 0;
+
     private void UpdateTotals()
     {
-        // This will recalculate totals from all visible operations
-        // For now, just update the display
+        // Performance Optimization: Calculate totals from backing data fields
+        // This is O(N) on in-memory values, much faster than UI access
+
+        double totalPrice = 0;
+        double totalLabor = 0;
+        double totalRefinish = 0;
+        int totalOps = 0;
+
+        foreach (var row in _operationRows)
+        {
+            // Only count rows that have actual data (Description is a good indicator, or check values)
+            // Since we zero out cleared rows, summing is safe.
+
+            if (!string.IsNullOrEmpty(row.Description?.Text))
+            {
+                totalOps++;
+                totalPrice += row.PriceVal;
+                totalLabor += row.LaborVal;
+                totalRefinish += row.RefinishVal;
+            }
+        }
+
+        // Update local totals (Estimate model properties are readonly)
+        _totalOperationsCount = totalOps;
+        _totalPrice = totalPrice;
+        _totalLaborHours = totalLabor;
+        _totalRefinishHours = totalRefinish;
+
         UpdateTotalsSummary();
     }
 
@@ -2023,10 +1957,10 @@ public class EstimatingToolView_NEW : Grid
     {
         if (_totalsSummary != null)
         {
-            _totalsSummary.Text = $"📊 {_currentEstimate.TotalOperationsCount} Operations  |  " +
-                                 $"💲 ${_currentEstimate.TotalPrice:F2}  |  " +
-                                 $"🛠 {_currentEstimate.TotalLaborHours:F1} Labor Hrs  |  " +
-                                 $"🎨 {_currentEstimate.TotalRefinishHours:F1} Refinish Hrs";
+            _totalsSummary.Text = $"📊 {_totalOperationsCount} Operations  |  " +
+                                 $"💲 ${_totalPrice:F2}  |  " +
+                                 $"🛠 {_totalLaborHours:F1} Labor Hrs  |  " +
+                                 $"🎨 {_totalRefinishHours:F1} Refinish Hrs";
         }
     }
 }

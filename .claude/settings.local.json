@@ -27,7 +27,8 @@
       "Bash(timeout /t 5)",
       "Bash(ps:*)",
       "Bash(timeout /t 2)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(dotnet run:*)"
     ],
     "deny": [],
     "ask": []
