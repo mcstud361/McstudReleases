@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace McStudDesktop.Models;
+namespace McstudDesktop.Models;
 
 public enum OperationType
 {

@@ -1,0 +1,776 @@
+{
+  "version": "1.1",
+  "lastUpdated": "2025-02-18",
+  "sources": {
+    "ccc_motor": "CCC ONE / MOTOR Guide to Estimating",
+    "mitchell": "Mitchell Estimating Guide",
+    "url_ccc": "https://help.cccis.com/webhelp/motor/gte/guide.htm",
+    "url_deg": "https://degweb.org/ccc-motor-pathways/"
+  },
+  "disclaimer": "This is a reference summary. Always consult current official P-Pages for the most accurate information. Search by G-number (CCC) or P-number (common reference).",
+  "sections": [
+    {
+      "id": "G1",
+      "section": "G1",
+      "pPageRef": "P-1",
+      "altRefs": ["P1", "P-1", "page 1"],
+      "title": "Introduction to Labor Times",
+      "category": "General Information",
+      "summary": "Overview of how labor times are developed and what they represent.",
+      "included": [
+        "Labor time for the specific operation listed",
+        "Use of standard shop equipment",
+        "Vehicle on level ground/lift",
+        "Normal working conditions"
+      ],
+      "notIncluded": [
+        "Diagnosis time",
+        "Road test / test drive",
+        "Waiting for parts",
+        "Unusual conditions"
+      ],
+      "notes": "Labor times are based on a technician of average skill with proper tools and equipment.",
+      "mitchellRef": "Section 1",
+      "tags": ["labor", "introduction", "times", "overview", "P-1", "P1"]
+    },
+    {
+      "id": "G3",
+      "section": "G3",
+      "pPageRef": "P-3",
+      "altRefs": ["P3", "P-3", "page 3"],
+      "title": "Repair vs Replace",
+      "category": "General Information",
+      "summary": "Guidelines for determining when to repair versus replace components.",
+      "included": [
+        "Decision criteria for repair vs replace",
+        "Cost comparison considerations"
+      ],
+      "notIncluded": [
+        "Repair labor times (separate)",
+        "Replacement labor times (separate)",
+        "Parts cost analysis"
+      ],
+      "notes": "Consider total repair cost including labor, materials, and quality outcome when deciding.",
+      "mitchellRef": "Section 3",
+      "tags": ["repair", "replace", "decision", "guidelines", "P-3", "P3"]
+    },
+    {
+      "id": "G4",
+      "section": "G4",
+      "pPageRef": "P-4",
+      "altRefs": ["P4", "P-4", "page 4"],
+      "title": "Remove and Install (R&I) Operations",
+      "category": "Labor Operations",
+      "summary": "Definition and scope of R&I operations - removing a part to access another, then reinstalling the same part.",
+      "included": [
+        "Removal of the component",
+        "Setting aside the component",
+        "Reinstallation of the same component",
+        "Basic reconnection of electrical connectors"
+      ],
+      "notIncluded": [
+        "Transfer of attached parts",
+        "Refinish of removed component",
+        "Repair of removed component",
+        "Calibration after reinstallation",
+        "System relearn procedures"
+      ],
+      "notes": "R&I assumes the same serviceable part is reinstalled. If a different or new part is installed, use R&R.",
+      "mitchellRef": "Section 4",
+      "tags": ["R&I", "remove", "install", "access", "P-4", "P4"]
+    },
+    {
+      "id": "G5",
+      "section": "G5",
+      "pPageRef": "P-5",
+      "altRefs": ["P5", "P-5", "page 5"],
+      "title": "Remove and Replace (R&R) Operations",
+      "category": "Labor Operations",
+      "summary": "Definition and scope of R&R operations - removing a damaged part and installing a new or different part.",
+      "included": [
+        "Removal of damaged component",
+        "Disposal/set aside of old component",
+        "Unpacking new component",
+        "Installation of new/replacement component",
+        "Basic adjustment for fit"
+      ],
+      "notIncluded": [
+        "Transfer of attached parts from old to new",
+        "Refinish of new component",
+        "Programming of new modules",
+        "Calibration of new components",
+        "Bleeding of hydraulic systems"
+      ],
+      "notes": "R&R times assume new OEM parts with factory fit. Aftermarket or recycled parts may require additional time.",
+      "mitchellRef": "Section 5",
+      "tags": ["R&R", "remove", "replace", "new part", "P-5", "P5"]
+    },
+    {
+      "id": "G6",
+      "section": "G6",
+      "pPageRef": "P-6",
+      "altRefs": ["P6", "P-6", "page 6"],
+      "title": "Adjustments",
+      "category": "Labor Operations",
+      "summary": "Guidelines for adjustment operations on body panels and components.",
+      "included": [
+        "Basic alignment for proper fit",
+        "Hinge adjustment",
+        "Latch adjustment",
+        "Gap adjustment within normal parameters"
+      ],
+      "notIncluded": [
+        "Adjustment to compensate for prior damage",
+        "Extensive adjustment due to structural issues",
+        "Multiple adjustment cycles",
+        "Adjustment due to improper parts"
+      ],
+      "notes": "Adjustment time assumes adjacent panels are in correct position.",
+      "mitchellRef": "Section 6",
+      "tags": ["adjustment", "alignment", "gaps", "fit", "P-6", "P6"]
+    },
+    {
+      "id": "G7",
+      "section": "G7",
+      "pPageRef": "P-7",
+      "altRefs": ["P7", "P-7", "page 7"],
+      "title": "Overlap / Included Operations",
+      "category": "Labor Operations",
+      "summary": "Operations that overlap or are included with other operations.",
+      "included": [
+        "Operations within the scope of the primary repair",
+        "Fastener removal/installation (normal)",
+        "Basic clip replacement (normal breakage)"
+      ],
+      "notIncluded": [
+        "Excessive clip replacement",
+        "Collision-damaged clips",
+        "Hardware not accessible during primary operation"
+      ],
+      "notes": "Check overlap guidelines to avoid duplicate labor charges.",
+      "mitchellRef": "Section 7",
+      "tags": ["overlap", "included", "duplicate", "clips", "P-7", "P7"]
+    },
+    {
+      "id": "G9",
+      "section": "G9",
+      "pPageRef": "P-9",
+      "altRefs": ["P9", "P-9", "page 9", "P-21"],
+      "title": "Diagnostic Operations",
+      "category": "Diagnostics/Scanning",
+      "summary": "Pre and post repair diagnostic scans, DTC retrieval, and system analysis.",
+      "included": [
+        "None - all diagnostic operations are NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Pre-repair diagnostic scan",
+        "Post-repair diagnostic scan",
+        "DTC retrieval and documentation",
+        "Scan tool connection time",
+        "Battery support during scanning",
+        "DTC research and diagnosis",
+        "System analysis and reporting",
+        "Scan report generation"
+      ],
+      "notes": "Diagnostic scans are recommended by most OEMs for any collision repair. Time should be based on actual shop time.",
+      "mitchellRef": "Section 9",
+      "tags": ["scan", "diagnostic", "DTC", "pre-scan", "post-scan", "P-9", "P9", "P-21", "P21"]
+    },
+    {
+      "id": "G10",
+      "section": "G10",
+      "pPageRef": "P-10",
+      "altRefs": ["P10", "P-10", "page 10", "P-22"],
+      "title": "Structural Measuring",
+      "category": "Structural",
+      "summary": "Measuring and dimensional verification of structural components.",
+      "included": [
+        "None - measuring is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Pre-repair measurements",
+        "Progress measurements during repair",
+        "Post-repair verification measurements",
+        "3D measuring system setup",
+        "Documentation and printouts",
+        "Comparison to specifications"
+      ],
+      "notes": "Measuring is essential for quality structural repair and should be documented.",
+      "mitchellRef": "Section 10",
+      "tags": ["measuring", "structural", "dimensions", "frame", "P-10", "P10", "P-22", "P22"]
+    },
+    {
+      "id": "G14",
+      "section": "G14",
+      "pPageRef": "P-14",
+      "altRefs": ["P14", "P-14", "page 14"],
+      "title": "Restraint Systems (SRS/Airbags)",
+      "category": "Safety Systems",
+      "summary": "Supplemental Restraint System components and safety procedures.",
+      "included": [
+        "Component removal and installation",
+        "Connector disconnection/reconnection"
+      ],
+      "notIncluded": [
+        "Diagnostic scan before/after",
+        "System arming/disarming time",
+        "Airbag residue cleanup",
+        "Seatbelt inspection",
+        "SRS system verification",
+        "Wait time after battery disconnect"
+      ],
+      "notes": "Always follow OEM safety procedures when working with SRS components. Many OEMs require seatbelt replacement after deployment.",
+      "mitchellRef": "Section 14",
+      "tags": ["SRS", "airbag", "seatbelt", "restraint", "safety", "P-14", "P14"]
+    },
+    {
+      "id": "G15",
+      "section": "G15",
+      "pPageRef": "P-15",
+      "altRefs": ["P15", "P-15", "page 15"],
+      "title": "Suspension and Steering",
+      "category": "Mechanical",
+      "summary": "Suspension and steering component operations.",
+      "included": [
+        "Component removal and installation",
+        "Basic fastener torque to spec"
+      ],
+      "notIncluded": [
+        "Wheel alignment (2 or 4 wheel)",
+        "Alignment check",
+        "Camber/caster adjustment",
+        "Toe adjustment",
+        "Road test to verify",
+        "Steering angle sensor reset"
+      ],
+      "notes": "Wheel alignment should be performed after any steering/suspension work.",
+      "mitchellRef": "Section 15",
+      "tags": ["suspension", "steering", "alignment", "camber", "toe", "P-15", "P15"]
+    },
+    {
+      "id": "G16",
+      "section": "G16",
+      "pPageRef": "P-16",
+      "altRefs": ["P16", "P-16", "page 16"],
+      "title": "Wheels and Tires",
+      "category": "Mechanical",
+      "summary": "Wheel and tire related operations.",
+      "included": [
+        "Wheel removal and installation",
+        "Lug nut torque"
+      ],
+      "notIncluded": [
+        "Tire mounting/dismounting",
+        "Wheel balancing",
+        "TPMS sensor programming",
+        "Wheel straightening",
+        "Wheel refinishing",
+        "Road force balancing"
+      ],
+      "notes": "TPMS relearn may be required after any wheel/tire service.",
+      "mitchellRef": "Section 16",
+      "tags": ["wheels", "tires", "TPMS", "balance", "P-16", "P16"]
+    },
+    {
+      "id": "G17",
+      "section": "G17",
+      "pPageRef": "P-17",
+      "altRefs": ["P17", "P-17", "page 17"],
+      "title": "Air Conditioning",
+      "category": "Mechanical",
+      "summary": "A/C system operations and refrigerant handling.",
+      "included": [
+        "Component removal and installation",
+        "O-ring replacement at disconnect points"
+      ],
+      "notIncluded": [
+        "Refrigerant recovery/evacuation",
+        "Refrigerant recharge",
+        "System leak check",
+        "Dye injection",
+        "Performance test",
+        "Compressor oil addition"
+      ],
+      "notes": "Refrigerant recovery is required by law. A/C system should be leak tested before recharge.",
+      "mitchellRef": "Section 17",
+      "tags": ["A/C", "refrigerant", "evacuate", "recharge", "condenser", "P-17", "P17"]
+    },
+    {
+      "id": "G18",
+      "section": "G18",
+      "pPageRef": "P-18",
+      "altRefs": ["P18", "P-18", "page 18"],
+      "title": "Glass Operations",
+      "category": "Glass",
+      "summary": "Windshield and glass replacement operations.",
+      "included": [
+        "Glass removal",
+        "Pinchweld cleaning (basic)",
+        "Urethane application",
+        "Glass installation",
+        "Molding installation"
+      ],
+      "notIncluded": [
+        "Pinchweld repair",
+        "Rust treatment",
+        "Primer application (damaged areas)",
+        "Urethane cure time",
+        "Water test",
+        "ADAS calibration"
+      ],
+      "notes": "Safe drive-away time varies by urethane product. ADAS calibration required on vehicles with windshield-mounted cameras.",
+      "mitchellRef": "Section 18",
+      "tags": ["glass", "windshield", "urethane", "pinchweld", "P-18", "P18"]
+    },
+    {
+      "id": "G19",
+      "section": "G19",
+      "pPageRef": "P-19",
+      "altRefs": ["P19", "P-19", "page 19"],
+      "title": "Electrical and Lighting",
+      "category": "Electrical",
+      "summary": "Electrical component and lighting system operations.",
+      "included": [
+        "Component removal and installation",
+        "Connector disconnect/reconnect"
+      ],
+      "notIncluded": [
+        "Headlight aiming",
+        "Bulb replacement (separate)",
+        "Module programming",
+        "System initialization",
+        "Wiring repair"
+      ],
+      "notes": "Headlight aiming should be performed after headlight R&R or front-end collision repair.",
+      "mitchellRef": "Section 19",
+      "tags": ["electrical", "lighting", "headlight", "wiring", "P-19", "P19"]
+    },
+    {
+      "id": "G20",
+      "section": "G20",
+      "pPageRef": "P-20",
+      "altRefs": ["P20", "P-20", "page 20"],
+      "title": "Wiring Repair",
+      "category": "Electrical",
+      "summary": "Electrical wiring, connector, and harness repair operations.",
+      "included": [
+        "None - wiring repair is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Wire repair/splicing",
+        "Connector repair",
+        "Terminal repair/replacement",
+        "Harness section replacement",
+        "Soldering/crimping",
+        "Wire routing"
+      ],
+      "notes": "Wiring repair should follow OEM procedures. Document all wiring repairs.",
+      "mitchellRef": "Section 20",
+      "tags": ["wiring", "connector", "harness", "repair", "splice", "P-20", "P20"]
+    },
+    {
+      "id": "G21",
+      "section": "G21",
+      "pPageRef": "P-21",
+      "altRefs": ["P21", "P-21", "page 21"],
+      "title": "Module Programming",
+      "category": "Electrical",
+      "summary": "Electronic module programming, coding, and configuration.",
+      "included": [
+        "None - programming is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Module programming",
+        "Module coding",
+        "Module configuration",
+        "System initialization",
+        "Software updates",
+        "Key programming"
+      ],
+      "notes": "Most new modules require vehicle-specific programming. May require OEM-level scan tool.",
+      "mitchellRef": "Section 21",
+      "tags": ["module", "programming", "coding", "ECU", "BCM", "P-21", "P21"]
+    },
+    {
+      "id": "G22",
+      "section": "G22",
+      "pPageRef": "P-22",
+      "altRefs": ["P22", "P-22", "page 22"],
+      "title": "Plastic Repair",
+      "category": "Repair",
+      "summary": "Plastic component repair operations.",
+      "included": [
+        "None - plastic repair is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Plastic identification",
+        "Plastic welding",
+        "Plastic bonding",
+        "Tab repair",
+        "Shaping and finishing",
+        "Flexible primer application"
+      ],
+      "notes": "Plastic repair time varies by damage severity. Proper plastic identification is essential.",
+      "mitchellRef": "Section 22",
+      "tags": ["plastic", "repair", "welding", "bumper", "bonding", "P-22", "P22"]
+    },
+    {
+      "id": "G23",
+      "section": "G23",
+      "pPageRef": "P-23",
+      "altRefs": ["P23", "P-23", "page 23"],
+      "title": "Door Skin Replacement",
+      "category": "Panel Replacement",
+      "summary": "Door outer panel (skin) replacement operations.",
+      "included": [
+        "Skin removal",
+        "Door frame preparation",
+        "New skin installation",
+        "Hemming/crimping"
+      ],
+      "notIncluded": [
+        "Hardware R&I from door",
+        "Seam sealer application",
+        "Corrosion protection",
+        "Sound deadener replacement",
+        "Vapor barrier replacement"
+      ],
+      "notes": "Door hardware must be removed before skin replacement - this is a separate operation.",
+      "mitchellRef": "Section 23",
+      "tags": ["door", "skin", "panel", "hemming", "P-23", "P23"]
+    },
+    {
+      "id": "G26",
+      "section": "G26",
+      "pPageRef": "P-26",
+      "altRefs": ["P26", "P-26", "page 26"],
+      "title": "Sectioning Operations",
+      "category": "Structural",
+      "summary": "Structural sectioning and partial replacement operations.",
+      "included": [
+        "Cutting at OEM-approved location",
+        "Fitting replacement section",
+        "Welding per OEM specifications"
+      ],
+      "notIncluded": [
+        "Corrosion protection",
+        "Seam sealer application",
+        "Sound deadener replacement",
+        "Foam replacement",
+        "E-coat repair"
+      ],
+      "notes": "Sectioning must be performed at OEM-approved locations only.",
+      "mitchellRef": "Section 26",
+      "tags": ["sectioning", "structural", "welding", "rail", "partial", "P-26", "P26"]
+    },
+    {
+      "id": "G27",
+      "section": "G27",
+      "pPageRef": "P-27",
+      "altRefs": ["P27", "P-27", "page 27"],
+      "title": "Adhesive Bonding",
+      "category": "Structural",
+      "summary": "Structural adhesive bonding operations.",
+      "included": [
+        "Primary bond adhesive (typically)",
+        "Surface preparation (basic)"
+      ],
+      "notIncluded": [
+        "Adhesive cure time",
+        "Additional seam sealer",
+        "Surface prep beyond attachment area",
+        "Heat-assisted curing",
+        "Adhesive removal from adjacent panels"
+      ],
+      "notes": "Cure time must be observed before moving vehicle or performing additional work.",
+      "mitchellRef": "Section 27",
+      "tags": ["adhesive", "bonding", "structural", "cure time", "P-27", "P27"]
+    },
+    {
+      "id": "G28",
+      "section": "G28",
+      "pPageRef": "P-28",
+      "altRefs": ["P28", "P-28", "page 28"],
+      "title": "Aluminum Repair Procedures",
+      "category": "Structural",
+      "summary": "Aluminum-specific repair and replacement procedures.",
+      "included": [
+        "Aluminum panel removal/installation",
+        "Basic aluminum repair techniques"
+      ],
+      "notIncluded": [
+        "Rivet drilling/removal",
+        "SPR (Self-Piercing Rivet) installation",
+        "Flow-form rivet installation",
+        "Rivet bonding adhesive",
+        "Dedicated aluminum tools/equipment"
+      ],
+      "notes": "Aluminum repair requires dedicated tools and procedures to prevent galvanic corrosion.",
+      "mitchellRef": "Section 28",
+      "tags": ["aluminum", "rivet", "SPR", "structural", "P-28", "P28"]
+    },
+    {
+      "id": "G29",
+      "section": "G29",
+      "pPageRef": "P-29",
+      "altRefs": ["P29", "P-29", "page 29"],
+      "title": "Frame/Structural Straightening",
+      "category": "Structural",
+      "summary": "Frame and structural component straightening operations.",
+      "included": [
+        "Setup on frame equipment",
+        "Pulling/straightening to specifications"
+      ],
+      "notIncluded": [
+        "Measuring before/during/after",
+        "Stress relieving",
+        "Heat application",
+        "Multiple pull setups",
+        "Documentation"
+      ],
+      "notes": "Straightening should be documented with before/during/after measurements.",
+      "mitchellRef": "Section 29",
+      "tags": ["frame", "straightening", "structural", "pulling", "P-29", "P29"]
+    },
+    {
+      "id": "G31",
+      "section": "G31",
+      "pPageRef": "P-31",
+      "altRefs": ["P31", "P-31", "page 31"],
+      "title": "Corrosion Protection",
+      "category": "Refinish/Protection",
+      "summary": "Anti-corrosion treatment and protection operations.",
+      "included": [
+        "None - corrosion protection is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Weld-through primer",
+        "Cavity wax application",
+        "Seam sealer application",
+        "Anti-corrosion compound",
+        "E-coat repair",
+        "Zinc coating repair"
+      ],
+      "notes": "Corrosion protection should be applied to all bare metal, weld areas, and enclosed cavities.",
+      "mitchellRef": "Section 31",
+      "tags": ["corrosion", "protection", "weld-through", "cavity wax", "seam sealer", "P-31", "P31"]
+    },
+    {
+      "id": "G33",
+      "section": "G33",
+      "pPageRef": "P-33",
+      "altRefs": ["P33", "P-33", "page 33", "P-26"],
+      "title": "ADAS Calibration",
+      "category": "ADAS/Calibration",
+      "summary": "Advanced Driver Assistance System calibration operations.",
+      "included": [
+        "None - ADAS calibration is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Static calibration",
+        "Dynamic calibration",
+        "Target setup and positioning",
+        "Calibration verification",
+        "Calibration report/documentation",
+        "Pre-calibration requirements",
+        "Road test for dynamic calibration"
+      ],
+      "notes": "ADAS calibration is required after many common collision repairs. Always check OEM requirements.",
+      "triggers": [
+        "Windshield replacement (camera equipped)",
+        "Front bumper R&R or R&I (radar equipped)",
+        "Rear bumper R&R or R&I (parking sensors)",
+        "Mirror R&R (blind spot equipped)",
+        "Wheel alignment",
+        "Structural repair",
+        "Suspension work"
+      ],
+      "mitchellRef": "Section 33",
+      "tags": ["ADAS", "calibration", "camera", "radar", "sensor", "P-33", "P33"]
+    },
+    {
+      "id": "G34",
+      "section": "G34",
+      "pPageRef": "P-34",
+      "altRefs": ["P34", "P-34", "page 34"],
+      "title": "Refinish Setup and Preparation",
+      "category": "Refinish",
+      "summary": "General refinish preparation operations.",
+      "included": [
+        "Basic booth setup",
+        "Vehicle positioning",
+        "Adjacent panel masking"
+      ],
+      "notIncluded": [
+        "Full vehicle masking (cover car)",
+        "Interior masking",
+        "Engine bay masking",
+        "Multi-stage setup",
+        "Booth filter changes"
+      ],
+      "notes": "Cover car masking typically adds 0.5-1.0 hours depending on vehicle size.",
+      "mitchellRef": "Section 34",
+      "tags": ["refinish", "setup", "masking", "booth", "preparation", "P-34", "P34"]
+    },
+    {
+      "id": "G35",
+      "section": "G35",
+      "pPageRef": "P-35",
+      "altRefs": ["P35", "P-35", "page 35"],
+      "title": "Color Matching and Tinting",
+      "category": "Refinish",
+      "summary": "Color matching, tinting, and variant selection.",
+      "included": [
+        "Standard color mix from formula"
+      ],
+      "notIncluded": [
+        "Color tinting to match vehicle",
+        "Let-down panel/spray-out card",
+        "Multiple tint attempts",
+        "Color variance documentation",
+        "Variant selection beyond standard"
+      ],
+      "notes": "Color tinting is common when matching weathered or faded finishes.",
+      "mitchellRef": "Section 35",
+      "tags": ["color", "tinting", "matching", "refinish", "variant", "P-35", "P35"]
+    },
+    {
+      "id": "G36",
+      "section": "G36",
+      "pPageRef": "P-36",
+      "altRefs": ["P36", "P-36", "page 36", "P-24"],
+      "title": "Blend Operations",
+      "category": "Refinish",
+      "summary": "Blending refinish into adjacent panels.",
+      "included": [
+        "Partial panel masking",
+        "Limited surface prep on blend area",
+        "Color application transitioning to clear"
+      ],
+      "notIncluded": [
+        "Full panel prep",
+        "Featheredging",
+        "Primer application",
+        "Full clear coat",
+        "Block sanding"
+      ],
+      "notes": "Blend is a partial refinish operation - not full panel refinish time.",
+      "mitchellRef": "Section 36",
+      "tags": ["blend", "refinish", "color match", "adjacent panel", "P-36", "P36", "P-24", "P24"]
+    },
+    {
+      "id": "G37",
+      "section": "G37",
+      "pPageRef": "P-37",
+      "altRefs": ["P37", "P-37", "page 37"],
+      "title": "Undercoating and Protective Coatings",
+      "category": "Refinish/Protection",
+      "summary": "Undercoating, chip guard, and protective coating operations.",
+      "included": [
+        "None - protective coatings are NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Undercoating application",
+        "Chip guard application",
+        "Stone chip protection",
+        "Bedliner application",
+        "Rocker guard",
+        "Texture coating"
+      ],
+      "notes": "Protective coatings should match OEM appearance and protection level.",
+      "mitchellRef": "Section 37",
+      "tags": ["undercoating", "chip guard", "bedliner", "protection", "P-37", "P37"]
+    },
+    {
+      "id": "G38",
+      "section": "G38",
+      "pPageRef": "P-38",
+      "altRefs": ["P38", "P-38", "page 38"],
+      "title": "De-Nib / Denib Operations",
+      "category": "Refinish",
+      "summary": "Removing particles (nibs) from final finish surface.",
+      "included": [
+        "None - de-nibbing is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "De-nib process",
+        "Polishing to remove nib marks"
+      ],
+      "laborGuidelines": {
+        "largeFirstPanel": "Add up to 20% of full base refinish time",
+        "largeFirstPanelExamples": ["Hood", "Roof", "Trunk lid", "Spoiler"],
+        "smallFirstPanel": "Add up to 10% of full base refinish time",
+        "smallFirstPanelExamples": ["Fender", "Door", "Quarter panel", "Bumper cover"],
+        "additionalPanels": "Add up to 5% per additional panel"
+      },
+      "notes": "De-nibbing needs vary based on shop environment and conditions.",
+      "mitchellRef": "Section 38",
+      "tags": ["de-nib", "denib", "refinish", "particles", "nibs", "P-38", "P38"]
+    },
+    {
+      "id": "G39",
+      "section": "G39",
+      "pPageRef": "P-39",
+      "altRefs": ["P39", "P-39", "page 39"],
+      "title": "Wet Sand and Buff",
+      "category": "Refinish",
+      "summary": "Final finish wet sanding and buffing/polishing operations.",
+      "included": [
+        "None - wet sand and buff is NOT INCLUDED"
+      ],
+      "notIncluded": [
+        "Wet sanding",
+        "Compound application",
+        "Buffing/polishing",
+        "Final finish inspection"
+      ],
+      "notes": "Wet sand and buff may be required to match OEM texture or remove imperfections.",
+      "mitchellRef": "Section 39",
+      "tags": ["wet sand", "buff", "polish", "refinish", "clear coat", "P-39", "P39"]
+    },
+    {
+      "id": "G40",
+      "section": "G40",
+      "pPageRef": "P-40",
+      "altRefs": ["P40", "P-40", "page 40"],
+      "title": "Two-Tone and Multi-Color",
+      "category": "Refinish",
+      "summary": "Two-tone, multi-color, and special graphic refinish operations.",
+      "included": [
+        "Single color refinish"
+      ],
+      "notIncluded": [
+        "Second color application",
+        "Tape line creation",
+        "Graphics/stripes",
+        "Additional masking for multi-color"
+      ],
+      "notes": "Multi-color finishes require additional masking and application time.",
+      "mitchellRef": "Section 40",
+      "tags": ["two-tone", "multi-color", "graphics", "stripes", "P-40", "P40"]
+    },
+    {
+      "id": "G41",
+      "section": "G41",
+      "pPageRef": "P-41",
+      "altRefs": ["P41", "P-41", "page 41"],
+      "title": "Three-Stage / Tri-Coat Paint",
+      "category": "Refinish",
+      "summary": "Three-stage paint system operations (base/mid-coat/clear).",
+      "included": [
+        "Standard two-stage refinish"
+      ],
+      "notIncluded": [
+        "Third stage (mid-coat) application",
+        "Additional flash time between stages",
+        "Pearl/candy coat complexity"
+      ],
+      "laborGuidelines": {
+        "additionalTime": "Add 20-30% to base refinish time for tri-coat"
+      },
+      "notes": "Three-stage finishes include pearl, candy, and other special-effect paints.",
+      "mitchellRef": "Section 41",
+      "tags": ["tri-coat", "three-stage", "pearl", "candy", "mid-coat", "P-41", "P41"]
+    }
+  ]
+}

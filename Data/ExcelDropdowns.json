@@ -1,0 +1,316 @@
+{
+  "SOP List": [
+    {
+      "cells": "A35",
+      "options": [
+        "Gas",
+        " Hybrid",
+        " EV"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "C29",
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A29",
+      "options": [
+        "Single",
+        "Dual"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A79",
+      "options": [
+        "Gas",
+        " Rivian",
+        " Tesla"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A31 A33 A81 A87 A129 A133 B79 B81 B83 B85 B87 C129:D129",
+      "options": [
+        "Yes",
+        " No"
+      ],
+      "prompt": ""
+    }
+  ],
+  "Part Operations": [
+    {
+      "cells": "A33 A83 A133 A183",
+      "options": [
+        "First Panel",
+        " Additional Panel"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A35 A85 A185 A187 A235 A237 A285:B285 A337:C337 A387:C387 A437:B437 A485 A487 B33:C33 B83:C83 B133:C133 B283:C283 B287:C287 B333:C333 B335 B383:C383 B385 B433 B435 B439 B483:D483 C37 C41 C87 C91 C137 C139 C233 C237 C241 C291 C391 C485 D38 D40 D88 D90 D138 D140 D238 D240 D288 D290 D338 D340 D388 D390 E133 E137 E333 E337",
+      "options": [
+        "Yes",
+        " No"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "B35 B85 B135",
+      "options": [
+        "First Large Part",
+        " Additional Large Part",
+        " Additional Small Part"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "C35 C85 C135 C235 C285 C335 C385",
+      "options": [
+        "Equipped",
+        " Not Equipped"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D33 D83 D133 D233 D283 D333 D383",
+      "options": [
+        "Punch Holes"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D34 D84 D134 D234 D284 D334 D384",
+      "options": [
+        "Install Brackets"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A233 A283 A333 A383",
+      "options": [
+        "First Panel",
+        " Additional Panel",
+        " First Panel Facing Sky"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "B233 B236 B289 B292 B339 B342 B389 B392 E33 E38 E83 E88 E233 E238 E243 E247 E283 E288 E293 E297 E344 E383 E388 E393 E397 E483",
+      "options": [
+        "Remove"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "B234 B237 B290 B293 B340 B343 B390 B393 E34 E84 E234 E244 E284 E294 E341 E384 E394",
+      "options": [
+        "Apply"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "E39 E89 E239 E248 E289 E298 E345 E389 E398 E484",
+      "options": [
+        "Install"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "E245 E295 E342 E395",
+      "options": [
+        "Dual Pinstripes"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A433 A483",
+      "options": [
+        "Large",
+        " Small"
+      ],
+      "prompt": ""
+    }
+  ],
+  "Cover Car Operations": [
+    {
+      "cells": "C32",
+      "options": [
+        "Yes",
+        " No"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A29",
+      "options": [
+        "Gas",
+        " EV"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "B29",
+      "options": [
+        "Front"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "B30",
+      "options": [
+        "Side"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "B31",
+      "options": [
+        "Rear"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "C29",
+      "options": [
+        "Refinish"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "C30",
+      "options": [
+        "Repair"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D29",
+      "options": [
+        "$ and Body Labor",
+        " Refinish Labor"
+      ],
+      "prompt": ""
+    }
+  ],
+  "Body Operations": [
+    {
+      "cells": "A29:D29 A31:C31 A33:D33 A79 A81 B35:C35 D38 D79 D85 D91 D93",
+      "options": [
+        "Yes",
+        " No"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D35",
+      "options": [
+        "Dent Puller"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D36",
+      "options": [
+        "Glue Puller"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D81",
+      "options": [
+        "Pre"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D82",
+      "options": [
+        "In-Process"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D83",
+      "options": [
+        "Post"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "D89",
+      "options": [
+        "Pinch Welds",
+        " Truck Clamps"
+      ],
+      "prompt": ""
+    }
+  ],
+  "Refinish Operations": [
+    {
+      "cells": "A29 B31 B35 B39 B43",
+      "options": [
+        "2-Stage",
+        " 3-Stage",
+        " 4-Stage"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A31 A33 B45 C29:D29 D31 D33",
+      "options": [
+        "Yes",
+        " No"
+      ],
+      "prompt": ""
+    }
+  ],
+  "Mechanical Operations": [
+    {
+      "cells": "A29",
+      "options": [
+        "R134a",
+        " R1234yf",
+        " R744"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A129:D129 A131:C131 A133:B133 A135:B135 A140 A142 A185 A187 A189 A191 B29:C29 B31:C31 B33:C33 B79 B81 C179:D179 C181:D181 C185 D183",
+      "options": [
+        "Yes",
+        " No"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A137",
+      "options": [
+        "Measure"
+      ],
+      "prompt": ""
+    },
+    {
+      "cells": "A138",
+      "options": [
+        "Calibrate"
+      ],
+      "prompt": ""
+    }
+  ],
+  "SRS Operations": [
+    {
+      "cells": "A29 A31 A33 A35 A79 A81 A83 A85 A87",
+      "options": [
+        "Yes",
+        " No"
+      ],
+      "prompt": ""
+    }
+  ]
+}

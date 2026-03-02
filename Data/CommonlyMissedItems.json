@@ -1,0 +1,927 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-02-06",
+  "description": "Commonly missed supplement items by operation type - based on industry data and shop experience",
+  "operationChecks": {
+    "bumper_cover_repair": {
+      "operation": "Bumper Cover Repair",
+      "triggerKeywords": ["bumper cover", "bumper cvr", "front bumper", "rear bumper"],
+      "triggerOperations": ["Repair", "Rpr"],
+      "missedItems": [
+        {
+          "item": "Flex Additive",
+          "category": "Materials",
+          "description": "Flexible paint additive for plastic bumpers",
+          "whyNeeded": "Plastic bumpers flex - paint without flex additive will crack",
+          "degReference": "Material costs NOT INCLUDED in refinish times",
+          "typicalCost": 15.00,
+          "laborHours": 0,
+          "priority": "high"
+        },
+        {
+          "item": "Adhesion Promoter",
+          "category": "Materials",
+          "description": "Promotes paint adhesion to plastic substrates",
+          "whyNeeded": "Paint won't properly adhere to bare plastic without it",
+          "degReference": "Application time NOT INCLUDED",
+          "typicalCost": 12.00,
+          "laborHours": 0.2,
+          "priority": "high"
+        },
+        {
+          "item": "Plastic Repair Materials",
+          "category": "Materials",
+          "description": "Urethane adhesive, mesh, filler for plastic repair",
+          "whyNeeded": "Required for structural plastic repair",
+          "typicalCost": 25.00,
+          "laborHours": 0,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Grille",
+          "category": "R&I",
+          "description": "Remove and install grille for access",
+          "whyNeeded": "Often attached to or blocks access to bumper cover",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Fog Lights",
+          "category": "R&I",
+          "description": "Remove and install fog light assemblies",
+          "whyNeeded": "Mounted in bumper cover, must be removed for repair/refinish",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Parking Sensors",
+          "category": "R&I",
+          "description": "Remove and install parking sensors",
+          "whyNeeded": "Embedded in bumper cover",
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "Denib/Final Sand",
+          "category": "Refinish",
+          "description": "Remove nibs and defects from fresh paint",
+          "whyNeeded": "Standard quality control step",
+          "degReference": "NOT INCLUDED in refinish times",
+          "laborHours": 0.3,
+          "priority": "low"
+        }
+      ]
+    },
+    "bumper_cover_replace": {
+      "operation": "Bumper Cover Replace",
+      "triggerKeywords": ["bumper cover", "bumper cvr", "front bumper", "rear bumper"],
+      "triggerOperations": ["Replace", "Rpl", "New"],
+      "missedItems": [
+        {
+          "item": "Flex Additive",
+          "category": "Materials",
+          "description": "Flexible paint additive for plastic bumpers",
+          "whyNeeded": "New bumpers come in primer - flex additive required",
+          "typicalCost": 15.00,
+          "priority": "high"
+        },
+        {
+          "item": "Adhesion Promoter",
+          "category": "Materials",
+          "description": "Promotes paint adhesion",
+          "whyNeeded": "Required for proper adhesion on new plastic",
+          "typicalCost": 12.00,
+          "laborHours": 0.2,
+          "priority": "high"
+        },
+        {
+          "item": "Transfer Parts Labor",
+          "category": "Labor",
+          "description": "Transfer components from old to new bumper",
+          "whyNeeded": "Sensors, brackets, moldings need transfer",
+          "degReference": "Transfer of components may NOT be INCLUDED",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "R&I License Plate Bracket",
+          "category": "R&I",
+          "description": "Transfer or replace license plate bracket",
+          "whyNeeded": "Often attached to bumper cover",
+          "laborHours": 0.1,
+          "priority": "low"
+        },
+        {
+          "item": "Refinish Backside",
+          "category": "Refinish",
+          "description": "Apply color to visible backside areas",
+          "whyNeeded": "Gap areas may show unpainted surfaces",
+          "laborHours": 0.3,
+          "priority": "medium"
+        }
+      ]
+    },
+    "quarter_panel_replace": {
+      "operation": "Quarter Panel Replace",
+      "triggerKeywords": ["quarter panel", "qtr panel", "quarter pnl", "qtr pnl"],
+      "triggerOperations": ["Replace", "Rpl", "New"],
+      "missedItems": [
+        {
+          "item": "Corrosion Protection",
+          "category": "Materials",
+          "description": "Cavity wax and corrosion preventive compounds",
+          "whyNeeded": "OEM requires corrosion protection in weld areas and cavities",
+          "degReference": "DEG #23010 - Corrosion protection NOT INCLUDED",
+          "typicalCost": 45.00,
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "Weld-Thru Primer",
+          "category": "Materials",
+          "description": "Zinc-rich primer applied before welding",
+          "whyNeeded": "Prevents corrosion at weld joints - OEM requirement",
+          "degReference": "Application NOT INCLUDED in panel replacement",
+          "typicalCost": 18.00,
+          "laborHours": 0.3,
+          "priority": "high"
+        },
+        {
+          "item": "Seam Sealer",
+          "category": "Materials",
+          "description": "OEM-style seam sealer application",
+          "whyNeeded": "Must match factory seam sealer appearance and function",
+          "degReference": "DEG #23010 - Additional seam sealer NOT INCLUDED",
+          "typicalCost": 35.00,
+          "laborHours": 0.8,
+          "priority": "high"
+        },
+        {
+          "item": "Sprayable Seam Sealer",
+          "category": "Materials",
+          "description": "Texture-matched sprayable sealer",
+          "whyNeeded": "Replicate factory undercoating appearance",
+          "degReference": "DEG #23332 - Masking for sprayable sealer NOT INCLUDED",
+          "laborHours": 0.4,
+          "priority": "medium"
+        },
+        {
+          "item": "Sound Deadener",
+          "category": "Materials",
+          "description": "Replace sound deadening material",
+          "whyNeeded": "Factory sound deadener destroyed during removal",
+          "typicalCost": 25.00,
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "Adjacent Panel Blend",
+          "category": "Refinish",
+          "description": "Blend rear door and/or rear bumper for color match",
+          "whyNeeded": "New paint won't match aged paint perfectly",
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "R&I Tail Light",
+          "category": "R&I",
+          "description": "Remove tail light for panel access",
+          "whyNeeded": "Quarter panel welds often behind tail light",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Fuel Door",
+          "category": "R&I",
+          "description": "Remove and install fuel door assembly",
+          "whyNeeded": "Mounted on quarter panel",
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Interior Trim",
+          "category": "R&I",
+          "description": "Remove interior trim for weld access",
+          "whyNeeded": "Access to inner quarter panel welds",
+          "laborHours": 0.5,
+          "priority": "medium"
+        },
+        {
+          "item": "Measure/Document",
+          "category": "Labor",
+          "description": "Pre and post repair measurements",
+          "whyNeeded": "Structural repair requires documentation",
+          "laborHours": 0.5,
+          "priority": "high"
+        }
+      ]
+    },
+    "door_replace": {
+      "operation": "Door Shell/Skin Replace",
+      "triggerKeywords": ["door", "door shell", "door skin"],
+      "triggerOperations": ["Replace", "Rpl", "New"],
+      "missedItems": [
+        {
+          "item": "Transfer Hardware",
+          "category": "Labor",
+          "description": "Transfer hinges, check strap, wiring",
+          "whyNeeded": "New door shell comes empty",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "Corrosion Protection",
+          "category": "Materials",
+          "description": "Apply corrosion protection to door hem",
+          "whyNeeded": "New door hem needs protection",
+          "typicalCost": 15.00,
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "Seam Sealer Door Hem",
+          "category": "Materials",
+          "description": "Apply seam sealer to door hem flange",
+          "whyNeeded": "Prevent water intrusion",
+          "typicalCost": 10.00,
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "Blend Adjacent Panels",
+          "category": "Refinish",
+          "description": "Blend fender and/or rear door",
+          "whyNeeded": "Color match to existing panels",
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "R&I Door Trim Panel",
+          "category": "R&I",
+          "description": "Remove interior door panel",
+          "whyNeeded": "Access to door components",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Mirror",
+          "category": "R&I",
+          "description": "Remove and install door mirror",
+          "whyNeeded": "Mirror attached to door",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Window Regulator",
+          "category": "R&I",
+          "description": "Transfer or replace window regulator",
+          "whyNeeded": "Regulator in old door",
+          "laborHours": 0.5,
+          "priority": "medium"
+        }
+      ]
+    },
+    "hood_replace": {
+      "operation": "Hood Replace",
+      "triggerKeywords": ["hood"],
+      "triggerOperations": ["Replace", "Rpl", "New"],
+      "missedItems": [
+        {
+          "item": "Transfer Hood Insulator",
+          "category": "Labor",
+          "description": "Remove and install hood insulator pad",
+          "whyNeeded": "New hood comes without insulator",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "Blend Fenders",
+          "category": "Refinish",
+          "description": "Blend both fenders for color match",
+          "whyNeeded": "Hood is visible center panel - needs perfect match",
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "Adjust Hood Hinges",
+          "category": "Labor",
+          "description": "Adjust hinges for proper fit and gap",
+          "whyNeeded": "New hood may not align perfectly",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Hood Struts",
+          "category": "R&I",
+          "description": "Transfer hood support struts",
+          "whyNeeded": "Often reusable from old hood",
+          "laborHours": 0.2,
+          "priority": "low"
+        }
+      ]
+    },
+    "hood_repair": {
+      "operation": "Hood Repair",
+      "triggerKeywords": ["hood"],
+      "triggerOperations": ["Repair", "Rpr", "Rfn", "Refn"],
+      "missedItems": [
+        {
+          "item": "Feather, Prime & Block",
+          "category": "Refinish",
+          "description": "Featheredge, prime and block repair area",
+          "whyNeeded": "Required prep for quality refinish over repair",
+          "degReference": "Feather, prime, block NOT INCLUDED in refinish time",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "Blend Fenders",
+          "category": "Refinish",
+          "description": "Blend adjacent fenders for color match",
+          "whyNeeded": "Repaired area won't match without blending",
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "R&I Hood Insulator",
+          "category": "R&I",
+          "description": "Remove insulator for backside access",
+          "whyNeeded": "Access to repair area from inside",
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "Corrosion Protection",
+          "category": "Materials",
+          "description": "Apply corrosion protection to repair area",
+          "whyNeeded": "Prevent rust in repaired metal",
+          "typicalCost": 15.00,
+          "laborHours": 0.2,
+          "priority": "medium"
+        }
+      ]
+    },
+    "any_bumper_work": {
+      "operation": "Any Bumper Work",
+      "triggerKeywords": ["bumper", "fascia", "front cover", "rear cover"],
+      "triggerOperations": [],
+      "missedItems": [
+        {
+          "item": "R&I Parking Sensors",
+          "category": "Electrical",
+          "description": "Remove and install parking/proximity sensors",
+          "whyNeeded": "Sensors embedded in bumper cover",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Fog Lamps",
+          "category": "Electrical",
+          "description": "Remove fog lamp assemblies from bumper",
+          "whyNeeded": "Fog lamps mounted in bumper cover",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Front Camera",
+          "category": "Electrical",
+          "description": "Remove/install front camera if equipped",
+          "whyNeeded": "Camera may be in grille or bumper area",
+          "laborHours": 0.3,
+          "priority": "medium"
+        }
+      ]
+    },
+    "any_door_work": {
+      "operation": "Any Door Work",
+      "triggerKeywords": ["door", "front door", "rear door"],
+      "triggerOperations": [],
+      "missedItems": [
+        {
+          "item": "R&I Door Handle",
+          "category": "R&I",
+          "description": "Remove door handle for refinish",
+          "whyNeeded": "Handle removal for complete refinish coverage",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Door Moldings",
+          "category": "R&I",
+          "description": "Remove body side moldings",
+          "whyNeeded": "Moldings must be removed for proper refinish",
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Mirror",
+          "category": "Electrical",
+          "description": "Remove door mirror assembly",
+          "whyNeeded": "Mirror removal for door edge refinish",
+          "laborHours": 0.3,
+          "priority": "medium"
+        }
+      ]
+    },
+    "any_quarter_work": {
+      "operation": "Any Quarter Panel Work",
+      "triggerKeywords": ["quarter", "qtr", "quarter panel"],
+      "triggerOperations": [],
+      "missedItems": [
+        {
+          "item": "R&I Tail Lamp",
+          "category": "R&I",
+          "description": "Remove tail lamp for access/refinish",
+          "whyNeeded": "Tail lamp removal for edge-to-edge refinish",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Fuel Door",
+          "category": "R&I",
+          "description": "Remove fuel door assembly",
+          "whyNeeded": "Fuel door mounted on quarter panel",
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Quarter Glass Molding",
+          "category": "R&I",
+          "description": "Remove quarter glass trim",
+          "whyNeeded": "Trim removal for complete panel refinish",
+          "laborHours": 0.3,
+          "priority": "low"
+        }
+      ]
+    },
+    "fender_replace": {
+      "operation": "Fender Replace",
+      "triggerKeywords": ["fender", "front fender"],
+      "triggerOperations": ["Replace", "Rpl", "New"],
+      "missedItems": [
+        {
+          "item": "R&I Fender Liner",
+          "category": "R&I",
+          "description": "Remove and install fender liner/splash shield",
+          "whyNeeded": "Must access fender mounting bolts",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "Blend Hood",
+          "category": "Refinish",
+          "description": "Blend hood for color match",
+          "whyNeeded": "Adjacent panel to fender",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "Blend Door",
+          "category": "Refinish",
+          "description": "Blend front door for color match",
+          "whyNeeded": "Adjacent panel to fender",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "R&I Antenna",
+          "category": "R&I",
+          "description": "Remove antenna if fender-mounted",
+          "whyNeeded": "Some vehicles have fender-mounted antenna",
+          "laborHours": 0.2,
+          "priority": "low"
+        },
+        {
+          "item": "Transfer Moldings",
+          "category": "Labor",
+          "description": "Transfer fender moldings/trim",
+          "whyNeeded": "New fender may not include moldings",
+          "laborHours": 0.2,
+          "priority": "medium"
+        }
+      ]
+    },
+    "roof_replace": {
+      "operation": "Roof Panel Replace",
+      "triggerKeywords": ["roof", "roof panel"],
+      "triggerOperations": ["Replace", "Rpl", "New"],
+      "missedItems": [
+        {
+          "item": "R&I Headliner",
+          "category": "R&I",
+          "description": "Remove and install headliner",
+          "whyNeeded": "Access to roof panel welds",
+          "laborHours": 2.0,
+          "priority": "high"
+        },
+        {
+          "item": "Weld-Thru Primer",
+          "category": "Materials",
+          "description": "Zinc-rich primer for weld areas",
+          "whyNeeded": "Structural panel requires corrosion protection",
+          "typicalCost": 25.00,
+          "laborHours": 0.4,
+          "priority": "high"
+        },
+        {
+          "item": "Corrosion Protection",
+          "category": "Materials",
+          "description": "Cavity wax in pillars and roof rails",
+          "whyNeeded": "Critical for preventing rust in enclosed areas",
+          "typicalCost": 65.00,
+          "laborHours": 0.8,
+          "priority": "high"
+        },
+        {
+          "item": "Seam Sealer",
+          "category": "Materials",
+          "description": "Factory-style seam sealer application",
+          "whyNeeded": "Prevent water leaks at weld seams",
+          "typicalCost": 45.00,
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "R&I Roof Moldings",
+          "category": "R&I",
+          "description": "Remove drip rail moldings",
+          "whyNeeded": "Access to roof edges",
+          "laborHours": 0.5,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Sunroof Assembly",
+          "category": "R&I",
+          "description": "Remove sunroof if equipped",
+          "whyNeeded": "Sunroof is in roof panel",
+          "laborHours": 1.5,
+          "priority": "high"
+        },
+        {
+          "item": "Pre/Post Scan",
+          "category": "Diagnostic",
+          "description": "Diagnostic scan before and after",
+          "whyNeeded": "Roof work may affect sensors",
+          "laborHours": 0.5,
+          "priority": "high"
+        }
+      ]
+    },
+    "windshield_replace": {
+      "operation": "Windshield Replace",
+      "triggerKeywords": ["windshield", "w/s", "front glass"],
+      "triggerOperations": ["Replace", "Rpl", "New", "R&I"],
+      "missedItems": [
+        {
+          "item": "ADAS Camera Calibration",
+          "category": "Calibration",
+          "description": "Recalibrate forward-facing camera",
+          "whyNeeded": "Camera mounted to windshield - calibration required",
+          "degReference": "OEM requires calibration after windshield R&R",
+          "typicalCost": 350.00,
+          "priority": "critical"
+        },
+        {
+          "item": "R&I Rain Sensor",
+          "category": "R&I",
+          "description": "Transfer rain sensor to new windshield",
+          "whyNeeded": "Rain sensor mounted to windshield",
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Rearview Mirror",
+          "category": "R&I",
+          "description": "Transfer mirror mount",
+          "whyNeeded": "Mirror attached to windshield",
+          "laborHours": 0.2,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Cowl Cover",
+          "category": "R&I",
+          "description": "Remove cowl for access",
+          "whyNeeded": "Access to bottom of windshield",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Wipers",
+          "category": "R&I",
+          "description": "Remove wiper arms",
+          "whyNeeded": "Access to windshield edges",
+          "laborHours": 0.2,
+          "priority": "low"
+        },
+        {
+          "item": "Urethane/Adhesive",
+          "category": "Materials",
+          "description": "Windshield bonding urethane",
+          "whyNeeded": "Required for proper installation",
+          "typicalCost": 35.00,
+          "priority": "medium"
+        }
+      ]
+    },
+    "wheel_alignment": {
+      "operation": "Wheel Alignment",
+      "triggerKeywords": ["alignment", "wheel align", "4 wheel align", "front align"],
+      "triggerOperations": ["Align", "Alignment"],
+      "missedItems": [
+        {
+          "item": "ADAS Calibration Check",
+          "category": "Calibration",
+          "description": "Verify ADAS sensors after alignment",
+          "whyNeeded": "Alignment changes may require sensor recalibration",
+          "degReference": "Blind spot, lane departure, forward collision sensors may need calibration",
+          "priority": "high"
+        },
+        {
+          "item": "Steering Angle Sensor Reset",
+          "category": "Calibration",
+          "description": "Reset steering angle sensor",
+          "whyNeeded": "Required after alignment on most modern vehicles",
+          "laborHours": 0.2,
+          "priority": "high"
+        }
+      ]
+    },
+    "refinish_panel": {
+      "operation": "Refinish Any Panel",
+      "triggerKeywords": ["refinish", "paint", "rfn", "color"],
+      "triggerOperations": ["Refinish", "Rfn", "Paint"],
+      "missedItems": [
+        {
+          "item": "Clear Coat",
+          "category": "Refinish",
+          "description": "Clear coat application",
+          "whyNeeded": "2-stage and 3-stage paints require clear",
+          "laborHours": 0.4,
+          "priority": "high"
+        },
+        {
+          "item": "Color Sand/Buff",
+          "category": "Refinish",
+          "description": "Final finish color sanding and buffing",
+          "whyNeeded": "Remove orange peel, achieve factory finish",
+          "degReference": "NOT INCLUDED in refinish times",
+          "laborHours": 0.4,
+          "priority": "medium"
+        },
+        {
+          "item": "Denib",
+          "category": "Refinish",
+          "description": "Remove nibs from clear coat",
+          "whyNeeded": "Quality control step",
+          "laborHours": 0.2,
+          "priority": "low"
+        },
+        {
+          "item": "Mask Adjacent Panels",
+          "category": "Labor",
+          "description": "Mask surrounding panels for overspray",
+          "whyNeeded": "Prevent paint on adjacent surfaces",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "3-Stage Pearl/Tri-Coat",
+          "category": "Refinish",
+          "description": "Additional time for 3-stage paint",
+          "whyNeeded": "Three-stage paint requires additional steps",
+          "laborHoursMultiplier": 1.5,
+          "priority": "high",
+          "conditional": "Is3Stage"
+        }
+      ]
+    },
+    "structural_repair": {
+      "operation": "Structural/Frame Repair",
+      "triggerKeywords": ["frame", "rail", "apron", "strut tower", "unibody", "structural"],
+      "triggerOperations": ["Replace", "Repair", "Section", "Pull"],
+      "missedItems": [
+        {
+          "item": "Pre-Repair Measurements",
+          "category": "Labor",
+          "description": "Document frame dimensions before repair",
+          "whyNeeded": "Required to verify proper repair",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "Post-Repair Measurements",
+          "category": "Labor",
+          "description": "Document frame dimensions after repair",
+          "whyNeeded": "Proof of proper repair for liability",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "Setup/Tear Down Frame Machine",
+          "category": "Labor",
+          "description": "Configure frame equipment",
+          "whyNeeded": "Time to attach and remove vehicle from equipment",
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "Weld-Thru Primer",
+          "category": "Materials",
+          "description": "Zinc-rich primer for weld joints",
+          "whyNeeded": "OEM requirement for structural welds",
+          "typicalCost": 25.00,
+          "laborHours": 0.3,
+          "priority": "high"
+        },
+        {
+          "item": "Corrosion Protection - Cavities",
+          "category": "Materials",
+          "description": "Cavity wax in enclosed sections",
+          "whyNeeded": "Prevent rust in structural members",
+          "typicalCost": 55.00,
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "4-Wheel Alignment",
+          "category": "Mechanical",
+          "description": "Alignment after structural repair",
+          "whyNeeded": "Frame work affects wheel alignment",
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "Pre/Post Scan",
+          "category": "Diagnostic",
+          "description": "Diagnostic scan before and after",
+          "whyNeeded": "May have set codes during repair",
+          "laborHours": 0.5,
+          "priority": "high"
+        }
+      ]
+    }
+  },
+  "globalChecks": {
+    "estimateOver2500": {
+      "threshold": 2500,
+      "checks": [
+        {
+          "item": "Pre-Repair Scan",
+          "category": "Diagnostic",
+          "description": "Diagnostic scan before any work",
+          "whyNeeded": "Document existing codes, verify system status",
+          "degReference": "NOT INCLUDED - separate operation",
+          "laborHours": 0.5,
+          "priority": "high"
+        },
+        {
+          "item": "Post-Repair Scan",
+          "category": "Diagnostic",
+          "description": "Diagnostic scan after all work complete",
+          "whyNeeded": "Verify no new codes, systems functional",
+          "laborHours": 0.5,
+          "priority": "high"
+        }
+      ]
+    },
+    "anyRefinish": {
+      "condition": "hasRefinishOperations",
+      "checks": [
+        {
+          "item": "Color Tint/Match",
+          "category": "Materials",
+          "description": "Color matching and tinting",
+          "whyNeeded": "Match existing vehicle color",
+          "typicalCost": 45.00,
+          "priority": "medium"
+        },
+        {
+          "item": "Hazardous Waste Disposal",
+          "category": "Materials",
+          "description": "Proper disposal of paint materials",
+          "whyNeeded": "EPA/environmental compliance",
+          "typicalCost": 25.00,
+          "priority": "low"
+        }
+      ]
+    },
+    "anyWelding": {
+      "condition": "hasWeldingOperations",
+      "checks": [
+        {
+          "item": "Battery Disconnect",
+          "category": "Electrical",
+          "description": "Disconnect battery before welding",
+          "whyNeeded": "Protect vehicle electronics from welding current",
+          "laborHours": 0.3,
+          "priority": "high"
+        },
+        {
+          "item": "Battery Reconnect & Initialize",
+          "category": "Electrical",
+          "description": "Reconnect battery and initialize systems",
+          "whyNeeded": "Systems need reinitialization after disconnect",
+          "laborHours": 0.3,
+          "priority": "high"
+        }
+      ]
+    },
+    "anyADASVehicle": {
+      "condition": "hasADASComponents",
+      "description": "Vehicles with ADAS (2015+ most makes)",
+      "checks": [
+        {
+          "item": "Pre-Repair System Scan",
+          "category": "Diagnostic",
+          "description": "Full system diagnostic scan before repairs",
+          "whyNeeded": "Document existing DTCs and system status",
+          "degReference": "OEM position statements require pre-scan",
+          "laborHours": 0.5,
+          "priority": "critical"
+        },
+        {
+          "item": "Post-Repair System Scan",
+          "category": "Diagnostic",
+          "description": "Full system diagnostic scan after repairs",
+          "whyNeeded": "Verify no new codes, clear repair-related DTCs",
+          "laborHours": 0.5,
+          "priority": "critical"
+        },
+        {
+          "item": "ADAS Calibration Verification",
+          "category": "Calibration",
+          "description": "Verify ADAS systems operational",
+          "whyNeeded": "Safety systems must be verified functional",
+          "laborHours": 0.3,
+          "priority": "high"
+        }
+      ]
+    },
+    "anyElectricalWork": {
+      "condition": "hasElectricalComponents",
+      "description": "Any work involving lights, sensors, or wiring",
+      "checks": [
+        {
+          "item": "Aim Headlamps",
+          "category": "Electrical",
+          "description": "Adjust headlamp aim after R&I",
+          "whyNeeded": "Headlamps must be properly aimed for safety",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "Test All Lights",
+          "category": "Electrical",
+          "description": "Verify all exterior lights function",
+          "whyNeeded": "Ensure proper reconnection of all lighting",
+          "laborHours": 0.2,
+          "priority": "medium"
+        }
+      ]
+    },
+    "anyMechanicalWork": {
+      "condition": "hasMechanicalComponents",
+      "description": "Suspension, steering, or drivetrain work",
+      "checks": [
+        {
+          "item": "4-Wheel Alignment",
+          "category": "Mechanical",
+          "description": "Check/adjust wheel alignment",
+          "whyNeeded": "Mechanical work affects alignment",
+          "laborHours": 1.0,
+          "priority": "high"
+        },
+        {
+          "item": "Road Test",
+          "category": "Mechanical",
+          "description": "Test drive to verify repairs",
+          "whyNeeded": "Ensure proper operation after mechanical work",
+          "laborHours": 0.3,
+          "priority": "medium"
+        }
+      ]
+    },
+    "miscellaneous": {
+      "condition": "always",
+      "description": "Common items for all repairs",
+      "checks": [
+        {
+          "item": "Cover/Protect Vehicle Interior",
+          "category": "Labor",
+          "description": "Protect interior from dust/debris",
+          "whyNeeded": "Customer expectation - return vehicle clean",
+          "laborHours": 0.2,
+          "priority": "low"
+        },
+        {
+          "item": "Final Detail/Clean",
+          "category": "Labor",
+          "description": "Final cleanup and detail",
+          "whyNeeded": "Professional presentation to customer",
+          "laborHours": 0.3,
+          "priority": "low"
+        }
+      ]
+    }
+  }
+}

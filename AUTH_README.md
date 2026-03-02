@@ -1,6 +1,6 @@
-# Authentication System - McStud Desktop
+# Authentication System - Mcstud Desktop
 
-This document explains how to use and configure the authentication system for McStud Desktop.
+This document explains how to use and configure the authentication system for Mcstud Desktop.
 
 ## Overview
 

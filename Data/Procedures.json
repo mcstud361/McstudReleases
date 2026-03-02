@@ -1,0 +1,523 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2025-02-05",
+  "sources": {
+    "motor": "MOTOR Labor Time Guide",
+    "mitchell": "Mitchell Labor Time Guide"
+  },
+  "procedures": [
+    {
+      "id": "proc-prescan",
+      "name": "Pre-Repair Diagnostic Scan",
+      "category": "Diagnostics",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G9",
+      "description": "Performing a diagnostic scan on the vehicle before repairs begin to identify pre-existing and collision-related DTCs.",
+      "steps": [
+        "Connect scan tool to vehicle OBD-II port",
+        "Connect battery support (if required)",
+        "Turn ignition to ON/RUN position",
+        "Perform all-module scan",
+        "Document all DTCs present",
+        "Note freeze frame data",
+        "Print/save scan report"
+      ],
+      "timeGuideline": "0.5 - 1.0 hour depending on vehicle complexity",
+      "oilRequirement": "Required by most OEMs for any collision repair",
+      "equipment": [
+        "OEM or compatible diagnostic scan tool",
+        "Battery support device",
+        "Printer (optional)"
+      ],
+      "notes": "Always document scan results before clearing any codes.",
+      "tags": ["scan", "diagnostic", "pre-repair", "DTC"]
+    },
+    {
+      "id": "proc-postscan",
+      "name": "Post-Repair Diagnostic Scan",
+      "category": "Diagnostics",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G9",
+      "description": "Performing a diagnostic scan after repairs to verify no new DTCs and all systems functioning properly.",
+      "steps": [
+        "Complete all repairs",
+        "Connect scan tool to vehicle",
+        "Connect battery support (if required)",
+        "Perform all-module scan",
+        "Clear any repair-related DTCs (if appropriate)",
+        "Verify no new DTCs present",
+        "Road test and re-scan",
+        "Print/save final scan report"
+      ],
+      "timeGuideline": "0.5 - 1.0 hour",
+      "equipment": [
+        "OEM or compatible diagnostic scan tool",
+        "Battery support device"
+      ],
+      "notes": "Some DTCs require drive cycle to clear. Final scan should show clean results.",
+      "tags": ["scan", "diagnostic", "post-repair", "verification"]
+    },
+    {
+      "id": "proc-4wheel-alignment",
+      "name": "4-Wheel Alignment",
+      "category": "Mechanical",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G15",
+      "description": "Adjusting all four wheels to OEM specifications for camber, caster, toe, and thrust angle.",
+      "steps": [
+        "Position vehicle on alignment rack",
+        "Attach alignment heads to wheels",
+        "Perform compensation/calibration",
+        "Measure current alignment angles",
+        "Compare to OEM specifications",
+        "Adjust camber (if adjustable)",
+        "Adjust caster (if adjustable)",
+        "Adjust toe (front and rear)",
+        "Verify thrust angle",
+        "Print alignment report"
+      ],
+      "timeGuideline": "1.0 - 1.5 hours",
+      "equipment": [
+        "4-wheel alignment machine",
+        "Alignment heads/sensors",
+        "Turn plates",
+        "OEM specifications"
+      ],
+      "prerequisites": [
+        "Suspension components properly installed",
+        "Proper tire pressure",
+        "No worn/damaged suspension parts"
+      ],
+      "triggers": [
+        "Suspension component R&R",
+        "Steering component R&R",
+        "Subframe R&R",
+        "Structural repair affecting suspension points"
+      ],
+      "tags": ["alignment", "suspension", "steering", "camber", "toe"]
+    },
+    {
+      "id": "proc-adas-static",
+      "name": "ADAS Static Calibration",
+      "category": "ADAS/Calibration",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G33",
+      "description": "Calibrating ADAS sensors using stationary targets in a controlled environment.",
+      "steps": [
+        "Position vehicle on level surface",
+        "Verify tire pressure at OEM spec",
+        "Verify vehicle height (fuel level, no cargo)",
+        "Position targets at specified distance/height",
+        "Connect calibration tool",
+        "Initiate calibration procedure",
+        "Verify successful calibration",
+        "Clear any calibration-related DTCs",
+        "Test system operation"
+      ],
+      "timeGuideline": "1.0 - 2.0 hours depending on system",
+      "equipment": [
+        "OEM or compatible calibration tool",
+        "Calibration targets",
+        "Measuring tape/laser",
+        "Level surface"
+      ],
+      "prerequisites": [
+        "Wheel alignment completed",
+        "All related repairs completed",
+        "Clean sensors/cameras"
+      ],
+      "systemsCovered": [
+        "Forward collision warning",
+        "Automatic emergency braking",
+        "Lane departure warning",
+        "Lane keep assist",
+        "Adaptive cruise control"
+      ],
+      "tags": ["ADAS", "calibration", "camera", "static", "targets"]
+    },
+    {
+      "id": "proc-adas-dynamic",
+      "name": "ADAS Dynamic Calibration",
+      "category": "ADAS/Calibration",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G33",
+      "description": "Calibrating ADAS sensors by driving the vehicle under specific conditions.",
+      "steps": [
+        "Verify static calibration completed (if required)",
+        "Connect calibration tool",
+        "Initiate dynamic calibration mode",
+        "Drive vehicle on specified road type",
+        "Maintain required speed range",
+        "Drive for specified distance/time",
+        "Monitor calibration progress",
+        "Verify successful completion",
+        "Clear any related DTCs"
+      ],
+      "timeGuideline": "0.5 - 1.5 hours drive time plus setup",
+      "requirements": [
+        "Clear weather conditions",
+        "Proper road markings",
+        "Highway or specified road type",
+        "Maintain steady speed"
+      ],
+      "tags": ["ADAS", "calibration", "dynamic", "road test", "drive"]
+    },
+    {
+      "id": "proc-ac-evacuate-recharge",
+      "name": "A/C Evacuate and Recharge",
+      "category": "Mechanical",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G17",
+      "description": "Recovering refrigerant, evacuating the A/C system, and recharging with proper amount.",
+      "steps": [
+        "Connect A/C machine to service ports",
+        "Recover all refrigerant",
+        "Evacuate system to remove moisture",
+        "Hold vacuum to verify no leaks",
+        "Add compressor oil if needed",
+        "Recharge with specified refrigerant amount",
+        "Check system pressures",
+        "Verify vent temperature",
+        "Check for leaks"
+      ],
+      "timeGuideline": "1.0 - 1.5 hours",
+      "equipment": [
+        "A/C recovery/recharge machine",
+        "Refrigerant (correct type)",
+        "Leak detector",
+        "A/C manifold gauges"
+      ],
+      "notes": "Refrigerant recovery is required by EPA regulations.",
+      "tags": ["A/C", "refrigerant", "evacuate", "recharge"]
+    },
+    {
+      "id": "proc-headlight-aim",
+      "name": "Headlight Aiming",
+      "category": "Electrical/Lighting",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G19",
+      "description": "Adjusting headlight beam pattern to OEM specifications.",
+      "steps": [
+        "Position vehicle 25 feet from aiming screen/wall",
+        "Verify tire pressure and suspension",
+        "Turn on low beam headlights",
+        "Mark center point of each beam",
+        "Adjust vertical aim",
+        "Adjust horizontal aim",
+        "Verify high beam aim",
+        "Document final settings"
+      ],
+      "timeGuideline": "0.3 - 0.5 hours",
+      "equipment": [
+        "Headlight aiming equipment or marked wall",
+        "Measuring tape",
+        "Screwdriver/adjustment tool"
+      ],
+      "notes": "Both headlights should be aimed together for consistent results.",
+      "tags": ["headlight", "aiming", "lighting", "adjustment"]
+    },
+    {
+      "id": "proc-blend-refinish",
+      "name": "Blend Refinish",
+      "category": "Refinish",
+      "operation": "Partial panel refinish",
+      "pPageRef": "G36",
+      "description": "Refinishing a portion of an adjacent panel to achieve color match.",
+      "steps": [
+        "Clean blend area",
+        "Scuff/sand blend area",
+        "Mask non-spray areas",
+        "Apply color, fading at blend edge",
+        "Apply clear coat extending beyond color",
+        "Allow flash time",
+        "Remove masking"
+      ],
+      "timeGuideline": "Varies by panel - typically 30-50% of full refinish time",
+      "includedInBlend": [
+        "Partial masking",
+        "Limited surface prep on blend area",
+        "Color application with fade",
+        "Clear coat application"
+      ],
+      "notIncludedInBlend": [
+        "Full panel prep",
+        "Featheredging",
+        "Primer application",
+        "Full clear coat"
+      ],
+      "tags": ["blend", "refinish", "color match", "paint"]
+    },
+    {
+      "id": "proc-corrosion-protection",
+      "name": "Corrosion Protection Application",
+      "category": "Refinish/Protection",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G31",
+      "description": "Applying anti-corrosion materials to bare metal, welds, and enclosed cavities.",
+      "steps": [
+        "Clean all bare metal surfaces",
+        "Apply weld-through primer before welding",
+        "Complete welding operations",
+        "Apply anti-corrosion primer to welds",
+        "Apply seam sealer to seams/joints",
+        "Apply cavity wax to enclosed areas",
+        "Apply anti-corrosion compound as needed"
+      ],
+      "materials": [
+        "Weld-through primer",
+        "Self-etch primer",
+        "Seam sealer",
+        "Cavity wax",
+        "Anti-corrosion compound"
+      ],
+      "timeGuideline": "Varies by repair scope - 0.5 to 2.0+ hours",
+      "tags": ["corrosion", "protection", "weld-through", "seam sealer", "cavity wax"]
+    },
+    {
+      "id": "proc-denib",
+      "name": "De-Nib Refinished Surface",
+      "category": "Refinish",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G38",
+      "description": "Removing small particles (nibs) from the clear coat surface after refinish.",
+      "steps": [
+        "Allow clear coat to fully cure",
+        "Inspect surface for nibs under light",
+        "Wet sand nib with 1500-2000 grit",
+        "Compound sanded area",
+        "Polish to restore gloss",
+        "Inspect final result"
+      ],
+      "timeGuideline": {
+        "largeFirstPanel": "Up to 20% of base refinish time",
+        "smallFirstPanel": "Up to 10% of base refinish time",
+        "additionalPanels": "Up to 5% each"
+      },
+      "equipment": [
+        "De-nib tool or sandpaper (1500-2000 grit)",
+        "Compound",
+        "Polish",
+        "Buffer"
+      ],
+      "tags": ["de-nib", "refinish", "polish", "nibs"]
+    },
+    {
+      "id": "proc-glass-replacement",
+      "name": "Windshield Replacement",
+      "category": "Glass",
+      "operation": "R&R",
+      "pPageRef": "G18",
+      "description": "Removing and replacing vehicle windshield with proper urethane application.",
+      "steps": [
+        "Remove wiper arms",
+        "Remove exterior/interior trim",
+        "Cut out old windshield",
+        "Remove old urethane (leave 1-2mm)",
+        "Clean pinchweld",
+        "Apply primer (if needed)",
+        "Apply urethane bead",
+        "Set new windshield",
+        "Install moldings and trim",
+        "Reinstall wipers"
+      ],
+      "includedInLabor": [
+        "Glass removal",
+        "Basic pinchweld cleaning",
+        "Urethane application",
+        "Glass installation",
+        "Molding installation"
+      ],
+      "notIncludedInLabor": [
+        "Pinchweld repair",
+        "Rust treatment",
+        "Primer for damaged areas",
+        "Cure time",
+        "Water test",
+        "ADAS calibration"
+      ],
+      "cureTime": "1-24 hours depending on urethane product",
+      "tags": ["glass", "windshield", "urethane", "replacement"]
+    },
+    {
+      "id": "proc-measure-structural",
+      "name": "Structural Measurement Documentation",
+      "category": "Structural",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G10",
+      "description": "Documenting vehicle dimensions before, during, and after structural repair.",
+      "steps": [
+        "Set up measuring system",
+        "Take baseline measurements",
+        "Document pre-repair condition",
+        "Monitor during repair",
+        "Take final measurements",
+        "Compare to OEM specifications",
+        "Print measurement reports"
+      ],
+      "timeGuideline": "1.0 - 2.0 hours depending on damage",
+      "equipment": [
+        "3D measuring system (preferred)",
+        "Tram gauges",
+        "Centering gauges",
+        "OEM dimension specifications"
+      ],
+      "tags": ["measuring", "structural", "documentation", "frame"]
+    },
+    {
+      "id": "proc-color-tint",
+      "name": "Color Tinting/Matching",
+      "category": "Refinish",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G35",
+      "description": "Adjusting mixed paint color to match vehicle's actual color.",
+      "steps": [
+        "Mix base color from formula",
+        "Create spray-out card",
+        "Compare to vehicle",
+        "Add tints to adjust",
+        "Create new spray-out",
+        "Repeat until match achieved",
+        "Document final formula"
+      ],
+      "timeGuideline": "0.5 - 1.5 hours depending on color difficulty",
+      "equipment": [
+        "Paint mixing system",
+        "Spray-out cards/panels",
+        "Color matching light",
+        "Tint colors"
+      ],
+      "tags": ["color", "tinting", "matching", "refinish"]
+    },
+    {
+      "id": "proc-module-programming",
+      "name": "Module Programming/Coding",
+      "category": "Electrical",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G21",
+      "description": "Programming a new module with vehicle-specific software and configuration.",
+      "steps": [
+        "Install new module",
+        "Connect programming tool",
+        "Connect battery support",
+        "Download vehicle data",
+        "Program module software",
+        "Configure vehicle options",
+        "Initialize module",
+        "Verify operation",
+        "Clear any DTCs"
+      ],
+      "timeGuideline": "0.5 - 2.0 hours depending on module type",
+      "equipment": [
+        "OEM or compatible programming tool",
+        "Stable internet connection",
+        "Battery support device"
+      ],
+      "notes": "Most new modules arrive blank and require programming.",
+      "tags": ["module", "programming", "coding", "ECU", "BCM"]
+    },
+    {
+      "id": "proc-wetsand-buff",
+      "name": "Wet Sand and Buff",
+      "category": "Refinish",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G39",
+      "description": "Final finishing to achieve smooth, high-gloss clear coat surface.",
+      "steps": [
+        "Allow clear coat to fully cure",
+        "Wet sand with 1500-2000 grit",
+        "Progress to finer grits if needed",
+        "Apply compound with buffer",
+        "Apply polish",
+        "Apply final protection (optional)",
+        "Inspect under multiple light sources"
+      ],
+      "timeGuideline": "0.5 - 1.5 hours per panel",
+      "equipment": [
+        "Wet sandpaper (1500-3000 grit)",
+        "Sanding block",
+        "Compound",
+        "Polish",
+        "Buffer/polisher"
+      ],
+      "tags": ["wet sand", "buff", "polish", "refinish"]
+    },
+    {
+      "id": "proc-cover-car",
+      "name": "Cover Car / Full Vehicle Masking",
+      "category": "Refinish",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G34",
+      "description": "Masking entire vehicle to protect from overspray.",
+      "steps": [
+        "Clean vehicle exterior",
+        "Mask all glass",
+        "Mask/cover body panels",
+        "Mask wheels and tires",
+        "Mask door jambs (if not painting)",
+        "Cover with plastic film",
+        "Tape all seams"
+      ],
+      "timeGuideline": "0.5 - 1.0 hours",
+      "notes": "Required when spray area could affect entire vehicle.",
+      "tags": ["cover car", "masking", "overspray", "protection"]
+    },
+    {
+      "id": "proc-tricoat-refinish",
+      "name": "Three-Stage (Tri-Coat) Refinish",
+      "category": "Refinish",
+      "operation": "Additional time required",
+      "pPageRef": "G41",
+      "description": "Refinishing panels with three-stage paint systems (base/mid-coat/clear).",
+      "steps": [
+        "Apply ground coat (base color)",
+        "Allow flash time",
+        "Apply mid-coat (pearl/effect)",
+        "Allow extended flash time",
+        "Apply clear coat",
+        "Allow flash between clear coats"
+      ],
+      "timeGuideline": "Add 20-30% to base refinish time",
+      "notes": "Three-stage systems include pearl, candy, and special effect paints.",
+      "tags": ["tri-coat", "three-stage", "pearl", "candy", "refinish"]
+    },
+    {
+      "id": "proc-seatbelt-inspection",
+      "name": "Seatbelt Inspection",
+      "category": "Safety",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G14",
+      "description": "Inspecting seatbelt components for damage after collision.",
+      "steps": [
+        "Inspect webbing for cuts, fraying, burns",
+        "Inspect retractor operation",
+        "Inspect buckle operation",
+        "Inspect anchor points",
+        "Check pretensioner (if equipped)",
+        "Document inspection results"
+      ],
+      "timeGuideline": "0.2 - 0.5 hours",
+      "notes": "Many OEMs require seatbelt replacement if vehicle was in collision while occupied.",
+      "tags": ["seatbelt", "inspection", "safety", "restraint"]
+    },
+    {
+      "id": "proc-featheredge-prime-block",
+      "name": "Featheredge, Prime, and Block",
+      "category": "Refinish",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G36",
+      "description": "Preparing damaged paint edges for refinish.",
+      "steps": [
+        "Feather existing paint edges",
+        "Sand to create smooth transition",
+        "Clean and degrease",
+        "Apply primer/surfacer",
+        "Allow to dry/cure",
+        "Block sand to level",
+        "Apply guide coat",
+        "Final block sand"
+      ],
+      "timeGuideline": "0.3 - 0.8 hours per panel",
+      "tags": ["featheredge", "prime", "block", "sanding", "prep"]
+    }
+  ]
+}

@@ -1,0 +1,415 @@
+{
+  "version": "3.0",
+  "lastUpdated": "2026-02-18",
+  "sections": [
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "icon": "E8F1",
+      "order": 1,
+      "topics": [
+        {
+          "id": "input-cells",
+          "title": "Input Cells",
+          "summary": "How to use input cells in MET Excel",
+          "images": ["input_cells.png", "dropdown_example.png"],
+          "content": [
+            "In MET, you will have two different kinds of cells: Input Cells and Output Cells.",
+            "Input Cells are lightly colored cells that require user input.",
+            "You can either type into the cell or select from a dropdown menu.",
+            "Input Cells provide the information necessary to formulate Output Cells.",
+            "To clear an Input Cell, select 'No' from dropdown or press Backspace."
+          ],
+          "tips": [
+            "Look for lightly colored cells - these are your inputs",
+            "Dropdowns make selection faster and reduce errors",
+            "Backspace clears any input cell quickly"
+          ],
+          "keywords": ["input", "cell", "dropdown", "type", "enter", "clear", "backspace"]
+        },
+        {
+          "id": "output-cells",
+          "title": "Output Cells",
+          "summary": "Understanding output cells and estimate lines",
+          "images": ["output_cells.png", "output_with_notes.png"],
+          "content": [
+            "Output Cells are the estimate lines that appear based on your inputs.",
+            "Output Cells dynamically change based upon your Input Cells.",
+            "These are the lines you will export to CCC or Mitchell."
+          ],
+          "tips": [
+            "Output cells update automatically as you fill in inputs",
+            "Review output cells before exporting to ensure accuracy"
+          ],
+          "keywords": ["output", "cell", "estimate", "line", "dynamic", "result"]
+        },
+        {
+          "id": "excel-notes",
+          "title": "Reading Notes (Red Arrows)",
+          "summary": "How to read Microsoft Excel notes in MET",
+          "images": ["excel_note_1.png", "excel_note_2.png"],
+          "content": [
+            "Microsoft Excel Notes have a Red Arrow in the top right corner of the cell.",
+            "To read the note, hover your mouse over the red arrow.",
+            "Notes contain important information throughout MET.",
+            "These notes provide context, P-page references, and helpful tips."
+          ],
+          "tips": [
+            "Always check for red arrows - they contain valuable info",
+            "Notes often reference P-pages or DEG inquiries",
+            "Hover don't click to see the note content"
+          ],
+          "keywords": ["note", "red", "arrow", "hover", "information", "tip", "comment"]
+        },
+        {
+          "id": "tabs-navigation",
+          "title": "Navigating Tabs",
+          "summary": "How to navigate MET tabs",
+          "images": ["met_tabs.png", "tab_menu.png", "all_sheets_button.png"],
+          "content": [
+            "Located at the bottom of Excel will be several tabs.",
+            "Tabs categorize operations per Estimate area (Body, Mechanical, Refinish, etc.).",
+            "You can navigate left to right or click on the 3-line button for a tab list.",
+            "When writing an estimate or repair plan, it is recommended to go through ALL tabs."
+          ],
+          "tips": [
+            "Don't skip tabs - each one has unique operations",
+            "Go systematically from left to right for best coverage",
+            "Use the 3-line menu for quick tab jumping"
+          ],
+          "keywords": ["tab", "navigate", "bottom", "sheet", "switch", "area", "section"]
+        }
+      ]
+    },
+    {
+      "id": "streamline-workflow",
+      "title": "Streamlining Your Workflow",
+      "icon": "E768",
+      "order": 2,
+      "topics": [
+        {
+          "id": "vehicle-info-gathering",
+          "title": "Gathering Vehicle Info (Car in Front of You)",
+          "summary": "Essential information to collect when the vehicle is in front of you",
+          "images": ["vehicle_info.png", "vin_location.png"],
+          "content": [
+            "When the vehicle is in front of you, gather ALL essential information FIRST:",
+            "",
+            "1. VIN NUMBER - Locate on dash (driver's side) or door jamb",
+            "   - Decode the VIN to get exact year, make, model, trim, engine",
+            "   - Verify it matches the estimate/assignment",
+            "",
+            "2. MILEAGE - Record current odometer reading",
+            "",
+            "3. PAINT CODE - Find on driver's door jamb sticker or under hood",
+            "   - Record both the color code and variant/toner codes if present",
+            "   - Take a photo of the paint code label",
+            "",
+            "4. PRODUCTION DATE - On the same label as paint code",
+            "   - Important for part compatibility and OEM procedures",
+            "",
+            "5. PRE-SCAN - Run diagnostic scan BEFORE any disassembly",
+            "   - Document ALL DTCs (Diagnostic Trouble Codes)",
+            "   - Screenshot or print the scan results",
+            "",
+            "6. PHOTOS - Take comprehensive photos:",
+            "   - 4 corners of vehicle",
+            "   - All damage areas (close-up and wide shots)",
+            "   - VIN plate, paint code, mileage",
+            "   - Any pre-existing damage",
+            "",
+            "7. OPTIONS/EQUIPMENT - Note ADAS features:",
+            "   - Blind spot monitors",
+            "   - Forward collision warning",
+            "   - Lane departure / Lane keep assist",
+            "   - Adaptive cruise control",
+            "   - 360 cameras / parking sensors",
+            "",
+            "8. TIRE INFO - Record tire sizes and condition",
+            "   - Note if mismatched or worn",
+            "",
+            "9. KEY TYPE - Standard, proximity/push-button, or dead key fob?"
+          ],
+          "tips": [
+            "ALWAYS verify VIN matches the assignment before starting",
+            "Take MORE photos than you think you need",
+            "Pre-scan is REQUIRED for all vehicles - document it",
+            "Paint code photos save time when ordering materials",
+            "Note all ADAS features - they require calibrations",
+            "Check for aftermarket parts or modifications"
+          ],
+          "keywords": ["vin", "vehicle", "info", "information", "gather", "collect", "paint code", "mileage", "pre-scan", "scan", "photos", "adas", "options", "car in front", "first steps"]
+        },
+        {
+          "id": "clip-it-button",
+          "title": "Using the Clip It Button",
+          "summary": "How to copy operations from MET Excel",
+          "images": ["clip_it_button.png"],
+          "content": [
+            "Step 1: Locate the 'Clip It' button in MET Excel and LEFT CLICK it.",
+            "Step 2: Press Ctrl + C to copy the selected operations.",
+            "The operations are now on your clipboard ready for export."
+          ],
+          "tips": [
+            "Left click only - don't double click",
+            "Ctrl+C copies the formatted operations",
+            "The MET Desktop tool will detect the clipboard automatically"
+          ],
+          "keywords": ["clip", "copy", "clipboard", "ctrl+c", "export", "select"]
+        },
+        {
+          "id": "export-to-ccc",
+          "title": "Exporting to CCC ONE",
+          "summary": "How to paste operations into CCC ONE using MET Desktop Tool",
+          "images": ["ccc_column_a.png", "ccc_part_codes.png"],
+          "content": [
+            "Step 1: Copy operations from MET Excel (Clip It + Ctrl+C).",
+            "Step 2: Open CCC ONE and click in column A where you want to paste.",
+            "Step 3: Click the 'CCC Desktop' button in MET Desktop Tool.",
+            "The tool will automatically type each operation into CCC ONE.",
+            "Input is blocked during paste so you can't accidentally interfere."
+          ],
+          "tips": [
+            "Make sure CCC ONE is open before clicking export",
+            "Click in column A where you want operations to start",
+            "The tool handles everything - just wait for it to finish",
+            "If needed, Ctrl+Z in CCC to undo"
+          ],
+          "keywords": ["ccc", "paste", "export", "column", "ccc one", "desktop"]
+        },
+        {
+          "id": "part-codes-setup",
+          "title": "Part Codes Setup in CCC",
+          "summary": "Setting up part codes for faster estimating",
+          "content": [
+            "To work efficiently, add placeholder Part Codes in CCC.",
+            "When you select Part Codes during estimating, you have quick placeholders to different areas.",
+            "Recommended base part codes to add:",
+            "- Placeholder for Body operations",
+            "- Placeholder for Mechanical operations",
+            "- Placeholder for Refinish operations",
+            "- Placeholder for Miscellaneous operations",
+            "You can add more as needed - these 4 are a great baseline."
+          ],
+          "tips": [
+            "Set up part codes once, use them forever",
+            "Part codes let you quickly jump to estimate sections",
+            "Customize part codes for your shop's workflow"
+          ],
+          "keywords": ["part code", "setup", "placeholder", "ccc", "shortcut", "quick"]
+        },
+        {
+          "id": "met-desktop-tool",
+          "title": "Using MET Desktop Tool",
+          "summary": "How this tool works with MET Excel",
+          "content": [
+            "MET Desktop Tool monitors your clipboard automatically.",
+            "When you copy from MET Excel, operations appear in the Export tab.",
+            "Click the 'CCC Desktop' button to export directly to CCC ONE.",
+            "The tool uses smart automation to paste safely - input is blocked during paste.",
+            "The tool stays on top so it's always accessible while you work."
+          ],
+          "tips": [
+            "Keep MET Desktop Tool running while estimating",
+            "The tool stays always-on-top for easy access",
+            "Use the Export tab to see what's on clipboard",
+            "Check the Reference tab for P-pages and DEG info",
+            "Use the Guide tab (this tab!) for help anytime"
+          ],
+          "keywords": ["desktop", "tool", "monitor", "clipboard", "automatic", "export"]
+        }
+      ]
+    },
+    {
+      "id": "virtual-clipboard",
+      "title": "Virtual Clipboard",
+      "icon": "E8C8",
+      "order": 3,
+      "topics": [
+        {
+          "id": "vc-installation",
+          "title": "Installation",
+          "summary": "How to install MET Desktop Tool",
+          "content": [
+            "Download from the provided link or OneDrive location.",
+            "Save to an accessible location in your file explorer.",
+            "Windows may show a security warning - click 'More info' then 'Run anyway'.",
+            "The download is a secure Windows Application."
+          ],
+          "tips": [
+            "Save to a location you can easily find (Desktop or Documents)",
+            "Security warnings are normal for downloaded apps"
+          ],
+          "keywords": ["install", "download", "setup", "virtual", "clipboard"]
+        },
+        {
+          "id": "vc-activation",
+          "title": "Activation",
+          "summary": "How to activate MET Desktop Tool",
+          "content": [
+            "Double-click the application to launch.",
+            "If prompted, input your licensed email address.",
+            "You will receive either 'Valid' or 'Invalid' response.",
+            "Valid = Activated and ready to use.",
+            "Invalid = Not authorized or incorrect email/spelling error."
+          ],
+          "tips": [
+            "Check email spelling carefully",
+            "Use the exact email that was licensed",
+            "Contact support if you get Invalid with correct email"
+          ],
+          "keywords": ["activate", "license", "email", "valid", "invalid", "authorize"]
+        },
+        {
+          "id": "vc-troubleshooting",
+          "title": "Troubleshooting",
+          "summary": "Common issues and solutions",
+          "content": [
+            "If clipboard appears empty: Make sure you copied from MET Excel (Clip It + Ctrl+C).",
+            "If not authorized: Verify you're using the correct licensed email.",
+            "If Invalid response: Check for spelling errors in email.",
+            "If paste isn't working: Make sure CCC ONE is open and you clicked in column A.",
+            "Contact Mcstudestimating@gmail.com for support."
+          ],
+          "tips": [
+            "Most issues are email spelling related",
+            "Make sure MET Excel has the Clip It range selected before copying",
+            "Restart the tool if clipboard isn't updating"
+          ],
+          "keywords": ["troubleshoot", "problem", "error", "help", "support", "fix"]
+        }
+      ]
+    }
+  ],
+  "contextualHelp": {
+    "export-tab": {
+      "title": "Export Tab Help",
+      "description": "This tab shows your clipboard contents and lets you export to CCC or Mitchell.",
+      "steps": [
+        "1. Copy operations from MET Excel (Clip It + Ctrl+C)",
+        "2. Operations appear in the preview below",
+        "3. Click in CCC ONE column A where you want to paste",
+        "4. Click 'CCC Desktop' button to export",
+        "5. Wait for paste to complete - input is blocked during paste"
+      ],
+      "tips": [
+        "Keep CCC ONE open before clicking export",
+        "Click in column A first, then click export button",
+        "Check operation count matches what you expected"
+      ]
+    },
+    "import-tab": {
+      "title": "Import Tab Help",
+      "description": "Import and analyze existing estimates to find missing items.",
+      "steps": [
+        "1. Paste estimate text or upload PDF",
+        "2. Tool parses the estimate automatically",
+        "3. Review suggested missing items",
+        "4. Add items to your export clipboard"
+      ],
+      "tips": [
+        "Works with CCC estimate PDFs",
+        "Checks against knowledge base for missed items",
+        "Great for supplement review"
+      ]
+    },
+    "chat-tab": {
+      "title": "Chat Tab Help",
+      "description": "AI assistant for estimating questions.",
+      "steps": [
+        "1. Type your question in the chat box",
+        "2. Get answers about procedures, P-pages, operations",
+        "3. Copy useful info to your estimate notes"
+      ],
+      "tips": [
+        "Ask about specific operations",
+        "Request P-page references",
+        "Get help with ADAS calibrations"
+      ]
+    },
+    "stats-tab": {
+      "title": "Stats Tab Help",
+      "description": "View your export statistics and performance metrics.",
+      "steps": [
+        "1. Select time period (daily, weekly, monthly)",
+        "2. View export counts and totals",
+        "3. Track your productivity over time"
+      ],
+      "tips": [
+        "Stats help identify patterns",
+        "Compare performance across periods",
+        "Track labor hours exported"
+      ]
+    },
+    "reference-tab": {
+      "title": "Reference Tab Help",
+      "description": "Quick access to definitions, P-pages, DEG inquiries, and procedures.",
+      "steps": [
+        "1. Select category (Definitions, P-Pages, DEG, Procedures)",
+        "2. Search or browse topics",
+        "3. Click to expand details",
+        "4. Copy to clipboard for use in estimates"
+      ],
+      "tips": [
+        "Use search for quick lookups",
+        "P-pages support your billing",
+        "DEG inquiries are industry rulings"
+      ]
+    },
+    "settings-tab": {
+      "title": "Settings Tab Help",
+      "description": "Configure tool behavior and preferences.",
+      "steps": [
+        "1. Adjust paste speed for your computer",
+        "2. Check for updates",
+        "3. View version information"
+      ],
+      "tips": [
+        "Slower paste speed is more reliable on older computers",
+        "Keep auto-update enabled for latest features"
+      ]
+    },
+    "guide-tab": {
+      "title": "Guide Tab Help",
+      "description": "Learn how to use MET Excel and MET Desktop Tool.",
+      "steps": [
+        "1. Use search to find specific topics",
+        "2. Expand sections to read detailed guides",
+        "3. Check Quick Answers for common questions"
+      ],
+      "tips": [
+        "Search for keywords like 'paste' or 'copy'",
+        "Each section covers a different aspect of MET"
+      ]
+    },
+    "shop-docs-tab": {
+      "title": "Shop Docs Help",
+      "description": "Access and print shop checklists, forms, and documents.",
+      "steps": [
+        "1. Select a checklist from the dropdown",
+        "2. Optionally enter an RO number",
+        "3. Click 'Copy' to copy as text or 'Print' to open printable version",
+        "4. Print opens in your browser - use Ctrl+P to print"
+      ],
+      "tips": [
+        "RO number will appear on printed checklist",
+        "Required items are marked with red asterisk",
+        "Use checklists to ensure nothing is missed"
+      ]
+    }
+  },
+  "quickAnswers": {
+    "what info do i need from the car": "VIN, mileage, paint code, production date, pre-scan, photos, ADAS features, tire info, and key type.",
+    "what to do when car arrives": "1) Verify VIN 2) Record mileage 3) Find paint code 4) Pre-scan 5) Take photos 6) Note ADAS features",
+    "where is the paint code": "Driver's door jamb sticker or under the hood on a label. Take a photo of it.",
+    "how do i copy": "Use the 'Clip It' button in MET Excel, then press Ctrl+C.",
+    "how do i paste to ccc": "Click in column A in CCC ONE, then click the 'CCC Desktop' button in MET Tool.",
+    "what is an input cell": "A lightly colored cell where you type or select from dropdown.",
+    "what is an output cell": "The estimate lines generated from your inputs.",
+    "what are red arrows": "Excel notes - hover over them to read important information.",
+    "how do i navigate tabs": "Click tabs at the bottom of Excel or use the 3-line menu.",
+    "why is paste not working": "Make sure CCC ONE is open and you clicked in column A before clicking export.",
+    "how do i clear a cell": "Select 'No' from dropdown or press Backspace.",
+    "how do i export": "Copy from MET Excel, click in CCC column A, then click 'CCC Desktop' button."
+  }
+}

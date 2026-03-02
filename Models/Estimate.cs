@@ -3,13 +3,23 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace McStudDesktop.Models;
+namespace McstudDesktop.Models;
 
+/// <summary>
+/// Represents an estimate with operations across multiple categories.
+/// Optimized with cached totals and single-pass aggregation.
+/// </summary>
 public class Estimate : INotifyPropertyChanged
 {
     private string _customerName = string.Empty;
     private string _vehicleInfo = string.Empty;
     private DateTime _dateCreated = DateTime.Now;
+
+    // Cached totals - invalidated when RefreshTotals is called
+    private int? _cachedOperationsCount;
+    private decimal? _cachedPrice;
+    private decimal? _cachedLaborHours;
+    private decimal? _cachedRefinishHours;
 
     public string CustomerName
     {
@@ -40,21 +50,63 @@ public class Estimate : INotifyPropertyChanged
     public ObservableCollection<Operation> BodyOnFrameOperations { get; } = new();
     public ObservableCollection<Operation> StolenRecoveryOperations { get; } = new();
 
-    // Summary calculations
+    // All collections for iteration
+    private IEnumerable<ObservableCollection<Operation>> AllCollections =>
+    [
+        SOPOperations, PartOperations, CoverCarOperations, BodyOperations,
+        RefinishOperations, MechanicalOperations, SRSOperations,
+        TotalLossOperations, BodyOnFrameOperations, StolenRecoveryOperations
+    ];
+
+    /// <summary>
+    /// Calculate all totals in a single pass (more efficient than separate LINQ queries)
+    /// </summary>
+    private (int count, decimal price, decimal labor, decimal refinish) CalculateAllTotals()
+    {
+        int totalCount = 0;
+        decimal totalPrice = 0m;
+        decimal totalLabor = 0m;
+        decimal totalRefinish = 0m;
+
+        foreach (var collection in AllCollections)
+        {
+            foreach (var op in collection)
+            {
+                if (op.IsVisible)
+                {
+                    totalCount++;
+                    totalPrice += op.TotalPrice;
+                    totalLabor += op.TotalLaborHours;
+                    totalRefinish += op.TotalRefinishHours;
+                }
+            }
+        }
+
+        return (totalCount, totalPrice, totalLabor, totalRefinish);
+    }
+
+    /// <summary>
+    /// Ensure cached values are calculated
+    /// </summary>
+    private void EnsureCacheValid()
+    {
+        if (_cachedOperationsCount.HasValue)
+            return;
+
+        var (count, price, labor, refinish) = CalculateAllTotals();
+        _cachedOperationsCount = count;
+        _cachedPrice = price;
+        _cachedLaborHours = labor;
+        _cachedRefinishHours = refinish;
+    }
+
+    // Summary calculations with caching
     public int TotalOperationsCount
     {
         get
         {
-            return SOPOperations.Count(o => o.IsVisible) +
-                   PartOperations.Count(o => o.IsVisible) +
-                   CoverCarOperations.Count(o => o.IsVisible) +
-                   BodyOperations.Count(o => o.IsVisible) +
-                   RefinishOperations.Count(o => o.IsVisible) +
-                   MechanicalOperations.Count(o => o.IsVisible) +
-                   SRSOperations.Count(o => o.IsVisible) +
-                   TotalLossOperations.Count(o => o.IsVisible) +
-                   BodyOnFrameOperations.Count(o => o.IsVisible) +
-                   StolenRecoveryOperations.Count(o => o.IsVisible);
+            EnsureCacheValid();
+            return _cachedOperationsCount!.Value;
         }
     }
 
@@ -62,16 +114,8 @@ public class Estimate : INotifyPropertyChanged
     {
         get
         {
-            return SOPOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   PartOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   CoverCarOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   BodyOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   RefinishOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   MechanicalOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   SRSOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   TotalLossOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   BodyOnFrameOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice) +
-                   StolenRecoveryOperations.Where(o => o.IsVisible).Sum(o => o.TotalPrice);
+            EnsureCacheValid();
+            return _cachedPrice!.Value;
         }
     }
 
@@ -79,16 +123,8 @@ public class Estimate : INotifyPropertyChanged
     {
         get
         {
-            return SOPOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   PartOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   CoverCarOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   BodyOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   RefinishOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   MechanicalOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   SRSOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   TotalLossOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   BodyOnFrameOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours) +
-                   StolenRecoveryOperations.Where(o => o.IsVisible).Sum(o => o.TotalLaborHours);
+            EnsureCacheValid();
+            return _cachedLaborHours!.Value;
         }
     }
 
@@ -96,25 +132,36 @@ public class Estimate : INotifyPropertyChanged
     {
         get
         {
-            return SOPOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   PartOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   CoverCarOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   BodyOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   RefinishOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   MechanicalOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   SRSOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   TotalLossOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   BodyOnFrameOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours) +
-                   StolenRecoveryOperations.Where(o => o.IsVisible).Sum(o => o.TotalRefinishHours);
+            EnsureCacheValid();
+            return _cachedRefinishHours!.Value;
         }
     }
 
+    /// <summary>
+    /// Invalidate cached totals and notify property changes
+    /// </summary>
     public void RefreshTotals()
     {
+        // Invalidate cache
+        _cachedOperationsCount = null;
+        _cachedPrice = null;
+        _cachedLaborHours = null;
+        _cachedRefinishHours = null;
+
         OnPropertyChanged(nameof(TotalOperationsCount));
         OnPropertyChanged(nameof(TotalPrice));
         OnPropertyChanged(nameof(TotalLaborHours));
         OnPropertyChanged(nameof(TotalRefinishHours));
+    }
+
+    /// <summary>
+    /// Get a summary tuple of all totals in one call (avoids multiple property access)
+    /// </summary>
+    public (int Count, decimal Price, decimal Labor, decimal Refinish) GetTotalsSummary()
+    {
+        EnsureCacheValid();
+        return (_cachedOperationsCount!.Value, _cachedPrice!.Value,
+                _cachedLaborHours!.Value, _cachedRefinishHours!.Value);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

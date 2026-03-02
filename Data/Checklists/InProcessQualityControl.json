@@ -1,0 +1,134 @@
+{
+  "id": "in-process-quality-control",
+  "title": "In-Process Quality Control",
+  "description": "Ultimate Collision comprehensive quality control checklist for OEM certification compliance",
+  "version": "1.0",
+  "shopName": "Ultimate Collision",
+  "sections": [
+    {
+      "id": "body-structural",
+      "title": "Body/Structural",
+      "icon": "Box",
+      "items": [
+        { "id": "body-1", "text": "RO Received", "required": true },
+        { "id": "body-2", "text": "Vehicle Pre-Scanned", "required": true },
+        { "id": "body-3", "text": "DFR (Disassembly for Repair)", "required": true },
+        { "id": "body-4", "text": "Vehicle Measured", "required": true },
+        { "id": "body-5", "text": "OEM Procedures Provided", "required": true },
+        { "id": "body-6", "text": "Parts Repaired/Replaced", "required": true },
+        { "id": "body-7", "text": "Uni-Body Repaired", "required": false },
+        { "id": "body-8", "text": "Frame Repaired", "required": false },
+        { "id": "body-9", "text": "Test Welds Completed", "required": true },
+        { "id": "body-10", "text": "Welds Dressed", "required": true },
+        { "id": "body-11", "text": "Panels Replaced", "required": false },
+        { "id": "body-12", "text": "Hardware/Fasteners", "required": true },
+        { "id": "body-13", "text": "Proper Operation: Doors", "required": true },
+        { "id": "body-14", "text": "Proper Operation: Door Locks", "required": true },
+        { "id": "body-15", "text": "Proper Operation: Hood, Trunk", "required": true },
+        { "id": "body-16", "text": "Adhesive Materials Applied as per OEM", "required": true },
+        { "id": "body-17", "text": "Panel Gaps within Specs", "required": true },
+        { "id": "body-18", "text": "Post Scan", "required": true }
+      ]
+    },
+    {
+      "id": "mechanical-electrical",
+      "title": "Mechanical/Electrical",
+      "icon": "Truck",
+      "items": [
+        { "id": "mech-1", "text": "Parts Replaced/Repaired as per RO", "required": true },
+        { "id": "mech-2", "text": "Belts, Hoses, Clamps Operational", "required": true },
+        { "id": "mech-3", "text": "AC System Charged", "required": false },
+        { "id": "mech-4", "text": "Refrigerant Leak Checked", "required": false },
+        { "id": "mech-5", "text": "Radiator Replaced", "required": false },
+        { "id": "mech-6", "text": "Coolant Level Checked", "required": true },
+        { "id": "mech-7", "text": "Fans Operational", "required": true },
+        { "id": "mech-8", "text": "Tire Pressure Checked", "required": true },
+        { "id": "mech-9", "text": "Lug Nuts Properly Torqued", "required": true },
+        { "id": "mech-10", "text": "Headlamps Checked, Aimed", "required": true },
+        { "id": "mech-11", "text": "Brake Lights Checked", "required": true },
+        { "id": "mech-12", "text": "Signal/Parking Lamps Checked", "required": true },
+        { "id": "mech-13", "text": "Horn, Speakers, Radio, Navigation", "required": true },
+        { "id": "mech-14", "text": "SRS, Seatbelts Checked", "required": true },
+        { "id": "mech-15", "text": "Suspension Parts Replaced", "required": false },
+        { "id": "mech-16", "text": "Wheel Alignment", "required": true },
+        { "id": "mech-17", "text": "Steering Angle Sensor", "required": true },
+        { "id": "mech-18", "text": "Test Drive", "required": true }
+      ]
+    },
+    {
+      "id": "refinish",
+      "title": "Refinish",
+      "icon": "Paint",
+      "items": [
+        { "id": "ref-1", "text": "Panels Refinished per RO", "required": true },
+        { "id": "ref-2", "text": "Corrosion Protection", "required": true },
+        { "id": "ref-3", "text": "Seam Sealer", "required": true },
+        { "id": "ref-4", "text": "Proper Color Match", "required": true },
+        { "id": "ref-5", "text": "Undercoating Applied", "required": true },
+        { "id": "ref-6", "text": "Refinish Jambs/Underside", "required": true },
+        { "id": "ref-7", "text": "Chip Guard", "required": false }
+      ]
+    },
+    {
+      "id": "detail",
+      "title": "Detail",
+      "icon": "Checkmark",
+      "items": [
+        { "id": "detail-1", "text": "Vehicle Cleaned Properly", "required": true },
+        { "id": "detail-2", "text": "Stripes", "required": false },
+        { "id": "detail-3", "text": "Moldings/Emblems", "required": true },
+        { "id": "detail-4", "text": "Overspray Removed", "required": true },
+        { "id": "detail-5", "text": "Windows Clean", "required": true },
+        { "id": "detail-6", "text": "Touch Up Vehicle", "required": true },
+        { "id": "detail-7", "text": "Trunk Clean", "required": true },
+        { "id": "detail-8", "text": "No Parts in Vehicle", "required": true },
+        { "id": "detail-9", "text": "Spare Tire Compartment Clean", "required": true }
+      ]
+    },
+    {
+      "id": "qc-inspection",
+      "title": "QC Inspection",
+      "icon": "Shield",
+      "items": [
+        { "id": "qc-1", "text": "Body/Structural QC Complete", "required": true },
+        { "id": "qc-2", "text": "Body QC Issues Documented", "required": false },
+        { "id": "qc-3", "text": "Body QC Issues Corrected", "required": false },
+        { "id": "qc-4", "text": "Mechanical/Electrical QC Complete", "required": true },
+        { "id": "qc-5", "text": "Mechanical QC Issues Documented", "required": false },
+        { "id": "qc-6", "text": "Mechanical QC Issues Corrected", "required": false },
+        { "id": "qc-7", "text": "Refinish/Detail QC Complete", "required": true },
+        { "id": "qc-8", "text": "Refinish QC Issues Documented", "required": false },
+        { "id": "qc-9", "text": "Refinish QC Issues Corrected", "required": false }
+      ]
+    },
+    {
+      "id": "adas",
+      "title": "ADAS Systems",
+      "icon": "Target",
+      "items": [
+        { "id": "adas-1", "text": "ADAS Equipped: Confirmed Yes/No", "required": true },
+        { "id": "adas-2", "text": "Camera (Front) - Calibration Required", "required": false },
+        { "id": "adas-3", "text": "Camera (Rear) - Calibration Required", "required": false },
+        { "id": "adas-4", "text": "Blind Spot Monitor (BSM) - Calibration Required", "required": false },
+        { "id": "adas-5", "text": "Lane Departure Warning - Calibration Required", "required": false },
+        { "id": "adas-6", "text": "Lane Keep Assist (LKA) - Calibration Required", "required": false },
+        { "id": "adas-7", "text": "Collision Avoidance - Calibration Required", "required": false },
+        { "id": "adas-8", "text": "Radar - Calibration Required", "required": false },
+        { "id": "adas-9", "text": "All ADAS Calibrations Completed", "required": true }
+      ]
+    },
+    {
+      "id": "ev-hybrid",
+      "title": "EV/Hybrid (Tesla, Audi E-Tron, Bolt, etc.)",
+      "icon": "Warning",
+      "items": [
+        { "id": "ev-1", "text": "Vehicle Charged", "required": false },
+        { "id": "ev-2", "text": "Service Mode Entered/Exited", "required": false },
+        { "id": "ev-3", "text": "Calibration(s) Completed", "required": false },
+        { "id": "ev-4", "text": "Software Update Installed", "required": false },
+        { "id": "ev-5", "text": "Radar Calibrated", "required": false },
+        { "id": "ev-6", "text": "Auto Pilot System Checked", "required": false }
+      ]
+    }
+  ]
+}

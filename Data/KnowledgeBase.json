@@ -1,0 +1,1295 @@
+{
+  "version": "3.0",
+  "lastUpdated": "2025-02-02",
+  "categories": {
+    "tabs": {
+      "name": "Excel Tabs",
+      "description": "Information about each tab in the McStud Estimating Tool"
+    },
+    "operations": {
+      "name": "Operations",
+      "description": "Types of operations in collision repair estimating"
+    },
+    "laborTypes": {
+      "name": "Labor Types",
+      "description": "Categories of labor in auto body repair"
+    },
+    "terminology": {
+      "name": "Terminology",
+      "description": "Common terms and abbreviations"
+    },
+    "procedures": {
+      "name": "Procedures",
+      "description": "Standard operating procedures"
+    },
+    "inputs": {
+      "name": "Inputs",
+      "description": "Input fields and their options"
+    },
+    "howTo": {
+      "name": "How To",
+      "description": "Step-by-step guides for using McStud"
+    }
+  },
+  "entries": [
+    {
+      "id": "tool-overview",
+      "category": "howTo",
+      "keywords": [
+        "mcstud", "what is mcstud", "what is this", "what does this do", "about", "overview", "tool", "help",
+        "estimating tool", "met", "how does it work", "explain mcstud", "tell me about", "what can you do",
+        "what is the tool", "describe mcstud", "what does mcstud do", "purpose", "what's this for",
+        "how to use", "getting started", "intro", "introduction", "basics", "what are the tabs",
+        "how many tabs", "list tabs", "show tabs", "all tabs", "tabs overview", "what tabs are there",
+        "features", "capabilities", "what can it do", "functionality"
+      ],
+      "question": "What is the McStud Estimating Tool?",
+      "answer": "The McStud Estimating Tool (MET) is a comprehensive collision repair estimating system with **10 specialized tabs**:\n\n**1. SOP List** - Standard Operating Procedures (17 inputs)\n**2. Part Operations** - Parts and panels (161 inputs)\n**3. Cover Car** - Masking and protection (8 inputs)\n**4. Body Operations** - Sheet metal work (25 inputs)\n**5. Refinish Operations** - Paint and finish (11 inputs)\n**6. Mechanical Operations** - Suspension/drivetrain (34 inputs)\n**7. SRS Operations** - Airbag/safety systems (9 inputs)\n**8. Total Loss Charges** - Salvage fees (10 inputs)\n**9. Body On Frame** - Truck/SUV frames (4 inputs)\n**10. Stolen Recovery** - Theft-related ops (11 inputs)\n\nTotal: **290 input controls** that auto-calculate labor, price, and refinish hours."
+    },
+    {
+      "id": "tab-sop-list",
+      "category": "tabs",
+      "keywords": [
+        "sop", "sop list", "standard operations", "standard operating procedures", "first tab",
+        "electrical", "diagnostics", "what is sop", "explain sop", "sop tab", "tell me about sop",
+        "how does sop work", "sop inputs", "what's in sop", "sop section", "sop page",
+        "battery section", "diagnostic section", "misc section", "vehicle diagnostics",
+        "where do i start", "first thing", "start here", "beginning", "initial tab"
+      ],
+      "question": "What is the SOP List tab?",
+      "answer": "The **SOP List** (Standard Operating Procedures) tab contains **17 inputs** organized into sections:\n\n**Electrical Section (Rows 25-74)**\n• 12V Battery: Single or Dual configuration\n• Test Battery: Yes/No - checks battery condition\n• Battery Support: Yes/No - keeps battery charged during repair\n• Vehicle Type: Gas, Hybrid, or EV\n• ADAS: Yes/No - Advanced Driver Assistance Systems\n\n**Vehicle Diagnostics Section (Rows 75-124)**\n• Scan Type: Dollar Amount, Labor Unit, or Tesla\n• Setup Scan Tool: Yes/No\n• Gateway (Unlock): Yes/No - for security gateway vehicles\n• ADAS Diagnostics: Yes/No\n• Simulate Full Fluids: Yes/No\n• Adjust Tire Pressure: Yes/No\n• Remove Customer Belongings: Yes/No\n• Drive Cycle: Yes/No\n\n**Misc Section (Rows 125-170)**\n• Pre Wash: Yes/No\n• Bio Hazard: Yes/No\n• Shipping/Parts Labels: Yes/No\n• Scaffolding: Yes/No\n\nThis is usually the first tab you fill out for every estimate."
+    },
+    {
+      "id": "tab-part-operations",
+      "category": "tabs",
+      "keywords": [
+        "part", "parts", "part operations", "panels", "replacement", "first panel", "additional panel",
+        "part ops", "parts tab", "panel tab", "what is part operations", "explain parts",
+        "fender", "door", "quarter panel", "bumper", "hood", "trunk", "rocker",
+        "how do parts work", "part inputs", "replacing parts", "panel replacement",
+        "161 inputs", "biggest tab", "largest tab", "most inputs"
+      ],
+      "question": "What is the Part Operations tab?",
+      "answer": "The **Part Operations** tab is the largest with **161 inputs** for tracking replaced parts.\n\n**Key Concepts:**\n\n**First Panel vs Additional Panel**\n• First Panel: Higher labor rate for the first panel in a repair area\n• Additional Panel: Lower rate for subsequent panels (overlap credit)\n• Example: First fender = 3.0 hrs, additional fender = 2.5 hrs\n\n**Panel Types Covered:**\n• Fenders (front/rear)\n• Doors (front/rear)\n• Quarter panels\n• Rocker panels\n• Roof panels\n• Hood/trunk\n• Bumper covers\n\n**Common Inputs:**\n• First/Additional Panel selection (A33, A83, A133, A183)\n• Yes/No toggles for specific operations\n• Multiple rows per panel type for different scenarios\n\nThis tab has the most inputs because it handles all panel replacement scenarios."
+    },
+    {
+      "id": "tab-cover-car",
+      "category": "tabs",
+      "keywords": [
+        "cover car", "cover", "masking", "mask", "protection", "overspray", "tape", "paper",
+        "what is cover car", "explain cover car", "cover car tab", "masking tab",
+        "how to mask", "paint protection", "spray protection", "cover vehicle",
+        "plastic", "sheeting", "wheel covers", "trim protection", "jamb masking"
+      ],
+      "question": "What is the Cover Car tab?",
+      "answer": "The **Cover Car** tab has **8 inputs** for masking and protection during paint work.\n\n**Key Inputs:**\n• Vehicle Type: Gas or EV (affects masking for high-voltage components)\n• Location: Front, Rear, or Full\n• Full Cover: Yes/No\n\n**What Cover Car Includes:**\n• Masking paper and tape\n• Plastic sheeting for windows\n• Wheel covers\n• Trim protection\n• Jamb masking\n\n**When to Use:**\n• Any refinish operation\n• When painting adjacent panels\n• Full repaint jobs\n• Whenever overspray is a concern\n\n**Labor Category:** Refinish (P)"
+    },
+    {
+      "id": "tab-body-operations",
+      "category": "tabs",
+      "keywords": [
+        "body", "body operations", "sheet metal", "structural", "panel repair", "dent",
+        "body ops", "body tab", "what is body operations", "explain body ops",
+        "dent repair", "straightening", "welding", "sectioning", "frame", "unibody",
+        "pillar", "a pillar", "b pillar", "c pillar", "rocker section", "frame rail"
+      ],
+      "question": "What is the Body Operations tab?",
+      "answer": "The **Body Operations** tab has **25 inputs** for sheet metal and structural work.\n\n**Types of Body Operations:**\n\n**Repair Operations:**\n• Dent repair\n• Panel straightening\n• Sectioning\n• Welding\n\n**Structural Operations:**\n• Frame rail repair\n• Unibody straightening\n• Rocker panel sectioning\n• Pillar replacement (A, B, C pillars)\n\n**Common Inputs:**\n• Yes/No toggles for specific operations\n• First/Additional panel selections\n• Structural vs cosmetic repair choices\n\n**Labor Category:** Body (B)\n\n**Important:** Structural repairs often require additional scanning and ADAS calibration - make sure SOP List reflects this."
+    },
+    {
+      "id": "tab-refinish-operations",
+      "category": "tabs",
+      "keywords": [
+        "refinish", "refinish operations", "paint", "painting", "clear coat", "base coat", "blend",
+        "refinish tab", "paint tab", "what is refinish", "explain refinish", "refinish ops",
+        "primer", "sealer", "buffing", "polishing", "color match", "metallic", "pearl", "tri-coat",
+        "2 stage", "3 stage", "two stage", "three stage", "spray", "booth"
+      ],
+      "question": "What is the Refinish Operations tab?",
+      "answer": "The **Refinish Operations** tab has **11 inputs** for paint and finish work.\n\n**Refinish Process Steps:**\n1. Surface preparation (sanding, feathering)\n2. Primer application\n3. Sealer (if needed)\n4. Base coat (color)\n5. Clear coat\n6. Blending (if adjacent panels)\n7. Buffing and polishing\n\n**Key Inputs:**\n• Paint type: Solid, Metallic, Pearl, Tri-coat\n• Blend panels: Yes/No\n• Clear coat type: Standard, Matte\n• Color match required: Yes/No\n\n**Factors Affecting Time:**\n• Panel size\n• Number of stages (2-stage, 3-stage)\n• Color complexity\n• Blending requirements\n\n**Labor Category:** Paint/Refinish (P)"
+    },
+    {
+      "id": "tab-mechanical-operations",
+      "category": "tabs",
+      "keywords": [
+        "mechanical", "mechanical operations", "suspension", "steering", "drivetrain", "alignment", "ac",
+        "mech", "mech ops", "mechanical tab", "what is mechanical", "explain mechanical",
+        "strut", "shock", "control arm", "ball joint", "tie rod", "axle", "cv shaft",
+        "wheel bearing", "subframe", "transmission", "differential", "exhaust", "cooling"
+      ],
+      "question": "What is the Mechanical Operations tab?",
+      "answer": "The **Mechanical Operations** tab has **34 inputs** for suspension, steering, and drivetrain work.\n\n**Common Mechanical Operations:**\n\n**Suspension:**\n• Strut/shock replacement\n• Control arm replacement\n• Ball joint replacement\n• Wheel bearing replacement\n• Subframe R&I or replacement\n\n**Steering:**\n• Tie rod replacement\n• Steering rack R&I\n• Power steering service\n\n**Drivetrain:**\n• Axle/CV shaft replacement\n• Differential service\n• Transmission R&I\n\n**Other:**\n• Wheel alignment\n• AC evacuation/recharge\n• Cooling system service\n• Exhaust system work\n\n**Labor Category:** Mechanical (M)\n\n**Note:** Wheel alignment is usually sublet - entered in SOP List under sublet operations."
+    },
+    {
+      "id": "suspension-types-overview",
+      "category": "terminology",
+      "keywords": [
+        "suspension types", "types of suspension", "suspension systems", "suspension designs",
+        "what suspension", "explain suspension", "suspension differences", "compare suspension",
+        "front suspension", "rear suspension", "independent suspension", "dependent suspension"
+      ],
+      "question": "What are the different types of suspension systems?",
+      "answer": "**Suspension Types Overview:**\n\n**1. MacPherson Strut** (Most Common)\n• Single strut combines shock absorber, coil spring, and steering pivot\n• Uses only a lower control arm (no upper arm)\n• Found on: Most FWD cars, crossovers, unibody vehicles\n• Examples: Honda Civic, Toyota Camry, Ford Escape\n\n**2. Double Wishbone (Double A-Arm)**\n• Two control arms - upper and lower\n• Separate shock and spring from control arms\n• Found on: Trucks with IFS, sports cars, luxury vehicles\n• Examples: Toyota Tundra, Honda S2000, Corvette\n\n**3. Solid Axle (Live Axle/Beam Axle)**\n• Both wheels connected by rigid beam\n• Often paired with leaf springs\n• Found on: Truck rear axles, Jeep Wrangler, heavy-duty vehicles\n• Examples: Ford F-150 rear, Ram HD front, Jeep Wrangler\n\n**4. Multi-Link**\n• 3-5 separate control arms per wheel\n• Maximum adjustability and ride quality\n• Found on: Rear of luxury cars, sports cars\n• Examples: BMW 3-Series rear, Mercedes E-Class rear\n\n**5. Torsion Beam (Twist Beam)**\n• H-shaped beam connects trailing arms\n• Semi-independent - beam twists to allow some wheel independence\n• Found on: Compact FWD cars (rear suspension)\n• Examples: VW Golf, Mazda 3, Toyota Corolla\n\n**Collision Repair Note:** Always check suspension after front or side impacts. Strut towers are structural. Never straighten bent suspension components - replace them."
+    },
+    {
+      "id": "macpherson-strut-suspension",
+      "category": "terminology",
+      "keywords": [
+        "macpherson", "macpherson strut", "mcpherson", "strut suspension", "strut tower",
+        "what is macpherson", "explain macpherson", "how strut works", "strut assembly",
+        "front strut", "strut mount", "upper mount", "strut cartridge"
+      ],
+      "question": "What is MacPherson strut suspension?",
+      "answer": "**MacPherson Strut Suspension**\n\nInvented by Earle S. MacPherson in 1945, this is the most common front suspension on modern vehicles.\n\n**Key Components:**\n• **Strut Assembly** - Vertically oriented tube housing shock absorber, acts as structural link between wheel and body\n• **Coil Spring** - Wraps around strut, supports vehicle weight\n• **Upper Strut Mount** - Rubber/bearing assembly allowing strut to rotate with steering, bolts to strut tower\n• **Lower Control Arm** - A-shaped or L-shaped arm locating bottom of steering knuckle\n• **Sway Bar** - Connects left/right suspension to reduce body roll\n\n**How It Works:**\nThe strut tower mounts directly to the unibody frame as the upper anchor. The lower control arm locates the bottom of the steering knuckle. When you turn the steering wheel, the entire strut assembly pivots on the upper mount.\n\n**Why It's Popular:**\n• Compact design - maximizes engine bay and cabin space\n• Fewer parts than double wishbone\n• Cost effective to manufacture\n• Works well with transverse-mounted FWD engines\n\n**Limitations:**\n• Limited camber control during cornering\n• Strut tower takes up vertical space\n• Not usable on body-on-frame vehicles\n\n**Common Vehicles:**\n• Honda Civic, Accord (2013+)\n• Toyota Camry, RAV4, Corolla\n• Ford Escape, Focus\n• Porsche 911 (front), BMW M3\n• Most FWD cars and crossovers\n\n**Collision Repair Considerations:**\n• **Strut tower damage is STRUCTURAL** - requires body labor, not just mechanical\n• Check strut tower for buckling after front impacts\n• Never straighten a bent strut - always replace\n• Strut tower misalignment affects caster (usually non-adjustable)\n• Use straight edge along strut cartridge to check for bends\n• Measure from hub face to symmetrical points on strut - unequal = bent\n• Jounce/rebound camber check: Raise suspension 4\", read camber both sides, compress 4\", read again. Different readings = bent strut"
+    },
+    {
+      "id": "double-wishbone-suspension",
+      "category": "terminology",
+      "keywords": [
+        "double wishbone", "double a-arm", "wishbone suspension", "dual wishbone",
+        "upper control arm", "lower control arm", "a-arm", "two control arms",
+        "what is double wishbone", "explain wishbone", "wishbone vs strut"
+      ],
+      "question": "What is double wishbone suspension?",
+      "answer": "**Double Wishbone (Double A-Arm) Suspension**\n\nUses two wishbone-shaped control arms (upper and lower) to connect the wheel to the chassis. Preferred for performance and trucks.\n\n**Key Components:**\n• **Upper Control Arm** - A-shaped arm connecting chassis to top of steering knuckle\n• **Lower Control Arm** - A-shaped arm connecting chassis to bottom of steering knuckle\n• **Ball Joints** - Spherical joints at knuckle end of each control arm (2 per corner)\n• **Shock Absorber** - Separate from control arms, mounts between lower arm and chassis/frame\n• **Coil Spring** - Can mount on lower arm, upper arm, or around shock\n• **Steering Knuckle** - Connects to both upper and lower arms via ball joints\n\n**How It Works:**\nBoth control arms pivot on bushings at the chassis. The wheel/knuckle is held between them by ball joints. This geometry allows engineers to precisely control camber, caster, and roll center throughout suspension travel.\n\n**Advantages Over MacPherson:**\n• Better camber control during cornering (maintains tire contact patch)\n• More adjustability for alignment settings\n• Lower hood line possible (no strut tower intrusion)\n• Preferred for high-performance applications\n\n**Disadvantages:**\n• More complex = more expensive\n• More components = more potential failure points\n• Takes more space than MacPherson\n• Heavier than MacPherson\n\n**Common Vehicles:**\n• **Trucks (front IFS):** Toyota Tundra, Tacoma, Ford F-150, Chevy Silverado\n• **Sports/Luxury:** Corvette (all generations), Audi R8, Ferrari, Aston Martin\n• **Honda:** S2000, NSX, older Accord (pre-2013), Acura MDX\n• **Body-on-frame SUVs:** Toyota Land Cruiser, 4Runner, Lexus GX\n\n**Collision Repair Considerations:**\n• Check BOTH upper and lower control arms - they bend independently\n• Inspect all 4 ball joints for damage\n• Control arm mounting points on frame/subframe can shift\n• More alignment adjustability means more to check\n• Place straight edge under lower control arms side-to-side, measure to spring seat - difference indicates bent arm\n• Upper arm damage may be hidden - check carefully\n• Subframe/engine cradle shift affects both sides equally"
+    },
+    {
+      "id": "solid-axle-suspension",
+      "category": "terminology",
+      "keywords": [
+        "solid axle", "live axle", "beam axle", "rigid axle", "straight axle",
+        "leaf spring", "leaf springs", "truck axle", "rear axle",
+        "what is solid axle", "explain live axle", "beam suspension"
+      ],
+      "question": "What is solid axle (live axle) suspension?",
+      "answer": "**Solid Axle (Live Axle / Beam Axle) Suspension**\n\nA dependent suspension where both wheels are connected by a single rigid beam or axle housing. When one wheel moves, it affects the other.\n\n**Key Components:**\n• **Axle Housing** - Rigid beam containing differential (if driven) or solid tube\n• **Leaf Springs** - Flat steel strips stacked together, locate axle and provide spring rate\n• **U-Bolts** - Clamp axle to leaf spring pack\n• **Shackles** - Allow leaf spring to change length as it flexes\n• **Shock Absorbers** - Separate units mounted to axle and frame\n• **Track Bar (Panhard Rod)** - Locates axle side-to-side (on coil spring setups)\n\n**How Leaf Springs Work:**\nLeaf springs do double duty - they support the vehicle weight AND locate the axle (no need for control arms). The spring mounts to the frame at front with a fixed mount and rear with a shackle that allows the spring to lengthen as it flattens under load.\n\n**Advantages:**\n• Extremely strong and durable\n• Simple design with fewer parts\n• Easy and cheap to repair/modify\n• Handles heavy loads well\n• Great for towing and hauling\n• Maximum wheel travel for off-road\n\n**Disadvantages:**\n• Rough ride - when one wheel hits bump, affects other wheel\n• Heavy (unsprung weight)\n• Differential hangs low (less ground clearance than IFS)\n• Less precise handling at highway speeds\n• Inter-leaf friction causes harsh low-speed ride\n\n**Common Vehicles:**\n• **Rear Axle (most trucks):** Ford F-150, Chevy Silverado, Ram 1500, Toyota Tundra\n• **Front Axle:** Ram HD trucks, Jeep Wrangler, Ford Super Duty (older)\n• **Both Axles:** Jeep Wrangler, older Land Rover Defender\n• **Vans/Commercial:** Most cargo vans, box trucks\n\n**Modern Variations:**\nSome trucks use coil springs with solid axle instead of leaf springs (Jeep Wrangler JL, Ram 1500). These need control arms and track bar to locate the axle.\n\n**Collision Repair Considerations:**\n• Axle housing/tube can bend from side impacts - check carefully\n• Leaf spring hangers (frame mounts) commonly damaged\n• Leaf springs can crack or shift - inspect spring eyes and center bolt\n• U-bolts may be one-time-use hardware (OEM procedures)\n• Check for bent axle by measuring wheel track front vs rear\n• Side impacts can push entire axle laterally - check track bar mounts\n• Differential cover damage doesn't always mean housing is bent"
+    },
+    {
+      "id": "multi-link-suspension",
+      "category": "terminology",
+      "keywords": [
+        "multi-link", "multilink", "multi link", "5-link", "four link", "multiple links",
+        "rear suspension luxury", "independent rear", "irs",
+        "what is multi-link", "explain multilink", "how multi-link works"
+      ],
+      "question": "What is multi-link suspension?",
+      "answer": "**Multi-Link Suspension**\n\nAn independent suspension using 3-5 separate control arms (links) per wheel, allowing precise control of wheel geometry. Most common on rear suspensions of luxury and performance vehicles.\n\n**Key Components:**\n• **Upper Lateral Links (2)** - Control upper part of knuckle, locate wheel laterally\n• **Lower Lateral Links (2)** - Control lower part of knuckle, carry most of the load\n• **Trailing Link** - Locates knuckle fore-aft, absorbs braking torque\n• **Toe Link** - Small link specifically controlling toe angle\n• **Coil Spring** - Usually mounts on one of the lower links\n• **Shock Absorber** - Separate unit between lower link and chassis\n• **Subframe** - All links mount to subframe which bolts to body\n\n**How It Works:**\nEach link controls a specific aspect of wheel movement. The trailing link handles fore-aft location and braking forces. Lateral links control camber and lateral location. The toe link precisely controls toe angle. Because each link handles specific loads, engineers can tune each aspect independently.\n\n**Why Multi-Link:**\n• Each suspension parameter can be tuned independently\n• Keeps wheel perpendicular to road during suspension travel\n• Maximum tire contact patch through corners\n• Best ride quality of any suspension type\n• Isolates road noise effectively through multiple bushings\n\n**Disadvantages:**\n• Most expensive suspension to manufacture\n• Most complex - many parts to inspect/replace\n• Heaviest suspension type\n• Takes up significant space\n• More alignment points = more service time\n\n**Common Vehicles:**\n• **Rear:** BMW 3/5/7 Series, Mercedes C/E/S Class, Audi A4/A6\n• **Front & Rear:** Tesla Model S/3/X/Y, Porsche Cayenne\n• **Rear:** Honda Accord (2018+), Mazda 6, Hyundai Genesis\n• **Performance:** Most modern sports cars, supercars\n\n**Collision Repair Considerations:**\n• Multiple links = multiple potential damage points\n• Each link can be damaged independently\n• Subframe mounting points must be checked\n• Links have spherical joints (ball joints) or bushings at each end - all need inspection\n• Mounting point position tolerances are tight (±1mm)\n• Damage to one link often means hidden damage to others\n• Complete alignment check required - multiple adjustments per corner\n• More labor time for inspection and repair\n• Check toe link carefully - small but critical"
+    },
+    {
+      "id": "torsion-beam-suspension",
+      "category": "terminology",
+      "keywords": [
+        "torsion beam", "twist beam", "torsion bar", "rear beam",
+        "semi-independent", "h-beam", "trailing arm rear",
+        "what is torsion beam", "explain twist beam", "torsion rear"
+      ],
+      "question": "What is torsion beam (twist beam) suspension?",
+      "answer": "**Torsion Beam (Twist Beam) Suspension**\n\nA semi-independent rear suspension using an H-shaped or C-shaped beam connecting left and right trailing arms. The beam twists to allow some independence between wheels. Very common on compact FWD vehicles.\n\n**Key Components:**\n• **Torsion Beam** - Cross-beam (usually open C-section) that can twist torsionally\n• **Trailing Arms** - Arms connecting beam to wheel hubs, pivot at body\n• **Coil Springs** - Mount on trailing arms\n• **Shock Absorbers** - Mount on trailing arms\n• **Pivot Bushings** - Large bushings where trailing arms mount to body\n\n**How It Works:**\nThe trailing arms pivot at the body and carry the wheel hubs at the rear. The cross-beam connects them, but its cross-section is designed to twist. When one wheel hits a bump, the beam twists rather than forcing the other wheel to move equally. This provides some independence while keeping things simple.\n\n**Built-In Anti-Roll:**\nThe twisting resistance of the beam acts like a natural sway bar - no separate stabilizer needed.\n\n**Advantages:**\n• Simple and inexpensive\n• Lightweight\n• Compact - doesn't intrude into cargo space\n• Fewer parts to wear or fail\n• Less under-car clutter\n• Proven durability\n\n**Disadvantages:**\n• Ride can be harsh (especially low-speed)\n• Tends to toe-out during cornering (needs toe-control features)\n• Limited tuning options\n• Can cause inside wheel lift during hard cornering (hot hatches)\n• Not suited for high-powered RWD applications\n\n**Common Vehicles:**\n• **Compact Cars:** VW Golf/Jetta (some variants), Mazda 3 (2019+), Toyota Corolla\n• **Subcompacts:** Honda Fit, Hyundai Accent, Kia Rio\n• **Hot Hatches:** Ford Fiesta ST, VW Polo GTI, Hyundai i20 N, Renault Megane RS\n• **Crossovers:** Toyota Corolla Cross, Hyundai Kona\n\n**Collision Repair Considerations:**\n• Beam can bend or twist from rear/side impacts\n• Check beam for visible deformation - measure side-to-side\n• Trailing arm pivot points on body can be damaged\n• If beam is bent, entire assembly usually replaced (not repairable)\n• Bushings at body pivots commonly damaged in rear impacts\n• Rear wheel toe can be affected by beam damage\n• Less complex than multi-link but still requires proper inspection\n• Check for stress cracks in beam weld areas"
+    },
+    {
+      "id": "suspension-collision-inspection",
+      "category": "procedures",
+      "keywords": [
+        "suspension inspection", "check suspension", "suspension damage", "inspect suspension",
+        "bent control arm", "bent strut", "suspension after collision", "hidden suspension damage",
+        "alignment after collision", "wheel alignment damage"
+      ],
+      "question": "How do I inspect suspension after a collision?",
+      "answer": "**Suspension Inspection After Collision**\n\nPer I-CAR guidelines, wheel alignment should always be checked after any collision that could alter steering or suspension geometry - including tire/wheel impacts, side collisions, or any situation where suspension components are damaged.\n\n**Visual Inspection:**\n• Check all control arms for bends, cracks, deformation\n• Inspect ball joints and tie rod ends for damage\n• Look for leaking struts/shocks (oil on housing)\n• Check bushings for tears or displacement\n• Inspect mounting points for elongated holes or cracks\n• Look at strut towers for buckling or paint cracking\n• Compare damaged side to undamaged side\n\n**Measurement Checks:**\n\n**Strut Check:**\n• Place straight edge along strut cartridge - gaps indicate bend\n• Measure from hub face to symmetrical points on strut - unequal = bent\n\n**Control Arm Check:**\n• Place straight edge under both lower control arms (side to side)\n• Measure distance up to spring seat on each side\n• Difference indicates bent arm\n\n**Jounce/Rebound Camber Check:**\n• Raise suspension 4 inches, read camber both sides\n• Lower and compress suspension 4 inches, read again\n• Different readings side-to-side = bent strut\n\n**Alignment Diagnosis:**\n• Steering Axis Inclination (SAI) is usually non-adjustable\n• Off-spec SAI can indicate: strut tower misalignment, subframe shift, control arm mount damage\n• If camber off on ONE side only = bent spindle, control arm, or strut\n• If camber off on BOTH sides = crossmember/subframe shifted\n\n**Critical Rules:**\n• **NEVER straighten bent suspension components** - always replace\n• Complete ALL structural repairs before alignment\n• Document damage with photos and measurements\n• Check OEM procedures for one-time-use hardware\n• Crash energy travels - check beyond obvious impact area\n\n**What to Document:**\n• Photos of all damaged components\n• Before/after measurements\n• Alignment printout showing out-of-spec readings\n• VIN and mileage\n\n**Labor Considerations:**\n• Pre-alignment inspection is often separate labor\n• Diagnosis time for hidden damage\n• Alignment is typically sublet operation"
+    },
+    {
+      "id": "tab-srs-operations",
+      "category": "tabs",
+      "keywords": [
+        "srs", "srs operations", "airbag", "airbags", "safety", "restraint", "seat belt",
+        "srs tab", "what is srs", "explain srs", "air bag", "air bags", "supplemental restraint",
+        "pretensioner", "clockspring", "impact sensor", "deployed", "deployment",
+        "driver airbag", "passenger airbag", "side airbag", "curtain airbag", "knee airbag"
+      ],
+      "question": "What is the SRS Operations tab?",
+      "answer": "The **SRS Operations** tab has **9 inputs** for Supplemental Restraint System (airbag) work.\n\n**SRS Components:**\n• Driver airbag\n• Passenger airbag\n• Side curtain airbags\n• Knee airbags\n• Seat belt pretensioners\n• Impact sensors\n• SRS module/computer\n\n**Common Operations:**\n• Airbag replacement (deployed)\n• Seat belt pretensioner replacement\n• Clockspring replacement\n• SRS module programming\n• Impact sensor replacement\n\n**Important Safety Notes:**\n• Always disconnect battery first\n• Wait 10+ minutes after disconnect\n• SRS components are one-time use\n• Requires scan tool programming after replacement\n\n**Labor Category:** Mechanical (M)\n\n**Note:** Deployed airbags must be replaced - they cannot be reset."
+    },
+    {
+      "id": "tab-total-loss",
+      "category": "tabs",
+      "keywords": [
+        "total loss", "total loss charges", "salvage", "totaled", "write off", "fees",
+        "total loss tab", "what is total loss", "explain total loss", "totalled", "written off",
+        "storage", "towing", "administrative", "teardown", "restocking", "disposal",
+        "when is it totaled", "acv", "actual cash value", "threshold"
+      ],
+      "question": "What is the Total Loss Charges tab?",
+      "answer": "The **Total Loss Charges** tab has **10 inputs** for vehicles declared a total loss.\n\n**What Total Loss Means:**\n• Repair cost exceeds vehicle value (typically 70-80%)\n• Vehicle is deemed uneconomical to repair\n• Insurance pays Actual Cash Value (ACV)\n\n**Common Total Loss Charges:**\n• Administrative fees\n• Storage fees\n• Towing charges\n• Title/registration fees\n• Teardown charges (if partially disassembled)\n• Parts restocking fees\n• Disposal fees\n\n**When to Use:**\n• Vehicle is totaled during estimate process\n• Supplement reveals total loss condition\n• Customer elects to total (owner-retained)\n\n**Note:** Total loss criteria varies by state and insurance company."
+    },
+    {
+      "id": "tab-body-on-frame",
+      "category": "tabs",
+      "keywords": [
+        "body on frame", "bof", "truck", "suv", "frame", "ladder frame", "frame damage",
+        "body on frame tab", "what is body on frame", "explain bof", "truck frame",
+        "f150", "silverado", "tundra", "wrangler", "super duty", "tahoe", "4runner",
+        "frame straightening", "frame section", "body mount", "cab off", "box off"
+      ],
+      "question": "What is the Body On Frame tab?",
+      "answer": "The **Body On Frame** tab has **4 inputs** for trucks and SUVs with separate frames.\n\n**Body On Frame vs Unibody:**\n• Body On Frame: Separate frame (trucks, body-on-frame SUVs)\n• Unibody: Integrated body/frame (cars, crossovers)\n\n**Common BOF Vehicles:**\n• Ford F-150, Super Duty\n• Chevrolet Silverado, Tahoe\n• Toyota Tundra, 4Runner\n• Jeep Wrangler\n• Nissan Titan\n\n**BOF-Specific Operations:**\n• Frame straightening\n• Frame section replacement\n• Body mount replacement\n• Cab-off repairs\n• Box-off repairs\n\n**Key Considerations:**\n• Frame damage may require specialized equipment\n• Body mounts often need replacement with frame work\n• Separate labor for body and frame alignment\n\n**Labor Category:** Body (B) and Mechanical (M)"
+    },
+    {
+      "id": "tab-stolen-recovery",
+      "category": "tabs",
+      "keywords": [
+        "stolen", "stolen recovery", "theft", "vandalism", "recovered", "strip",
+        "stolen tab", "what is stolen recovery", "explain stolen", "theft damage",
+        "stripped", "catalytic converter", "wheels stolen", "interior stolen",
+        "ignition", "steering column", "door lock", "fingerprint", "evidence"
+      ],
+      "question": "What is the Stolen Recovery tab?",
+      "answer": "The **Stolen Recovery** tab has **11 inputs** for theft-related damage.\n\n**Stolen Recovery Scenarios:**\n\n**Partial Strip:**\n• Wheels/tires stolen\n• Catalytic converter theft\n• Interior components missing\n• Electronics stolen\n\n**Full Strip:**\n• Major components missing (engine, transmission)\n• Interior gutted\n• Extensive damage from recovery\n\n**Common Operations:**\n• Ignition/steering column repair\n• Door lock replacement\n• Window replacement (entry damage)\n• Interior restoration\n• Missing parts replacement\n• Fingerprint dust cleanup\n• Evidence collection hold time\n\n**Special Considerations:**\n• Police hold time may apply\n• Evidence must be preserved initially\n• Photos required for documentation\n• Parts verification against VIN\n\n**Note:** Stolen vehicles often have hidden damage - thorough inspection required."
+    },
+    {
+      "id": "input-battery-type",
+      "category": "inputs",
+      "keywords": [
+        "battery", "12v battery", "single", "dual", "a29", "battery type", "disconnect",
+        "what is battery", "battery input", "single vs dual", "single or dual",
+        "which battery", "how many batteries", "two batteries", "one battery",
+        "battery disconnect", "disconnect reconnect", "d/r", "dr",
+        "diesel battery", "auxiliary battery", "second battery"
+      ],
+      "question": "What is the 12V Battery input (Single/Dual)?",
+      "answer": "The **12V Battery** input (Cell A29) sets the battery configuration:\n\n**Single Battery** (Default)\n• Standard for most cars\n• Disconnect/Reconnect: 0.4 labor hours\n• One 12V battery to disconnect\n\n**Dual Battery**\n• Common on: Diesel trucks, heavy-duty vehicles, some hybrids\n• Disconnect/Reconnect: 0.8 labor hours\n• Two batteries to manage\n\n**When to Select Dual:**\n• Ford Super Duty diesels\n• RAM 2500/3500 diesels\n• GM Duramax trucks\n• Some Mercedes diesels\n• Vehicles with auxiliary battery\n\n**Why Battery Disconnect Matters:**\n• Prevents electrical shorts during welding\n• Protects modules during repairs\n• Required before airbag work\n• Safety requirement for most collision repairs"
+    },
+    {
+      "id": "input-vehicle-type",
+      "category": "inputs",
+      "keywords": [
+        "vehicle type", "gas", "hybrid", "ev", "electric", "a35", "powertrain",
+        "what vehicle type", "gas vs hybrid", "gas vs ev", "hybrid vs ev",
+        "electric vehicle", "gasoline", "fuel type", "ice", "internal combustion",
+        "high voltage", "hv", "orange cables", "tesla", "prius", "model 3",
+        "which vehicle type", "how to select vehicle"
+      ],
+      "question": "What is the Vehicle Type input (Gas/Hybrid/EV)?",
+      "answer": "The **Vehicle Type** input (Cell A35) sets the powertrain type:\n\n**Gas** (Default)\n• Standard internal combustion engine\n• Normal battery disconnect procedures\n• Standard repair procedures\n\n**Hybrid**\n• Has both gas engine AND high-voltage battery\n• Requires HV system disable procedures\n• Orange cables = high voltage!\n• Special PPE may be required\n• Additional labor for HV safety\n\n**EV (Electric Vehicle)**\n• 100% electric - high-voltage only\n• Must disable HV system before ANY repair\n• Requires certified EV technician\n• Special equipment needed\n• Significantly more labor for safety procedures\n\n**Important:**\n• NEVER touch orange cables without training\n• HV batteries can be lethal\n• EVs may require OEM-specific procedures\n• Some insurers require OEM-certified shops for EV repairs"
+    },
+    {
+      "id": "input-adas",
+      "category": "inputs",
+      "keywords": [
+        "adas", "c29", "advanced driver assistance", "calibration", "camera", "sensor", "radar",
+        "what is adas", "explain adas", "adas calibration", "when adas", "do i need adas",
+        "lane departure", "lane keep", "collision warning", "automatic braking", "aeb",
+        "blind spot", "adaptive cruise", "parking sensor", "360 camera", "backup camera",
+        "static calibration", "dynamic calibration", "windshield adas", "bumper adas"
+      ],
+      "question": "What is the ADAS input?",
+      "answer": "The **ADAS** input (Cell C29) indicates if ADAS calibration is needed:\n\n**What is ADAS?**\nAdvanced Driver Assistance Systems - safety features using cameras and sensors:\n• Forward collision warning\n• Automatic emergency braking\n• Lane departure warning\n• Lane keep assist\n• Adaptive cruise control\n• Blind spot monitoring\n• Parking sensors\n• 360° camera systems\n\n**When ADAS Calibration is Required:**\n• Windshield replacement\n• Front bumper work (radar)\n• Mirror replacement (cameras)\n• Wheel alignment\n• Any structural repair\n• Suspension work\n\n**Types of Calibration:**\n• **Static**: Done in shop with targets, controlled environment\n• **Dynamic**: Requires test drive at specific speeds\n\n**Labor:** Typically 0.5 - 2.0 hours depending on system\n\n**Select YES if** the vehicle has ANY of these features."
+    },
+    {
+      "id": "input-scan-type",
+      "category": "inputs",
+      "keywords": [
+        "scan type", "a79", "dollar amount", "labor unit", "tesla", "diagnostic",
+        "what is scan type", "explain scan type", "which scan type", "how to bill scan",
+        "pre scan", "post scan", "prescan", "postscan", "diagnostic scan",
+        "scan tool", "obd", "dtc", "codes", "fault codes", "how to charge for scan"
+      ],
+      "question": "What is the Scan Type input?",
+      "answer": "The **Scan Type** input (Cell A79) determines how diagnostic scans are priced:\n\n**Dollar Amount** (Default)\n• Fixed price for scans\n• Example: $50 pre-scan, $50 post-scan\n• Common with third-party scan tools\n• Easier to estimate\n\n**Labor Unit**\n• Billed as labor hours\n• Example: 0.5 hrs pre-scan, 0.5 hrs post-scan\n• Uses shop's labor rate\n• May be preferred by some insurers\n\n**Tesla**\n• Special pricing for Tesla vehicles\n• Tesla requires their diagnostic system\n• May require Tesla Mobile Service\n• Often higher cost\n\n**Pre-Scan vs Post-Scan:**\n• **Pre-Scan**: Documents existing codes BEFORE repair\n• **Post-Scan**: Clears codes and verifies systems AFTER repair\n• Both are required by most OEMs and insurers"
+    },
+    {
+      "id": "input-gateway",
+      "category": "inputs",
+      "keywords": [
+        "gateway", "gateway unlock", "a87", "security", "fca", "chrysler", "dodge", "jeep",
+        "what is gateway", "explain gateway", "security gateway", "sgw", "firewall",
+        "autoauth", "blocked", "cant scan", "won't scan", "scan blocked",
+        "stellantis", "ram", "mopar", "2018", "2019", "2020"
+      ],
+      "question": "What is Gateway (Unlock)?",
+      "answer": "The **Gateway (Unlock)** input (Cell A87) is for security gateway vehicles:\n\n**What is a Security Gateway?**\nA firewall that blocks third-party scan tools from accessing vehicle modules.\n\n**Affected Manufacturers:**\n• FCA/Stellantis (Chrysler, Dodge, Jeep, RAM) - 2018+\n• Some GM vehicles - 2020+\n• Some Ford vehicles - 2021+\n• Expanding to more brands\n\n**Why It Exists:**\n• Prevents unauthorized module programming\n• Protects against theft/hacking\n• Cybersecurity requirement\n\n**How to Unlock:**\n• AutoAuth subscription (paid service)\n• OEM scan tool (expensive)\n• Dealer service (time-consuming)\n\n**Select YES if:**\n• FCA/Stellantis 2018 or newer\n• Vehicle requires module programming\n• Third-party scan tool shows \"gateway blocked\"\n\n**Labor:** Additional time for unlock procedure"
+    },
+    {
+      "id": "input-first-additional-panel",
+      "category": "inputs",
+      "keywords": [
+        "first panel", "additional panel", "panel", "overlap", "labor", "part operations",
+        "first vs additional", "first or additional", "which panel", "panel tier",
+        "overlap credit", "labor overlap", "why different", "reduced labor",
+        "how to select panel", "when first", "when additional", "second panel"
+      ],
+      "question": "What is First Panel vs Additional Panel?",
+      "answer": "**First Panel vs Additional Panel** (Part Operations tab) affects labor rates:\n\n**First Panel**\n• Full labor time for the first panel replaced\n• Includes all setup and prep time\n• Higher rate applies\n• Example: Replace first door = 4.0 hours\n\n**Additional Panel**\n• Reduced labor for subsequent panels\n• Overlap credit - some work already done\n• Lower rate applies\n• Example: Replace second door = 3.2 hours\n\n**Why the Difference?**\nWhen replacing multiple adjacent panels:\n• Setup only done once\n• Adjacent panel removal already partially done\n• Some prep work overlaps\n• Efficiency gains on subsequent panels\n\n**Examples:**\n• First fender + second fender: First gets full rate\n• Door + adjacent quarter: First panel rate on one\n• Front bumper + fender: May share R&I operations\n\n**Important:** Always select **First Panel** for the first panel in an area, then **Additional Panel** for the rest."
+    },
+    {
+      "id": "operations-types",
+      "category": "operations",
+      "keywords": [
+        "operation", "operations", "types", "op types", "what are operations", "operation types",
+        "rpr", "rpl", "rfn", "r&i", "ri", "sublet", "repair", "replace", "refinish",
+        "remove install", "remove and install", "what does rpr mean", "what does rpl mean",
+        "what does rfn mean", "operation codes", "op codes", "line types"
+      ],
+      "question": "What are the different operation types?",
+      "answer": "There are several operation types used in collision repair estimating:\n\n**Rpr (Repair)** - Fix existing damaged parts without replacing\n• Example: Repair dent in fender\n• Typically less expensive than replacement\n• Preserves original parts\n\n**Rpl (Replace)** - Remove damaged part and install new one\n• Example: Replace bumper cover\n• Includes R&I (Remove & Install) time\n• New part cost added\n\n**Rfn (Refinish)** - Paint and finish work\n• Example: Blend adjacent panel\n• Measured in refinish hours\n• Separate labor category (P)\n\n**R&I (Remove & Install)** - Remove part to access damage, reinstall same part\n• Example: R&I headlight to access fender\n• Part is reused, not replaced\n• Common for access operations\n\n**Sublet** - Work sent to outside vendor\n• Example: Wheel alignment, AC recharge, glass\n• Billed at actual cost plus markup\n• Listed separately on estimate"
+    },
+    {
+      "id": "labor-categories",
+      "category": "laborTypes",
+      "keywords": [
+        "labor", "labor types", "M", "B", "P", "categories", "body", "mechanical", "paint",
+        "labor category", "rate", "labor rate", "hourly rate", "what is m", "what is b", "what is p",
+        "body labor", "mechanical labor", "paint labor", "refinish labor",
+        "how much per hour", "labor cost", "which category", "labor codes"
+      ],
+      "question": "What are the labor categories (M, B, P)?",
+      "answer": "Labor is categorized into three main types:\n\n**M - Mechanical Labor**\n• Suspension, steering, drivetrain work\n• Battery disconnect/reconnect\n• ADAS calibration\n• AC service\n• Wheel alignment\n• Engine/transmission work\n• Typical rate: $75-125/hour\n\n**B - Body Labor**\n• Sheet metal repair and replacement\n• Structural work (frame, unibody)\n• Panel alignment\n• Welding\n• Dent repair\n• Typical rate: $50-75/hour\n\n**P - Paint/Refinish Labor**\n• Painting and clear coat\n• Blending\n• Color matching\n• Surface prep\n• Masking (cover car)\n• Typical rate: $50-75/hour\n\n**Why Categories Matter:**\n• Each shop has different hourly rates per category\n• Insurers negotiate rates by category\n• Total labor = M hours × M rate + B hours × B rate + P hours × P rate"
+    },
+    {
+      "id": "misc-operations",
+      "category": "procedures",
+      "keywords": [
+        "misc", "miscellaneous", "pre wash", "bio hazard", "scaffolding", "shipping labels",
+        "prewash", "biohazard", "wash", "clean", "blood", "bodily fluids",
+        "labels", "parts labels", "tall vehicle", "rv", "box truck"
+      ],
+      "question": "What are the Misc operations in SOP List?",
+      "answer": "The **Misc section** (Rows 125-170) includes additional operations:\n\n**Pre Wash**\n• Wash vehicle before repair begins\n• Removes dirt, debris, contaminants\n• Helps identify hidden damage\n• Labor: ~0.5 hours\n\n**Bio Hazard**\n• Blood, bodily fluids in vehicle\n• Requires special cleaning/disposal\n• PPE required for technicians\n• Additional labor and materials\n\n**Shipping/Parts Labels**\n• Label parts for tracking\n• Important for complex repairs\n• Helps with parts returns\n• Organization during disassembly\n\n**Scaffolding**\n• For large vehicles (box trucks, RVs)\n• Roof access on tall vehicles\n• Safety equipment for height work\n• Additional rental/setup cost\n\n**These are often overlooked** - make sure to include when applicable!"
+    },
+    {
+      "id": "diagnostics-section",
+      "category": "procedures",
+      "keywords": [
+        "diagnostics", "scan", "pre scan", "post scan", "drive cycle", "fluids", "tire pressure",
+        "prescan", "postscan", "vehicle diagnostics", "diagnostic section",
+        "setup scan", "scan tool setup", "full fluids", "simulate fluids",
+        "tpms", "tire monitor", "customer belongings", "personal items", "test drive"
+      ],
+      "question": "What are the Vehicle Diagnostics operations?",
+      "answer": "The **Vehicle Diagnostics** section (Rows 75-124) includes:\n\n**Setup Scan Tool** (A81)\n• Configure scan tool for vehicle\n• Connect and initialize\n• Labor: ~0.2 hours\n\n**ADAS Diagnostics** (B79)\n• Scan ADAS-specific systems\n• Check camera/sensor calibration status\n• Verify ADAS codes\n\n**Simulate Full Fluids** (B81)\n• Top off fluids for accurate diagnostics\n• Required for some system tests\n• Prevents false codes\n\n**Adjust Tire Pressure** (B83)\n• Set to spec for diagnostics\n• Required for TPMS reset\n• Affects ADAS calibration\n\n**Remove Customer Belongings** (B85)\n• Clear interior for repair access\n• Document/inventory items\n• Labor for large amounts\n\n**Drive Cycle** (B87)\n• Test drive after repairs\n• Required for some calibrations\n• Verifies systems function\n• Dynamic ADAS calibration"
+    },
+    {
+      "id": "outputs-summary",
+      "category": "howTo",
+      "keywords": [
+        "outputs", "summary", "totals", "results", "calculations", "labor hours", "price",
+        "how does it calculate", "where are results", "see totals", "view summary",
+        "formulas", "how formulas work", "automatic calculation", "auto calculate",
+        "output columns", "column m", "column o", "column v", "column x"
+      ],
+      "question": "How do the outputs/calculations work?",
+      "answer": "Each tab calculates **output values** automatically based on your inputs:\n\n**Summary Row (typically Row 27)**\nDisplays totals for the current tab:\n• Total Operations count\n• Total Price ($)\n• Total Labor hours\n• Total Refinish hours\n\n**Per-Operation Outputs (Columns M-X)**\n• Column M: Operation type (Rpr, Rpl, R&I)\n• Column O: Description\n• Column Q: Quantity\n• Column R: Price\n• Column V: Labor hours\n• Column W: Labor category (M, B, P)\n• Column X: Refinish hours\n\n**How Formulas Work:**\n• IF statements check your inputs\n• Example: IF(A29=\"Dual\", 0.8, 0.4)\n• Selecting \"Dual\" battery = 0.8 labor hours\n• Selecting \"Single\" = 0.4 labor hours\n\n**Operations appear only when** the corresponding input is filled out. Empty inputs = no operation generated."
+    },
+    {
+      "id": "export-workflow",
+      "category": "howTo",
+      "keywords": [
+        "export", "copy", "ccc", "mitchell", "paste", "workflow", "how to export",
+        "send to ccc", "send to mitchell", "transfer", "move operations",
+        "ccc one", "ccc desktop", "ccc web", "ultramate", "export button",
+        "auto type", "autotype", "typing", "speed", "slow", "fast", "turbo"
+      ],
+      "question": "How do I export to CCC or Mitchell?",
+      "answer": "The **McStud Tool** exports operations to CCC or Mitchell:\n\n**Workflow:**\n1. Fill out inputs in Excel (or McStud pages)\n2. Select operations in the output area\n3. Copy to clipboard (Ctrl+C)\n4. Click CCC Desktop, CCC Web, or Mitchell button\n5. Operations auto-type into target system\n\n**Export Buttons:**\n• **CCC Desktop** - For CCC ONE desktop application\n• **CCC Web** - For CCC web browser version\n• **Mitchell** - For Mitchell estimating system\n\n**Speed Settings:**\n• Slow - Most reliable, for older systems\n• Normal - Default balance\n• Fast - For modern systems\n• Turbo - Maximum speed\n\n**Tips:**\n• Click into CCC/Mitchell FIRST\n• Don't touch keyboard during export\n• Use Preview to verify before export\n• Check Statistics to track accuracy"
+    },
+    {
+      "id": "accuracy-tips",
+      "category": "howTo",
+      "keywords": [
+        "tips", "accuracy", "best practices", "complete", "thorough", "dont miss",
+        "help", "advice", "recommendations", "suggestions", "how to be accurate",
+        "common mistakes", "errors", "what to check", "review", "verify",
+        "missed items", "forgot", "missing", "incomplete"
+      ],
+      "question": "Tips for accurate estimates?",
+      "answer": "**Best Practices for Accurate Estimates:**\n\n**Start with SOP List:**\n• Always fill out SOP List first\n• Battery disconnect on almost every job\n• Pre/Post scans are standard now\n• ADAS if vehicle has any safety features\n\n**Don't Miss These:**\n• Gateway unlock (FCA 2018+)\n• Drive cycle for calibrations\n• Tire pressure for ADAS\n• EV/Hybrid safety procedures\n• Bio hazard when applicable\n\n**Part Operations:**\n• First panel gets full rate\n• Additional panels get overlap rate\n• Check ALL related operations\n\n**Verify Outputs:**\n• Review generated operations\n• Check labor category assignments\n• Confirm prices match current rates\n\n**Statistics Feature:**\n• Compare IN (imported) vs OUT (exported)\n• Should match if everything transferred\n• Discrepancies indicate missed items\n\n**Common Mistakes:**\n• Forgetting ADAS calibration\n• Missing battery disconnect\n• Wrong panel tier selection\n• Not including pre/post scans"
+    },
+    {
+      "id": "sublet-operations",
+      "category": "terminology",
+      "keywords": [
+        "sublet", "outside", "vendor", "alignment", "ac", "glass", "third party",
+        "what is sublet", "explain sublet", "outside vendor", "outside work",
+        "send out", "outsource", "windshield", "air conditioning", "pdr",
+        "paintless dent", "upholstery", "key programming", "specialist"
+      ],
+      "question": "What are sublet operations?",
+      "answer": "Sublet operations are work sent to outside specialists:\n\n**Common Sublet Items:**\n• Wheel alignment\n• AC evacuation and recharge\n• Glass replacement (windshield, windows)\n• PDR (Paintless Dent Repair)\n• Upholstery/interior repair\n• Suspension geometry\n• Key programming\n• ADAS calibration (some shops)\n\n**How Sublet is Billed:**\n• Actual invoice cost from vendor\n• Shop may add markup (typically 10-25%)\n• Listed separately on estimate\n• Requires documentation/invoice\n\n**Why Sublet?**\n• Specialized equipment needed\n• Expertise not in-house\n• More cost-effective\n• Faster turnaround\n• Liability reasons (glass, alignment)\n\n**In SOP List:**\nSublet items may have their own inputs or be handled in the pricing/notes section."
+    },
+    {
+      "id": "blend-refinish",
+      "category": "terminology",
+      "keywords": [
+        "blend", "blending", "color match", "adjacent panel", "paint", "refinish",
+        "what is blend", "explain blend", "why blend", "when to blend",
+        "color doesn't match", "paint mismatch", "fade", "fading", "sun fade",
+        "metallic", "pearl", "tri coat", "blend time", "blend hours"
+      ],
+      "question": "What does blend mean in refinish?",
+      "answer": "**Blending** is a paint technique for seamless color matching:\n\n**Why Blend?**\n• New paint may not match aged paint exactly\n• Sun fading affects color over time\n• Different paint batches can vary slightly\n• Metallic/pearl colors show mismatch easily\n\n**How Blending Works:**\n1. Adjacent panel is prepped (scuffed)\n2. Color is sprayed lighter toward edges\n3. Clear coat extends further than color\n4. Creates invisible transition\n\n**When to Blend:**\n• Replacing a panel next to original paint\n• Metallic/pearl colors (more visible mismatch)\n• High-visibility areas (hood, doors)\n• Customer requests perfect match\n\n**Blend Allowance:**\n• Typically 0.5-1.5 hours per panel\n• Adjacent panels only\n• May blend 2-3 panels for best match\n\n**Refinish Operations Tab:**\nUse this to set blend requirements for the estimate."
+    },
+    {
+      "id": "statistics-feature",
+      "category": "howTo",
+      "keywords": [
+        "statistics", "stats", "tracking", "in vs out", "import export",
+        "how many", "count", "totals", "match", "accuracy check",
+        "did it work", "verify export", "check export", "compare"
+      ],
+      "question": "How do the Statistics work?",
+      "answer": "The **Statistics** feature tracks your import/export activity:\n\n**What it Shows:**\n• **IN (Import)**: Operations copied from Excel\n• **OUT (Export)**: Operations sent to CCC/Mitchell\n\n**Columns Tracked:**\n• Operations count\n• Total Price\n• Labor hours\n• Paint/Refinish hours\n\n**Match Indicator:**\n• Green ✓ = All values match (accurate!)\n• Yellow ⚠ = Differences detected (check for missed items)\n\n**Time Periods:**\n• Today\n• This Week\n• This Month\n• This Year\n• All Time\n\n**Target Filter:**\n• All\n• CCC Desktop\n• CCC Web\n• Mitchell\n\n**Use Statistics to:**\n• Verify exports completed correctly\n• Track daily productivity\n• Identify if operations were missed"
+    },
+    {
+      "id": "estimate-upload",
+      "category": "howTo",
+      "keywords": [
+        "upload", "estimate upload", "upload estimate", "import estimate",
+        "load estimate", "bring in", "file upload", "read estimate"
+      ],
+      "question": "What is Estimate Upload?",
+      "answer": "The **Estimate Upload** feature allows you to import existing estimates:\n\n**Purpose:**\n• Import estimates from files\n• Load previous work\n• Review existing estimates\n\n**Supported Formats:**\n• May vary by version\n• Check the upload panel for accepted file types\n\n**How to Use:**\n1. Expand the Estimate Upload section\n2. Select your file\n3. Review imported data\n4. Make any needed adjustments\n\n**Note:** This feature is marked as NEW and may have additional capabilities added over time."
+    },
+    {
+      "id": "bumper-operations",
+      "category": "operations",
+      "keywords": [
+        "bumper", "bumper cover", "bumper operations", "front bumper", "rear bumper",
+        "bumper replacement", "bumper repair", "where is bumper", "find bumper",
+        "bumper tab", "bumper section", "bumper fascia", "bumper assembly"
+      ],
+      "question": "Where do I find bumper operations?",
+      "answer": "**Bumper Operations** are found in the **Part Operations** tab:\n\n**Location:** Part Operations tab, look for Bumper sections\n\n**Common Bumper Operations:**\n• **Bumper Cover R&I** - Remove and reinstall (access for other repairs)\n• **Bumper Cover Replace** - Remove damaged, install new\n• **Bumper Reinforcement** - The structural bar behind the cover\n• **Energy Absorber** - Foam/honeycomb between cover and reinforcement\n\n**Associated Operations:**\n• Fog lights R&I\n• Parking sensors (if equipped)\n• Grille R&I or Replace\n• License plate bracket\n• Tow hook cover\n\n**What to Remember:**\n• Front bumpers often have ADAS sensors (radar)\n• Rear bumpers may have parking sensors\n• Check for sensor calibration needs\n• Reinforcement damage = possible frame check\n\n**Labor Category:** Body (B) for R&I and Replace\n\n**First Panel vs Additional:**\nBumper cover is typically counted separately from fenders/panels for overlap purposes."
+    },
+    {
+      "id": "oem-procedures",
+      "category": "terminology",
+      "keywords": [
+        "oem", "oem procedures", "manufacturer", "factory", "original equipment",
+        "what is oem", "oem repair", "oem requirements", "follow oem",
+        "position statement", "repair procedures", "recommended procedures"
+      ],
+      "question": "What are OEM procedures?",
+      "answer": "**OEM (Original Equipment Manufacturer) Procedures** are repair instructions from the vehicle manufacturer:\n\n**What They Include:**\n• Step-by-step repair instructions\n• Required tools and equipment\n• Torque specifications\n• Weld locations and types\n• Safety warnings\n• Part replacement requirements\n\n**Why They Matter:**\n• Legal liability protection\n• Warranty compliance\n• Proper repair quality\n• Insurance requirements\n• Safety assurance\n\n**Where to Find Them:**\n• OEM repair websites (fee-based)\n• I-CAR RTS portal\n• Collision repair networks\n• Dealer technical resources\n\n**Common OEM Sites:**\n• Honda: techinfo.honda.com\n• Toyota: techinfo.toyota.com\n• Ford: motorcraftservice.com\n• GM: acdelcotds.com\n\n**Always check OEM procedures** before structural repairs, welding, or safety system work!"
+    },
+    {
+      "id": "supplement",
+      "category": "terminology",
+      "keywords": [
+        "supplement", "supp", "hidden damage", "additional damage", "more damage",
+        "what is supplement", "supplemental", "found more damage", "add to estimate",
+        "revise estimate", "update estimate", "missed damage", "teardown"
+      ],
+      "question": "What is a supplement?",
+      "answer": "A **Supplement** is an addition to the original estimate after hidden damage is found:\n\n**When Supplements Happen:**\n• During teardown/disassembly\n• After removing damaged parts\n• When accessing inner structure\n• Finding rust or prior damage\n• Parts don't fit as expected\n\n**Common Supplement Items:**\n• Inner structure damage\n• Wiring harness damage\n• Suspension damage behind panels\n• Corrosion protection needs\n• Additional blend panels\n• Calibration requirements\n\n**Supplement Process:**\n1. Document new damage (photos!)\n2. Add operations to estimate\n3. Contact insurance adjuster\n4. Get approval before proceeding\n5. Update repair plan\n\n**Tips:**\n• Always photograph before AND after disassembly\n• Document part numbers\n• Note discovery date/time\n• Keep damaged parts for inspection"
+    },
+    {
+      "id": "labor-time",
+      "category": "terminology",
+      "keywords": [
+        "labor time", "how much time", "how long", "hours", "time guide",
+        "labor guide", "book time", "flat rate", "labor allowance",
+        "how many hours", "time for", "how long does it take"
+      ],
+      "question": "How is labor time determined?",
+      "answer": "**Labor Time** in collision repair comes from several sources:\n\n**Published Times (Database):**\n• CCC, Mitchell, Audatex publish standard times\n• Based on average skilled technician\n• Assumes clean, undamaged vehicle\n• Industry-accepted benchmarks\n\n**Judgment Time:**\n• For operations not in database\n• Estimator determines based on experience\n• May require negotiation with insurer\n• Document reasoning\n\n**Factors That Affect Time:**\n• Vehicle complexity\n• Access difficulty\n• Rust or corrosion\n• Previous repairs\n• Aftermarket parts fitment\n\n**Time Included vs Not Included:**\n• Included: Standard R&I, basic prep\n• NOT Included: Corrosion protection, seam sealer, sound deadener, scan/calibration\n\n**Overlap:**\n• When operations share steps\n• Adjustments prevent double-billing\n• Example: Adjacent panel removal"
+    },
+    {
+      "id": "corrosion-protection",
+      "category": "procedures",
+      "keywords": [
+        "corrosion", "corrosion protection", "rust", "rust protection", "cavity wax",
+        "seam sealer", "undercoating", "e-coat", "primer", "anti corrosion",
+        "prevent rust", "rust proofing", "weld through primer"
+      ],
+      "question": "What is corrosion protection?",
+      "answer": "**Corrosion Protection** prevents rust on repaired areas:\n\n**Types of Protection:**\n\n**Weld-Through Primer**\n• Applied before welding\n• Protects weld joints\n• Zinc-based formula\n\n**Cavity Wax**\n• Sprayed inside closed sections\n• Pillars, rocker panels, rails\n• Prevents internal rust\n\n**Seam Sealer**\n• Covers welded seams\n• Matches OEM appearance\n• Prevents water intrusion\n\n**E-Coat / Primer**\n• Factory-style protection\n• Applied to bare metal\n• Base for paint system\n\n**When Required:**\n• Any bare metal exposure\n• Welded areas\n• Panel replacement\n• Structural repairs\n\n**NOT Included in labor times** - must be added separately!\n\n**Labor Category:** Body (B) or Refinish (P) depending on operation"
+    },
+    {
+      "id": "r-and-i-vs-replace",
+      "category": "operations",
+      "keywords": [
+        "r&i vs replace", "ri vs replace", "remove install vs replace",
+        "difference between r&i", "when to r&i", "when to replace",
+        "r and i", "r i", "remove reinstall"
+      ],
+      "question": "What's the difference between R&I and Replace?",
+      "answer": "**R&I (Remove & Install)** vs **Replace** - key differences:\n\n**R&I (Remove & Install)**\n• Remove part to access damage\n• Reinstall the SAME part\n• Part is reused\n• No part cost\n• Used for access operations\n• Example: R&I headlight to repair fender\n\n**Replace (Rpl)**\n• Remove damaged part\n• Install NEW part\n• Part cost added\n• Includes R&I labor\n• Used when part is damaged\n• Example: Replace cracked bumper cover\n\n**When to Use Each:**\n\n**Use R&I when:**\n• Part is not damaged\n• Need access to repair area\n• Part can be safely removed/reinstalled\n\n**Use Replace when:**\n• Part is damaged beyond repair\n• Part is one-time-use (clips, fasteners)\n• Cost to repair exceeds replacement\n• Safety component (airbags, sensors)\n\n**R&I is included in Replace** - don't add both!"
+    },
+    {
+      "id": "included-not-included",
+      "category": "terminology",
+      "keywords": [
+        "included", "not included", "what's included", "what is included",
+        "included in labor", "not in labor", "add separately", "extra charge",
+        "included operations", "excluded", "additional charges"
+      ],
+      "question": "What's included vs not included in labor?",
+      "answer": "Understanding what's **Included** vs **Not Included** in published labor times:\n\n**INCLUDED in Labor:**\n• Basic R&I of adjacent parts\n• Standard preparation\n• Installing new part\n• Basic alignment/adjustment\n• Standard fasteners\n• Clean up of work area\n\n**NOT INCLUDED (Add Separately):**\n• Corrosion protection\n• Seam sealer application\n• Cavity wax\n• Sound deadener\n• Undercoating\n• Pin striping/decals\n• Protective film\n• Pre/Post scanning\n• ADAS calibration\n• Wheel alignment\n• Hazardous material handling\n• Structural measuring\n\n**Check P-Pages:**\n• CCC, Mitchell, Audatex have \"P-Pages\"\n• Lists what IS and ISN'T included\n• Varies by estimating system\n• Reference when negotiating\n\n**Tip:** Always review P-Pages for each operation to ensure nothing is missed!"
+    },
+    {
+      "id": "estimate-terminology",
+      "category": "terminology",
+      "keywords": [
+        "estimate", "what is estimate", "repair estimate", "damage estimate",
+        "write estimate", "create estimate", "estimate vs invoice",
+        "preliminary estimate", "final estimate", "estimate meaning"
+      ],
+      "question": "What is an estimate?",
+      "answer": "An **Estimate** is a detailed breakdown of repair costs:\n\n**Components of an Estimate:**\n• Labor operations (hours × rate)\n• Parts (cost + markup)\n• Materials (paint, supplies)\n• Sublet operations\n• Taxes (where applicable)\n\n**Types of Estimates:**\n\n**Preliminary/Initial**\n• Based on visible damage\n• Before disassembly\n• May change with supplements\n\n**Revised/Supplemental**\n• Updated after hidden damage found\n• Additional operations added\n• Requires approval\n\n**Final**\n• All damage accounted for\n• Used for billing\n• Matches completed repairs\n\n**Estimate vs Invoice:**\n• Estimate = projected cost\n• Invoice = actual charges\n• Should closely match\n\n**Who Uses Estimates:**\n• Insurance adjusters\n• Shop management\n• Customers\n• Parts departments"
+    },
+    {
+      "id": "paint-materials",
+      "category": "terminology",
+      "keywords": [
+        "paint materials", "materials", "paint supplies", "refinish materials",
+        "material cost", "paint cost", "how much paint", "material rate",
+        "materials calculation", "paint charge"
+      ],
+      "question": "How are paint materials calculated?",
+      "answer": "**Paint Materials** are calculated separately from labor:\n\n**Calculation Methods:**\n\n**Refinish Hour Based**\n• Materials = Refinish Hours × Material Rate\n• Example: 5.0 Rfn hrs × $40/hr = $200 materials\n• Most common method\n\n**Per Panel**\n• Flat rate per panel painted\n• Varies by panel size\n• Example: $75/small, $125/large\n\n**Actual Cost**\n• Based on paint mixed\n• Requires documentation\n• Used for custom colors\n\n**What Materials Include:**\n• Primer/sealer\n• Base coat (color)\n• Clear coat\n• Reducer/hardener\n• Masking materials\n• Sandpaper/supplies\n• Tack cloths\n• Mixing cups\n\n**Material Rate:**\n• Negotiated with insurers\n• Varies by region\n• Typically $28-50/refinish hour\n\n**Tip:** Materials are often underpaid - track actual costs to negotiate better rates!"
+    },
+    {
+      "id": "betterment",
+      "category": "terminology",
+      "keywords": [
+        "betterment", "depreciation", "wear and tear", "deduction",
+        "what is betterment", "why deduction", "reduced payment",
+        "prior damage", "pre-existing", "tire wear", "battery age"
+      ],
+      "question": "What is betterment/depreciation?",
+      "answer": "**Betterment** (also called depreciation) is a deduction for improved condition:\n\n**What It Means:**\n• Insurance pays to restore to PRE-LOSS condition\n• If new part improves vehicle, owner pays difference\n• Controversial practice\n• Varies by state/insurer\n\n**Common Betterment Items:**\n• Tires (based on tread wear)\n• Battery (based on age)\n• Brake components\n• Suspension parts\n• Exhaust systems\n\n**Example:**\n• 5-year-old tire needs replacement\n• New tire costs $200\n• Insurance may pay only $100 (50% worn)\n• Customer pays $100 betterment\n\n**When It Applies:**\n• Wear items only\n• Usually older vehicles\n• Based on documented condition\n\n**Disputes:**\n• Some states limit betterment\n• Document pre-loss condition\n• Check state insurance regulations\n• Customer can dispute with insurer"
+    },
+    {
+      "id": "total-loss-threshold",
+      "category": "terminology",
+      "keywords": [
+        "total loss threshold", "when totaled", "totaled percentage",
+        "how much to total", "total loss percentage", "tlv", "threshold",
+        "when is car totaled", "repair vs total"
+      ],
+      "question": "When is a vehicle considered a total loss?",
+      "answer": "A vehicle is **Totaled** when repair cost exceeds a threshold:\n\n**Total Loss Threshold:**\n• Varies by state: 50% to 100% of ACV\n• Most common: 70-80%\n• Some use Total Loss Formula (TLF)\n\n**Total Loss Formula:**\nCost of Repair + Salvage Value > Actual Cash Value\n\n**Example:**\n• Vehicle ACV: $20,000\n• Repair estimate: $14,000 (70%)\n• Salvage value: $4,000\n• $14,000 + $4,000 = $18,000 > threshold\n• = Total Loss\n\n**Factors Considered:**\n• Actual Cash Value (ACV)\n• Repair costs (including supplements)\n• Salvage value\n• State regulations\n• Insurer guidelines\n\n**ACV Determination:**\n• Comparable vehicle sales\n• Mileage adjustment\n• Condition adjustment\n• Options/features\n\n**Customer Options:**\n• Accept total loss payout\n• Owner-retained salvage\n• Dispute ACV valuation"
+    },
+    {
+      "id": "drp-program",
+      "category": "terminology",
+      "keywords": [
+        "drp", "direct repair", "direct repair program", "preferred shop",
+        "insurance program", "network shop", "what is drp",
+        "drp shop", "program shop", "insurance shop"
+      ],
+      "question": "What is a DRP (Direct Repair Program)?",
+      "answer": "**DRP (Direct Repair Program)** is a partnership between shops and insurers:\n\n**How It Works:**\n• Shop agrees to insurer's terms\n• Insurer refers customers to shop\n• Streamlined claim process\n• Performance metrics tracked\n\n**Benefits for Shop:**\n• Steady work referrals\n• Faster payment\n• Direct communication with insurer\n• Photo-based approvals\n\n**Requirements:**\n• Meet quality standards\n• Achieve cycle time targets\n• Customer satisfaction scores\n• Compliance with guidelines\n• Often: discounted rates\n\n**Potential Downsides:**\n• Lower labor rates\n• Pressure on cycle time\n• Insurer influence on repairs\n• Parts source requirements\n\n**Customer Choice:**\n• Customers can choose ANY shop\n• Not required to use DRP shop\n• DRP is convenience, not requirement\n\n**Non-DRP Shops:**\n• Can repair any vehicle\n• May have longer approval process\n• Full rate negotiations"
+    },
+    {
+      "id": "cycle-time",
+      "category": "terminology",
+      "keywords": [
+        "cycle time", "repair time", "how long repair", "days to repair",
+        "touch time", "keys to keys", "rental days", "turn around",
+        "when will car be ready", "how long will it take"
+      ],
+      "question": "What is cycle time?",
+      "answer": "**Cycle Time** measures how long repairs take:\n\n**Types of Cycle Time:**\n\n**Keys-to-Keys**\n• From vehicle drop-off to pick-up\n• Includes all delays\n• Customer's perspective\n\n**Touch Time**\n• Actual hands-on repair time\n• Excludes waiting/delays\n• Shop efficiency measure\n\n**Work Days**\n• Business days in shop\n• Excludes weekends\n• Common metric\n\n**Factors Affecting Cycle Time:**\n• Parts availability\n• Supplements/approvals\n• Shop workload\n• Repair complexity\n• Sublet operations\n• Weather (paint booth)\n\n**Industry Benchmarks:**\n• Light damage: 3-5 days\n• Medium damage: 7-10 days\n• Heavy damage: 14-21+ days\n\n**Why It Matters:**\n• Customer satisfaction\n• Rental car costs\n• Insurance metrics\n• Shop throughput\n• DRP performance"
+    },
+    {
+      "id": "parts-types",
+      "category": "terminology",
+      "keywords": [
+        "parts", "oem parts", "aftermarket", "used parts", "recycled",
+        "lkq", "what parts", "part types", "a/m", "opt oem",
+        "alternative parts", "capa", "certified parts"
+      ],
+      "question": "What are the different parts types?",
+      "answer": "**Parts Types** used in collision repair:\n\n**OEM (Original Equipment)**\n• Made by vehicle manufacturer\n• Exact fit guaranteed\n• Highest cost\n• Full warranty\n• Required for some repairs\n\n**Aftermarket (A/M)**\n• Made by third parties\n• Lower cost (20-50% less)\n• Fit may vary\n• CAPA/NSF certified = better quality\n• Common on older vehicles\n\n**Recycled/Used (LKQ)**\n• From salvage vehicles\n• Significant savings (50-75%)\n• Quality varies by source\n• Includes prep labor\n• Good for older vehicles\n\n**Remanufactured (Reman)**\n• Rebuilt to spec\n• Common for mechanical parts\n• Warranty included\n• Headlights, wheels, etc.\n\n**OPT OEM**\n• OEM at discounted price\n• Competitive with aftermarket\n• Same quality as OEM\n\n**Customer Rights:**\n• Can request OEM parts\n• May pay difference in cost\n• Check policy language"
+    },
+    {
+      "id": "markup",
+      "category": "terminology",
+      "keywords": [
+        "markup", "parts markup", "profit", "margin", "gp",
+        "gross profit", "parts profit", "how much markup",
+        "percentage", "what is markup"
+      ],
+      "question": "What is parts markup?",
+      "answer": "**Parts Markup** is the profit added to part cost:\n\n**How It Works:**\n• Shop buys part at cost\n• Sells to customer at higher price\n• Difference = markup/profit\n\n**Typical Markups:**\n• OEM parts: 25-40%\n• Aftermarket: 30-50%\n• Recycled/Used: 25-35%\n• Sublet: 10-25%\n\n**Calculation:**\n• Cost: $100\n• Markup: 30%\n• Sell price: $130\n• Profit: $30\n\n**List Price vs Net:**\n• List price = MSRP/retail\n• Net price = shop's cost\n• Markup based on net cost\n\n**Insurer Guidelines:**\n• Many cap markup at 25-30%\n• Negotiable\n• Part of DRP agreements\n\n**Why Markup Matters:**\n• Major shop revenue source\n• Covers handling, storage\n• Offsets labor rate limits\n• Business sustainability"
+    },
+    {
+      "id": "three-way-match",
+      "category": "procedures",
+      "keywords": [
+        "three way match", "3 way match", "parts match", "mirror match",
+        "color match", "verify parts", "check parts", "part verification"
+      ],
+      "question": "What is a three-way match?",
+      "answer": "**Three-Way Match** is a parts verification process:\n\n**The Three Ways:**\n1. **Part Number** - Matches order\n2. **Vehicle** - Fits this specific car\n3. **Estimate** - Matches what was written\n\n**Why It Matters:**\n• Prevents wrong parts installed\n• Catches ordering errors early\n• Avoids supplement delays\n• Reduces comebacks\n\n**When to Verify:**\n• When parts arrive\n• Before repair starts\n• After teardown (new damage?)\n\n**What to Check:**\n• Part number on box vs invoice\n• Part vs old part comparison\n• Color code (if applicable)\n• Left vs right side\n• Model year compatibility\n\n**Mirror Match:**\n• Compare new part to old\n• Check mounting points\n• Verify connectors/clips\n• Same size/shape\n\n**Document Issues:**\n• Photo mismatched parts\n• Note on estimate\n• Contact vendor immediately"
+    },
+    {
+      "id": "blueprinting",
+      "category": "procedures",
+      "keywords": [
+        "blueprint", "blueprinting", "teardown", "disassembly",
+        "damage analysis", "complete teardown", "full teardown",
+        "100% blueprint", "complete disassembly"
+      ],
+      "question": "What is blueprinting?",
+      "answer": "**Blueprinting** is complete damage analysis through teardown:\n\n**Purpose:**\n• Identify ALL damage upfront\n• Reduce supplements\n• Order all parts at once\n• Accurate repair planning\n• Faster cycle time\n\n**Process:**\n1. Initial estimate/photos\n2. Full disassembly\n3. Document all damage\n4. Write complete estimate\n5. Order all parts\n6. Begin repairs when parts arrive\n\n**Benefits:**\n• One supplement (or none)\n• Parts ready when needed\n• Accurate labor planning\n• Better customer communication\n• Reduced cycle time\n\n**What to Document:**\n• Hidden structural damage\n• Wiring/connector damage\n• Corrosion issues\n• Prior repairs\n• All affected systems\n\n**100% Blueprint:**\n• Every panel removed\n• All damage found\n• Complete parts list\n• Full labor assessment"
+    },
+    {
+      "id": "quality-control",
+      "category": "procedures",
+      "keywords": [
+        "quality", "quality control", "qc", "inspection", "final inspection",
+        "check work", "verify repair", "quality check", "comebacks"
+      ],
+      "question": "What is quality control in collision repair?",
+      "answer": "**Quality Control (QC)** ensures repairs meet standards:\n\n**QC Checkpoints:**\n\n**Pre-Repair:**\n• Damage documented\n• Parts verified\n• OEM procedures reviewed\n\n**During Repair:**\n• Welds inspected\n• Measurements verified\n• Fit checked before paint\n\n**Pre-Paint:**\n• Body work smooth\n• Gaps/alignment correct\n• Surface prep complete\n\n**Post-Paint:**\n• Color match verified\n• No defects (orange peel, runs)\n• Blend acceptable\n\n**Final Inspection:**\n• All operations complete\n• Fasteners torqued\n• Trim/moldings installed\n• Systems functional\n• Clean inside and out\n• Post-scan clear\n• Test drive complete\n\n**Documentation:**\n• QC checklist signed\n• Photos at each stage\n• Scan reports saved\n• Calibration records"
+    },
+    {
+      "id": "insurance-terms",
+      "category": "terminology",
+      "keywords": [
+        "insurance", "claim", "deductible", "claimant", "insured",
+        "first party", "third party", "liability", "collision",
+        "comprehensive", "insurance terms", "insurance claim"
+      ],
+      "question": "What are common insurance terms?",
+      "answer": "**Common Insurance Terms** in collision repair:\n\n**Coverage Types:**\n• **Collision**: Damage from impact\n• **Comprehensive**: Non-collision (theft, hail, vandalism)\n• **Liability**: Other party's damage you caused\n\n**Parties:**\n• **Insured**: Policy holder\n• **Claimant**: Person filing claim\n• **First Party**: Your own insurance\n• **Third Party**: Other driver's insurance\n\n**Key Terms:**\n• **Deductible**: Amount customer pays first\n• **ACV**: Actual Cash Value (vehicle worth)\n• **Subrogation**: Insurer recovers from at-fault party\n• **Adjuster**: Insurance rep who handles claims\n• **Appraiser**: Writes damage estimate\n\n**Claim Process:**\n1. Report accident\n2. Claim number assigned\n3. Vehicle inspected\n4. Estimate written\n5. Repairs authorized\n6. Supplements approved\n7. Final payment issued\n\n**Deductible:**\n• Typically $250-$1,000\n• Paid by customer\n• May be waived if not at fault"
+    },
+    {
+      "id": "common-mistakes",
+      "category": "howTo",
+      "keywords": [
+        "mistakes", "common mistakes", "errors", "wrong", "forgot",
+        "missed", "overlooked", "problems", "issues", "fix",
+        "what did i miss", "check my work"
+      ],
+      "question": "What are common estimating mistakes?",
+      "answer": "**Common Estimating Mistakes** to avoid:\n\n**Often Forgotten:**\n• Battery disconnect/reconnect\n• Pre/Post scan\n• ADAS calibration\n• Corrosion protection\n• Seam sealer\n• Sound deadener\n• Wheel alignment\n• Drive cycle\n\n**Wrong Selections:**\n• First Panel when should be Additional\n• Single battery on diesel truck\n• Gas when vehicle is Hybrid/EV\n• Missing Gateway for FCA 2018+\n\n**Documentation:**\n• Not enough photos\n• Missing measurements\n• No OEM procedure reference\n• Incomplete supplements\n\n**Labor Issues:**\n• Overlap not accounted for\n• Included operations added separately\n• Wrong labor category\n• Missing judgment time\n\n**Parts:**\n• Wrong part number\n• Missing hardware/clips\n• Not checking part condition\n\n**Prevention:**\n• Use checklists (McStud SOP List!)\n• Review before submitting\n• Check P-Pages\n• Follow OEM procedures"
+    },
+    {
+      "id": "negotiation-tips",
+      "category": "howTo",
+      "keywords": [
+        "negotiate", "negotiation", "dispute", "denied", "rejected",
+        "fight", "argue", "push back", "insurer won't pay",
+        "getting paid", "supplement denied"
+      ],
+      "question": "Tips for negotiating with insurers?",
+      "answer": "**Negotiation Tips** when insurers push back:\n\n**Document Everything:**\n• Photos, photos, photos\n• OEM procedure printouts\n• Position statements\n• Written communication\n\n**Know Your Sources:**\n• P-Pages (what's included/not)\n• OEM repair procedures\n• I-CAR guidelines\n• DEG (Database Enhancement Gateway) inquiries\n\n**Be Professional:**\n• Facts, not emotions\n• Written requests\n• Specific references\n• Follow up consistently\n\n**Common Disputes:**\n• Scan fees → OEM position statements\n• Calibration → OEM requirements\n• Corrosion protection → I-CAR standards\n• Labor time → Judgment time documentation\n\n**Escalation Path:**\n1. Field adjuster\n2. Supervisor\n3. Regional manager\n4. State insurance commissioner\n5. Legal action (last resort)\n\n**Customer Involvement:**\n• Customer can dispute directly\n• It's THEIR policy\n• Shop advocates, customer decides"
+    },
+    {
+      "id": "pre-repair-scan",
+      "category": "procedures",
+      "keywords": [
+        "pre repair scan", "pre-repair", "before scan", "initial scan",
+        "why scan before", "pre scan important", "document codes"
+      ],
+      "question": "Why is a pre-repair scan important?",
+      "answer": "**Pre-Repair Scan** documents vehicle condition BEFORE repairs:\n\n**Why It's Critical:**\n• Documents pre-existing codes\n• Identifies collision-related codes\n• Required by most OEMs\n• Establishes baseline\n• Protects shop from liability\n\n**What It Captures:**\n• Diagnostic Trouble Codes (DTCs)\n• Module communication status\n• System functionality\n• Calibration status\n\n**OEM Requirements:**\n• Nearly ALL manufacturers require it\n• Position statements available\n• Part of proper repair procedure\n\n**Documentation:**\n• Save scan report (PDF)\n• Include in repair file\n• Note date and time\n• List all modules scanned\n\n**If Insurer Denies:**\n• Reference OEM position statement\n• Provide I-CAR documentation\n• Note liability concerns\n• Customer safety issue\n\n**Typical Labor:**\n• 0.3-0.5 hours\n• Or $50-100 flat rate\n• Depends on vehicle/scan tool"
+    },
+    {
+      "id": "post-repair-scan",
+      "category": "procedures",
+      "keywords": [
+        "post repair scan", "post-repair", "after scan", "final scan",
+        "clear codes", "verify systems", "post scan important"
+      ],
+      "question": "Why is a post-repair scan important?",
+      "answer": "**Post-Repair Scan** verifies systems after repairs:\n\n**Purpose:**\n• Clear repair-related codes\n• Verify all systems functional\n• Confirm calibrations complete\n• Document vehicle ready for delivery\n\n**What to Check:**\n• All DTCs cleared\n• No new codes present\n• Modules communicating\n• SRS system ready\n• ADAS systems operational\n\n**Required Before Delivery:**\n• Safety system verification\n• Warranty compliance\n• Liability protection\n• Quality assurance\n\n**Documentation:**\n• Clean scan report\n• Save to file\n• Customer sign-off\n• Keep for records\n\n**If Codes Present:**\n• Investigate cause\n• May need additional repairs\n• Don't deliver with active codes\n• Especially SRS/ADAS codes\n\n**Combined Pre + Post:**\n• Shows before/after comparison\n• Proves repair effectiveness\n• Professional documentation"
+    },
+    {
+      "id": "weld-types",
+      "category": "terminology",
+      "keywords": [
+        "weld", "welding", "mig", "spot weld", "plug weld",
+        "squeeze type resistance", "str", "types of welds",
+        "weld requirements", "welding types", "where is welding",
+        "find welding", "welding location", "welding tab", "where welding",
+        "weld location", "where weld", "find weld"
+      ],
+      "question": "Where do I find welding operations?",
+      "answer": "**Welding operations** are in the **Body Operations** tab.\n\n**Location:** Body Operations tab (Tab 4)\n\n**Welding Types in Collision Repair:**\n\n**MIG (GMAW)**\n• Most common in shops\n• Gas Metal Arc Welding\n• Continuous wire feed\n\n**Squeeze-Type Resistance (STR)**\n• Factory-style spot welds\n• Required by many OEMs\n\n**Plug Weld**\n• Hole drilled in top panel\n• Welded to panel below\n\n**Where You'll Need Welding:**\n• Panel replacement\n• Structural repairs\n• Quarter panel sectioning\n• Rocker replacement\n• Pillar repairs\n\n**Always check OEM procedures** for weld specifications!\n\n**See Also:** Body Operations tab for welding-related inputs."
+    },
+    {
+      "id": "weld-types-detail",
+      "category": "terminology",
+      "keywords": [
+        "weld types", "types of welds", "mig welding", "spot welding"
+      ],
+      "question": "What are the different weld types?",
+      "answer": "**Weld Types** in collision repair:\n\n**MIG (GMAW)**\n• Most common in shops\n• Gas Metal Arc Welding\n• Continuous wire feed\n• Strong, versatile\n\n**Squeeze-Type Resistance (STR)**\n• Factory-style spot welds\n• Required by many OEMs\n• Special equipment needed\n• Replicates original welds\n\n**Plug Weld**\n• Hole drilled in top panel\n• Welded to panel below\n• Common replacement for spot welds\n• When STR not available\n\n**Spot Weld**\n• Original factory weld\n• Removed with cutter/drill\n• Replaced with STR or plug weld\n\n**Silicon Bronze**\n• Low heat application\n• Used on aluminum\n• Prevents distortion\n\n**OEM Requirements:**\n• Specify weld type and location\n• Number of welds required\n• Weld spacing\n• Heat restrictions (especially aluminum)\n\n**Always check OEM procedures** for weld specifications!"
+    },
+    {
+      "id": "aluminum-repair",
+      "category": "procedures",
+      "keywords": [
+        "aluminum", "aluminum repair", "aluminum panel", "f150 aluminum",
+        "aluminium", "aluminum body", "aluminum welding", "rivet bonding"
+      ],
+      "question": "What's special about aluminum repair?",
+      "answer": "**Aluminum Repair** requires special procedures:\n\n**Key Differences from Steel:**\n• Different welding techniques\n• Dedicated tools required\n• No cross-contamination\n• Special rivets and adhesives\n• More heat-sensitive\n\n**Dedicated Area Required:**\n• Separate from steel work\n• Aluminum-only tools\n• Clean environment\n• Prevents galvanic corrosion\n\n**Common Aluminum Vehicles:**\n• Ford F-150 (2015+)\n• Audi (many models)\n• Tesla (all models)\n• Jaguar/Land Rover\n• Luxury vehicles\n\n**Repair Methods:**\n• Rivet bonding\n• MIG welding (special wire)\n• Adhesive joining\n• Self-piercing rivets\n• Flow-form rivets\n\n**Certifications Needed:**\n• OEM-specific training\n• Aluminum repair certification\n• Equipment requirements\n\n**If Not Certified:**\n• May need to sublet\n• OEM network shop\n• Specialty facility"
+    },
+    {
+      "id": "test-battery",
+      "category": "inputs",
+      "keywords": [
+        "test battery", "battery test", "battery condition", "a31",
+        "check battery", "battery health", "load test", "battery good"
+      ],
+      "question": "What is the Test Battery operation?",
+      "answer": "**Test Battery** (Cell A31) checks battery condition:\n\n**What It Does:**\n• Tests battery health\n• Checks charge level\n• Measures cranking amps\n• Identifies weak batteries\n\n**When to Test:**\n• Vehicle was sitting (storage)\n• Accessories left on during repair\n• Older battery\n• Electrical system repairs\n• Customer complaint\n\n**Why It Matters:**\n• Weak battery = diagnostic issues\n• False codes possible\n• May not start after repair\n• Customer satisfaction\n\n**Test Results:**\n• Good: Battery OK\n• Weak: May need replacement\n• Bad: Replace before delivery\n• Recharge: Needs charging\n\n**Labor:** Typically 0.2-0.3 hours\n\n**Select YES when:**\n• Vehicle older than 3-4 years\n• Extended repair time\n• Any electrical symptoms\n• Battery was disconnected long-term"
+    },
+    {
+      "id": "battery-support",
+      "category": "inputs",
+      "keywords": [
+        "battery support", "battery charger", "maintainer", "a33",
+        "keep charged", "memory saver", "parasitic drain"
+      ],
+      "question": "What is Battery Support?",
+      "answer": "**Battery Support** (Cell A33) keeps battery charged during repair:\n\n**What It Does:**\n• Maintains charge during long repairs\n• Prevents memory loss\n• Keeps modules powered\n• Avoids relearns\n\n**When Needed:**\n• Multi-day repairs\n• Repeated scanning/programming\n• Interior work (lights on)\n• Module programming\n• Calibration procedures\n\n**Methods:**\n• Battery maintainer/charger\n• Memory saver (during disconnect)\n• External power supply\n\n**Why Important:**\n• Modules lose programming if battery dies\n• Radio presets lost\n• Seat/mirror positions reset\n• Some systems need relearning\n• Window auto-up/down reset\n\n**Labor:** Typically 0.2-0.3 hours to set up\n\n**Select YES when:**\n• Repair over 3+ days\n• Multiple programming steps\n• Customer concern about settings\n• Known parasitic drain issues"
+    },
+    {
+      "id": "where-to-start",
+      "category": "howTo",
+      "keywords": [
+        "where to start", "how to start", "beginning", "first step",
+        "new to this", "just starting", "beginner", "new user",
+        "how do i begin", "getting started", "start estimate",
+        "have a car", "got a car", "car came in", "vehicle came in",
+        "new job", "new repair", "new estimate", "accident", "collision",
+        "just came in", "dropped off", "what do i do first", "first thing",
+        "start with met", "use met", "how to use", "workflow",
+        "i have", "car here", "vehicle here", "repair job", "claim"
+      ],
+      "question": "Where do I start with a new estimate?",
+      "answer": "**Got a new car? Here's how to start with MET:**\n\n**Step 1: Start with SOP List** (ALWAYS first!)\n• Vehicle type: Gas, Hybrid, or EV?\n• Battery: Single or Dual?\n• ADAS equipped? (cameras, sensors)\n• Scan type for diagnostics\n• Gateway unlock needed? (FCA 2018+)\n\n**Step 2: Assess the Damage**\nLook at the vehicle and decide which tabs apply:\n• Panels damaged? → **Part Operations**\n• Need paint? → **Cover Car** + **Refinish Operations**\n• Frame/structural? → **Body Operations**\n• Suspension hit? → **Mechanical Operations**\n• Airbags deployed? → **SRS Operations**\n• A/C damaged? → **Mechanical Operations**\n\n**Step 3: Fill Out Each Tab**\n• Work through inputs on each relevant tab\n• Watch the outputs auto-calculate\n• Labor hours and prices populate automatically\n\n**Step 4: Review & Export**\n• Check generated operations\n• Copy to clipboard\n• Export to CCC or Mitchell\n\n**Pro Tips:**\n• SOP List applies to EVERY single job\n• Never skip battery disconnect/reconnect\n• Always include pre-scan and post-scan\n• Check ADAS on 2016+ vehicles\n• FCA 2018+ needs Gateway unlock"
+    },
+    {
+      "id": "missing-bumper-replace",
+      "category": "operations",
+      "keywords": [
+        "missing bumper", "bumper replace operations", "what am i missing bumper",
+        "bumper ops", "bumper checklist", "forgot bumper", "bumper replace check",
+        "bumper cover replace", "front bumper operations", "rear bumper operations"
+      ],
+      "question": "What operations am I missing on a bumper replace?",
+      "answer": "**Commonly Missed Bumper Replace Operations:**\n\n**Always Include:**\n• Adhesion Promoter (flexible plastic)\n• Flex Additive (in clear coat)\n• Prep New/Unprimed Part\n• Trial Fit\n\n**Front Bumper - Check For:**\n• Fog light R&I\n• Parking sensors R&I/calibration\n• Radar sensor R&I/calibration (ADAS!)\n• Grille R&I or replace\n• Air dam/deflector\n• Tow hook cover\n• License plate bracket\n• Headlight aim (if bumper has adjusters)\n\n**Rear Bumper - Check For:**\n• Backup sensors R&I/calibration\n• Backup camera R&I/calibration\n• Exhaust tip R&I\n• Trailer hitch cover\n• Reflectors\n• Step pad (trucks)\n\n**Refinish Operations:**\n• Mask for Overspray\n• DE-NIB\n• Cover Car (if full refinish)\n• Featherfill/Block (if repair area)\n\n**Don't Forget:**\n• Pre/Post scan (sensors!)\n• ADAS calibration for radar/cameras"
+    },
+    {
+      "id": "missing-fender-replace",
+      "category": "operations",
+      "keywords": [
+        "missing fender", "fender replace operations", "what am i missing fender",
+        "fender ops", "fender checklist", "forgot fender", "fender replace check"
+      ],
+      "question": "What operations am I missing on a fender replace?",
+      "answer": "**Commonly Missed Fender Replace Operations:**\n\n**Always Include:**\n• Prep New/Unprimed Part\n• Prime & Block\n• Corrosion Protection (inner surfaces)\n• Trial Fit\n\n**R&I Operations:**\n• Headlight R&I (access)\n• Wheel well liner R&I\n• Side marker R&I\n• Antenna (if mounted on fender)\n• Fender flare (if equipped)\n• Mud flap/splash guard\n\n**Adjacent Panel Considerations:**\n• Blend hood? (usually)\n• Blend door? (if metallic/pearl)\n• A-pillar trim R&I\n\n**Body Operations:**\n• Seam sealer (cowl joint)\n• Sound deadener\n• Undercoating\n• Anti-chip coating (lower edge)\n\n**Refinish Operations:**\n• Edge (door jamb area)\n• Mask for Overspray\n• DE-NIB\n• Color Sand/Buff (if needed)\n\n**Check:**\n• Wheel alignment (bolt slots may shift)\n• Gap/fit adjustment time"
+    },
+    {
+      "id": "missing-quarter-panel",
+      "category": "operations",
+      "keywords": [
+        "missing quarter", "quarter panel operations", "what am i missing quarter",
+        "quarter ops", "quarter checklist", "forgot quarter", "quarter replace check"
+      ],
+      "question": "What operations am I missing on a quarter panel?",
+      "answer": "**Commonly Missed Quarter Panel Operations:**\n\n**Structural/Body:**\n• Measure/Document (before & after)\n• Sectioning labor (if applicable)\n• Weld-through primer\n• Seam sealer - ALL seams\n• Cavity wax (inside quarter)\n• Corrosion protection\n• Sound deadener replacement\n• Body filler/block (weld areas)\n\n**R&I Operations:**\n• Tail light R&I\n• Fuel door R&I\n• Quarter glass R&I (if applicable)\n• Rear bumper R&I\n• Trunk/tailgate weatherstrip\n• Interior trim panels\n• Wheel well liner\n• Rocker molding\n• Belt molding\n\n**Refinish:**\n• Blend rear door?\n• Blend deck lid/tailgate?\n• Edge jamb areas\n• Anti-chip (lower quarter)\n• Undercoating (wheel well)\n\n**Often Overlooked:**\n• Gas tank R&I (access for inner work)\n• Exhaust R&I\n• Parking sensor calibration\n• Backup camera calibration\n• Structural measuring/setup"
+    },
+    {
+      "id": "missing-door-replace",
+      "category": "operations",
+      "keywords": [
+        "missing door", "door replace operations", "what am i missing door",
+        "door ops", "door checklist", "forgot door", "door shell", "door skin"
+      ],
+      "question": "What operations am I missing on a door replace?",
+      "answer": "**Commonly Missed Door Operations:**\n\n**Door Shell Replace:**\n• Transfer ALL components (big job!)\n• Weatherstrip replacement\n• Door seal (body side)\n• Mirror transfer or R&I\n• Handle transfer\n• Lock cylinder transfer\n• Window regulator transfer\n• Door module transfer\n• Speaker transfer\n• Wiring harness inspection\n\n**Door Skin Replace:**\n• Seam sealer (hem flange)\n• Corrosion protection\n• Sound deadener\n• E-coat damage repair\n• Inner panel straighten (if needed)\n\n**Refinish:**\n• Edge/jamb\n• Blend adjacent panels?\n• Mask for Overspray\n• Anti-chip (lower)\n\n**Check For:**\n• Intrusion beam (if damaged)\n• Side airbag (if deployed - NEW DOOR)\n• Wiring damage\n• Hinge damage/adjustment\n• Striker adjustment\n• Window alignment\n• Door check link\n\n**Don't Forget:**\n• Key programming (if new cylinder)\n• Scan for SRS codes"
+    },
+    {
+      "id": "missing-hood-replace",
+      "category": "operations",
+      "keywords": [
+        "missing hood", "hood replace operations", "what am i missing hood",
+        "hood ops", "hood checklist", "forgot hood", "hood replace check"
+      ],
+      "question": "What operations am I missing on a hood replace?",
+      "answer": "**Commonly Missed Hood Operations:**\n\n**Always Include:**\n• Prep New/Unprimed Part\n• Underside refinish/edging\n• Hood adjustment/alignment\n• Trial fit\n\n**Transfer/R&I:**\n• Hood insulator pad\n• Hood prop rod or struts\n• Emblem/badge\n• Washer nozzles\n• Washer hose\n• Hood latch\n• Hood hinges (if damaged)\n• Pedestrian sensor (if equipped)\n\n**Refinish:**\n• Underside color (visible when open)\n• Blend fenders? (pearl/metallic)\n• Mask for Overspray\n• DE-NIB\n\n**Aluminum Hoods:**\n• Dedicated tools required\n• Different refinish process\n• Often OEM-only replacement\n• No straightening typically\n\n**ADAS Considerations:**\n• Hood position sensor\n• Pedestrian detection calibration\n• Camera calibration (some vehicles)\n\n**Check:**\n• Latch alignment\n• Gap and flushness\n• Hinge bolt access"
+    },
+    {
+      "id": "blend-guidelines",
+      "category": "procedures",
+      "keywords": [
+        "blend", "blending", "how many panels blend", "blend guidelines",
+        "when to blend", "blend distance", "blend rules", "color match blend",
+        "metallic blend", "pearl blend", "tri coat blend", "how far to blend"
+      ],
+      "question": "How do I know when and where to blend?",
+      "answer": "**Blending Guidelines:**\n\n**When Blending is NEEDED:**\n• Metallic colors (most common)\n• Pearl/Tri-coat colors (always)\n• Aged/faded paint\n• Color variance in repair\n• High-visibility areas\n\n**When Blending MAY NOT be needed:**\n• Solid (non-metallic) colors\n• New vehicles with fresh paint\n• Hidden/non-visible areas\n• Same batch paint available\n\n**How Many Panels to Blend:**\n• Minimum: 1 adjacent panel\n• Metallic: 1-2 panels\n• Pearl/Tri-coat: 2-3 panels\n• Severe fade: May need more\n\n**Blend Direction Rules:**\n• Blend AWAY from damage\n• Blend toward least visible area\n• Horizontal surfaces: blend toward back\n• Vertical surfaces: blend toward bottom\n\n**Blend Panel Labor:**\n• Typically 50-60% of full refinish\n• Includes edge panel prep\n• Clear coat extends further than color\n\n**Pro Tips:**\n• Let-down panel (spray out) before committing\n• Document color variance with photos\n• Check paint code/variant"
+    },
+    {
+      "id": "edging-jambs",
+      "category": "procedures",
+      "keywords": [
+        "edge", "edging", "jamb", "jambs", "door jamb", "edge paint",
+        "jamb refinish", "how much edge", "edging time", "jamb time",
+        "interior color", "opening edges"
+      ],
+      "question": "What is edging and when do I include it?",
+      "answer": "**Edging (Jamb Refinish) Guide:**\n\n**What is Edging?**\nPainting the visible edges when doors/hood/trunk are open - areas NOT covered by standard exterior refinish.\n\n**When to Include:**\n• Door replacement (inner door edge)\n• Fender replacement (A-pillar area)\n• Quarter panel (trunk/tailgate opening)\n• Hood (firewall edge if visible)\n• Deck lid/tailgate (opening edge)\n\n**Typical Edging Times:**\n• Door edge: 0.3-0.5 hrs\n• Fender A-pillar edge: 0.2-0.4 hrs\n• Quarter opening edge: 0.4-0.6 hrs\n• Hood edge: 0.2-0.3 hrs\n• Deck lid edge: 0.2-0.4 hrs\n\n**What's Involved:**\n• Mask opening/jamb area\n• Apply sealer if bare metal\n• Color match jamb (may differ!)\n• Clear coat\n• Some jambs are textured\n\n**Important Notes:**\n• Jamb color may be DIFFERENT than exterior\n• Check paint code for jamb variant\n• NOT included in standard panel refinish\n• Must be added separately"
+    },
+    {
+      "id": "clear-coat-overlap",
+      "category": "procedures",
+      "keywords": [
+        "clear coat", "clearcoat", "clear overlap", "clear blend",
+        "clearcoat blend", "how to clear", "clear coat panels"
+      ],
+      "question": "How does clear coat work with blending?",
+      "answer": "**Clear Coat & Blending:**\n\n**Key Concept:**\nClear coat extends FURTHER than base coat (color) for invisible blend.\n\n**Clear Coat Coverage:**\n• Repaired panel: Full clear\n• Blend panel: Full or partial clear\n• Adjacent to blend: Clear may extend\n\n**Clear Coat Blend Process:**\n1. Base coat (color) blended first\n2. Base coat stops mid-panel\n3. Clear coat continues past base edge\n4. Clear blends into existing clear\n5. Buff blend line invisible\n\n**Multi-Stage (Tri-coat/Pearl):**\n• Base coat first\n• Mid-coat (pearl/candy)\n• Clear coat last\n• Each layer blended differently\n\n**Clear Coat Considerations:**\n• Matte/flat clear - harder to blend\n• OEM clear vs aftermarket\n• UV protection matching\n• Blend line buffing included?\n\n**Labor Notes:**\n• Clear coat time typically part of refinish hours\n• Blend panel clear included in blend time\n• Extra panels may be \"clear only\"\n• Document if clear extends beyond blend"
+    },
+    {
+      "id": "included-bumper-ri",
+      "category": "operations",
+      "keywords": [
+        "included bumper", "bumper r&i included", "what's included bumper",
+        "bumper labor included", "bumper not included", "bumper p pages"
+      ],
+      "question": "What's included in bumper R&I labor?",
+      "answer": "**Bumper R&I - Included vs Not Included:**\n\n**INCLUDED in Bumper R&I:**\n• Remove bumper cover fasteners\n• Disconnect wiring (basic plugs)\n• Remove and reinstall cover\n• Basic bumper alignment\n• Reinstall fasteners\n\n**NOT INCLUDED (Add Separately):**\n• Fog lights R&I\n• Parking sensors R&I\n• Radar sensors R&I\n• Grille R&I (usually)\n• Lower air deflector R&I\n• Tow hook cover\n• License plate R&I\n• Impact bar/reinforcement R&I\n• Energy absorber R&I\n• Bumper brackets (if separate)\n• Sensor recalibration\n• Fog light aim\n\n**Refinish NOT Included:**\n• Adhesion promoter\n• Flex additive\n• Texture matching\n• Scuff/prep inner surfaces\n\n**P-Page Reference:**\nCheck CCC/Mitchell P-Pages for specific included/not included items - varies by estimating system!"
+    },
+    {
+      "id": "included-fender-replace",
+      "category": "operations",
+      "keywords": [
+        "included fender", "fender replace included", "what's included fender",
+        "fender labor included", "fender not included", "fender p pages"
+      ],
+      "question": "What's included in fender replace labor?",
+      "answer": "**Fender Replace - Included vs Not Included:**\n\n**INCLUDED in Fender Replace:**\n• Remove/install fender bolts\n• Disconnect basic wiring\n• Transfer bolt-on parts (some systems)\n• Basic gap alignment\n• Install new fender\n\n**NOT INCLUDED (Add Separately):**\n• Headlight R&I (access) - DEBATED\n• Wheel well liner R&I\n• Side marker light R&I\n• Antenna R&I\n• Fender flare R&I\n• Fender liner clips (replace)\n• Seam sealer\n• Corrosion protection\n• Sound deadener\n• Anti-chip coating\n• Wheel alignment\n• Structural measuring\n\n**Refinish NOT Included:**\n• Prep new unprimed part\n• Prime & block\n• Edging (jamb area)\n• Undercoating inner fender\n• Blend adjacent panels\n\n**Pro Tip:**\nHeadlight R&I is often disputed - some insurers say it's included, CCC P-Pages say it IS included, but many shops add it. Document!"
+    },
+    {
+      "id": "adas-windshield",
+      "category": "procedures",
+      "keywords": [
+        "windshield adas", "windshield calibration", "camera calibration windshield",
+        "windshield replace calibration", "forward camera", "fsv", "fcw"
+      ],
+      "question": "What ADAS calibration is needed after windshield replacement?",
+      "answer": "**Windshield ADAS Calibration:**\n\n**Systems Potentially Affected:**\n• Forward Collision Warning (FCW)\n• Automatic Emergency Braking (AEB)\n• Lane Departure Warning (LDW)\n• Lane Keep Assist (LKA)\n• Adaptive Cruise Control (ACC)\n• Traffic Sign Recognition\n• High Beam Assist\n• Rain-sensing wipers\n• Heads-up Display (HUD)\n\n**Calibration Types:**\n\n**Static Calibration:**\n• Done in shop with targets\n• Requires calibration equipment\n• Specific distance/height requirements\n• Level floor surface needed\n• 1.0-2.0 hours typical\n\n**Dynamic Calibration:**\n• Requires test drive\n• Specific speed requirements\n• Weather/visibility conditions\n• May take 15-30 minutes driving\n• Some systems self-calibrate\n\n**Always Required After:**\n• Windshield replacement\n• Windshield repair (in camera view)\n• Camera removal/replacement\n• Mirror removal (if camera attached)\n\n**Labor:** $150-400 typical, depending on vehicle/system\n\n**OEM Requirements:** Nearly ALL manufacturers require calibration - check position statements!"
+    },
+    {
+      "id": "adas-bumper",
+      "category": "procedures",
+      "keywords": [
+        "bumper adas", "bumper radar", "radar calibration", "front radar",
+        "rear radar", "parking sensor calibration", "bumper sensor"
+      ],
+      "question": "What ADAS calibration is needed after bumper work?",
+      "answer": "**Bumper ADAS Calibration Guide:**\n\n**Front Bumper Systems:**\n• Adaptive Cruise Control radar\n• Automatic Emergency Braking\n• Forward Collision Warning\n• Parking sensors\n• Cross-traffic alert (front)\n\n**Rear Bumper Systems:**\n• Parking sensors\n• Backup camera\n• Rear cross-traffic alert\n• Rear automatic braking\n• Trailer sensors\n\n**When Calibration is Required:**\n• Bumper cover R&I or replace\n• Radar sensor R&I or replace\n• Bumper reinforcement work\n• Front-end structural repairs\n• Wheel alignment (affects radar aim)\n\n**Calibration Types:**\n\n**Radar Calibration:**\n• Static: Targets + scan tool\n• Dynamic: Test drive\n• Often BOTH required\n\n**Parking Sensor Calibration:**\n• Usually self-calibrating\n• May need scan tool reset\n• Verify function before delivery\n\n**Backup Camera:**\n• Usually no calibration\n• May need angle adjustment\n• Check overlay/guidelines\n\n**Cost:** Front radar calibration typically $200-400"
+    },
+    {
+      "id": "adas-alignment",
+      "category": "procedures",
+      "keywords": [
+        "alignment adas", "wheel alignment calibration", "alignment calibration",
+        "after alignment adas", "thrust angle adas", "suspension adas"
+      ],
+      "question": "Is ADAS calibration needed after wheel alignment?",
+      "answer": "**Wheel Alignment & ADAS Calibration:**\n\n**Short Answer:** Often YES!\n\n**Why Alignment Affects ADAS:**\n• ADAS sensors assume vehicle tracks straight\n• Thrust angle changes affect sensor aim\n• Lane keep uses wheel angle data\n• Radar/camera pointed wrong direction\n\n**Systems Affected:**\n• Lane Departure Warning\n• Lane Keep Assist\n• Adaptive Cruise Control\n• Forward Collision Warning\n• Blind Spot Monitoring\n• 360° Camera Systems\n\n**OEM Requirements:**\n• Many manufacturers REQUIRE calibration after alignment\n• Check specific OEM position statements\n• Toyota, Honda, GM, Ford all have requirements\n\n**Best Practice:**\n1. Pre-scan vehicle\n2. Perform alignment\n3. Perform ADAS calibration\n4. Post-scan vehicle\n5. Test drive to verify\n\n**Alignment + Calibration Labor:**\n• Alignment: Sublet $80-150\n• ADAS calibration: $150-400\n• May need both static AND dynamic\n\n**Tip:** Bill ADAS calibration to insurance - it's required by OEM!"
+    },
+    {
+      "id": "gateway-vehicles",
+      "category": "procedures",
+      "keywords": [
+        "gateway vehicles", "which cars gateway", "what cars need gateway",
+        "fca gateway", "stellantis gateway", "security gateway cars",
+        "gateway list", "gateway years"
+      ],
+      "question": "Which vehicles need security gateway unlock?",
+      "answer": "**Security Gateway Vehicles:**\n\n**FCA/Stellantis (2018+):**\n• Chrysler 300 (2018+)\n• Dodge Charger (2018+)\n• Dodge Challenger (2018+)\n• Dodge Durango (2018+)\n• Jeep Cherokee (2018+)\n• Jeep Grand Cherokee (2018+)\n• Jeep Wrangler (2018+)\n• Jeep Gladiator (all)\n• RAM 1500 (2019+)\n• RAM 2500/3500 (2019+)\n\n**GM (Expanding):**\n• Select 2020+ vehicles\n• Growing to more models\n\n**Ford (Expanding):**\n• Select 2021+ vehicles\n• F-150 (2021+) - some functions\n\n**How to Unlock:**\n• **AutoAuth** - Subscription service ($)\n• **OEM Scan Tool** - Expensive option\n• **Dealer** - Time consuming\n\n**What Gateway Blocks:**\n• Third-party scan tools\n• Module programming\n• Key programming\n• Some diagnostic functions\n\n**Cost:**\n• AutoAuth: ~$60/month or per-use\n• Labor to unlock: 0.2-0.3 hrs\n\n**Include in estimate** for FCA 2018+ vehicles!"
+    },
+    {
+      "id": "negotiate-scan",
+      "category": "howTo",
+      "keywords": [
+        "scan denied", "scan not paid", "justify scan", "scan negotiation",
+        "insurance won't pay scan", "scan fee denied", "pre scan denied"
+      ],
+      "question": "How do I justify scan fees to insurance?",
+      "answer": "**Justifying Scan Fees:**\n\n**Why Scans are Required:**\n• OEM position statements mandate them\n• Safety system verification\n• Hidden damage discovery\n• Liability protection\n• Industry standard practice\n\n**Documentation to Provide:**\n\n**OEM Position Statements:**\n• Nearly ALL manufacturers require scans\n• Download from OEM repair sites\n• Print and attach to supplement\n\n**I-CAR References:**\n• I-CAR scanning requirements\n• Collision Repair News articles\n\n**Specific Points:**\n• \"Pre-scan documents baseline\"\n• \"Post-scan verifies safe repair\"\n• \"OEM requires for warranty\"\n• \"Shop liability without scan\"\n\n**If Denied:**\n1. Request denial in writing\n2. Cite OEM position statement\n3. Reference I-CAR guidelines\n4. Escalate to supervisor\n5. Involve vehicle owner\n6. Document everything\n\n**Common Insurer Responses:**\n• \"Not needed\" → OEM says otherwise\n• \"Included\" → Not in P-Pages\n• \"We don't pay for that\" → Check policy\n\n**Labor:** 0.3-0.5 hrs OR flat rate ($50-100 each scan)"
+    },
+    {
+      "id": "negotiate-corrosion",
+      "category": "howTo",
+      "keywords": [
+        "corrosion denied", "corrosion protection denied", "justify corrosion",
+        "weld through primer", "cavity wax denied", "e-coat repair"
+      ],
+      "question": "How do I justify corrosion protection to insurance?",
+      "answer": "**Justifying Corrosion Protection:**\n\n**Why It's Required:**\n• OEM procedures mandate it\n• Prevents rust/warranty issues\n• Restores factory protection\n• NOT included in labor times\n• Industry standard practice\n\n**Types to Include:**\n• Weld-through primer (0.2-0.3 hrs per area)\n• Cavity wax (0.3-0.5 hrs per cavity)\n• Seam sealer (0.3-0.5 hrs per seam)\n• E-coat repair (0.4-0.6 hrs)\n• Undercoating (0.3-0.5 hrs)\n\n**Documentation:**\n\n**P-Pages State:**\n• \"Corrosion protection NOT included\"\n• Must be added as separate operation\n\n**OEM Procedures Show:**\n• Where protection is required\n• What products to use\n• Print and attach to estimate\n\n**I-CAR Standards:**\n• Corrosion protection best practices\n• Required for proper repair\n\n**Negotiation Points:**\n• \"OEM procedure requires it\"\n• \"Not included per P-Pages\"\n• \"Rust claim prevention\"\n• \"Factory protection must be restored\"\n\n**If Denied:**\n• Provide OEM procedure printout\n• Show P-Page excerpt\n• Request written denial\n• Escalate with documentation"
+    },
+    {
+      "id": "negotiate-blend",
+      "category": "howTo",
+      "keywords": [
+        "blend denied", "blend not paid", "justify blend", "blend negotiation",
+        "insurance won't pay blend", "why blend", "blend necessary"
+      ],
+      "question": "How do I justify blend panels to insurance?",
+      "answer": "**Justifying Blend Panels:**\n\n**Why Blending is Required:**\n• Color match cannot be guaranteed\n• Paint ages/fades over time\n• Metallic/pearl shows mismatch\n• Industry standard practice\n• Customer satisfaction\n\n**When to Blend:**\n• Metallic colors (almost always)\n• Pearl/tri-coat (always)\n• Any visible mismatch\n• Adjacent to repaired panel\n\n**Documentation:**\n\n**Color Variance Evidence:**\n• Photos of color difference\n• Spray-out card comparison\n• Paint code verification\n\n**Industry Standards:**\n• I-CAR refinish guidelines\n• Paint manufacturer recommendations\n• OEM color matching procedures\n\n**Negotiation Points:**\n• \"Color cannot be perfectly matched\"\n• \"Metallic/pearl requires blending\"\n• \"Industry standard practice\"\n• \"Customer will see line\"\n• \"Come-back prevention\"\n\n**Blend Time:**\n• Typically 50-60% of full refinish\n• Includes prep, base, clear\n• May need multiple panels\n\n**If Insurer Says \"Try Without Blend\":**\n• Document their request\n• Photo evidence if mismatch occurs\n• Supplement for blend after\n• Never deliver with visible line"
+    },
+    {
+      "id": "labor-time-fender",
+      "category": "terminology",
+      "keywords": [
+        "fender labor time", "how long fender", "fender hours", "fender replace time",
+        "fender repair time", "typical fender labor"
+      ],
+      "question": "What's typical labor time for fender work?",
+      "answer": "**Typical Fender Labor Times:**\n\n**Fender Replace:**\n• Remove & Install: 1.5-3.0 hrs\n• Varies by vehicle\n• Import vs domestic differences\n• Bolt-on vs welded fenders\n\n**Fender Repair:**\n• Light (small dent): 1.0-2.0 hrs\n• Medium (multiple dents): 2.0-4.0 hrs\n• Heavy (major damage): 4.0-6.0 hrs\n• Based on damage severity\n\n**Fender Refinish:**\n• Full refinish: 2.0-3.5 hrs\n• Blend: 1.5-2.5 hrs\n• Spot repair: 1.0-2.0 hrs\n\n**Additional Operations:**\n• Prep new part: 0.3-0.5 hrs\n• Corrosion protection: 0.3-0.5 hrs\n• Seam sealer: 0.2-0.4 hrs\n• Edging: 0.2-0.4 hrs\n• Trial fit: 0.2-0.3 hrs\n\n**R&I for Access:**\n• Headlight R&I: 0.3-0.8 hrs\n• Wheel well liner: 0.3-0.5 hrs\n• Side marker: 0.1-0.2 hrs\n\n**Note:** Times vary significantly by make/model. Always use database times for specific vehicle."
+    },
+    {
+      "id": "labor-time-bumper",
+      "category": "terminology",
+      "keywords": [
+        "bumper labor time", "how long bumper", "bumper hours", "bumper replace time",
+        "bumper repair time", "typical bumper labor"
+      ],
+      "question": "What's typical labor time for bumper work?",
+      "answer": "**Typical Bumper Labor Times:**\n\n**Bumper Cover Replace:**\n• Remove & Install: 0.8-2.0 hrs\n• Front typically more than rear\n• Sensors/radar adds time\n\n**Bumper Cover Repair:**\n• Light (scuffs): 0.5-1.5 hrs\n• Medium (cracks): 1.5-3.0 hrs\n• Heavy (multiple cracks): 3.0-4.5 hrs\n• Plastic welding adds time\n\n**Bumper Cover Refinish:**\n• Full refinish: 2.0-3.5 hrs\n• Lower/upper only: 1.5-2.5 hrs\n• Flexible parts need more prep\n\n**Additional Operations:**\n• Adhesion promoter: 0.2-0.3 hrs\n• Flex additive: 0.1-0.2 hrs\n• Prep new part: 0.3-0.5 hrs\n• Trial fit: 0.2-0.3 hrs\n• Featherfill/block: 0.3-0.6 hrs\n\n**Component R&I:**\n• Fog lights: 0.2-0.5 hrs each\n• Parking sensors: 0.1-0.2 hrs each\n• Grille: 0.2-0.5 hrs\n• Lower deflector: 0.2-0.4 hrs\n• Radar sensor: 0.3-0.5 hrs\n\n**Calibrations:**\n• Radar: $200-400 (sublet)\n• Parking sensors: 0.2-0.3 hrs"
+    },
+    {
+      "id": "labor-time-door",
+      "category": "terminology",
+      "keywords": [
+        "door labor time", "how long door", "door hours", "door replace time",
+        "door shell time", "door skin time", "typical door labor"
+      ],
+      "question": "What's typical labor time for door work?",
+      "answer": "**Typical Door Labor Times:**\n\n**Door Shell Replace:**\n• Remove old shell: 0.5-1.0 hrs\n• Transfer components: 2.0-5.0 hrs (BIG job!)\n• Install new shell: 0.5-1.0 hrs\n• Total: 3.0-7.0 hrs depending on vehicle\n\n**Door Skin Replace:**\n• Remove old skin: 1.0-2.0 hrs\n• Install new skin: 1.5-2.5 hrs\n• Hem/bond flange: 0.5-1.0 hrs\n• Total: 3.0-5.5 hrs\n\n**Door Repair:**\n• Light (door ding): 0.5-1.5 hrs\n• Medium (crease): 1.5-3.0 hrs\n• Heavy (multiple areas): 3.0-5.0 hrs\n\n**Door Refinish:**\n• Full refinish: 2.5-4.0 hrs\n• Exterior only: 2.0-3.0 hrs\n• Blend: 1.5-2.5 hrs\n• Edge/jamb: 0.3-0.5 hrs\n\n**Component Transfer (Shell Replace):**\n• Window/regulator: 0.5-1.0 hrs\n• Door module: 0.3-0.5 hrs\n• Mirror: 0.2-0.4 hrs\n• Handle/lock: 0.3-0.5 hrs\n• Speaker: 0.1-0.3 hrs\n• Weatherstrip: 0.2-0.4 hrs\n\n**Note:** Shell replace is labor intensive - verify all components transfer!"
+    },
+    {
+      "id": "supplement-common",
+      "category": "procedures",
+      "keywords": [
+        "supplement items", "common supplement", "hidden damage", "teardown damage",
+        "what to supplement", "supplement list", "missed damage"
+      ],
+      "question": "What are common supplement items?",
+      "answer": "**Common Supplement Items:**\n\n**Behind Bumper:**\n• Impact bar/reinforcement\n• Energy absorber (foam/honeycomb)\n• Bumper brackets\n• Sensor wiring\n• AC condenser\n• Radiator support damage\n\n**Behind Fenders:**\n• Inner fender/apron damage\n• Wiring harness damage\n• Wheel well rust/damage\n• Core support damage\n• Headlight brackets\n\n**Behind Doors:**\n• Intrusion beam damage\n• Wiring damage\n• Hinge/pillar damage\n• Weatherstrip damage\n• Rocker panel damage\n\n**Structural (After Teardown):**\n• Rail damage extent\n• Floor pan damage\n• Pillar damage\n• Rocker inner\n• Unibody cracks\n\n**Suspension/Mechanical:**\n• Control arm damage\n• Subframe damage\n• Steering component damage\n• Engine cradle\n• Brake line damage\n\n**Refinish:**\n• Additional blend panels\n• Prior paint defects\n• Extra prep needed\n• Tri-coat discovered\n\n**Best Practice:**\nPhotograph EVERYTHING during teardown!"
+    },
+    {
+      "id": "supplement-documentation",
+      "category": "procedures",
+      "keywords": [
+        "document supplement", "supplement photos", "supplement proof",
+        "how to supplement", "supplement process", "supplement approval"
+      ],
+      "question": "How do I properly document a supplement?",
+      "answer": "**Supplement Documentation Best Practices:**\n\n**Photo Requirements:**\n• Overall shot showing context\n• Close-up of specific damage\n• Comparison to undamaged side\n• Measuring tape in photo\n• VIN tag in at least one photo\n• Date/time stamp if possible\n\n**Written Documentation:**\n• When damage was discovered\n• What was removed to reveal it\n• Why it wasn't visible initially\n• How it relates to impact\n\n**Measurement Documentation:**\n• Pre-repair measurements\n• Dimension differences\n• Structural spec comparison\n• Photo of measuring system output\n\n**Supplement Process:**\n1. STOP work when damage found\n2. Take extensive photos\n3. Document in writing\n4. Add operations to estimate\n5. Contact adjuster/insurer\n6. Wait for approval before proceeding\n7. Get written approval\n\n**Communication:**\n• Email creates paper trail\n• Include photos in correspondence\n• Reference estimate line numbers\n• Be specific about what and why\n\n**Pro Tip:** Never assume approval - get it in writing before additional work!"
+    },
+    {
+      "id": "ev-hybrid-safety",
+      "category": "procedures",
+      "keywords": [
+        "ev repair", "hybrid repair", "electric vehicle", "high voltage",
+        "ev safety", "hybrid safety", "orange cables", "hv battery"
+      ],
+      "question": "What are EV/Hybrid repair safety requirements?",
+      "answer": "**EV/Hybrid Safety Requirements:**\n\n**STOP - Before Any Work:**\n• Is the vehicle powered down?\n• Is high-voltage system disabled?\n• Are you trained for EV/Hybrid?\n• Do you have proper PPE?\n\n**High-Voltage Identification:**\n• Orange cables = HIGH VOLTAGE\n• Never touch orange components\n• HV battery usually under floor or rear\n• Can be 400-800+ volts!\n\n**Disable Procedures:**\n• Follow OEM-specific procedure\n• May require scan tool\n• May require physical disconnect\n• Wait time after disable (capacitors)\n\n**Required PPE:**\n• Class 0 electrical gloves (1000V rated)\n• Safety glasses\n• Non-conductive tools\n• Insulated floor mat\n\n**Additional Operations:**\n• HV system disable: 0.5-1.0 hrs\n• HV system re-enable: 0.3-0.5 hrs\n• HV system verification: 0.2-0.3 hrs\n• May need HV specialist\n\n**Shop Requirements:**\n• Trained technicians\n• Proper equipment\n• Emergency procedures\n• Some shops NOT equipped for EV\n\n**Labor Category:** Often higher rate for HV work"
+    },
+    {
+      "id": "tesla-specific",
+      "category": "procedures",
+      "keywords": [
+        "tesla", "tesla repair", "tesla estimate", "tesla scan",
+        "tesla calibration", "tesla labor", "tesla parts"
+      ],
+      "question": "What's different about Tesla repairs?",
+      "answer": "**Tesla-Specific Considerations:**\n\n**Parts:**\n• OEM parts ONLY (Tesla requirement)\n• Limited aftermarket availability\n• Parts ordering through Tesla\n• Some parts restricted to certified shops\n\n**Scanning:**\n• Tesla-specific diagnostic required\n• Tesla Toolbox or certified scan tool\n• Higher scan fees typical\n• OTA updates may affect systems\n\n**Calibration:**\n• Autopilot cameras (up to 8)\n• Ultrasonic sensors (up to 12)\n• Requires Tesla equipment\n• May need Tesla Mobile Service\n\n**Structural:**\n• Aluminum construction (most models)\n• Dedicated aluminum area required\n• Specific riveting equipment\n• Adhesive bonding\n• No heat straightening aluminum\n\n**Battery Considerations:**\n• Large HV battery pack\n• Special handling/storage\n• Battery damage = possible total loss\n• Fire risk protocols\n\n**Certifications:**\n• Tesla Certified Body Shop preferred\n• Training requirements\n• Equipment requirements\n• Not all shops qualified\n\n**Labor Rates:**\n• Often commands premium\n• Specialized training required"
+    },
+    {
+      "id": "truck-specific",
+      "category": "procedures",
+      "keywords": [
+        "truck", "pickup", "truck repair", "f150", "silverado",
+        "truck bed", "bed side", "cab corner", "frame truck"
+      ],
+      "question": "What's different about truck/pickup repairs?",
+      "answer": "**Truck/Pickup Specific Operations:**\n\n**Bed Side Panel:**\n• Often requires cab-off or bed-off\n• Cab-off labor: 6.0-12.0 hrs\n• Bed-off labor: 3.0-6.0 hrs\n• Sectioning common\n• Inner wheelhouse access\n\n**Cab Corner:**\n• High rust area\n• Sectioning procedures\n• Inner cab access needed\n• Check for hidden rust\n\n**Frame Considerations:**\n• Body-on-frame construction\n• Frame damage = frame machine\n• Frame section/replace possible\n• Frame labor separate from body\n• Boxed vs C-channel frames\n\n**Tailgate:**\n• Aluminum on many new trucks\n• Integrated cameras/sensors\n• Power tailgate systems\n• Expensive to replace\n\n**Truck-Specific Items:**\n• Bed liner R&I\n• Tonneau cover R&I\n• Fifth wheel hitch\n• Gooseneck hitch\n• Toolbox R&I\n• Bedside steps/rails\n• Tow mirrors\n\n**Diesel Considerations:**\n• Dual battery systems\n• DEF system (damage?)\n• Turbo/intercooler\n• Different scan requirements"
+    },
+    {
+      "id": "aluminum-specific",
+      "category": "procedures",
+      "keywords": [
+        "aluminum", "aluminum repair", "f150 aluminum", "aluminum body",
+        "aluminum fender", "aluminum hood", "aluminum welding"
+      ],
+      "question": "What's different about aluminum panel repairs?",
+      "answer": "**Aluminum-Specific Requirements:**\n\n**Dedicated Area Required:**\n• Separate from steel work\n• Own set of tools\n• Clean environment\n• No steel particles!\n\n**Why Separation Matters:**\n• Galvanic corrosion risk\n• Steel contamination causes rust\n• Embedded particles = warranty issues\n\n**Tools Required:**\n• Aluminum-specific hammers\n• Aluminum dollies\n• Dedicated grinder/sander\n• Different filler products\n• Specific sandpaper\n\n**Joining Methods:**\n• MIG welding (aluminum wire)\n• Rivet bonding\n• Self-piercing rivets\n• Flow-form rivets\n• Structural adhesives\n• NO traditional spot welding\n\n**Repair Limitations:**\n• Less stretchable than steel\n• Heat affects strength\n• Often replace vs repair\n• OEM procedures strict\n\n**Common Aluminum Vehicles:**\n• Ford F-150 (2015+)\n• Audi (many models)\n• Jaguar/Land Rover\n• Tesla (all models)\n• Corvette (structural)\n• Many luxury brands\n\n**Labor:**\n• Often higher rate for aluminum\n• More time for careful work"
+    },
+    {
+      "id": "paint-code-location",
+      "category": "procedures",
+      "keywords": [
+        "paint code", "color code", "where paint code", "find paint code",
+        "color match", "paint code location", "variant code", "paint sticker"
+      ],
+      "question": "Where do I find the paint code?",
+      "answer": "**Paint Code Locations by Make:**\n\n**Common Locations:**\n• Driver door jamb (most vehicles)\n• Driver B-pillar\n• Under hood (firewall)\n• Glove box\n• Trunk lid jamb\n\n**By Manufacturer:**\n• **Ford**: Driver door jamb\n• **GM**: Driver door jamb or glove box\n• **Chrysler/Stellantis**: Driver door jamb\n• **Toyota**: Driver door jamb\n• **Honda**: Driver door jamb\n• **BMW**: Under hood or door jamb\n• **Mercedes**: Driver door jamb\n• **Tesla**: Driver B-pillar\n\n**Paint Code Format:**\n• Usually 2-4 characters\n• May have variant code (interior/exterior)\n• Example: WA8555 (GM), PW7 (Chrysler)\n\n**Tri-Coat/Pearl Identification:**\n• Code usually indicates multi-stage\n• Check paint manufacturer cross-reference\n• Look for \"Tri\" or \"3-Stage\" notation\n\n**If Code is Damaged:**\n• Check VIN decoder\n• Contact dealer with VIN\n• Use spectrophotometer to match"
+    },
+    {
+      "id": "structural-measuring",
+      "category": "procedures",
+      "keywords": [
+        "measure", "measuring", "structural measure", "frame measure",
+        "dimension", "specs", "when to measure", "measuring system"
+      ],
+      "question": "When do I need structural measuring?",
+      "answer": "**When Structural Measuring is Required:**\n\n**Always Measure:**\n• Any unibody damage\n• Frame rail damage (BOF)\n• Suspension/steering damage\n• Collision over 10-15 mph\n• Airbag deployment\n• Major panel replacement\n• Customer complaint of pulling/drift\n\n**Measuring Points:**\n• Strut/shock towers\n• Control arm mounts\n• Subframe mounting\n• Radiator support\n• Frame rails (all points)\n• Cowl/windshield opening\n• Door openings\n• Roof rail/pillars\n\n**Equipment Types:**\n• Computerized systems (Car-O-Liner, Chief, etc.)\n• Laser systems\n• Tram gauge (basic)\n• Centering gauges\n\n**Labor:**\n• Setup/measure: 0.5-1.5 hrs\n• Document: 0.2-0.3 hrs\n• Per-point additional: varies\n• Blueprint: 1.0-3.0 hrs\n\n**Documentation:**\n• Print before/after specs\n• Include in repair file\n• Photo measuring equipment output\n• Attach to estimate\n\n**Note:** NOT included in panel replacement labor!"
+    },
+    {
+      "id": "sectioning-guidelines",
+      "category": "procedures",
+      "keywords": [
+        "section", "sectioning", "panel section", "where to section",
+        "quarter section", "rocker section", "rail section", "cut location"
+      ],
+      "question": "What are the sectioning guidelines?",
+      "answer": "**Panel Sectioning Guidelines:**\n\n**What is Sectioning?**\nCutting and replacing only PART of a panel instead of full replacement.\n\n**When to Section:**\n• Damage localized to one area\n• OEM allows sectioning\n• More cost-effective than full panel\n• Service part available\n\n**OEM Sectioning Rules:**\n• ALWAYS check OEM procedures first!\n• Approved cut locations only\n• Some panels cannot be sectioned\n• Specific joint types required\n\n**Common Sectioning Areas:**\n• Quarter panel (at door opening)\n• Rocker panel (at door openings)\n• Frame rails (approved locations)\n• A/B/C pillars (approved only)\n• Roof at pillars\n\n**Sectioning Requirements:**\n• Offset joints (not straight across)\n• Proper joint type (lap, butt, etc.)\n• Weld-through primer\n• Seam sealer\n• Corrosion protection\n\n**Labor:**\n• Sectioning typically MORE labor than full replace\n• Includes cutting, fitting, welding\n• Add corrosion protection\n• Add seam sealer\n\n**Do NOT Section:**\n• High-strength steel (UHSS, AHSS) - often\n• Aluminum panels (usually)\n• Without OEM approval"
+    },
+    {
+      "id": "deg-inquiries",
+      "category": "terminology",
+      "keywords": [
+        "deg", "database enhancement gateway", "deg inquiry", "p page dispute",
+        "included not included", "ccc inquiry", "mitchell inquiry"
+      ],
+      "question": "What is DEG and how do I use it?",
+      "answer": "**DEG (Database Enhancement Gateway):**\n\n**What is DEG?**\n• Industry organization for database accuracy\n• Files inquiries on what IS/ISN'T included\n• Creates rulings on disputed operations\n• Free resource for shops\n\n**Website:** DEGweb.org\n\n**How to Use DEG:**\n1. Search existing inquiries first\n2. Find ruling on your disputed item\n3. Print ruling for documentation\n4. Submit new inquiry if none exists\n\n**Common DEG Topics:**\n• Included/not included operations\n• Labor time disputes\n• Material definitions\n• Procedure clarifications\n• R&I operations\n\n**Example Inquiry Types:**\n• \"Is R&I headlight included in fender replace?\"\n• \"Is corrosion protection included?\"\n• \"What does 'adjacent' mean for overlap?\"\n\n**Using DEG in Negotiations:**\n• Print relevant inquiry/ruling\n• Attach to estimate/supplement\n• Reference inquiry number\n• Shows industry position\n\n**DEG is FREE** to search and use!\n\n**Pro Tip:** Search DEG BEFORE arguing with adjuster - know the ruling first."
+    },
+    {
+      "id": "prior-damage",
+      "category": "procedures",
+      "keywords": [
+        "prior damage", "old damage", "pre-existing", "previous damage",
+        "unrelated damage", "prior repair", "old dent"
+      ],
+      "question": "How do I handle prior damage?",
+      "answer": "**Handling Prior/Pre-Existing Damage:**\n\n**Documentation is KEY:**\n• Photo ALL damage at intake\n• Note location and severity\n• Measure if possible\n• Get customer acknowledgment\n\n**On the Estimate:**\n• Clearly note \"Prior damage - unrelated\"\n• Separate line items if affected\n• Don't include in repair scope\n• May need deduction if panel replaced\n\n**Prior Damage Scenarios:**\n\n**Prior Dent on Replacement Panel:**\n• Not repair responsibility\n• Customer pays difference if they want fixed\n• Note on delivery docs\n\n**Prior Rust:**\n• Not collision-related\n• May affect repair quality\n• Disclose to customer/insurer\n\n**Previous Poor Repair:**\n• Document with photos\n• May complicate current repair\n• Additional labor if affects work\n• Disclose immediately\n\n**Customer Communication:**\n• Point out at drop-off\n• Have them acknowledge\n• Include in final QC\n\n**Protect Yourself:**\n• \"As-is\" for prior damage\n• Written acknowledgment\n• Photos in file\n• Clear on delivery form"
+    },
+    {
+      "id": "aftermarket-fit",
+      "category": "procedures",
+      "keywords": [
+        "aftermarket fit", "am fit", "part doesn't fit", "fit issue",
+        "aftermarket problem", "gap issue", "alignment problem"
+      ],
+      "question": "What do I do when aftermarket parts don't fit?",
+      "answer": "**Aftermarket Parts Fit Issues:**\n\n**Document BEFORE Installing:**\n• Photo new part vs old part\n• Measure critical dimensions\n• Note any visible defects\n• Compare mounting holes\n\n**Common Fit Problems:**\n• Mounting holes misaligned\n• Panel contour wrong\n• Gap issues\n• Attachment points don't line up\n• Finish quality poor\n\n**What to Do:**\n1. Document with photos/measurements\n2. Contact parts supplier\n3. Request return authorization\n4. Write supplement for OEM part\n5. Include fit time if adjustable\n\n**Supplement Language:**\n• \"A/M part does not fit properly\"\n• \"Mounting holes misaligned by Xmm\"\n• \"Requesting OEM due to fit issues\"\n• Include photos!\n\n**Fit/Adjust Time:**\n• If part CAN fit with work: 0.5-2.0 hrs\n• Document extra effort required\n• Not always payable by insurer\n\n**Customer Rights:**\n• Can request OEM at any time\n• May pay price difference\n• Check state laws on aftermarket\n\n**Keep the A/M Part** until resolution!"
+    },
+    {
+      "id": "ac-evacuate-recharge",
+      "category": "procedures",
+      "keywords": [
+        "ac", "air conditioning", "evacuate", "recharge", "a/c",
+        "freon", "refrigerant", "ac recovery", "ac service"
+      ],
+      "question": "When do I include AC evacuate and recharge?",
+      "answer": "**AC Evacuate & Recharge:**\n\n**When Required:**\n• Condenser R&I or replace\n• Radiator R&I or replace (some vehicles)\n• Compressor R&I\n• Any AC line disconnect\n• Core support replacement\n• Front structural repairs\n• Evaporator access\n\n**What It Includes:**\n• Recover existing refrigerant\n• Evacuate system (vacuum)\n• Check for leaks\n• Recharge with proper amount\n• Add oil if required\n• Verify operation\n\n**Labor:**\n• Evacuate/Recharge: 0.8-1.5 hrs\n• Often sublet to specialty shop\n• Typical sublet: $80-150\n\n**Materials:**\n• Refrigerant (R134a or R1234yf)\n• R1234yf is expensive ($50-100+ per lb)\n• PAG oil if needed\n• Dye for leak detection\n\n**Documentation:**\n• Before: Amount recovered\n• After: Amount recharged\n• Note any leaks found\n• Operating pressures\n\n**Note:** R1234yf (newer vehicles) costs significantly more than R134a!"
+    },
+    {
+      "id": "wheel-alignment-when",
+      "category": "procedures",
+      "keywords": [
+        "alignment", "wheel alignment", "when alignment", "need alignment",
+        "alignment required", "alignment after", "thrust angle"
+      ],
+      "question": "When do I need to include wheel alignment?",
+      "answer": "**When Wheel Alignment is Required:**\n\n**Always Include:**\n• Any suspension component replacement\n• Steering component replacement\n• Subframe R&I or replacement\n• Frame/structural straightening\n• Strut tower repair\n• Control arm replacement\n• Ball joint replacement\n• Tie rod replacement\n• Knuckle/spindle replacement\n\n**Usually Include:**\n• Quarter panel replacement (may shift specs)\n• Rocker panel replacement\n• Major rear collision (thrust angle)\n• Wheel/tire replacement\n• Cradle/crossmember work\n\n**Types:**\n• **Front alignment**: Front suspension work\n• **Thrust angle**: Rear suspension affects front\n• **4-wheel alignment**: Best practice for most repairs\n\n**Labor:**\n• Typically sublet: $80-150\n• 4-wheel alignment: $100-180\n• Specialty vehicles: more\n\n**ADAS Note:**\n• Alignment BEFORE calibration\n• Alignment affects ADAS aiming\n• May need re-calibration if alignment changes\n\n**Customer Safety:**\n• Never skip alignment after suspension work\n• Tire wear and handling affected\n• Document if customer declines"
+    },
+    {
+      "id": "headlight-aim",
+      "category": "procedures",
+      "keywords": [
+        "headlight aim", "headlight adjustment", "aim headlights",
+        "headlight alignment", "headlight level", "light aim"
+      ],
+      "question": "When do I include headlight aim?",
+      "answer": "**Headlight Aim/Adjustment:**\n\n**When Required:**\n• Headlight replacement\n• Headlight R&I\n• Front structural repairs\n• Fender replacement (some vehicles)\n• Hood replacement (some vehicles)\n• Suspension repair (front)\n• After collision in headlight area\n\n**Types of Systems:**\n\n**Manual Aim:**\n• Adjustment screws on headlight\n• Aim to specifications\n• Check both vertical and horizontal\n\n**Auto-Leveling (HID/LED):**\n• Requires scan tool initialization\n• Sensor calibration may be needed\n• Level vehicle first (tire pressure!)\n\n**Adaptive Headlights:**\n• May require calibration\n• Steering angle sensor related\n• Check OEM procedures\n\n**Labor:**\n• Manual aim: 0.3-0.5 hrs\n• Auto-leveling reset: 0.2-0.3 hrs\n• Adaptive calibration: 0.5-1.0 hrs\n\n**Equipment:**\n• Headlight aiming machine/screen\n• Level surface required\n• Scan tool for auto-leveling\n\n**Safety:** Improperly aimed headlights = safety hazard!"
+    },
+    {
+      "id": "sound-deadener",
+      "category": "procedures",
+      "keywords": [
+        "sound deadener", "deadener", "noise", "nvh", "sound proofing",
+        "sound dampener", "vibration", "soundproofing"
+      ],
+      "question": "When do I include sound deadener?",
+      "answer": "**Sound Deadener Replacement:**\n\n**What is it?**\n• Material applied to panels to reduce noise/vibration\n• Often tar-like or foam sheets\n• Factory applied at specific locations\n\n**When to Include:**\n• Panel replacement (floor, quarter, roof)\n• Door skin replacement\n• Trunk floor repair/replace\n• Roof panel replacement\n• Any area with factory deadener\n\n**Common Locations:**\n• Floor pan (entire surface)\n• Door inner panels\n• Trunk floor\n• Roof panel\n• Quarter panel inner\n• Firewall\n\n**Types:**\n• Butyl sheets (peel and stick)\n• Spray-on coating\n• Foam sheets\n• Factory specific materials\n\n**Labor:**\n• Application: 0.3-0.8 hrs per panel\n• Depends on coverage area\n• Removal for repair: additional time\n\n**Materials:**\n• NOT included in labor\n• Separate material charge\n• Match factory type if possible\n\n**NOT Included** in panel replacement labor - add separately!"
+    },
+    {
+      "id": "undercoating",
+      "category": "procedures",
+      "keywords": [
+        "undercoating", "undercoat", "underbody", "chip coating",
+        "stone chip", "rock chip", "underseal"
+      ],
+      "question": "When do I include undercoating?",
+      "answer": "**Undercoating/Chip Coating:**\n\n**Types:**\n\n**Undercoating:**\n• Applied to underbody\n• Protects from road debris\n• Rubberized coating\n\n**Anti-Chip Coating:**\n• Applied to rocker panels\n• Lower doors, fenders\n• Quarter panel lower\n• Protects from stone chips\n\n**When to Include:**\n• Any replacement panel with factory coating\n• Rocker panel replacement\n• Fender replacement (lower edge)\n• Door replacement (lower edge)\n• Quarter panel (lower/wheel well)\n• Floor pan repair/replacement\n\n**Application:**\n• Clean surface first\n• Apply per manufacturer specs\n• Match factory texture\n• May require special equipment\n\n**Labor:**\n• Application: 0.2-0.5 hrs per area\n• Full underbody: 1.0-2.0 hrs\n• Texture matching: additional\n\n**Materials:**\n• Rubberized undercoating\n• Chip-resistant coating\n• NOT included in labor\n\n**Refinish Category** for most applications\n\n**Note:** Check OEM specs for correct product type!"
+    },
+    {
+      "id": "body-filler",
+      "category": "procedures",
+      "keywords": [
+        "body filler", "bondo", "filler", "how much filler",
+        "filler depth", "filler limit", "plastic filler"
+      ],
+      "question": "What are the body filler guidelines?",
+      "answer": "**Body Filler Guidelines:**\n\n**Maximum Depth:**\n• Generally 1/4\" (6mm) maximum\n• Over bare, properly prepared metal\n• Less on flexible areas\n• OEM may specify limits\n\n**When Filler is Appropriate:**\n• Minor dings and dents after metal work\n• Weld grind areas\n• Small imperfections\n• Skim coating for final finish\n\n**When NOT to Use Filler:**\n• Deep damage (replace or more metal work)\n• Structural areas\n• Over rust or corrosion\n• Over paint (adhesion issues)\n• To \"hide\" improper repair\n\n**Proper Application:**\n1. Bare, clean metal only\n2. Grind/sand for adhesion\n3. Apply in thin layers\n4. Allow proper cure time\n5. Block sand to contour\n\n**Filler Types:**\n• Standard polyester filler\n• Premium/lightweight filler\n• Finishing/glazing putty\n• Aluminum filler (specialty)\n\n**Labor:**\n• Included in repair labor\n• Heavy filling = more time\n• Block/sand = more time\n\n**Quality Check:**\n• Use magnetic gauge to measure depth\n• Feel for contour match\n• Prime and check before color"
+    },
+    {
+      "id": "color-tint",
+      "category": "procedures",
+      "keywords": [
+        "color tint", "tint", "color adjust", "color match",
+        "variant", "color off", "doesn't match", "blending out"
+      ],
+      "question": "What if the color doesn't match?",
+      "answer": "**Color Matching Issues:**\n\n**Common Causes:**\n• Wrong paint code\n• Wrong variant\n• Aged/faded original paint\n• Metallic orientation\n• Application technique\n• Environmental factors\n\n**Steps to Solve:**\n\n**1. Verify Paint Code:**\n• Double-check code on vehicle\n• Check VIN decoder\n• Verify variant if applicable\n\n**2. Check Spray-Out:**\n• Always do let-down panel first\n• Compare to vehicle in same light\n• Check multiple angles (metallic)\n\n**3. Tinting Options:**\n• Adjust formula per paint system\n• Add/reduce tints as needed\n• Document adjustments made\n\n**4. Blending:**\n• Most reliable solution\n• Blend into adjacent panels\n• Clear coat further than base\n\n**Labor for Tinting:**\n• Color adjust: 0.3-0.5 hrs\n• Multiple attempts: more time\n• Premium colors: more time\n\n**Document Everything:**\n• Photos in different lighting\n• Note tinting adjustments\n• Customer sign-off\n\n**Some Colors are Difficult:**\n• Tri-coat/pearl\n• Metallic with flop\n• Candy colors\n• Older faded vehicles"
+    },
+    {
+      "id": "oem-position-statements",
+      "category": "terminology",
+      "keywords": [
+        "oem position", "position statement", "manufacturer statement",
+        "oem requirement", "oem says", "manufacturer position"
+      ],
+      "question": "What are OEM position statements?",
+      "answer": "**OEM Position Statements:**\n\n**What They Are:**\n• Official manufacturer statements on repair procedures\n• Define required operations\n• Specify equipment/training needs\n• Liability guidance\n\n**Common Topics:**\n• Pre/post repair scanning\n• ADAS calibration requirements\n• Structural repair limitations\n• Parts requirements (OEM vs A/M)\n• Sectioning approvals\n• Welding specifications\n\n**Where to Find Them:**\n• OEM repair procedure sites\n• I-CAR RTS portal\n• OEM1Stop.com\n• Manufacturer websites\n• Collision Hub\n\n**How to Use:**\n• Print and attach to estimate\n• Reference in supplement\n• Support disputed operations\n• Liability documentation\n\n**Key Manufacturers with Statements:**\n• Honda/Acura - comprehensive\n• Toyota/Lexus - detailed\n• GM - extensive\n• Ford - growing library\n• FCA/Stellantis - available\n• BMW, Mercedes, Audi - strict\n\n**Example Uses:**\n• \"OEM requires pre/post scan\"\n• \"OEM prohibits aftermarket structural parts\"\n• \"OEM requires ADAS calibration\"\n\n**Pro Tip:** Download and save relevant statements to your shop library!"
+    },
+    {
+      "id": "rental-loss-of-use",
+      "category": "terminology",
+      "keywords": [
+        "rental", "rental car", "loss of use", "loaner", "transportation",
+        "rental days", "how long rental", "rental coverage"
+      ],
+      "question": "How does rental/loss of use work?",
+      "answer": "**Rental Car & Loss of Use:**\n\n**Rental Coverage:**\n• Part of customer's policy (optional)\n• Daily limit (typically $30-50/day)\n• Maximum days (often 30 days)\n• Check policy for specifics\n\n**Loss of Use (No Coverage):**\n• Customer may claim actual loss\n• Reasonable daily rate\n• Only for repair duration\n• Third-party claims\n\n**Shop Responsibilities:**\n• Repair in timely manner\n• Communicate delays promptly\n• Document parts delays\n• Don't extend unnecessarily\n\n**When Rental Starts:**\n• Usually when repairs begin\n• May start at drop-off (policy dependent)\n• Authorize with insurer first\n\n**Rental Considerations:**\n• Comparable vehicle\n• Like kind and quality\n• May upgrade at customer expense\n\n**Delay Documentation:**\n• Parts on backorder (document!)\n• Waiting for authorization\n• Supplement delays\n• Weather delays\n\n**Who Pays for Delays:**\n• Shop delay: Shop responsibility\n• Parts delay: Insurance typically\n• Authorization delay: Insurance\n• Customer delay: Customer\n\n**Pro Tip:** Communicate proactively about timeline!"
+    },
+    {
+      "id": "tow-storage",
+      "category": "terminology",
+      "keywords": [
+        "tow", "towing", "storage", "storage fees", "tow bill",
+        "how much storage", "storage rate", "impound"
+      ],
+      "question": "How do I handle tow and storage charges?",
+      "answer": "**Tow & Storage Charges:**\n\n**Towing:**\n• From accident scene to shop\n• Typically covered by insurance\n• Document mileage and type\n• Flatbed vs wheel-lift\n\n**Typical Tow Charges:**\n• Hook-up fee: $75-150\n• Per mile: $3-8/mile\n• After hours: premium\n• Specialty (lowered, AWD): more\n\n**Storage:**\n• Daily rate for vehicle on premises\n• Starts when vehicle arrives\n• Ends when customer picks up\n\n**Typical Storage Rates:**\n• Inside: $35-75/day\n• Outside: $25-50/day\n• Varies by region\n\n**When Storage is Charged:**\n• Vehicle awaiting authorization\n• Total loss pending pickup\n• Parts delay (debatable)\n• Customer delay in pickup\n\n**Insurance Considerations:**\n• Most policies have limits\n• May dispute excessive storage\n• Document authorization delays\n• Total loss: storage until title transfer\n\n**Documentation:**\n• Date/time received\n• Daily log if long term\n• Photos of vehicle storage\n• Notice to customer/insurer\n\n**State Regulations:**\n• Some states limit storage rates\n• Lien laws vary\n• Check local requirements"
+    },
+    {
+      "id": "admin-fees",
+      "category": "terminology",
+      "keywords": [
+        "admin fee", "administrative", "shop supplies", "hazmat",
+        "waste disposal", "environment fee", "misc charges"
+      ],
+      "question": "What administrative fees can I charge?",
+      "answer": "**Administrative & Miscellaneous Fees:**\n\n**Common Charges:**\n\n**Shop Supplies/Materials:**\n• Consumables not in specific operations\n• Tape, paper, cleaners, etc.\n• Often % of labor (3-10%)\n• Or flat rate per job\n\n**Hazardous Waste Disposal:**\n• Paint waste, solvents\n• Refrigerant recovery\n• Oil/fluid disposal\n• Environmental compliance\n\n**Administrative Fees:**\n• File handling\n• Documentation\n• Photo processing\n• Storage of records\n\n**Often Disputed Items:**\n• Shop supplies (insurers resist)\n• Administrative fees (often denied)\n• Environmental fees (varies)\n\n**What's Typically Accepted:**\n• Hazmat disposal (documented)\n• Specific supplies on estimate\n• Storage (reasonable rate)\n• Towing (actual invoice)\n\n**Best Practices:**\n• Itemize when possible\n• Support with documentation\n• Know insurer guidelines\n• Be reasonable\n\n**State Laws:**\n• Some states allow shop supplies\n• Rates may be regulated\n• Check local requirements\n\n**Customer Pay:**\n• Can charge more than insurance\n• Disclose upfront\n• Get authorization"
+    },
+    {
+      "id": "diagnostic-time",
+      "category": "procedures",
+      "keywords": [
+        "diagnostic time", "diag", "diagnosis", "troubleshoot",
+        "find problem", "electrical diag", "what's wrong"
+      ],
+      "question": "When do I include diagnostic time?",
+      "answer": "**Diagnostic Time:**\n\n**When to Include:**\n• Electrical problems beyond obvious damage\n• Intermittent issues\n• Multiple possible causes\n• System malfunction after repair\n• Check engine/warning lights\n• ADAS malfunction\n\n**What Diagnostic Time Covers:**\n• Analyzing symptoms\n• Using diagnostic equipment\n• Testing circuits/components\n• Researching technical info\n• Isolating problem source\n\n**Typical Diagnostic Labor:**\n• Basic: 0.5-1.0 hrs\n• Moderate: 1.0-2.0 hrs\n• Complex: 2.0-4.0+ hrs\n• Depends on issue complexity\n\n**Pre/Post Scan vs Diagnostic:**\n• **Scan**: Read/clear codes, verify systems\n• **Diagnostic**: Determine WHY code exists\n• Different operations!\n\n**Documentation:**\n• Note symptoms\n• List tests performed\n• Document findings\n• Time spent\n\n**Disputes:**\n• Insurers may question extensive diag\n• Document your process\n• Show why time was needed\n• Keep detailed notes\n\n**Labor Category:** Usually Mechanical (M)"
+    },
+    {
+      "id": "teardown-charges",
+      "category": "procedures",
+      "keywords": [
+        "teardown", "disassembly", "teardown charge", "inspection fee",
+        "blueprint charge", "estimate fee", "look at damage"
+      ],
+      "question": "Can I charge for teardown/disassembly?",
+      "answer": "**Teardown/Disassembly Charges:**\n\n**When Teardown is Needed:**\n• Hidden damage suspected\n• Accurate estimate required\n• Blueprint process\n• Insurance requested detailed estimate\n\n**Types of Teardown:**\n\n**Partial Teardown:**\n• Remove damaged panels\n• Access hidden areas\n• Limited disassembly\n• 1.0-3.0 hrs typical\n\n**Full Blueprint:**\n• Complete disassembly\n• All damage exposed\n• Comprehensive estimate\n• 3.0-8.0+ hrs\n\n**Charging for Teardown:**\n• If repairs done: Usually absorbed into repair labor\n• If customer declines repair: May charge teardown\n• If total loss: May be separate charge\n• Get authorization BEFORE teardown\n\n**Customer Pay Scenarios:**\n• Looking at buying used car\n• Second opinion\n• Declines repair after teardown\n• Not using shop for repair\n\n**Insurance Scenarios:**\n• May pay for blueprinting\n• Often disputes if excessive\n• Total loss may include teardown\n\n**Best Practice:**\n• Written authorization\n• Clear about charges\n• Estimate teardown time\n• Document with photos"
+    },
+    {
+      "id": "clip-fastener",
+      "category": "procedures",
+      "keywords": [
+        "clips", "fasteners", "broken clip", "clip charge",
+        "hardware", "one time use", "retainer", "push pin"
+      ],
+      "question": "How do I charge for clips and fasteners?",
+      "answer": "**Clips & Fasteners:**\n\n**Types:**\n• Push-pin retainers\n• Panel clips\n• Fender liner clips\n• Trim fasteners\n• Bumper clips\n• Wiring harness clips\n• Weatherstrip retainers\n\n**When to Replace:**\n• Broken during R&I\n• One-time use (OEM spec)\n• Damaged/worn\n• Missing\n\n**Charging Guidelines:**\n\n**Included:**\n• Clips that come with new part\n• Some basic fasteners with R&I\n\n**Not Included (Charge Separately):**\n• Broken clips during R&I\n• Clips not included with part\n• One-time-use fasteners\n• Hardware kits\n\n**Pricing:**\n• Individual clips: $0.50-5.00 each\n• Hardware kits: $10-50+\n• OEM vs aftermarket available\n\n**Documentation:**\n• Count broken clips\n• Note on estimate\n• Photo if disputed\n\n**Labor Note:**\n• Time to replace clips usually minimal\n• May need to order (adds time)\n• Some clips dealer-only\n\n**Pro Tip:** Keep common clips in stock to avoid delays!"
+    },
+    {
+      "id": "wiring-repair",
+      "category": "procedures",
+      "keywords": [
+        "wiring", "wire repair", "harness", "connector", "electrical repair",
+        "splice", "wire damage", "harness damage"
+      ],
+      "question": "How do I estimate wiring/harness repairs?",
+      "answer": "**Wiring & Harness Repairs:**\n\n**Types of Damage:**\n• Cut/severed wires\n• Crushed harness\n• Melted insulation\n• Corroded connectors\n• Pulled connections\n• Chafed wiring\n\n**Repair Options:**\n\n**Splice Repair:**\n• Individual wire repair\n• Solder or crimp connection\n• Heat shrink protection\n• 0.3-0.5 hrs per splice\n\n**Connector Repair:**\n• Replace terminal/pin\n• New connector install\n• Pigtail replacement\n• 0.3-1.0 hrs per connector\n\n**Harness Section Replace:**\n• Replace damaged section\n• Splice at both ends\n• Match wire gauge/type\n• 1.0-3.0+ hrs\n\n**Full Harness Replace:**\n• Complete harness replacement\n• Major labor (many hours)\n• Often structural disassembly\n• Expensive option\n\n**When to Repair vs Replace:**\n• Few wires: Repair\n• Multiple areas: Consider replace\n• Critical systems: May need replace\n• OEM may prohibit repairs\n\n**Labor Category:** Mechanical (M) typically\n\n**Materials:**\n• Connectors, terminals\n• Wire, solder, shrink tube\n• OEM repair kits available"
+    },
+    {
+      "id": "glass-operations",
+      "category": "procedures",
+      "keywords": [
+        "glass", "windshield", "window", "glass replace", "glass repair",
+        "door glass", "quarter glass", "back glass"
+      ],
+      "question": "What about glass operations?",
+      "answer": "**Glass Operations:**\n\n**Types:**\n• Windshield (laminated)\n• Door glass (tempered)\n• Quarter glass (fixed or movable)\n• Back glass (tempered, may be heated)\n• Sunroof/moonroof glass\n\n**Windshield:**\n• Usually sublet to glass company\n• Typical cost: $200-500+\n• OEM vs aftermarket option\n• Calibration if ADAS equipped!\n\n**Door Glass:**\n• Often shop can do\n• R&I involves regulator\n• 1.0-2.0 hrs typical\n• Part cost varies\n\n**Fixed Glass (Quarter, Back):**\n• Bonded/sealed in place\n• More labor to replace\n• May require trim removal\n• 1.0-3.0 hrs\n\n**Calibration Requirements:**\n• Windshield with camera: YES\n• Must calibrate after replacement\n• Static and/or dynamic\n• Add $150-400\n\n**Labor Considerations:**\n• Moulding replacement\n• Seal/urethane\n• Clips and hardware\n• Trim R&I for access\n\n**Sublet vs In-House:**\n• Windshield: Usually sublet\n• Side glass: Can be in-house\n• Mobile glass service available\n\n**Insurance:**\n• Glass claims often separate\n• Deductible may be waived\n• Check policy specifics"
+    },
+    {
+      "id": "mirror-operations",
+      "category": "procedures",
+      "keywords": [
+        "mirror", "side mirror", "mirror replace", "power mirror",
+        "heated mirror", "blind spot mirror", "mirror glass"
+      ],
+      "question": "What's involved in mirror replacement?",
+      "answer": "**Mirror Operations:**\n\n**Mirror Types:**\n• Manual (basic)\n• Power adjust\n• Heated\n• Turn signal integrated\n• Blind spot monitoring\n• Camera integrated (360°)\n• Auto-dimming\n• Memory position\n\n**Replacement Options:**\n\n**Mirror Glass Only:**\n• Just the reflective element\n• Snaps or adheres in place\n• 0.2-0.5 hrs\n• $20-100 part cost\n\n**Mirror Assembly:**\n• Complete mirror unit\n• More common for damage\n• 0.5-1.5 hrs\n• $100-800+ part cost\n\n**Components:**\n• Housing/cover\n• Mirror glass\n• Motor (power)\n• Heating element\n• Turn signal module\n• BSM sensor\n• Camera\n\n**Special Considerations:**\n\n**Blind Spot Monitor:**\n• Calibration required!\n• $100-200 calibration\n• Cannot skip if equipped\n\n**Camera Equipped:**\n• 360° camera calibration\n• Or camera R&I to transfer\n\n**Wiring:**\n• Check harness routing\n• Connector compatibility\n• May need adapter\n\n**Paint:**\n• Mirror cap often painted\n• Add refinish time if needed"
+    },
+    {
+      "id": "scrs-blend-study",
+      "category": "procedures",
+      "keywords": [
+        "blend", "blend study", "scrs blend", "scrs study", "blend time", "blend formula",
+        "50%", "blend panel", "adjacent panel", "blending", "blend refinish",
+        "blend vs refinish", "blend operation", "how long to blend", "blend labor"
+      ],
+      "question": "What is the SCRS Blend Study?",
+      "answer": "**SCRS Blend Study (2022)**\n\nA landmark study by the Society of Collision Repair Specialists that challenged industry blend formulas.\n\n**The Problem:**\n• All 3 estimating systems (CCC/MOTOR, Mitchell, Audatex) calculated blend time as **50% of full refinish**\n• Industry assumed blending takes LESS work than full panel refinish\n\n**The Study:**\n• 5 major paint manufacturers: AkzoNobel, Axalta, BASF, PPG, Sherwin-Williams\n• Conducted at GFS Center for Excellence (Wisconsin)\n• Used 2018 Ford F-150 parts (hoods, fenders, doors)\n• DEKRA served as third-party auditor\n\n**Key Finding:**\n• Blend time was actually **31.59% GREATER** than full refinish!\n• NOT 50% less as databases calculated\n\n**Quote from Aaron Schulenburg (SCRS):**\n\"These results very clearly establish that performing the processes necessary to blend a panel does not take less labor than the processes to fully refinish a panel.\"\n\n**Industry Response:**\n• CCC/MOTOR and Audatex made changes to their systems\n• Mitchell announced enhancements to Mitchell Cloud Estimating\n\n**Full Report:** scrs.com/blendstudy\n\n**Use this to support blend time on estimates!**"
+    },
+    {
+      "id": "blend-operations",
+      "category": "procedures",
+      "keywords": [
+        "how to blend", "blend process", "blending steps", "blend adjacent",
+        "color match blend", "blend edge", "blend technique", "when to blend"
+      ],
+      "question": "How does blend refinish work?",
+      "answer": "**Blend Refinish Operations:**\n\n**Definition:**\nBlending is the application of color to a portion of an undamaged adjacent panel to facilitate color match, followed by clear coat over the entire blended panel.\n\n**When to Blend:**\n• Adjacent to refinished panel\n• Color match concerns (metallic, pearl, tri-coat)\n• Sun fading on vehicle\n• OEM color variation\n\n**Blend Process:**\n1. Clean blend area\n2. Scuff/sand blend zone\n3. Mask non-spray areas\n4. Apply color with fade at blend edge\n5. Apply clear coat to ENTIRE panel\n6. Allow flash time\n7. Remove masking\n\n**What's INCLUDED in Blend:**\n• Partial masking\n• Limited surface prep on blend area\n• Color application with fade\n• Clear coat application\n\n**What's NOT INCLUDED in Blend:**\n• Full panel prep\n• Featheredging\n• Primer application\n• Prime and block\n\n**SCRS Blend Study Finding:**\n• Blend actually takes **31.59% MORE** time than full refinish\n• NOT 50% less as databases show\n• Use scrs.com/blendstudy to support your estimates\n\n**P-Page Reference:** G36"
+    }
+  ],
+  "quickReplies": [
+    "Where do I start?",
+    "What tabs are in McStud?",
+    "Explain the SOP List",
+    "What is ADAS?",
+    "What am I missing on a bumper?",
+    "What is the SCRS Blend Study?",
+    "What's included in fender replace?",
+    "When do I need ADAS calibration?",
+    "Where is the paint code?"
+  ]
+}

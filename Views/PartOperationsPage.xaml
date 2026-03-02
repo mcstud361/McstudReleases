@@ -1,0 +1,1820 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="McStudDesktop.Views.PartOperationsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:McStudDesktop.Views"
+    mc:Ignorable="d"
+    Background="#1e1e1e">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Sub-Category Buttons -->
+        <Border Grid.Row="0" Background="#252526" Padding="12,8">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button x:Name="PlasticBlendBtn" Content="Plastic Part Blend" Tag="plasticblend" Click="SubCategoryButton_Click"
+                            Background="#0078d4" Foreground="White" Padding="12,6"/>
+                    <Button x:Name="PlasticRepairBtn" Content="Plastic Part Repair" Tag="plasticrepair" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="PlasticReplaceBtn" Content="Plastic Part Replace" Tag="plasticreplace" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="SmcBtn" Content="Carbon Fiber / SMC" Tag="smc" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="MetalBlendBtn" Content="Metal Part Blend" Tag="metalblend" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="MetalRepairBtn" Content="Metal Part Repair" Tag="metalrepair" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="BoltedMetalBtn" Content="Bolted Metal Replace" Tag="boltedmetal" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="WeldedMetalBtn" Content="Welded Metal Replace" Tag="weldedmetal" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="InnerPanelBtn" Content="Inner Panel" Tag="innerpanel" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    <Button x:Name="GlassBtn" Content="Glass" Tag="glass" Click="SubCategoryButton_Click" Padding="12,6"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1" Margin="16,8,16,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*" MinWidth="450"/>
+                <ColumnDefinition Width="4*" MinWidth="400"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT SIDE: Inputs -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="0,0,8,0">
+                <Grid>
+                    <!-- ==================== PLASTIC PART BLEND (Rows 33-40) ==================== -->
+                    <StackPanel x:Name="PlasticBlendPanel" Spacing="12" Visibility="Visible">
+                        <Border Background="#2d5a27" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Plastic Part Blend" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Part Name" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="PB_PartName" Width="240" PlaceholderText="e.g. Bumper" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="PB_RefinishUnits" Width="140" Value="3" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_A33" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel"/>
+                                        <ComboBoxItem Content="Additional Panel" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Additional Panel" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_AdditionalPanel" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Part being Removed" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_A35" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trial Fit Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="PB_TrialFit" Width="150" Value="0" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Adhesion Promoter" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_B33" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Flex Additive" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_B35" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Textured Portion on Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_C33" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_C35" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Equipped"/>
+                                        <ComboBoxItem Content="Not Equipped" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate Damaged" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_C37" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Nameplates" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_Nameplates" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Adhesive Cleanup" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_C41" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Park Sensors" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_D33" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Park Sensors" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="PB_D34" Width="170" Value="0" Minimum="0" Maximum="20" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Paint Park Sensor Brackets" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_D38" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Radar behind Painted Portion" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_D40" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel>
+                                    <TextBlock Text="Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_E33" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="PB_CeramicPrice" Width="170" Value="0" Minimum="0" Maximum="1000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PB_E34" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="PB_PPFPrice" Width="170" Value="0" Minimum="0" Maximum="1000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== PLASTIC PART REPAIR (Rows 83-91) ==================== -->
+                    <StackPanel x:Name="PlasticRepairPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#5a4227" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Plastic Part Repair" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Part Name" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="PR_PartName" Width="240" PlaceholderText="e.g. Bumper" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="150">
+                                <TextBlock Text="Repair Units" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="PR_RepairUnits" Width="140" Value="0.5" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" SmallChange="0.1" LargeChange="0.5" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="PR_RefinishUnits" Width="140" Value="3" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_A83" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel" IsSelected="True"/>
+                                        <ComboBoxItem Content="Additional Panel"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Part being Removed" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_A85" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Adhesion Promoter" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_B83" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Flex Additive" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_B85" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Large Part" IsSelected="True"/>
+                                        <ComboBoxItem Content="Additional Large Part"/>
+                                        <ComboBoxItem Content="Additional Small Part"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Textured Portion on Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_C83" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_C85" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Equipped"/>
+                                        <ComboBoxItem Content="Not Equipped" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate Damaged" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_C87" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Adhesive Cleanup" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_C91" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Park Sensors" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_D83" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Punch Holes"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Park Sensors" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_D84" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Install Brackets"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Paint Park Sensor Brackets" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_D88" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Radar behind Painted Portion" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_D90" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel>
+                                    <TextBlock Text="Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_E83" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Remove"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PR_E84" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Apply"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== PLASTIC PART REPLACE (Rows 133-141) ==================== -->
+                    <StackPanel x:Name="PlasticReplacePanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#275a5a" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Plastic Part Replace" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Part Name" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="PRepl_PartName" Width="240" PlaceholderText="e.g. Bumper" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="PRepl_RefinishUnits" Width="140" Value="3" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_A133" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel"/>
+                                        <ComboBoxItem Content="Additional Panel" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Adhesion Promoter" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_B133" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Flex Additive" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_B135" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Large Part"/>
+                                        <ComboBoxItem Content="Additional Large Part" IsSelected="True"/>
+                                        <ComboBoxItem Content="Additional Small Part"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Textured Portion on Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_C133" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_C135" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Equipped"/>
+                                        <ComboBoxItem Content="Not Equipped" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Drill Holes for License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_C137" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate Damaged" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_C139" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Park Sensors" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_D133" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Punch Holes"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Park Sensors" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_D134" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Install Brackets"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Paint Park Sensor Brackets" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_D138" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Radar behind Painted Portion" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_D140" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel>
+                                    <TextBlock Text="Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_E133" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="PRepl_E137" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== SMC / CARBON FIBER (Rows 183-191) ==================== -->
+                    <StackPanel x:Name="SmcPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#5a275a" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Carbon Fiber / SMC / Composite" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Part Name" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="SMC_PartName" Width="240" PlaceholderText="e.g. Spoiler" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="150">
+                                <TextBlock Text="Repair Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="SMC_RepairUnits" Width="100" Value="2" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="SMC_RefinishUnits" Width="100" Value="0.2" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SMC_A183" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel" IsSelected="True"/>
+                                        <ComboBoxItem Content="Additional Panel"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Buff" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SMC_A185" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Part being Removed" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SMC_A187" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trial Fit Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="SMC_TrialFit" Width="100" Value="2" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Repair Consumables" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="SMC_B183" Width="100" Value="200" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== METAL PART BLEND (Rows 233-248) ==================== -->
+                    <StackPanel x:Name="MetalBlendPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#4a4a27" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Metal Part Blend" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Part Name" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="MB_PartName" Width="240" PlaceholderText="e.g. RT Front panel" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="MB_RefinishUnits" Width="100" Value="3.7" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_A233" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel"/>
+                                        <ComboBoxItem Content="Additional Panel" IsSelected="True"/>
+                                        <ComboBoxItem Content="First Panel Facing Sky"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Add for Edging" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_AddEdging" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Part being Removed" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_A235" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trial Fit Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MB_TrialFit" Width="100" Value="0" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Butyl Tape" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_ButylTape" Width="130" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Foam" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_Foam" Width="130" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Textured Portion on Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_C233" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_C235" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Equipped"/>
+                                        <ComboBoxItem Content="Not Equipped" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate Damaged" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_LicenseDamaged" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Nameplates" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MB_Nameplates" Width="100" Value="0" Minimum="0" Maximum="20" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Adhesive Cleanup" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_C241" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment (empty per Excel) -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel>
+                                    <TextBlock Text="Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_CeramicCoat" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MB_CeramicPrice" Width="100" Value="155" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_PPFWrap" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MB_PPFPrice" Width="100" Value="255" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Pinstripes" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_Pinstripes" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Single"/>
+                                        <ComboBoxItem Content="Dual"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Edge Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MB_EdgeGuard" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== METAL PART REPAIR (Rows 283-298) ==================== -->
+                    <StackPanel x:Name="MetalRepairPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#4a4a27" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Metal Part Repair" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Metal Part Repair" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="MR_PartName" Width="240" PlaceholderText="e.g. Lift gate" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="150">
+                                <TextBlock Text="Repair Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="MR_RepairUnits" Width="100" Value="8" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="MR_RefinishUnits" Width="140" Value="2.2" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_A283" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel"/>
+                                        <ComboBoxItem Content="Additional Panel" IsSelected="True"/>
+                                        <ComboBoxItem Content="First Panel Facing Sky"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Part being Removed" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_A285" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trial Fit Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MR_TrialFit" Width="100" Value="0" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Cavity Wax" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_CavityWax" Width="130" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Seam Sealer" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_SeamSealer" Width="130" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Chip Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_ChipGuard" Width="130" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Butyl Tape" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_ButylTape" Width="130" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Foam" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_Foam" Width="130" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Textured Portion on Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_C283" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_C285" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Equipped"/>
+                                        <ComboBoxItem Content="Not Equipped" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate Damaged" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_LicenseDamaged" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Nameplates" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MR_Nameplates" Width="100" Value="0" Minimum="0" Maximum="20" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Adhesive Cleanup" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_C291" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment (empty per Excel) -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel>
+                                    <TextBlock Text="Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_CeramicCoat" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MR_CeramicPrice" Width="100" Value="155" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_PPFWrap" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="MR_PPFPrice" Width="100" Value="255" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Pinstripes" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_Pinstripes" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Single"/>
+                                        <ComboBoxItem Content="Dual"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Edge Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MR_EdgeGuard" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== BOLTED METAL REPLACE (Rows 333-345) ==================== -->
+                    <StackPanel x:Name="MetalReplacePanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#27275a" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Bolted on Metal Part Replace" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Bolted on Metal Part Replace" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="BMR_PartName" Width="240" PlaceholderText="e.g. door" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="BMR_RefinishUnits" Width="140" Value="2.2" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_DeNib" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel"/>
+                                        <ComboBoxItem Content="Additional Panel" IsSelected="True"/>
+                                        <ComboBoxItem Content="First Panel Facing Sky"/>
+                                        <ComboBoxItem Content=""/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trial Fit Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="BMR_TrialFitLabor" Width="150" Value="2" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Refinish Backside" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_RefinishBackside" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Cavity Wax" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_CavityWax" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Seam Sealer" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_SeamSealer" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Chip Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_ChipGuard" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Butyl Tape" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_ButylTape" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Foam" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_Foam" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Textured Portion on Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_TexturedPortion" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_LicensePlate" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Equipped"/>
+                                        <ComboBoxItem Content="Not Equipped" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate Damaged" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_LicensePlateDamaged" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Nameplates" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="BMR_NumNameplates" Width="190" Value="0" Minimum="0" Maximum="20" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment (empty per screenshot) -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel>
+                                    <TextBlock Text="Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_CeramicCoat" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="BMR_CeramicCoatPrice" Width="190" Value="112" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_PPFVinylWrap" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="BMR_PPFVinylWrapPrice" Width="190" Value="255" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Pinstripes" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_Pinstripes" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Single"/>
+                                        <ComboBoxItem Content="Dual"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Edge Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="BMR_EdgeGuard" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== WELDED METAL REPLACE (Rows 383-398) ==================== -->
+                    <StackPanel x:Name="WeldedMetalPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#5a2727" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Welded on Exterior Metal Part Replace" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Welded on Exterior Metal Part Replace" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="WMR_PartName" Width="240" PlaceholderText="e.g. Front roof pnl" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Exterior Refinish Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="WMR_RefinishUnits" Width="140" Value="4.8" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="DE-NIB" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_DeNib" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="First Panel"/>
+                                        <ComboBoxItem Content="Additional Panel" IsSelected="True"/>
+                                        <ComboBoxItem Content="First Panel Facing Sky"/>
+                                        <ComboBoxItem Content=""/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trial Fit Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WMR_TrialFitLabor" Width="170" Value="0" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Refinish Backside" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_RefinishBackside" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Backing Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WMR_NumBackingPlate" Width="170" Value="0" Minimum="0" Maximum="20" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Cavity Wax" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_CavityWax" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Seam Sealer" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_SeamSealer" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Chip Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_ChipGuard" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Butyl Tape" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_ButylTape" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Foam" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_Foam" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Textured Portion on Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_TexturedPortion" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_LicensePlate" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Equipped"/>
+                                        <ComboBoxItem Content="Not Equipped" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="License Plate Damaged" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_LicensePlateDamaged" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Nameplates" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WMR_NumNameplates" Width="190" Value="0" Minimum="0" Maximum="20" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Adhesive Cleanup" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_AdhesiveCleanup" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment (empty per screenshot) -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel>
+                                    <TextBlock Text="Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_CeramicCoat" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per Ceramic Coat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WMR_CeramicCoatPrice" Width="190" Value="200" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_PPFVinylWrap" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per PPF / Vinyl Wrap" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WMR_PPFVinylWrapPrice" Width="190" Value="255" Minimum="0" Maximum="10000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Pinstripes" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_Pinstripes" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Single"/>
+                                        <ComboBoxItem Content="Dual"/>
+                                        <ComboBoxItem Content="" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Edge Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WMR_EdgeGuard" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== INNER PANEL (Rows 433-439) ==================== -->
+                    <StackPanel x:Name="InnerPanelPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#3d3d3d" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Inner Panel" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+
+                        <!-- Part Info Header Row -->
+                        <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,8">
+                            <StackPanel Width="250">
+                                <TextBlock Text="Inner Panel" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <TextBox x:Name="IP_PartName" Width="240" PlaceholderText="e.g. RT and LT Wheelhouse" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                            <StackPanel Width="200">
+                                <TextBlock Text="Repair Unit of Part" Foreground="#0078d4" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                <NumberBox x:Name="IP_RefinishUnits" Width="140" Value="9" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Size of Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="IP_SizeOfPart" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Large" IsSelected="True"/>
+                                        <ComboBoxItem Content="Small"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trial Fit Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="IP_TrialFitLabor" Width="150" Value="0" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Backtape Jambs" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="IP_BacktapeJambs" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Cavity Wax" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="IP_CavityWax" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Seam Sealer" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="IP_SeamSealer" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Chip Guard" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="IP_ChipGuard" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Undercoat" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="IP_Undercoat" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts (empty per screenshot) -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment (empty per screenshot) -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons (empty per screenshot) -->
+                            <StackPanel Grid.Column="4" Spacing="8">
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== GLASS (Rows 483-487) ==================== -->
+                    <StackPanel x:Name="GlassPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#d4a574" CornerRadius="4" Padding="12,8">
+                            <StackPanel>
+                                <TextBlock Text="Glass" FontSize="18" FontWeight="Bold" Foreground="#1e1e1e"/>
+                                <TextBox x:Name="GL_PartName" Width="240" PlaceholderText="Lift gate glass" Background="Transparent" BorderThickness="0" Foreground="#333" FontSize="12" TextChanged="OnInputChanged"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="4" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Add Ons" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 5 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Size of Part" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_SizeOfPart" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Large" IsSelected="True"/>
+                                        <ComboBoxItem Content="Small"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Body Primer" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_BodyPrimer" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Check Defrost" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_CheckDefrost" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Broken Glass Cleanup Labor Unit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="GL_BrokenGlassCleanup" Width="150" Value="0" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Washer Fluid" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_WasherFluid" Width="150" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Inspection Sticker" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_InspectionSticker" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="EZ Pass Velcro" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_EZPassVelcro" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Dash Cam" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_DashCam" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 5: Add Ons -->
+                            <StackPanel Grid.Column="4" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Window Tint" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="GL_WindowTint" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Price per Window Tint" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="GL_WindowTintPrice" Width="170" Value="0" Minimum="0" Maximum="1000" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- RIGHT SIDE: Output panel with independent scroll -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="8,0,0,0">
+                <Border Background="#252526" CornerRadius="8" Padding="16" VerticalAlignment="Top">
+                    <StackPanel>
+                        <!-- Summary Header -->
+                        <Border Background="#1e1e1e" CornerRadius="4" Padding="12,8" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock x:Name="SummaryOps" Text="0" Foreground="#4ec9b0"/>
+                                <TextBlock Text="Ops" Foreground="#4ec9b0"/>
+                                <TextBlock Text="|" Foreground="#555"/>
+                                <TextBlock Text="$" Foreground="#4ec9b0"/>
+                                <TextBlock x:Name="SummaryPrice" Text="0.00" Foreground="#4ec9b0"/>
+                                <TextBlock Text="|" Foreground="#555"/>
+                                <TextBlock x:Name="SummaryLabor" Text="0" Foreground="#9cdcfe"/>
+                                <TextBlock Text="Labor" Foreground="#9cdcfe"/>
+                                <TextBlock Text="|" Foreground="#555"/>
+                                <TextBlock x:Name="SummaryRefinish" Text="0.00" Foreground="#ce9178"/>
+                                <TextBlock Text="Refinish" Foreground="#ce9178"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Clip It Button -->
+                        <Button x:Name="ClipItButton" Content="Clip it" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                Background="#0078d4" Foreground="White" Padding="16,8" Click="ClipItButton_Click"/>
+
+                        <!-- Operations Table Header -->
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                                <ColumnDefinition Width="50"/>
+                                <ColumnDefinition Width="50"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="55"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Operation" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                            <TextBlock Grid.Column="1" Text="Description" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                            <TextBlock Grid.Column="2" Text="Qty" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                            <TextBlock Grid.Column="3" Text="Price" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                            <TextBlock Grid.Column="4" Text="Labor" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                            <TextBlock Grid.Column="5" Text="Category" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                            <TextBlock Grid.Column="6" Text="Refinish" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                        </Grid>
+
+                        <!-- Operations List -->
+                        <ListView x:Name="OperationsListView" MaxHeight="400" Background="Transparent"
+                                  ItemsSource="{x:Bind ViewModel.CurrentOperations, Mode=OneWay}">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="70"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="50"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="55"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding OperationType}" FontSize="12" Foreground="White"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" Foreground="White" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Quantity}" FontSize="12" Foreground="#ccc"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding Price}" FontSize="12" Foreground="#4ec9b0"/>
+                                        <TextBlock Grid.Column="4" Text="{Binding Labor}" FontSize="12" Foreground="#9cdcfe"/>
+                                        <TextBlock Grid.Column="5" Text="{Binding Category}" FontSize="12" Foreground="#ccc"/>
+                                        <TextBlock Grid.Column="6" Text="{Binding Refinish}" FontSize="12" Foreground="#ce9178"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Export Panel -->
+        <views:ExportPanel x:Name="ExportPanel" Grid.Row="2"/>
+    </Grid>
+</Page>

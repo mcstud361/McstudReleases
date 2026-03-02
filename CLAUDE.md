@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-McStudDesktop is a WinUI 3 desktop application for Windows 10/11 targeting .NET 10.0. The application features a main window with a system tray icon that persists when the window is minimized. The app enforces single-instance behavior by terminating any existing instances on launch.
+McstudDesktop is a WinUI 3 desktop application for Windows 10/11 targeting .NET 10.0. The application features a main window with a system tray icon that persists when the window is minimized. The app enforces single-instance behavior by terminating any existing instances on launch.
 
 ## Build and Run Commands
 

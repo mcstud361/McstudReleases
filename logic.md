@@ -2,7 +2,7 @@
 
 ## Document Overview
 
-This document provides a comprehensive analysis of the **master.xlsx** spreadsheet, detailing all UI elements, formulas, logic flows, and interconnections between components. The spreadsheet serves as a comprehensive auto body shop estimating tool for McStud Estimating Tool (MET).
+This document provides a comprehensive analysis of the **master.xlsx** spreadsheet, detailing all UI elements, formulas, logic flows, and interconnections between components. The spreadsheet serves as a comprehensive auto body shop estimating tool for Mcstud Estimating Tool (MET).
 
 **Last Updated**: January 2025
 **Total Sheets**: 12

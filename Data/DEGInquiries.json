@@ -1,0 +1,210 @@
+{
+  "version": "1.2",
+  "lastUpdated": "2026-02-05",
+  "source": "Database Enhancement Gateway (DEG) - degweb.org",
+  "disclaimer": "Inquiry numbers were found cited in DEG, SCRS, and industry publications. To verify any inquiry, search the number at degweb.org/deg-database/",
+  "howToVerify": "Go to degweb.org/deg-database and enter the inquiry number to see the full official response",
+  "inquiries": [
+    {
+      "id": "deg-17537",
+      "inquiryNumber": "17537",
+      "title": "In-Process Repair Scan",
+      "category": "Scanning/Diagnostics",
+      "vehicle": "All Makes",
+      "response": "CCC defines In-Process Scan as: Any scan completed after pre-repair scan and before post-repair scan. NOT INCLUDED in all three IPs.",
+      "keyPoints": [
+        "In-process scan NOT INCLUDED in all three IPs",
+        "CCC is only IP offering this as a database selection",
+        "May be needed when reenergizing hybrid/EV mid-repair"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-18914",
+      "inquiryNumber": "18914 (CCC), 18918 (Mitchell), 18919 (Audatex)",
+      "title": "Rivet Drilling / Debris Removal",
+      "category": "Structural",
+      "vehicle": "All Makes",
+      "response": "Any additional labor to remove components/trims to gain access to remove rivet debris from cavities is NOT INCLUDED.",
+      "keyPoints": [
+        "Rivet debris removal NOT INCLUDED in all three IPs",
+        "Additional labor to access debris NOT INCLUDED",
+        "Applies when rivets fall into enclosed cavities"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-18954",
+      "inquiryNumber": "18954",
+      "title": "Roof Replacement Labor Times",
+      "category": "Structural",
+      "vehicle": "2021 Honda Accord",
+      "response": "After review following I-CAR and Honda training video, CCC increased labor and refinish times; Mitchell updated allowances.",
+      "keyPoints": [
+        "Labor times increased after inquiry review",
+        "Refinish times were updated",
+        "I-CAR and OEM training revealed discrepancies"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "Repairer Driven News - DEG top inquiries 2021"
+    },
+    {
+      "id": "deg-18340",
+      "inquiryNumber": "18340",
+      "title": "Quarter Panel and Wheelhouse Labor",
+      "category": "Structural",
+      "vehicle": "2016 Nissan GTR",
+      "response": "Audatex original 40.5 hours was inadequate. Labor increased to 70.1 hours total.",
+      "keyPoints": [
+        "Labor increased from 40.5 to 70.1 hours",
+        "Complex vehicles may have inadequate database times",
+        "Submit inquiry when times seem unrealistic"
+      ],
+      "systems": ["Audatex"],
+      "citedIn": "Repairer Driven News - DEG top inquiries 2021"
+    },
+    {
+      "id": "deg-17772",
+      "inquiryNumber": "17772",
+      "title": "Inner Rear Body Panel and Floor Work",
+      "category": "Structural",
+      "vehicle": "2019 Mercedes Sprinter Cargo Van",
+      "response": "MOTOR significantly increased labor allowances across multiple operations after review.",
+      "keyPoints": [
+        "Labor allowances significantly increased",
+        "Cargo van repairs have unique requirements",
+        "Multiple operations were updated"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "Repairer Driven News - DEG top inquiries 2021"
+    },
+    {
+      "id": "deg-18309",
+      "inquiryNumber": "18309",
+      "title": "Quarter Panel Replacement Operations",
+      "category": "Structural",
+      "vehicle": "2021 Audi A6",
+      "response": "CCC implemented 11 updates after reviewing the inquiry, with most changes increasing labor times.",
+      "keyPoints": [
+        "11 database updates implemented",
+        "Most changes increased labor times",
+        "Multiple operations affected by single inquiry"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "Repairer Driven News - DEG top inquiries 2021"
+    },
+    {
+      "id": "deg-23010",
+      "inquiryNumber": "23010",
+      "title": "Additional Seam Sealer on Welded Panels",
+      "category": "Refinish/Corrosion",
+      "vehicle": "All Makes",
+      "response": "MOTOR: Estimated work time includes replacing seam sealer removed due to part removal. Additional seam sealer beyond attachment points requires on-the-spot evaluation.",
+      "keyPoints": [
+        "Seam sealer at removal point INCLUDED",
+        "Additional seam sealer beyond attachment points NOT INCLUDED",
+        "On-the-spot evaluation required"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "SCRS estimating tips"
+    },
+    {
+      "id": "deg-23332",
+      "inquiryNumber": "23332",
+      "title": "Masking for Seam Sealer Application",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Masking off panels to apply sprayable seam sealer is NOT INCLUDED. On-the-spot evaluation recommended.",
+      "keyPoints": [
+        "Masking for seam sealer NOT INCLUDED",
+        "Application time varies by product and method",
+        "Material costs NOT INCLUDED"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-35654",
+      "inquiryNumber": "35654",
+      "title": "Rear Door Replacement Labor",
+      "category": "Panel Replacement",
+      "vehicle": "2020 Jeep Cherokee",
+      "response": "Solera increased labor from 6.9 to 7.4 hours; replacement time changed from 3.0 to 3.5 hours. O/H and panel replacement have overlap issues.",
+      "keyPoints": [
+        "Labor increased from 6.9 to 7.4 hours",
+        "Replacement time increased from 3.0 to 3.5 hours",
+        "O/H and panel replacement have overlap deductions"
+      ],
+      "systems": ["Audatex"],
+      "citedIn": "Repairer Driven News - Jan 2024"
+    },
+    {
+      "id": "deg-35578",
+      "inquiryNumber": "35578",
+      "title": "Frame Replacement Labor Classification",
+      "category": "Structural",
+      "vehicle": "All Makes",
+      "response": "Mitchell: Frame R&R is a unique operation where one labor time represents multiple individual operations. Blends mechanical and body work percentages that vary by vehicle.",
+      "keyPoints": [
+        "Frame R&R combines multiple individual operations",
+        "Blends mechanical and body work percentages",
+        "P-pages allow shop-specific adjustments"
+      ],
+      "systems": ["Mitchell"],
+      "citedIn": "Repairer Driven News - Jan 2024"
+    },
+    {
+      "id": "deg-40336",
+      "inquiryNumber": "40336",
+      "title": "Bumper Masking in Radar Zone",
+      "category": "Refinish/ADAS",
+      "vehicle": "All Makes with Radar",
+      "response": "Published refinish times on bumpers may not include masking the backside of bumper in the radar zone.",
+      "keyPoints": [
+        "Backside bumper masking in radar zone may NOT be INCLUDED",
+        "ADAS-equipped vehicles have additional masking needs",
+        "Verify masking requirements for radar areas"
+      ],
+      "systems": ["Mitchell"],
+      "citedIn": "SCRS DEG estimating tips"
+    },
+    {
+      "id": "deg-40223",
+      "inquiryNumber": "40223",
+      "title": "Cooling System Fill and Bleed",
+      "category": "Mechanical",
+      "vehicle": "All Makes",
+      "response": "MOTOR Guide To Estimating RADIATOR section addresses NOT INCLUDED operations when filling and bleeding cooling systems.",
+      "keyPoints": [
+        "Filling cooling system has specific NOT INCLUDED items",
+        "Bleeding cooling system has specific NOT INCLUDED items",
+        "Reference MOTOR GTE RADIATOR section"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "SCRS DEG estimating tips"
+    },
+    {
+      "id": "deg-12928",
+      "inquiryNumber": "12928",
+      "title": "OEM Required Safety Inspections",
+      "category": "Safety/Inspections",
+      "vehicle": "All Makes",
+      "response": "MOTOR: Vehicle Safety Inspections are not listed in the MOTOR Guide To Estimating and is not an included operation.",
+      "keyPoints": [
+        "Safety inspections NOT INCLUDED",
+        "Not listed in MOTOR Guide to Estimating",
+        "OEM-required inspections need separate time"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "degweb.org estimating tips"
+    }
+  ],
+  "resources": {
+    "searchInquiries": "https://degweb.org/deg-database/",
+    "submitInquiry": "https://degweb.org/submit-a-database-inquiry/",
+    "estimatingTips": "https://degweb.org/category/estimating-tips/",
+    "scrs": "https://scrs.com/database-enhancement-gateway/"
+  }
+}

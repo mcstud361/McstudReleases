@@ -1,0 +1,491 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2025-02-19",
+  "vehicleStyles": [
+    {
+      "id": "coupe_2door",
+      "name": "Coupe / 2-Door",
+      "sizeCategory": "small",
+      "icon": "Car"
+    },
+    {
+      "id": "sedan_4door",
+      "name": "Sedan / 4-Door",
+      "sizeCategory": "medium",
+      "icon": "Car"
+    },
+    {
+      "id": "convertible",
+      "name": "Convertible",
+      "sizeCategory": "small",
+      "icon": "Car"
+    },
+    {
+      "id": "hatchback",
+      "name": "Hatchback",
+      "sizeCategory": "small",
+      "icon": "Car"
+    },
+    {
+      "id": "wagon",
+      "name": "Station Wagon",
+      "sizeCategory": "medium",
+      "icon": "Car"
+    },
+    {
+      "id": "crossover",
+      "name": "Crossover / CUV",
+      "sizeCategory": "medium",
+      "icon": "SUV"
+    },
+    {
+      "id": "suv_midsize",
+      "name": "SUV - Midsize",
+      "sizeCategory": "large",
+      "icon": "SUV"
+    },
+    {
+      "id": "suv_fullsize",
+      "name": "SUV - Full Size",
+      "sizeCategory": "xlarge",
+      "icon": "SUV"
+    },
+    {
+      "id": "pickup_single",
+      "name": "Pickup - Single Cab",
+      "sizeCategory": "large",
+      "icon": "Truck"
+    },
+    {
+      "id": "pickup_extended",
+      "name": "Pickup - Extended Cab",
+      "sizeCategory": "large",
+      "icon": "Truck"
+    },
+    {
+      "id": "pickup_crew",
+      "name": "Pickup - Crew Cab",
+      "sizeCategory": "xlarge",
+      "icon": "Truck"
+    },
+    {
+      "id": "van_minivan",
+      "name": "Minivan",
+      "sizeCategory": "large",
+      "icon": "Van"
+    },
+    {
+      "id": "van_fullsize",
+      "name": "Full Size Van",
+      "sizeCategory": "xlarge",
+      "icon": "Van"
+    },
+    {
+      "id": "sports_car",
+      "name": "Sports Car",
+      "sizeCategory": "small",
+      "icon": "SportsCar"
+    },
+    {
+      "id": "luxury_sedan",
+      "name": "Luxury Sedan",
+      "sizeCategory": "medium",
+      "icon": "Car"
+    },
+    {
+      "id": "exotic",
+      "name": "Exotic / Supercar",
+      "sizeCategory": "exotic",
+      "icon": "SportsCar"
+    }
+  ],
+  "panels": [
+    {
+      "id": "hood_full",
+      "name": "Hood - Full",
+      "category": "front",
+      "description": "Complete hood coverage"
+    },
+    {
+      "id": "hood_partial",
+      "name": "Hood - Partial (24\")",
+      "category": "front",
+      "description": "Leading edge protection, approximately 24 inches"
+    },
+    {
+      "id": "fenders_front",
+      "name": "Front Fenders (pair)",
+      "category": "front",
+      "description": "Both front fenders"
+    },
+    {
+      "id": "fender_front_left",
+      "name": "Front Fender - Left",
+      "category": "front",
+      "description": "Driver side front fender"
+    },
+    {
+      "id": "fender_front_right",
+      "name": "Front Fender - Right",
+      "category": "front",
+      "description": "Passenger side front fender"
+    },
+    {
+      "id": "bumper_front",
+      "name": "Front Bumper",
+      "category": "front",
+      "description": "Complete front bumper cover"
+    },
+    {
+      "id": "grille",
+      "name": "Grille",
+      "category": "front",
+      "description": "Front grille area"
+    },
+    {
+      "id": "headlights",
+      "name": "Headlights (pair)",
+      "category": "front",
+      "description": "Both headlight lenses"
+    },
+    {
+      "id": "fog_lights",
+      "name": "Fog Lights (pair)",
+      "category": "front",
+      "description": "Both fog light lenses"
+    },
+    {
+      "id": "mirrors",
+      "name": "Side Mirrors (pair)",
+      "category": "sides",
+      "description": "Both side mirror caps"
+    },
+    {
+      "id": "mirror_left",
+      "name": "Side Mirror - Left",
+      "category": "sides",
+      "description": "Driver side mirror cap"
+    },
+    {
+      "id": "mirror_right",
+      "name": "Side Mirror - Right",
+      "category": "sides",
+      "description": "Passenger side mirror cap"
+    },
+    {
+      "id": "door_front_left",
+      "name": "Front Door - Left",
+      "category": "sides",
+      "description": "Driver side front door"
+    },
+    {
+      "id": "door_front_right",
+      "name": "Front Door - Right",
+      "category": "sides",
+      "description": "Passenger side front door"
+    },
+    {
+      "id": "door_rear_left",
+      "name": "Rear Door - Left",
+      "category": "sides",
+      "description": "Driver side rear door"
+    },
+    {
+      "id": "door_rear_right",
+      "name": "Rear Door - Right",
+      "category": "sides",
+      "description": "Passenger side rear door"
+    },
+    {
+      "id": "doors_front_pair",
+      "name": "Front Doors (pair)",
+      "category": "sides",
+      "description": "Both front doors"
+    },
+    {
+      "id": "doors_rear_pair",
+      "name": "Rear Doors (pair)",
+      "category": "sides",
+      "description": "Both rear doors"
+    },
+    {
+      "id": "doors_all",
+      "name": "All Doors (4)",
+      "category": "sides",
+      "description": "All four doors"
+    },
+    {
+      "id": "rocker_panels",
+      "name": "Rocker Panels (pair)",
+      "category": "sides",
+      "description": "Both rocker panels / side skirts"
+    },
+    {
+      "id": "rocker_left",
+      "name": "Rocker Panel - Left",
+      "category": "sides",
+      "description": "Driver side rocker panel"
+    },
+    {
+      "id": "rocker_right",
+      "name": "Rocker Panel - Right",
+      "category": "sides",
+      "description": "Passenger side rocker panel"
+    },
+    {
+      "id": "door_cups",
+      "name": "Door Handle Cups (4)",
+      "category": "sides",
+      "description": "All door handle cup areas"
+    },
+    {
+      "id": "door_edges",
+      "name": "Door Edges (4)",
+      "category": "sides",
+      "description": "All door leading edges"
+    },
+    {
+      "id": "a_pillars",
+      "name": "A-Pillars (pair)",
+      "category": "sides",
+      "description": "Both A-pillar areas"
+    },
+    {
+      "id": "b_pillars",
+      "name": "B-Pillars (pair)",
+      "category": "sides",
+      "description": "Both B-pillar areas"
+    },
+    {
+      "id": "quarter_panels",
+      "name": "Rear Quarter Panels (pair)",
+      "category": "rear",
+      "description": "Both rear quarter panels"
+    },
+    {
+      "id": "quarter_left",
+      "name": "Rear Quarter - Left",
+      "category": "rear",
+      "description": "Driver side rear quarter panel"
+    },
+    {
+      "id": "quarter_right",
+      "name": "Rear Quarter - Right",
+      "category": "rear",
+      "description": "Passenger side rear quarter panel"
+    },
+    {
+      "id": "bumper_rear",
+      "name": "Rear Bumper",
+      "category": "rear",
+      "description": "Complete rear bumper cover"
+    },
+    {
+      "id": "bumper_rear_upper",
+      "name": "Rear Bumper - Upper/Step",
+      "category": "rear",
+      "description": "Rear bumper step pad / upper area"
+    },
+    {
+      "id": "trunk_lid",
+      "name": "Trunk Lid / Liftgate",
+      "category": "rear",
+      "description": "Trunk lid or rear liftgate"
+    },
+    {
+      "id": "trunk_ledge",
+      "name": "Trunk Ledge / Loading Edge",
+      "category": "rear",
+      "description": "Trunk or cargo area loading edge"
+    },
+    {
+      "id": "taillights",
+      "name": "Taillights (pair)",
+      "category": "rear",
+      "description": "Both taillight lenses"
+    },
+    {
+      "id": "roof",
+      "name": "Roof",
+      "category": "top",
+      "description": "Complete roof panel"
+    },
+    {
+      "id": "roof_partial",
+      "name": "Roof - Partial / Leading Edge",
+      "category": "top",
+      "description": "Roof leading edge and front section"
+    },
+    {
+      "id": "sunroof_edge",
+      "name": "Sunroof Edge",
+      "category": "top",
+      "description": "Area around sunroof/moonroof"
+    },
+    {
+      "id": "spoiler",
+      "name": "Spoiler / Wing",
+      "category": "top",
+      "description": "Rear spoiler or wing"
+    },
+    {
+      "id": "windshield_strip",
+      "name": "Windshield Strip",
+      "category": "glass",
+      "description": "Top strip of windshield"
+    },
+    {
+      "id": "luggage_area",
+      "name": "Luggage / Cargo Area",
+      "category": "interior",
+      "description": "Trunk or cargo area floor protection"
+    },
+    {
+      "id": "door_sills",
+      "name": "Door Sills (4)",
+      "category": "interior",
+      "description": "All door sill plates"
+    }
+  ],
+  "packages": [
+    {
+      "id": "track_pack",
+      "name": "Track Pack / Partial Front",
+      "description": "Hood partial, front bumper, mirrors, headlights",
+      "panels": ["hood_partial", "bumper_front", "mirrors", "headlights"]
+    },
+    {
+      "id": "full_front",
+      "name": "Full Front End",
+      "description": "Hood full, fenders, front bumper, mirrors, headlights",
+      "panels": ["hood_full", "fenders_front", "bumper_front", "mirrors", "headlights"]
+    },
+    {
+      "id": "full_front_plus",
+      "name": "Full Front Plus",
+      "description": "Full front + A-pillars, rocker panels, fog lights",
+      "panels": ["hood_full", "fenders_front", "bumper_front", "mirrors", "headlights", "fog_lights", "a_pillars", "rocker_panels"]
+    },
+    {
+      "id": "full_body",
+      "name": "Full Body Wrap",
+      "description": "Complete vehicle coverage",
+      "panels": ["hood_full", "fenders_front", "bumper_front", "bumper_rear", "mirrors", "headlights", "taillights", "doors_all", "rocker_panels", "quarter_panels", "roof", "trunk_lid"]
+    }
+  ],
+  "products": [
+    {
+      "id": "xpel_ultimate_plus",
+      "brand": "XPEL",
+      "name": "Ultimate Plus",
+      "description": "Self-healing, high gloss, 10-year warranty",
+      "warranty": "10 years",
+      "finish": "Gloss",
+      "selfHealing": true,
+      "priceMultiplier": 1.0
+    },
+    {
+      "id": "xpel_stealth",
+      "brand": "XPEL",
+      "name": "Stealth",
+      "description": "Satin/matte finish, self-healing, 10-year warranty",
+      "warranty": "10 years",
+      "finish": "Satin/Matte",
+      "selfHealing": true,
+      "priceMultiplier": 1.15
+    },
+    {
+      "id": "suntek_ultra",
+      "brand": "SunTek",
+      "name": "Ultra",
+      "description": "Self-healing, high gloss, 10-year warranty",
+      "warranty": "10 years",
+      "finish": "Gloss",
+      "selfHealing": true,
+      "priceMultiplier": 0.95
+    },
+    {
+      "id": "suntek_matte",
+      "brand": "SunTek",
+      "name": "Ultra Matte",
+      "description": "Matte finish, self-healing, 10-year warranty",
+      "warranty": "10 years",
+      "finish": "Matte",
+      "selfHealing": true,
+      "priceMultiplier": 1.10
+    },
+    {
+      "id": "3m_pro",
+      "brand": "3M",
+      "name": "Pro Series",
+      "description": "Self-healing, high clarity, lifetime warranty",
+      "warranty": "Lifetime (limited)",
+      "finish": "Gloss",
+      "selfHealing": true,
+      "priceMultiplier": 1.05
+    },
+    {
+      "id": "llumar_valor",
+      "brand": "Llumar",
+      "name": "Valor",
+      "description": "Self-healing, superior clarity, 10-year warranty",
+      "warranty": "10 years",
+      "finish": "Gloss",
+      "selfHealing": true,
+      "priceMultiplier": 0.90
+    },
+    {
+      "id": "stek_dynoshield",
+      "brand": "STEK",
+      "name": "DYNOshield",
+      "description": "Self-healing, hydrophobic, 10-year warranty",
+      "warranty": "10 years",
+      "finish": "Gloss",
+      "selfHealing": true,
+      "priceMultiplier": 0.92
+    },
+    {
+      "id": "kavaca_ceramic",
+      "brand": "Kavaca",
+      "name": "Ceramic Coated",
+      "description": "Ceramic infused, instant self-healing, lifetime warranty",
+      "warranty": "Lifetime",
+      "finish": "Gloss",
+      "selfHealing": true,
+      "priceMultiplier": 1.25
+    }
+  ],
+  "defaultPricing": {
+    "basePricePerPanel": {
+      "small": 150,
+      "medium": 175,
+      "large": 200,
+      "xlarge": 225,
+      "exotic": 350
+    },
+    "panelPriceOverrides": {
+      "hood_full": { "small": 350, "medium": 400, "large": 450, "xlarge": 500, "exotic": 800 },
+      "hood_partial": { "small": 200, "medium": 225, "large": 250, "xlarge": 275, "exotic": 400 },
+      "bumper_front": { "small": 300, "medium": 350, "large": 400, "xlarge": 450, "exotic": 700 },
+      "bumper_rear": { "small": 275, "medium": 325, "large": 375, "xlarge": 425, "exotic": 650 },
+      "fenders_front": { "small": 300, "medium": 350, "large": 400, "xlarge": 450, "exotic": 700 },
+      "doors_all": { "small": 600, "medium": 700, "large": 800, "xlarge": 900, "exotic": 1400 },
+      "doors_front_pair": { "small": 350, "medium": 400, "large": 450, "xlarge": 500, "exotic": 800 },
+      "doors_rear_pair": { "small": 350, "medium": 400, "large": 450, "xlarge": 500, "exotic": 800 },
+      "roof": { "small": 350, "medium": 400, "large": 500, "xlarge": 600, "exotic": 900 },
+      "quarter_panels": { "small": 350, "medium": 400, "large": 450, "xlarge": 500, "exotic": 800 },
+      "rocker_panels": { "small": 200, "medium": 250, "large": 300, "xlarge": 350, "exotic": 500 },
+      "mirrors": { "small": 75, "medium": 75, "large": 100, "xlarge": 100, "exotic": 150 },
+      "headlights": { "small": 100, "medium": 100, "large": 125, "xlarge": 125, "exotic": 200 },
+      "taillights": { "small": 75, "medium": 75, "large": 100, "xlarge": 100, "exotic": 150 },
+      "door_cups": { "small": 50, "medium": 50, "large": 60, "xlarge": 60, "exotic": 100 },
+      "door_edges": { "small": 60, "medium": 60, "large": 75, "xlarge": 75, "exotic": 120 },
+      "trunk_ledge": { "small": 100, "medium": 125, "large": 150, "xlarge": 175, "exotic": 250 }
+    },
+    "volumeDiscounts": [
+      { "minPanels": 5, "discount": 5 },
+      { "minPanels": 8, "discount": 10 },
+      { "minPanels": 12, "discount": 15 }
+    ]
+  }
+}

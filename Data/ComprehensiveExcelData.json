@@ -1,0 +1,2473 @@
+{
+  "part_types": {
+    "Plastic Part Blend": {
+      "name": "Plastic Part Blend",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A32"
+        },
+        {
+          "name": "Adhesion Promoter",
+          "cell": "B32"
+        },
+        {
+          "name": "Textured Portion on Part",
+          "cell": "C32"
+        },
+        {
+          "name": "Park Sensors",
+          "cell": "D32"
+        },
+        {
+          "name": "Ceramic Coat",
+          "cell": "E32"
+        },
+        {
+          "name": "Part being Removed",
+          "cell": "A34"
+        },
+        {
+          "name": "Flex Additive",
+          "cell": "B34"
+        },
+        {
+          "name": "License Plate",
+          "cell": "C34"
+        },
+        {
+          "name": "Number of Park Sensors",
+          "cell": "D35"
+        },
+        {
+          "name": "License Plate Damaged",
+          "cell": "C36"
+        },
+        {
+          "name": "Paint Park Sensor Brackets",
+          "cell": "D37"
+        },
+        {
+          "name": "PPF / Vinyl Wrap",
+          "cell": "E37"
+        },
+        {
+          "name": "Radar behind Painted Portion",
+          "cell": "D39"
+        },
+        {
+          "name": "Adhesive Cleanup",
+          "cell": "C40"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tLower cover Adhesion Promoter\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tReplace\t0\tLower c",
+          "row": 31,
+          "labor": 3.0,
+          "refinish": 1.3,
+          "price": 126.0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 33,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Lower cover Adhesion Promoter",
+          "row": 33,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Replace",
+          "row": 34,
+          "labor": 0,
+          "refinish": 0,
+          "price": 15.0,
+          "has_formula": false
+        },
+        {
+          "description": "Lower cover Flex Additive",
+          "row": 34,
+          "labor": 0,
+          "refinish": 0,
+          "price": 15.0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 35,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Lower cover Flex Mixing Time",
+          "row": 35,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 36,
+          "labor": 0,
+          "refinish": 0.1,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Lower cover DE-NIB",
+          "row": 36,
+          "labor": 0,
+          "refinish": 0.1,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 37,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Lower cover Wet/Dry Sand, Rub-Out & Buff",
+          "row": 37,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 38,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Lower cover Stage and Secure for Refinish",
+          "row": 38,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "R&I",
+          "row": 39,
+          "labor": 2.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Lower cover Trial Fit",
+          "row": 39,
+          "labor": 2.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Replace",
+          "row": 48,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 111.0,
+          "has_formula": true
+        },
+        {
+          "description": "Lower cover Wrap Install",
+          "row": 48,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 111.0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Plastic Part Repair": {
+      "name": "Plastic Part Repair",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A82"
+        },
+        {
+          "name": "Adhesion Promoter",
+          "cell": "B82"
+        },
+        {
+          "name": "Textured Portion on Part",
+          "cell": "C82"
+        },
+        {
+          "name": "Park Sensors",
+          "cell": "D82"
+        },
+        {
+          "name": "Ceramic Coat",
+          "cell": "E82"
+        },
+        {
+          "name": "Part being Removed",
+          "cell": "A84"
+        },
+        {
+          "name": "Flex Additive",
+          "cell": "B84"
+        },
+        {
+          "name": "License Plate",
+          "cell": "C84"
+        },
+        {
+          "name": "Number of Park Sensors",
+          "cell": "D85"
+        },
+        {
+          "name": "License Plate Damaged",
+          "cell": "C86"
+        },
+        {
+          "name": "Paint Park Sensor Brackets",
+          "cell": "D87"
+        },
+        {
+          "name": "PPF / Vinyl Wrap",
+          "cell": "E87"
+        },
+        {
+          "name": "Radar behind Painted Portion",
+          "cell": "D89"
+        },
+        {
+          "name": "Adhesive Cleanup",
+          "cell": "C90"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Raw Plastic Prep\t0\t1\t0\t0\t0\t0\t0\t0\t0.5\n0\t0\t0\t0\t0\tRefinish\t0\tBumper",
+          "row": 81,
+          "labor": 1.9,
+          "refinish": 3.02,
+          "price": 15.0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 83,
+          "labor": 0,
+          "refinish": 0.5,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover Raw Plastic Prep",
+          "row": 83,
+          "labor": 0,
+          "refinish": 0.5,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 84,
+          "labor": 0,
+          "refinish": 0.5,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover Feather Edge & Block Sand",
+          "row": 84,
+          "labor": 0,
+          "refinish": 0.5,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 85,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Bumper cover Adhesion Promoter",
+          "row": 85,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Replace",
+          "row": 86,
+          "labor": 0,
+          "refinish": 0,
+          "price": 15.0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover Flex Additive",
+          "row": 86,
+          "labor": 0,
+          "refinish": 0,
+          "price": 15.0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 87,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Bumper cover Flex Mixing Time",
+          "row": 87,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 88,
+          "labor": 0,
+          "refinish": 0.27999999999999997,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover DE-NIB",
+          "row": 88,
+          "labor": 0,
+          "refinish": 0.27999999999999997,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 89,
+          "labor": 0,
+          "refinish": 0.84,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover Wet/Dry Sand, Rub-Out & Buff",
+          "row": 89,
+          "labor": 0,
+          "refinish": 0.84,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 90,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Bumper cover Stage and Secure for Refinish",
+          "row": 90,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "R&I",
+          "row": 91,
+          "labor": 1.9,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Bumper cover Trial Fit",
+          "row": 91,
+          "labor": 1.9,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Plastic Part Replace": {
+      "name": "Plastic Part Replace",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A132"
+        },
+        {
+          "name": "Adhesion Promoter",
+          "cell": "B132"
+        },
+        {
+          "name": "Textured Portion on Part",
+          "cell": "C132"
+        },
+        {
+          "name": "Park Sensors",
+          "cell": "D132"
+        },
+        {
+          "name": "Ceramic Coat",
+          "cell": "E132"
+        },
+        {
+          "name": "Flex Additive",
+          "cell": "B134"
+        },
+        {
+          "name": "License Plate",
+          "cell": "C134"
+        },
+        {
+          "name": "Number of Park Sensors",
+          "cell": "D135"
+        },
+        {
+          "name": "Drill Holes for License Plate",
+          "cell": "C136"
+        },
+        {
+          "name": "PPF / Vinyl Wrap",
+          "cell": "E136"
+        },
+        {
+          "name": "Paint Park Sensor Brackets",
+          "cell": "D137"
+        },
+        {
+          "name": "License Plate Damaged",
+          "cell": "C138"
+        },
+        {
+          "name": "Radar behind Painted Portion",
+          "cell": "D139"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tReplace\t0\tBumper cover Flex Additive\t0\t1\t15\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cove",
+          "row": 131,
+          "labor": 2.0,
+          "refinish": 1.72,
+          "price": 270.0,
+          "has_formula": false
+        },
+        {
+          "description": "Replace",
+          "row": 134,
+          "labor": 0,
+          "refinish": 0,
+          "price": 15.0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover Flex Additive",
+          "row": 134,
+          "labor": 0,
+          "refinish": 0,
+          "price": 15.0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 135,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Bumper cover Flex Mixing Time",
+          "row": 135,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 136,
+          "labor": 0,
+          "refinish": 0.27999999999999997,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover DE-NIB",
+          "row": 136,
+          "labor": 0,
+          "refinish": 0.27999999999999997,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 137,
+          "labor": 0,
+          "refinish": 0.84,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover Wet/Dry Sand, Rub-Out & Buff",
+          "row": 137,
+          "labor": 0,
+          "refinish": 0.84,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 138,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Bumper cover Stage and Secure for Refinish",
+          "row": 138,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "R&I",
+          "row": 139,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Bumper cover Trial Fit",
+          "row": 139,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Replace",
+          "row": 148,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 255.0,
+          "has_formula": true
+        },
+        {
+          "description": "Bumper cover Wrap Install",
+          "row": 148,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 255.0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Carbon Fiber / SMC / Composite": {
+      "name": "Carbon Fiber / SMC / Composite",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A182"
+        },
+        {
+          "name": "Buff",
+          "cell": "A184"
+        },
+        {
+          "name": "Part being Removed",
+          "cell": "A186"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tSpoiler Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.5\n0\t0\t0\t0\t0\tRefinish\t0\tSp",
+          "row": 181,
+          "labor": 2.0,
+          "refinish": 0.6599999999999999,
+          "price": 200.0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 183,
+          "labor": 0.0,
+          "refinish": 0.5,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Spoiler Feather Edge & Block Sand",
+          "row": 183,
+          "labor": 0.0,
+          "refinish": 0.5,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 184,
+          "labor": 0.0,
+          "refinish": 0.1,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Spoiler DE-NIB",
+          "row": 184,
+          "labor": 0.0,
+          "refinish": 0.1,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 185,
+          "labor": 0.0,
+          "refinish": 0.06,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Spoiler Wet/Dry Sand, Rub-Out & Buff",
+          "row": 185,
+          "labor": 0.0,
+          "refinish": 0.06,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "R&I",
+          "row": 187,
+          "labor": 2.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Spoiler Trial Fit",
+          "row": 187,
+          "labor": 2.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Replace",
+          "row": 188,
+          "labor": 0.0,
+          "refinish": 0.0,
+          "price": 200.0,
+          "has_formula": true
+        },
+        {
+          "description": "Repair Consumables",
+          "row": 188,
+          "labor": 0.0,
+          "refinish": 0.0,
+          "price": 200.0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Metal Part Blend": {
+      "name": "Metal Part Blend",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A232"
+        },
+        {
+          "name": "Butyl Tape",
+          "cell": "B232"
+        },
+        {
+          "name": "Textured Portion on Part",
+          "cell": "C232"
+        },
+        {
+          "name": "Ceramic Coat",
+          "cell": "E232"
+        },
+        {
+          "name": "Add for Edging",
+          "cell": "A234"
+        },
+        {
+          "name": "License Plate",
+          "cell": "C234"
+        },
+        {
+          "name": "Foam",
+          "cell": "B235"
+        },
+        {
+          "name": "Part being Removed",
+          "cell": "A236"
+        },
+        {
+          "name": "License Plate Damaged",
+          "cell": "C236"
+        },
+        {
+          "name": "PPF / Vinyl Wrap",
+          "cell": "E237"
+        },
+        {
+          "name": "Adhesive Cleanup",
+          "cell": "C240"
+        },
+        {
+          "name": "Pinstripes",
+          "cell": "E242"
+        },
+        {
+          "name": "Edge Guard",
+          "cell": "E246"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tRT Upper extn Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Uppe",
+          "row": 231,
+          "labor": 0,
+          "refinish": 1.09,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 233,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Upper extn Backtape Jambs",
+          "row": 233,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 234,
+          "labor": 0,
+          "refinish": 0.06999999999999999,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Upper extn DE-NIB",
+          "row": 234,
+          "labor": 0,
+          "refinish": 0.06999999999999999,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 235,
+          "labor": 0,
+          "refinish": 0.42,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Upper extn Wet/Dry Sand, Rub-Out & Buff",
+          "row": 235,
+          "labor": 0,
+          "refinish": 0.42,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 236,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT Upper extn Add for Edging",
+          "row": 236,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Metal Part Repair": {
+      "name": "Metal Part Repair",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A282"
+        },
+        {
+          "name": "Cavity Wax",
+          "cell": "B282"
+        },
+        {
+          "name": "Textured Portion on Part",
+          "cell": "C282"
+        },
+        {
+          "name": "Ceramic Coat",
+          "cell": "E282"
+        },
+        {
+          "name": "Part being Removed",
+          "cell": "A284"
+        },
+        {
+          "name": "Seam Sealer",
+          "cell": "B284"
+        },
+        {
+          "name": "License Plate",
+          "cell": "C284"
+        },
+        {
+          "name": "Chip Guard",
+          "cell": "B286"
+        },
+        {
+          "name": "License Plate Damaged",
+          "cell": "C286"
+        },
+        {
+          "name": "PPF / Vinyl Wrap",
+          "cell": "E287"
+        },
+        {
+          "name": "Butyl Tape",
+          "cell": "B288"
+        },
+        {
+          "name": "Adhesive Cleanup",
+          "cell": "C290"
+        },
+        {
+          "name": "Foam",
+          "cell": "B291"
+        },
+        {
+          "name": "Pinstripes",
+          "cell": "E292"
+        },
+        {
+          "name": "Edge Guard",
+          "cell": "E296"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tHood Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tHood Corrosion P",
+          "row": 281,
+          "labor": 0,
+          "refinish": 2.625,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 283,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Hood Backtape Jambs",
+          "row": 283,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 284,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Hood Corrosion Protection",
+          "row": 284,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 285,
+          "labor": 0,
+          "refinish": 0.625,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Hood Feather Edge & Block Sand",
+          "row": 285,
+          "labor": 0,
+          "refinish": 0.625,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 286,
+          "labor": 0,
+          "refinish": 0.5599999999999999,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Hood DE-NIB",
+          "row": 286,
+          "labor": 0,
+          "refinish": 0.5599999999999999,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 287,
+          "labor": 0,
+          "refinish": 0.84,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Hood Wet/Dry Sand, Rub-Out & Buff",
+          "row": 287,
+          "labor": 0,
+          "refinish": 0.84,
+          "price": 0,
+          "has_formula": false
+        }
+      ]
+    },
+    "Bolted on Metal Part Replace": {
+      "name": "Bolted on Metal Part Replace",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A332"
+        },
+        {
+          "name": "Cavity Wax",
+          "cell": "B332"
+        },
+        {
+          "name": "Textured Portion on Part",
+          "cell": "C332"
+        },
+        {
+          "name": "Ceramic Coat",
+          "cell": "E332"
+        },
+        {
+          "name": "Seam Sealer",
+          "cell": "B334"
+        },
+        {
+          "name": "License Plate",
+          "cell": "C334"
+        },
+        {
+          "name": "Refinish Backside",
+          "cell": "A336"
+        },
+        {
+          "name": "Chip Guard",
+          "cell": "B336"
+        },
+        {
+          "name": "License Plate Damaged",
+          "cell": "C336"
+        },
+        {
+          "name": "PPF / Vinyl Wrap",
+          "cell": "E336"
+        },
+        {
+          "name": "Butyl Tape",
+          "cell": "B338"
+        },
+        {
+          "name": "Pinstripes",
+          "cell": "E340"
+        },
+        {
+          "name": "Foam",
+          "cell": "B341"
+        },
+        {
+          "name": "Edge Guard",
+          "cell": "E343"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tRT Fender DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.1\n0\t0\t0\t0\t0\tRefinish\t0\tRT Fender Wet/Dry S",
+          "row": 331,
+          "labor": 1.3,
+          "refinish": 2.9,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 333,
+          "labor": 0,
+          "refinish": 0.1,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Fender DE-NIB",
+          "row": 333,
+          "labor": 0,
+          "refinish": 0.1,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 334,
+          "labor": 0,
+          "refinish": 0.6,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Fender Wet/Dry Sand, Rub-Out & Buff",
+          "row": 334,
+          "labor": 0,
+          "refinish": 0.6,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 335,
+          "labor": 0,
+          "refinish": 0.2,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Fender Stage and Secure for Refinish",
+          "row": 335,
+          "labor": 0,
+          "refinish": 0.2,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "R&I",
+          "row": 336,
+          "labor": 1.3,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT Fender Trial Fit",
+          "row": 336,
+          "labor": 1.3,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 337,
+          "labor": 0.0,
+          "refinish": 2.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT Fender Refinish Backside",
+          "row": 337,
+          "labor": 0.0,
+          "refinish": 2.0,
+          "price": 0.0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Welded on Exterior Metal Part Replace": {
+      "name": "Welded on Exterior Metal Part Replace",
+      "inputs": [
+        {
+          "name": "DE-NIB",
+          "cell": "A382"
+        },
+        {
+          "name": "Cavity Wax",
+          "cell": "B382"
+        },
+        {
+          "name": "Textured Portion on Part",
+          "cell": "C382"
+        },
+        {
+          "name": "Ceramic Coat",
+          "cell": "E382"
+        },
+        {
+          "name": "Seam Sealer",
+          "cell": "B384"
+        },
+        {
+          "name": "License Plate",
+          "cell": "C384"
+        },
+        {
+          "name": "Refinish Backside",
+          "cell": "A386"
+        },
+        {
+          "name": "Chip Guard",
+          "cell": "B386"
+        },
+        {
+          "name": "License Plate Damaged",
+          "cell": "C386"
+        },
+        {
+          "name": "PPF / Vinyl Wrap",
+          "cell": "E387"
+        },
+        {
+          "name": "Number of Backing Plates",
+          "cell": "A388"
+        },
+        {
+          "name": "Butyl Tape",
+          "cell": "B388"
+        },
+        {
+          "name": "Adhesive Cleanup",
+          "cell": "C390"
+        },
+        {
+          "name": "Foam",
+          "cell": "B391"
+        },
+        {
+          "name": "Pinstripes",
+          "cell": "E392"
+        },
+        {
+          "name": "Edge Guard",
+          "cell": "E396"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Q",
+          "row": 381,
+          "labor": 2.5,
+          "refinish": 4.949999999999999,
+          "price": 4.0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 383,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Quarter panel Backtape Jambs",
+          "row": 383,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 384,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Quarter panel Corrosion Protection",
+          "row": 384,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 385,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Quarter panel Feather Edge & Block Sand",
+          "row": 385,
+          "labor": 0,
+          "refinish": 0.3,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 386,
+          "labor": 0,
+          "refinish": 0.15000000000000002,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Quarter panel DE-NIB",
+          "row": 386,
+          "labor": 0,
+          "refinish": 0.15000000000000002,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Refinish",
+          "row": 387,
+          "labor": 0,
+          "refinish": 0.8999999999999999,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "RT Quarter panel Wet/Dry Sand, Rub-Out & Buff",
+          "row": 387,
+          "labor": 0,
+          "refinish": 0.8999999999999999,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Rpr",
+          "row": 388,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT Quarter panel Trial Fit",
+          "row": 388,
+          "labor": 1.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 389,
+          "labor": 0.0,
+          "refinish": 3.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT Quarter panel Refinish Backside",
+          "row": 389,
+          "labor": 0.0,
+          "refinish": 3.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Rpr",
+          "row": 390,
+          "labor": 0.5,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT Quarter panel Backing Plate",
+          "row": 390,
+          "labor": 0.5,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "R&I",
+          "row": 397,
+          "labor": 0.2,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "License Plate",
+          "row": 397,
+          "labor": 0.2,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Replace",
+          "row": 399,
+          "labor": 0.4,
+          "refinish": 0.0,
+          "price": 4.0,
+          "has_formula": true
+        },
+        {
+          "description": "Measure and Mark Template for 2x Nameplate Installation",
+          "row": 399,
+          "labor": 0.4,
+          "refinish": 0.0,
+          "price": 4.0,
+          "has_formula": true
+        },
+        {
+          "description": "Rpr",
+          "row": 400,
+          "labor": 0.4,
+          "refinish": 0,
+          "price": 0,
+          "has_formula": true
+        },
+        {
+          "description": "RT Quarter panel Adhesive Cleanup",
+          "row": 400,
+          "labor": 0.4,
+          "refinish": 0,
+          "price": 0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Inner Panel": {
+      "name": "Inner Panel",
+      "inputs": [
+        {
+          "name": "Size of Part",
+          "cell": "A432"
+        },
+        {
+          "name": "Cavity Wax",
+          "cell": "B432"
+        },
+        {
+          "name": "Seam Sealer",
+          "cell": "B434"
+        },
+        {
+          "name": "Backtape Jambs",
+          "cell": "A436"
+        },
+        {
+          "name": "Chip Guard",
+          "cell": "B436"
+        },
+        {
+          "name": "Undercoat",
+          "cell": "B438"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tRT and LT Rail End Corrosion Protection\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRpr\t0\tRT and",
+          "row": 431,
+          "labor": 0,
+          "refinish": 0.75,
+          "price": 0,
+          "has_formula": false
+        },
+        {
+          "description": "Rpr",
+          "row": 433,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT and LT Rail End Corrosion Protection",
+          "row": 433,
+          "labor": 0.0,
+          "refinish": 0.3,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Rpr",
+          "row": 434,
+          "labor": 0.0,
+          "refinish": 0.25,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT and LT Rail End Feather Edge & Block Sand",
+          "row": 434,
+          "labor": 0.0,
+          "refinish": 0.25,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Refinish",
+          "row": 436,
+          "labor": 0.0,
+          "refinish": 0.2,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "RT and LT Rail End Backtape Jambs",
+          "row": 436,
+          "labor": 0.0,
+          "refinish": 0.2,
+          "price": 0.0,
+          "has_formula": true
+        }
+      ]
+    },
+    "Glass": {
+      "name": "Glass",
+      "inputs": [
+        {
+          "name": "Size of Part",
+          "cell": "A482"
+        },
+        {
+          "name": "Washer Fluid",
+          "cell": "B482"
+        },
+        {
+          "name": "Inspection Sticker",
+          "cell": "C482"
+        },
+        {
+          "name": "Dash Cam",
+          "cell": "D482"
+        },
+        {
+          "name": "Window Tint",
+          "cell": "E482"
+        },
+        {
+          "name": "Body Primer",
+          "cell": "A484"
+        },
+        {
+          "name": "EZ Pass Velcro",
+          "cell": "C484"
+        },
+        {
+          "name": "Check Defrost",
+          "cell": "A486"
+        }
+      ],
+      "operations": [
+        {
+          "description": "0\t0\t0\t0\t0\t0\tReplace\t0\tLift gate glass Urethane Kit\t0\t1\t50\t0\t0\t0\t0.8\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tLift gat",
+          "row": 481,
+          "labor": 3.3,
+          "refinish": 0,
+          "price": 75.0,
+          "has_formula": false
+        },
+        {
+          "description": "Replace",
+          "row": 483,
+          "labor": 0.8,
+          "refinish": 0,
+          "price": 50.0,
+          "has_formula": true
+        },
+        {
+          "description": "Lift gate glass Urethane Kit",
+          "row": 483,
+          "labor": 0.8,
+          "refinish": 0,
+          "price": 50.0,
+          "has_formula": true
+        },
+        {
+          "description": "Replace",
+          "row": 484,
+          "labor": 0.5,
+          "refinish": 0,
+          "price": 25.0,
+          "has_formula": true
+        },
+        {
+          "description": "Lift gate glass Glass Primer",
+          "row": 484,
+          "labor": 0.5,
+          "refinish": 0,
+          "price": 25.0,
+          "has_formula": true
+        },
+        {
+          "description": "Rpr",
+          "row": 487,
+          "labor": 2.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        },
+        {
+          "description": "Broken Glass Cleanup",
+          "row": 487,
+          "labor": 2.0,
+          "refinish": 0.0,
+          "price": 0.0,
+          "has_formula": true
+        }
+      ]
+    }
+  },
+  "all_operations": [
+    {
+      "sheet": "SOP List",
+      "description": "Disconnect and Reconnect Battery",
+      "row": 29,
+      "labor": 0.4,
+      "refinish": 0,
+      "price": 0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Test Battery Condition",
+      "row": 30,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Electronic Reset",
+      "row": 31,
+      "labor": 0.5,
+      "refinish": 0,
+      "price": 0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Cover and Protect Electrical Connections",
+      "row": 32,
+      "labor": 0.3,
+      "refinish": 0,
+      "price": 5.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Battery Support",
+      "row": 33,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Charge and Maintain Battery during ADAS",
+      "row": 34,
+      "labor": 0.6,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "🔗Back to top",
+      "row": 75,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "📊 21 Ops  |  💲2525  |  🛠 7.3 Labor  |  🎨 0 Refinish",
+      "row": 76,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "0\t0\t0\t0\t0\t0\tR&I\t0\tSetup Scan Tool\t0\t1\t0\t0\t0\t0\t0.2\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tPre-Scan\t0\t1\t150\t0\t0\t0\t0\tM",
+      "row": 77,
+      "labor": 7.300000000000001,
+      "refinish": 0,
+      "price": 2525.0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Pre-Scan",
+      "row": 79,
+      "labor": 0,
+      "refinish": 0,
+      "price": 150.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "In-Process Scan",
+      "row": 80,
+      "labor": 0,
+      "refinish": 0,
+      "price": 150.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Post Scan",
+      "row": 81,
+      "labor": 0,
+      "refinish": 0,
+      "price": 150.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Setup Scan Tool",
+      "row": 82,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Dynamic Systems Verification",
+      "row": 83,
+      "labor": 1.0,
+      "refinish": 0,
+      "price": 0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "OEM Research",
+      "row": 84,
+      "labor": 1.0,
+      "refinish": 0,
+      "price": 50.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "ADAS Diagnostic Report",
+      "row": 86,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 25.0,
+      "category": "0"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Setup ADAS Equipment",
+      "row": 87,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Simulate Full Fluids for ADAS Calibrations",
+      "row": 88,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Check and Adjust Tire Pressure for ADAS Calibrations",
+      "row": 89,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Remove Customer Belongings for ADAS Calibrations",
+      "row": 90,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "0"
+    },
+    {
+      "sheet": "SOP List",
+      "description": "🔗Back to top",
+      "row": 125,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "📊 7 Ops  |  💲64.5  |  🛠 1.7 Labor  |  🎨 0 Refinish",
+      "row": 126,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tClean for Delivery\t0\t1\t0\t0\t0\t0\t1\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tGlass Cleaner\t0\t1\t2\t0\t0\t0",
+      "row": 127,
+      "labor": 1.7,
+      "refinish": 0,
+      "price": 64.5,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Clean for Delivery",
+      "row": 129,
+      "labor": 1.0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Glass Cleaner",
+      "row": 130,
+      "labor": 0,
+      "refinish": 0,
+      "price": 2.0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Mask and Protect Removed Components",
+      "row": 131,
+      "labor": 0.5,
+      "refinish": 0,
+      "price": 10.0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Parts Disposal",
+      "row": 132,
+      "labor": 0,
+      "refinish": 0,
+      "price": 25.0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Hazardous Waste Disposal",
+      "row": 133,
+      "labor": 0,
+      "refinish": 0,
+      "price": 7.5,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Misc Hardware",
+      "row": 134,
+      "labor": 0,
+      "refinish": 0,
+      "price": 15.0,
+      "category": ""
+    },
+    {
+      "sheet": "SOP List",
+      "description": "Steering Wheel Cover, Seat Cover, and Floor Mat",
+      "row": 135,
+      "labor": 0.2,
+      "refinish": 0,
+      "price": 5.0,
+      "category": ""
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "Weld Blankets",
+      "row": 41,
+      "labor": 0.3,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "1x Welder Setup, Power Up, Power Down",
+      "row": 42,
+      "labor": 0.5,
+      "refinish": 0.0,
+      "price": 25.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "Welding Consumables",
+      "row": 43,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 25.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "Weld Through Primer",
+      "row": 44,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 10.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "Destructive Test Weld",
+      "row": 45,
+      "labor": 0.5,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "Remove and Cleanup Debris from Drilling and Grinding",
+      "row": 46,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "R&I All Electronics Within Weld Zones",
+      "row": 47,
+      "labor": 1.0,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "🔗Back to top",
+      "row": 75,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "📊 2 Ops  |  💲0  |  🛠 4.5 Labor  |  🎨 0 Refinish",
+      "row": 76,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tSetup\t0\t1\t0\t0\t0\t0\t2\tF\t0\n0\t0\t0\t0\t0\tRpr\t0\tPre, Post Measure\t0\t1\t0\t0\t0\t0\t2.5\tF\t0",
+      "row": 77,
+      "labor": 4.5,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "Setup",
+      "row": 81,
+      "labor": 2.0,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "F"
+    },
+    {
+      "sheet": "Body Operations",
+      "description": "Pre, Post Measure",
+      "row": 82,
+      "labor": 2.5,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "F"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "description": "Refinish Material Invoice",
+      "row": 29,
+      "labor": 0,
+      "refinish": 0,
+      "price": 1.0,
+      "category": ""
+    },
+    {
+      "sheet": "Refinish Operations",
+      "description": "Color Tint (2-Stage)",
+      "row": 30,
+      "labor": 0,
+      "refinish": 0.5,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Refinish Operations",
+      "description": "Spray Out Cards (2-Stage)",
+      "row": 31,
+      "labor": 0,
+      "refinish": 0.5,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Refinish Operations",
+      "description": "Static Gun",
+      "row": 52,
+      "labor": 0.1,
+      "refinish": 0.0,
+      "price": 14.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "description": "Monitor Flash and Cure Time",
+      "row": 55,
+      "labor": 0.0,
+      "refinish": 0.2,
+      "price": 0.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "R1234yf and Refrigerant Oil",
+      "row": 29,
+      "labor": 0,
+      "refinish": 0,
+      "price": 485.0,
+      "category": ""
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Cover and Protect AC Lines",
+      "row": 30,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 3.0,
+      "category": "0"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Climate Control System Check",
+      "row": 31,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Bring Vehicle to Operating Temperatures",
+      "row": 32,
+      "labor": 0.2,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "📊 3 Ops  |  💲25  |  🛠 1 Labor  |  🎨 0 Refinish",
+      "row": 76,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "0\t0\t0\t0\t0\t0\tReplace\t0\tCoolant\t0\t3\t25\t0\t0\t0\t1\tM\t0",
+      "row": 77,
+      "labor": 1.0,
+      "refinish": 0,
+      "price": 25.0,
+      "category": ""
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Coolant",
+      "row": 79,
+      "labor": 1.0,
+      "refinish": 0,
+      "price": 25.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "📊 2 Ops  |  💲0  |  🛠 1.1 Labor  |  🎨 0 Refinish",
+      "row": 126,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tSteering Angle Sensor\t0\t1\t0\t0\t0\t0\t1\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tSteering Wheel Lock\t0\t1\t0\t",
+      "row": 127,
+      "labor": 1.1,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Steering Angle Sensor",
+      "row": 130,
+      "labor": 1.0,
+      "refinish": 0,
+      "price": 0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Steering Wheel Lock",
+      "row": 131,
+      "labor": 0.1,
+      "refinish": 0,
+      "price": 0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "📊 7 Ops  |  💲13.5  |  🛠 0.8 Labor  |  🎨 0 Refinish",
+      "row": 176,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "0\t0\t0\t0\t0\t0\tR&I\t0\tTorque Wheels\t0\t1\t0\t0\t0\t0\t0.2\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tMount and Balance\t0\t1\t0\t0\t0\t0\t0.",
+      "row": 177,
+      "labor": 0.7999999999999999,
+      "refinish": 0,
+      "price": 13.5,
+      "category": ""
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Torque Wheels",
+      "row": 179,
+      "labor": 0.2,
+      "refinish": 0,
+      "price": 0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Mount and Balance",
+      "row": 180,
+      "labor": 0.5,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Wheel Weights",
+      "row": 181,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 5.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Tire Mounting Paste",
+      "row": 182,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 2.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Tire Disposal",
+      "row": 183,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 5.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Tire Tax",
+      "row": 184,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 1.5,
+      "category": "M"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "description": "Bring Tire to Operating Temperature",
+      "row": 185,
+      "labor": 0.1,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "description": "Cover Car for Overspray",
+      "row": 29,
+      "labor": 0,
+      "refinish": 0.2,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "description": "Cover for Edging",
+      "row": 30,
+      "labor": 0,
+      "refinish": 0.3,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "description": "Mask for Buffing",
+      "row": 31,
+      "labor": 0,
+      "refinish": 0.5,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "description": "Cover Engine Compartment",
+      "row": 32,
+      "labor": 0,
+      "refinish": 0.2,
+      "price": 0,
+      "category": "0"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "description": "Cover Interior and Jambs for Refinish",
+      "row": 33,
+      "labor": 0,
+      "refinish": 0.2,
+      "price": 0,
+      "category": "0"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "description": "Clean and Cover Car for Primer",
+      "row": 35,
+      "labor": 0,
+      "refinish": 0.3,
+      "price": 0,
+      "category": "0"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "description": "Cover Interior and Jambs for Repairs",
+      "row": 36,
+      "labor": 0,
+      "refinish": 0.2,
+      "price": 0,
+      "category": "0"
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "Safety Inspections",
+      "row": 29,
+      "labor": 4.0,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "Seatbelts Inspection",
+      "row": 30,
+      "labor": 1.0,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "Steering Column Inspection",
+      "row": 31,
+      "labor": 1.0,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "Steering Gear Inspection",
+      "row": 32,
+      "labor": 0.5,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "📊 3 Ops  |  💲200  |  🛠 1.8 Labor  |  🎨 0 Refinish",
+      "row": 76,
+      "labor": 0,
+      "refinish": 0,
+      "price": 0,
+      "category": ""
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tDisable and Enable SRS System\t0\t1\t0\t0\t0\t0\t0.3\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tAirbag Residue C",
+      "row": 77,
+      "labor": 1.8,
+      "refinish": 0,
+      "price": 200.0,
+      "category": ""
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "Disable and Enable SRS System",
+      "row": 79,
+      "labor": 0.3,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "M"
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "Airbag Residue Cleanup",
+      "row": 81,
+      "labor": 1.5,
+      "refinish": 0.0,
+      "price": 0.0,
+      "category": "0"
+    },
+    {
+      "sheet": "SRS Operations",
+      "description": "Restraint Control Module Program",
+      "row": 84,
+      "labor": 0.0,
+      "refinish": 0.0,
+      "price": 200.0,
+      "category": "0"
+    }
+  ],
+  "input_types": {
+    "SOP List": [
+      {
+        "name": "Test Battery",
+        "row": 30
+      },
+      {
+        "name": "Battery Support",
+        "row": 32
+      },
+      {
+        "name": "Vehicle Type",
+        "row": 34
+      },
+      {
+        "name": "Vehicle Type",
+        "row": 78
+      },
+      {
+        "name": "Setup Scan Tool",
+        "row": 80
+      },
+      {
+        "name": "Gateway (Unlock)",
+        "row": 86
+      },
+      {
+        "name": "Pre Wash",
+        "row": 128
+      },
+      {
+        "name": "Bio Hazard",
+        "row": 132
+      }
+    ],
+    "Body Operations": [
+      {
+        "name": "Body Plugs",
+        "row": 30
+      },
+      {
+        "name": "Remove Factory E-Coat",
+        "row": 32
+      },
+      {
+        "name": "Measure Gap Dimensions",
+        "row": 78
+      },
+      {
+        "name": "Tram Gauge",
+        "row": 80
+      }
+    ],
+    "Refinish Operations": [
+      {
+        "name": "Additional Radar Formula",
+        "row": 30
+      },
+      {
+        "name": "Four Stage Refinish",
+        "row": 32
+      }
+    ],
+    "Mechanical Operations": [
+      {
+        "name": "Alignment Check",
+        "row": 128
+      },
+      {
+        "name": "Add Weight",
+        "row": 130
+      },
+      {
+        "name": "Parking Brake Release",
+        "row": 132
+      },
+      {
+        "name": "Air Suspension",
+        "row": 134
+      },
+      {
+        "name": "Ride Height",
+        "row": 136
+      },
+      {
+        "name": "Ride Height Mode",
+        "row": 139
+      },
+      {
+        "name": "Power Steering Assist Check",
+        "row": 141
+      },
+      {
+        "name": "Bring Tire to Operating Temperature",
+        "row": 184
+      },
+      {
+        "name": "Check Wheel Balance",
+        "row": 186
+      },
+      {
+        "name": "De-Bead Wheel/Tire for TPMS",
+        "row": 188
+      },
+      {
+        "name": "TPMS Disposal",
+        "row": 190
+      }
+    ],
+    "Cover Car Operations": [],
+    "SRS Operations": [
+      {
+        "name": "Seatbelts Inspection",
+        "row": 30
+      },
+      {
+        "name": "Steering Column Inspection",
+        "row": 32
+      },
+      {
+        "name": "Steering Gear Inspection",
+        "row": 34
+      },
+      {
+        "name": "Disable/Enable SRS",
+        "row": 78
+      },
+      {
+        "name": "Onstar/SOS Functionality",
+        "row": 80
+      },
+      {
+        "name": "Airbag Deployment",
+        "row": 82
+      },
+      {
+        "name": "SRS Disposal",
+        "row": 84
+      },
+      {
+        "name": "Cut Seatbelt to Remove",
+        "row": 86
+      }
+    ]
+  },
+  "labor_columns": {}
+}

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="McStudDesktop.Views.CoverCarPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:McStudDesktop.Views"
+    mc:Ignorable="d"
+    Background="#1e1e1e">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <!-- Content -->
+            <RowDefinition Height="Auto"/>
+            <!-- Export Panel -->
+        </Grid.RowDefinitions>
+
+        <!-- Main Content Area - Split into two columns -->
+        <Grid Grid.Row="0" Margin="16,8,16,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="500"/>
+                <ColumnDefinition Width="*" MinWidth="500"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT SIDE: Inputs -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="0,0,8,0">
+                <StackPanel x:Name="InputsPanel" Spacing="12">
+                    <!-- Header -->
+                    <Border Background="#4a7c9b" CornerRadius="4" Padding="12,8">
+                        <TextBlock Text="Cover Car Operations" FontSize="16" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+
+                    <!-- Input Grid matching Excel layout -->
+                    <Border Background="#2d2d2d" CornerRadius="4" Padding="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <!-- Headers -->
+                                <RowDefinition Height="Auto"/>
+                                <!-- Row 1 -->
+                                <RowDefinition Height="Auto"/>
+                                <!-- Row 2 -->
+                                <RowDefinition Height="Auto"/>
+                                <!-- Row 3 -->
+                                <RowDefinition Height="Auto"/>
+                                <!-- Row 4 -->
+                                <RowDefinition Height="Auto"/>
+                                <!-- Row 5 -->
+                            </Grid.RowDefinitions>
+
+                            <!-- Column Headers -->
+                            <Border Grid.Column="0" Grid.Row="0" Background="#3c5a6e" Padding="8,6" Margin="1">
+                                <TextBlock Text="Vehicle Information" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                            </Border>
+                            <Border Grid.Column="1" Grid.Row="0" Background="#3c5a6e" Padding="8,6" Margin="1">
+                                <TextBlock Text="Location" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                            </Border>
+                            <Border Grid.Column="2" Grid.Row="0" Background="#3c5a6e" Padding="8,6" Margin="1">
+                                <TextBlock Text="Work" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                            </Border>
+                            <Border Grid.Column="3" Grid.Row="0" Background="#3c5a6e" Padding="8,6" Margin="1">
+                                <TextBlock Text="Units" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                            </Border>
+
+                            <!-- Sub-Headers -->
+                            <Border Grid.Column="0" Grid.Row="1" Background="#1e1e1e" Padding="8,4" Margin="1">
+                                <TextBlock Text="Vehicle Type" Foreground="#64b4ff" FontSize="10"/>
+                            </Border>
+                            <Border Grid.Column="1" Grid.Row="1" Background="#1e1e1e" Padding="8,4" Margin="1">
+                                <TextBlock Text="Area of Work" Foreground="#64b4ff" FontSize="10"/>
+                            </Border>
+                            <Border Grid.Column="2" Grid.Row="1" Background="#1e1e1e" Padding="8,4" Margin="1">
+                                <TextBlock Text="Repair Type" Foreground="#64b4ff" FontSize="10"/>
+                            </Border>
+                            <Border Grid.Column="3" Grid.Row="1" Background="#1e1e1e" Padding="8,4" Margin="1">
+                                <TextBlock Text="Amount" Foreground="#64b4ff" FontSize="10"/>
+                            </Border>
+
+                            <!-- Vehicle Type Dropdown -->
+                            <Border Grid.Column="0" Grid.Row="2" Background="#252526" Padding="4" Margin="1">
+                                <ComboBox x:Name="VehicleTypeCombo" Width="120" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                    <ComboBoxItem Content=""/>
+                                    <ComboBoxItem Content="Gas"/>
+                                    <ComboBoxItem Content="EV"/>
+                                </ComboBox>
+                            </Border>
+
+                            <!-- Location/Area of Work -->
+                            <Border Grid.Column="1" Grid.Row="2" Grid.RowSpan="3" Background="#252526" Padding="4" Margin="1">
+                                <StackPanel Spacing="4">
+                                    <CheckBox x:Name="FrontCheck" Content="Front" IsChecked="True" Checked="OnInputChanged" Unchecked="OnInputChanged" Foreground="White"/>
+                                    <CheckBox x:Name="SideCheck" Content="Side" IsChecked="True" Checked="OnInputChanged" Unchecked="OnInputChanged" Foreground="White"/>
+                                    <CheckBox x:Name="RearCheck" Content="Rear" IsChecked="True" Checked="OnInputChanged" Unchecked="OnInputChanged" Foreground="White"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Work/Repair Type -->
+                            <Border Grid.Column="2" Grid.Row="2" Grid.RowSpan="3" Background="#252526" Padding="4" Margin="1">
+                                <StackPanel Spacing="4">
+                                    <CheckBox x:Name="RefinishCheck" Content="Refinish" IsChecked="True" Checked="OnInputChanged" Unchecked="OnInputChanged" Foreground="White"/>
+                                    <CheckBox x:Name="RepairCheck" Content="Repair" IsChecked="True" Checked="OnInputChanged" Unchecked="OnInputChanged" Foreground="White"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Units/Amount Dropdown -->
+                            <Border Grid.Column="3" Grid.Row="2" Background="#252526" Padding="4" Margin="1">
+                                <ComboBox x:Name="LaborTypeCombo" Width="130" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                    <ComboBoxItem Content=""/>
+                                    <ComboBoxItem Content="Refinish Labor"/>
+                                    <ComboBoxItem Content="$ and Body Labor"/>
+                                </ComboBox>
+                            </Border>
+
+                            <!-- Two Tone Paint row -->
+                            <Border Grid.Column="0" Grid.Row="3" Grid.ColumnSpan="1" Background="#252526" Padding="4" Margin="1">
+                                <StackPanel>
+                                    <TextBlock Text="Two Tone Paint" Foreground="#64b4ff" FontSize="10" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="TwoToneCombo" Width="120" SelectionChanged="OnInputChanged" SelectedIndex="0">
+                                        <ComboBoxItem Content="No"/>
+                                        <ComboBoxItem Content="Yes"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- RIGHT SIDE: Operations List -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="8,0,0,0">
+                <StackPanel x:Name="OperationsPanel" Spacing="8">
+                    <!-- Summary Header -->
+                    <Border Background="#2d2d2d" CornerRadius="4" Padding="12,8">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                <HyperlinkButton Content="Back to top" FontSize="11"/>
+                            </StackPanel>
+                            <StackPanel x:Name="SummaryPanel" Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
+                                <TextBlock x:Name="SummaryOps" Text="0 Ops" Foreground="#64b4ff" FontSize="12"/>
+                                <TextBlock Text="|" Foreground="#555" FontSize="12"/>
+                                <TextBlock x:Name="SummaryPrice" Text="$ 0" Foreground="#64c864" FontSize="12"/>
+                                <TextBlock Text="|" Foreground="#555" FontSize="12"/>
+                                <TextBlock x:Name="SummaryLabor" Text="0 Labor" Foreground="#64b4ff" FontSize="12"/>
+                                <TextBlock Text="|" Foreground="#555" FontSize="12"/>
+                                <TextBlock x:Name="SummaryRefinish" Text="0 Refinish" Foreground="#ffb464" FontSize="12"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Clip it button -->
+                    <Button x:Name="ClipItButton" Content="Clip it" HorizontalAlignment="Left" Padding="12,6" Background="#3c3c3c" Foreground="White"/>
+
+                    <!-- Operations Header Row -->
+                    <Border Background="#3c3c3c" CornerRadius="4" Padding="8,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <!-- Operation -->
+                                <ColumnDefinition Width="*"/>
+                                <!-- Description -->
+                                <ColumnDefinition Width="60"/>
+                                <!-- Quantity -->
+                                <ColumnDefinition Width="60"/>
+                                <!-- Price -->
+                                <ColumnDefinition Width="60"/>
+                                <!-- Labor -->
+                                <ColumnDefinition Width="70"/>
+                                <!-- Category -->
+                                <ColumnDefinition Width="60"/>
+                                <!-- Refinish -->
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Operation" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="1" Text="Description" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="2" Text="Quantity" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="3" Text="Price" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="4" Text="Labor" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="5" Text="Category" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="6" Text="Refinish" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Operations List Container -->
+                    <StackPanel x:Name="OperationsList" Spacing="2">
+                        <TextBlock x:Name="NoOperationsText"
+                                   Text="Select options to generate operations."
+                                   Foreground="#8c8c8c" FontSize="14" TextWrapping="Wrap" Margin="0,20,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Export Panel -->
+        <views:ExportPanel x:Name="ExportPanel" Grid.Row="1"/>
+    </Grid>
+</Page>

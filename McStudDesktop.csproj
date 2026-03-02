@@ -11,16 +11,16 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<EnableWindowsTargeting>true</EnableWindowsTargeting>
-		<AssemblyName>McStudDesktop</AssemblyName>
+		<AssemblyName>McstudDesktop</AssemblyName>
 		<PublishSingleFile>false</PublishSingleFile>
 		<SelfContained>true</SelfContained>
 		<IncludeNativeLibrariesForSelfContained>true</IncludeNativeLibrariesForSelfContained>
 		<WindowsPackageType>None</WindowsPackageType>
 		<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
 		<DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-		<StartupObject>McStudDesktop.Program</StartupObject>
+		<StartupObject>McstudDesktop.Program</StartupObject>
 		<EnableDefaultXamlItems>false</EnableDefaultXamlItems>
-		<RootNamespace>McStudDesktop</RootNamespace>
+		<RootNamespace>McstudDesktop</RootNamespace>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Debug'">
@@ -44,13 +44,26 @@
 
 	<ItemGroup>
 		<Content Include="Assets\*.*" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="Assets\GuideImages\*.*" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="Data\*.json" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="Data\Checklists\*.json" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="Services\KeywordMappings.json" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="ClosedXML" Version="0.105.0" />
+		<PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.1.240916" />
+		<PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+		<PackageReference Include="itext7" Version="9.5.0" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />
+		<PackageReference Include="Microsoft.Office.Interop.Excel" Version="15.0.4795.1001" />
 		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250606001" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="H.NotifyIcon.WinUI" Version="2.3.2" />
 		<PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4188" />
+		<PackageReference Include="PdfPig" Version="0.1.9" />
+		<PackageReference Include="QuestPDF" Version="2025.1.0" />
+		<PackageReference Include="Velopack" Version="0.0.1298" />
 	</ItemGroup>
 
 	<ItemGroup>

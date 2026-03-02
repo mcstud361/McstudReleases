@@ -1,0 +1,139 @@
+{
+  "id": "blueprint-checklist",
+  "title": "Blueprint Checklist",
+  "description": "Comprehensive blueprint checklist for collision repair documentation",
+  "version": "2.0",
+  "shopName": "Ultimate Collision Repair",
+  "sections": [
+    {
+      "id": "documentation",
+      "title": "Documentation & Setup",
+      "icon": "E8A5",
+      "items": [
+        { "id": "doc-1", "text": "100% Disassembled", "required": true },
+        { "id": "doc-2", "text": "Car Covered and Protected", "required": true },
+        { "id": "doc-3", "text": "Estimate Saved", "required": true },
+        { "id": "doc-4", "text": "Grid on Vehicle", "required": false },
+        { "id": "doc-5", "text": "Labor Rate Verified", "required": true },
+        { "id": "doc-6", "text": "No Parts in Vehicle", "required": true },
+        { "id": "doc-7", "text": "Plugs Masked and Taped", "required": false },
+        { "id": "doc-8", "text": "Vehicle Marked Up", "required": true },
+        { "id": "doc-9", "text": "Blueprinter Name and Date", "required": true }
+      ]
+    },
+    {
+      "id": "scans-adas",
+      "title": "Scans & ADAS",
+      "icon": "E7F4",
+      "items": [
+        { "id": "adas-1", "text": "Pre-Scan Completed", "required": true },
+        { "id": "adas-2", "text": "DTC's Documented and Researched", "required": true },
+        { "id": "adas-3", "text": "ADAS Report Obtained", "required": true },
+        { "id": "adas-4", "text": "ADAS Equipment and Procedures Documented", "required": true }
+      ]
+    },
+    {
+      "id": "measurements",
+      "title": "Measurements",
+      "icon": "E9D9",
+      "items": [
+        { "id": "meas-1", "text": "Access to Measure", "required": true },
+        { "id": "meas-2", "text": "Gap Dimensions Recorded", "required": true },
+        { "id": "meas-3", "text": "Pre-Measure Completed", "required": true },
+        { "id": "meas-4", "text": "In-Process Measure", "required": false },
+        { "id": "meas-5", "text": "Post Measure Completed", "required": true },
+        { "id": "meas-6", "text": "Pull Damage Documented", "required": false },
+        { "id": "meas-7", "text": "Suspension Checked", "required": true },
+        { "id": "meas-8", "text": "Suspension Adjusted (if needed)", "required": false },
+        { "id": "meas-9", "text": "Tram Gauge Measurements", "required": false }
+      ]
+    },
+    {
+      "id": "photos",
+      "title": "Photos",
+      "icon": "E722",
+      "items": [
+        { "id": "photo-1", "text": "Four Corner Photos", "required": true },
+        { "id": "photo-2", "text": "Damaged Parts with Part Numbers", "required": true },
+        { "id": "photo-3", "text": "Photos Reviewed", "required": true },
+        { "id": "photo-4", "text": "Unrelated Damage Documented", "required": false }
+      ]
+    },
+    {
+      "id": "parts",
+      "title": "Parts",
+      "icon": "E74C",
+      "items": [
+        { "id": "parts-1", "text": "Parts Ordered", "required": true },
+        { "id": "parts-2", "text": "Parts Price Matched", "required": true }
+      ]
+    },
+    {
+      "id": "refinish",
+      "title": "Refinish",
+      "icon": "E771",
+      "items": [
+        { "id": "ref-1", "text": "Color Chip or Spray Out Card", "required": true },
+        { "id": "ref-2", "text": "Paint Code(s) Verified", "required": true }
+      ]
+    },
+    {
+      "id": "oem",
+      "title": "OEM Research",
+      "icon": "E82D",
+      "items": [
+        { "id": "oem-1", "text": "OEM Repair Procedures Pulled", "required": true },
+        { "id": "oem-2", "text": "OEM Research Time Documented", "required": true }
+      ]
+    },
+    {
+      "id": "invoices",
+      "title": "Invoices",
+      "icon": "E8C7",
+      "items": [
+        { "id": "inv-1", "text": "Deductible Collected/Documented", "required": true },
+        { "id": "inv-2", "text": "Material Invoice (3M, Wurth, etc)", "required": false },
+        { "id": "inv-3", "text": "Refinish Material Invoice", "required": false },
+        { "id": "inv-4", "text": "Shop Stock Part Invoice", "required": false },
+        { "id": "inv-5", "text": "Specialty Color Tint Invoice", "required": false },
+        { "id": "inv-6", "text": "Tow Bill Attached", "required": false }
+      ]
+    },
+    {
+      "id": "safety",
+      "title": "Safety Inspections",
+      "icon": "E730",
+      "items": [
+        { "id": "safe-1", "text": "Airbags Inspected", "required": true },
+        { "id": "safe-2", "text": "Seat Belts Inspected", "required": true },
+        { "id": "safe-3", "text": "Steering Column Inspected", "required": true }
+      ]
+    },
+    {
+      "id": "sublet",
+      "title": "Sublet",
+      "icon": "E8F1",
+      "items": [
+        { "id": "sub-1", "text": "Sublet Documented", "required": false },
+        { "id": "sub-2", "text": "Sublet Scheduled", "required": false }
+      ]
+    },
+    {
+      "id": "totalloss",
+      "title": "Total Loss (if applicable)",
+      "icon": "E7BA",
+      "items": [
+        { "id": "tl-1", "text": "Value Pulled", "required": false },
+        { "id": "tl-2", "text": "Supplement Saved", "required": false }
+      ]
+    },
+    {
+      "id": "final",
+      "title": "Final Steps",
+      "icon": "E73E",
+      "items": [
+        { "id": "final-1", "text": "Team Update Emailed", "required": true }
+      ]
+    }
+  ]
+}

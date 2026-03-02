@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using H.NotifyIcon;
 
-namespace McStudDesktop;
+namespace McstudDesktop;
 
 [ObservableObject]
 public sealed partial class TrayIconView : UserControl, IDisposable
@@ -21,10 +21,10 @@ public sealed partial class TrayIconView : UserControl, IDisposable
     {
         InitializeUI();
 
-        TrayIcon!.ToolTipText = "McStud Desktop";
+        TrayIcon!.ToolTipText = "Mcstud Desktop";
 
-        // Load the icon
-        LoadIcon();
+        // Load the icon asynchronously to not block startup
+        _ = LoadIconAsync();
 
         // Register for Loaded event to call ForceCreate after we're in the visual tree
         this.Loaded += TrayIconView_Loaded;
@@ -89,6 +89,46 @@ public sealed partial class TrayIconView : UserControl, IDisposable
         }
     }
 
+    private async Task LoadIconAsync()
+    {
+        try
+        {
+            var appPath = AppDomain.CurrentDomain.BaseDirectory;
+            var iconPath = Path.Combine(appPath, "Assets", "appicon.ico");
+
+            // Check file existence on background thread
+            var exists = await Task.Run(() => File.Exists(iconPath));
+
+            if (!exists)
+            {
+                iconPath = Path.Combine("Assets", "appicon.ico");
+                exists = await Task.Run(() => File.Exists(iconPath));
+            }
+
+            if (exists)
+            {
+                // Load icon on background thread
+                var icon = await Task.Run(() => new Icon(iconPath));
+
+                // Update UI on main thread
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    _trayIcon = icon;
+                    TrayIcon.Icon = _trayIcon;
+                    System.Diagnostics.Debug.WriteLine($"[TrayIcon] Icon loaded async, Size: {_trayIcon.Width}x{_trayIcon.Height}");
+                });
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[TrayIcon] No icon file found!");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[TrayIcon] Async icon loading failed: {ex.Message}");
+        }
+    }
+
     private void InitializeUI()
     {
         // Create the TaskbarIcon
@@ -97,7 +137,7 @@ public sealed partial class TrayIconView : UserControl, IDisposable
             Name = "TrayIcon",
             ContextMenuMode = ContextMenuMode.SecondWindow,
             NoLeftClickDelay = true,
-            ToolTipText = "McStud Desktop",
+            ToolTipText = "Mcstud Desktop",
             LeftClickCommand = ShowHideWindowCommand,
             Visibility = Visibility.Visible
         };
@@ -158,14 +198,12 @@ public sealed partial class TrayIconView : UserControl, IDisposable
             // Check if window exists (null means it's been closed/hidden)
             if (App.MainWindow == null)
             {
-                System.Diagnostics.Debug.WriteLine("[TrayIcon] MainWindow is null, showing (recreating)");
-                App.ShowMainWindow();
+                System.Diagnostics.Debug.WriteLine("[TrayIcon] MainWindow is null");
                 IsWindowVisible = true;
             }
             else
             {
-                System.Diagnostics.Debug.WriteLine("[TrayIcon] MainWindow exists, hiding (closing)");
-                App.HideMainWindow();
+                System.Diagnostics.Debug.WriteLine("[TrayIcon] MainWindow exists");
                 IsWindowVisible = false;
             }
         }

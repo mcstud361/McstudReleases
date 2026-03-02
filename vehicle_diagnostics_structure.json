@@ -1,0 +1,109 @@
+Vehicle Diagnostics Structure:
+{
+  "section_title": "Vehicle Diagnostics",
+  "categories": [
+    {
+      "name": "OEM",
+      "fields": [
+        {
+          "label": "Scan Type",
+          "type": "dropdown",
+          "row": 78,
+          "col": "A",
+          "default": "Dollar Amount"
+        },
+        {
+          "label": "Setup Scan Tool",
+          "type": "dropdown",
+          "row": 80,
+          "col": "A",
+          "default": "Yes"
+        },
+        {
+          "label": "Research Price",
+          "type": "text",
+          "row": 82,
+          "col": "A",
+          "default": "50"
+        },
+        {
+          "label": "Research Labor Unit",
+          "type": "text",
+          "row": 84,
+          "col": "A",
+          "default": "1"
+        },
+        {
+          "label": "Gateway (Unlock)",
+          "type": "dropdown",
+          "row": 86,
+          "col": "A",
+          "default": "No"
+        }
+      ]
+    },
+    {
+      "name": "Additional",
+      "fields": [
+        {
+          "label": "ADAS",
+          "type": "dropdown",
+          "row": 79,
+          "col": "B",
+          "default": "Yes"
+        },
+        {
+          "label": "Simulate Full Fluids",
+          "type": "dropdown",
+          "row": 80,
+          "col": "B",
+          "default": "Yes"
+        },
+        {
+          "label": "Adjust Tire Pressure",
+          "type": "dropdown",
+          "row": 82,
+          "col": "B",
+          "default": "Yes"
+        },
+        {
+          "label": "Remove Customer Belongings",
+          "type": "dropdown",
+          "row": 84,
+          "col": "B",
+          "default": "No"
+        },
+        {
+          "label": "Drive Cycle",
+          "type": "dropdown",
+          "row": 86,
+          "col": "B",
+          "default": "No"
+        }
+      ]
+    },
+    {
+      "name": "ADAS Overview",
+      "fields": [
+        {
+          "label": "ADAS Calibrations",
+          "type": "text",
+          "row": 78,
+          "col": "C"
+        },
+        {
+          "label": "Static and Programming",
+          "type": "text",
+          "row": 78,
+          "col": "D"
+        },
+        {
+          "label": "Labor Amount",
+          "type": "text",
+          "row": 78,
+          "col": "E"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3950 @@
+{
+  "sheets": {
+    "SOP List": [
+      {
+        "row": 29,
+        "description": "Disconnect and Reconnect Battery",
+        "labor_hours": 0.4,
+        "price": 0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A29=\"Single\", \"Disconnect and Reconnect Battery\", IF(A29=\"Dual\", \"Disconnect and Reconnect 2x Battery\", \"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "Single",
+            "then": "Disconnect and Reconnect Battery"
+          },
+          {
+            "input_cell": "A29",
+            "when": "Dual",
+            "then": "Disconnect and Reconnect 2x Battery"
+          }
+        ],
+        "labor_formula": "=IF(A29=\"Single\", 0.4, IF(A29=\"Dual\", 0.8, \"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "Single",
+            "then": "0.4"
+          },
+          {
+            "input_cell": "A29",
+            "when": "Dual",
+            "then": "0.8"
+          }
+        ],
+        "input_cell": "A29",
+        "input_value": "Single"
+      },
+      {
+        "row": 30,
+        "description": "Test Battery Condition",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A31=\"Yes\", \"Test Battery Condition\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A31",
+            "when": "Yes",
+            "then": "Test Battery Condition"
+          }
+        ],
+        "labor_formula": "=IF(A31=\"Yes\", \"0.2\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A31",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(A31=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A31",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A30",
+        "input_value": "▼Test Battery"
+      },
+      {
+        "row": 31,
+        "description": "Electronic Reset",
+        "labor_hours": 0.5,
+        "price": 0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "input_cell": "A31",
+        "input_value": "Yes"
+      },
+      {
+        "row": 32,
+        "description": "Cover and Protect Electrical Connections",
+        "labor_hours": 0.3,
+        "price": 5.0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "input_cell": "A32",
+        "input_value": "▼Battery Support"
+      },
+      {
+        "row": 33,
+        "description": "Battery Support",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A33=\"Yes\", \"Battery Support\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A33",
+            "when": "Yes",
+            "then": "Battery Support"
+          }
+        ],
+        "labor_formula": "=IF(A33=\"Yes\", \"0.2\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A33",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(A33=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A33",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A33",
+        "input_value": "Yes"
+      },
+      {
+        "row": 34,
+        "description": "Charge and Maintain Battery during ADAS",
+        "labor_hours": 0.6,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(\n  A35=\"EV\",\n  \"Charge and Maintain Battery\",\n  IF(\n    C29=\"Yes\",\n    IF(OR(A35=\"Gas\", A35=\"Hybrid\"), \"Charge and Maintain Battery during ADAS\", \"\"),\n    \"\"\n  )\n)",
+        "description_conditions": null,
+        "labor_formula": "=IF(OR(A35=\"EV\", C29=\"Yes\"), \"0.6\", \"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(OR(A35=\"EV\", C29=\"Yes\"), \"0\", \"\")",
+        "price_conditions": null,
+        "input_cell": "A34",
+        "input_value": "▼Vehicle Type"
+      },
+      {
+        "row": 75,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 76,
+        "description": "📊 21 Ops  |  💲2525  |  🛠 7.3 Labor  |  🎨 0 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 77,
+        "description": "0\t0\t0\t0\t0\t0\tR&I\t0\tSetup Scan Tool\t0\t1\t0\t0\t0\t0\t0.2\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tPre-Scan\t0\t1\t150\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tIn-Process Scan\t0\t1\t150\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tPost Scan\t0\t1\t150\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tDynamic Systems Verification\t0\t1\t0\t0\t0\t0\t1\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tOEM Research\t0\t1\t50\t0\t0\t0\t1\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tADAS Diagnostic Report\t0\t1\t25\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tR&I\t0\tSetup ADAS Equipment\t0\t1\t0\t0\t0\t0\t0.5\tM\t0\n0\t0\t0\t0\t0\tR&I\t0\tSimulate Full Fluids for ADAS Calibrations\t0\t1\t0\t0\t0\t0\t0.2\tM\t0\n0\t0\t0\t0\t0\tR&I\t0\tCheck and Adjust Tire Pressure for ADAS Calibrations\t0\t1\t0\t0\t0\t0\t0.2\tM\t0\n0\t0\t0\t0\t0\tR&I\t0\tRemove Customer Belongings for ADAS Calibrations\t0\t1\t0\t0\t0\t0\t0.2\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tAdaptive Cruise Control Module\t0\t1\t400\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tAlignment Check\t0\t1\t0\t0\t0\t0\t1\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tFront Corner Radar Sensors\t0\t1\t400\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tFront Driver Assistance Camera\t0\t1\t400\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tLane Change Assistance Module\t0\t1\t400\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tPeripheral Cameras\t0\t1\t400\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tRepair\t0\tSteering Angle Sensor\t0\t1\t0\t0\t0\t0\t1\tM\t0\n0\t0\t0\t0\t0\tRepair\t0\tAirbag System\t0\t1\t0\t0\t0\t0\t1\tM\t0\n0\t0\t0\t0\t0\tRepair\t0\tAutomotive Electrical and Electronic Systems\t0\t1\t0\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tRepair\t0\tSeatbelt System\t0\t1\t0\t0\t0\t0\t1\tM\t0\n\t",
+        "labor_hours": 7.300000000000001,
+        "price": 2525.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 21
+      },
+      {
+        "row": 78,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A78",
+        "input_value": "▼Vehicle Type"
+      },
+      {
+        "row": 79,
+        "description": "Pre-Scan",
+        "labor_hours": 0,
+        "price": 150.0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(OR(A79=\"Gas\", A79=\"Rivian\"), \"Pre-Scan\", IF(A79=\"Tesla\", \"Trim to Access Scanner\", \"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Tesla",
+            "then": "Trim to Access Scanner"
+          }
+        ],
+        "labor_formula": "=IF(A79=\"Gas\", 0, IF(A79=\"Rivian\", 1, IF(A79=\"Tesla\", 0.2, \"\")))",
+        "labor_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Gas",
+            "then": "0"
+          },
+          {
+            "input_cell": "A79",
+            "when": "Rivian",
+            "then": "1"
+          },
+          {
+            "input_cell": "A79",
+            "when": "Tesla",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(A79=\"Gas\", 150, IF(OR(A79=\"Rivian\", A79=\"Tesla\"), 0, \"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Gas",
+            "then": "150"
+          }
+        ],
+        "input_cell": "A79",
+        "input_value": "Gas"
+      },
+      {
+        "row": 80,
+        "description": "In-Process Scan",
+        "labor_hours": 0,
+        "price": 150.0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(OR(A79=\"Gas\", A79=\"Rivian\"), \"In-Process Scan\", IF(A79=\"Tesla\", \"Tesla Toolbox Scan\", \"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Tesla",
+            "then": "Tesla Toolbox Scan"
+          }
+        ],
+        "labor_formula": "=IF(A79=\"Gas\", 0, IF(A79=\"Rivian\", 1, IF(A79=\"Tesla\", 1, \"\")))",
+        "labor_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Gas",
+            "then": "0"
+          },
+          {
+            "input_cell": "A79",
+            "when": "Rivian",
+            "then": "1"
+          },
+          {
+            "input_cell": "A79",
+            "when": "Tesla",
+            "then": "1"
+          }
+        ],
+        "price_formula": "=IF(A79=\"Gas\", 150, IF(OR(A79=\"Rivian\", A79=\"Tesla\"), 0, \"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Gas",
+            "then": "150"
+          }
+        ],
+        "input_cell": "A80",
+        "input_value": "▼Setup Scan Tool"
+      },
+      {
+        "row": 81,
+        "description": "Post Scan",
+        "labor_hours": 0,
+        "price": 150.0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(OR(A79=\"Gas\", A79=\"Rivian\"), \"Post Scan\", IF(A79=\"Tesla\", \"Tesla Software Script Programming\", \"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Tesla",
+            "then": "Tesla Software Script Programming"
+          }
+        ],
+        "labor_formula": "=IF(A79=\"Gas\", 0, IF(A79=\"Rivian\", 1, IF(A79=\"Tesla\", 0, \"\")))",
+        "labor_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Gas",
+            "then": "0"
+          },
+          {
+            "input_cell": "A79",
+            "when": "Rivian",
+            "then": "1"
+          },
+          {
+            "input_cell": "A79",
+            "when": "Tesla",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A79=\"Gas\", 150, IF(OR(A79=\"Rivian\", A79=\"Tesla\"), 0, \"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Gas",
+            "then": "150"
+          }
+        ],
+        "input_cell": "A81",
+        "input_value": "Yes"
+      },
+      {
+        "row": 82,
+        "description": "Setup Scan Tool",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(A81=\"Yes\", \"Setup Scan Tool\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A81",
+            "when": "Yes",
+            "then": "Setup Scan Tool"
+          }
+        ],
+        "labor_formula": "=IF(A81=\"Yes\", \"0.2\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A81",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(A81=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A81",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "B82",
+        "input_value": "▼Adjust Tire Pressure"
+      },
+      {
+        "row": 83,
+        "description": "Dynamic Systems Verification",
+        "labor_hours": 1.0,
+        "price": 0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "input_cell": "B83",
+        "input_value": "Yes"
+      },
+      {
+        "row": 84,
+        "description": "OEM Research",
+        "labor_hours": 1.0,
+        "price": 50.0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "labor_formula": "=MAX(A85, 1)",
+        "labor_conditions": null,
+        "price_formula": "=MAX(A83, 50)",
+        "price_conditions": null,
+        "input_cell": "B84",
+        "input_value": "▼Remove Customer Belongings"
+      },
+      {
+        "row": 86,
+        "description": "ADAS Diagnostic Report",
+        "labor_hours": 0.0,
+        "price": 25.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(B79=\"Yes\", \"ADAS Diagnostic Report\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "B79",
+            "when": "Yes",
+            "then": "ADAS Diagnostic Report"
+          }
+        ],
+        "labor_formula": "=IF(B79=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B79",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(B79=\"Yes\", \"25\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B79",
+            "when": "Yes",
+            "then": "25"
+          }
+        ],
+        "input_cell": "A86",
+        "input_value": "▼Gateway (Unlock)"
+      },
+      {
+        "row": 87,
+        "description": "Setup ADAS Equipment",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "input_cell": "A87",
+        "input_value": "No"
+      },
+      {
+        "row": 88,
+        "description": "Simulate Full Fluids for ADAS Calibrations",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B81=\"Yes\",\"Simulate Full Fluids for ADAS Calibrations\",\"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "B81",
+            "when": "Yes",
+            "then": "Simulate Full Fluids for ADAS Calibrations"
+          }
+        ],
+        "labor_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B81=\"Yes\",\"0.2\",\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "B81",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B81=\"Yes\",\"0\",\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "B81",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 89,
+        "description": "Check and Adjust Tire Pressure for ADAS Calibrations",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B83=\"Yes\",\"Check and Adjust Tire Pressure for ADAS Calibrations\",\"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "B83",
+            "when": "Yes",
+            "then": "Check and Adjust Tire Pressure for ADAS Calibrations"
+          }
+        ],
+        "labor_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B83=\"Yes\",\"0.2\",\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "B83",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B83=\"Yes\",\"0\",\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "B83",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 90,
+        "description": "Remove Customer Belongings for ADAS Calibrations",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B85=\"Yes\",\"Remove Customer Belongings for ADAS Calibrations\",\"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "B85",
+            "when": "Yes",
+            "then": "Remove Customer Belongings for ADAS Calibrations"
+          }
+        ],
+        "labor_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B85=\"Yes\",\"0.2\",\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "B85",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(OR(B79=\"No\",B79=\"\"),\n   \"\",\n   IF(B85=\"Yes\",\"0\",\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "B85",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 125,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 126,
+        "description": "📊 7 Ops  |  💲64.5  |  🛠 1.7 Labor  |  🎨 0 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q127 & \" Ops  |  💲\" & R127 & \"  |  🛠 \" & V127 & \" Labor  |  🎨 \" & X127 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 127,
+        "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tClean for Delivery\t0\t1\t0\t0\t0\t0\t1\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tGlass Cleaner\t0\t1\t2\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tMask and Protect Removed Components\t0\t1\t10\t0\t0\t0\t0.5\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tParts Disposal\t0\t1\t25\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tHazardous Waste Disposal\t0\t1\t7.5\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tMisc Hardware\t0\t1\t15\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tSteering Wheel Cover, Seat Cover, and Floor Mat\t0\t1\t5\t0\t0\t0\t0.2\t0\t0\n\t",
+        "labor_hours": 1.7,
+        "price": 64.5,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 7
+      },
+      {
+        "row": 128,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A128",
+        "input_value": "▼Pre Wash"
+      },
+      {
+        "row": 129,
+        "description": "Clean for Delivery",
+        "labor_hours": 1.0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Rpr",
+        "quantity": 1
+      },
+      {
+        "row": 130,
+        "description": "Glass Cleaner",
+        "labor_hours": 0,
+        "price": 2.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1
+      },
+      {
+        "row": 131,
+        "description": "Mask and Protect Removed Components",
+        "labor_hours": 0.5,
+        "price": 10.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1
+      },
+      {
+        "row": 132,
+        "description": "Parts Disposal",
+        "labor_hours": 0,
+        "price": 25.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "input_cell": "A132",
+        "input_value": "▼ Bio Hazard"
+      },
+      {
+        "row": 133,
+        "description": "Hazardous Waste Disposal",
+        "labor_hours": 0,
+        "price": 7.5,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1
+      },
+      {
+        "row": 134,
+        "description": "Misc Hardware",
+        "labor_hours": 0,
+        "price": 15.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1
+      },
+      {
+        "row": 135,
+        "description": "Steering Wheel Cover, Seat Cover, and Floor Mat",
+        "labor_hours": 0.2,
+        "price": 5.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1
+      }
+    ],
+    "Part Operations": [
+      {
+        "row": 29,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 30,
+        "description": "📊 8 Ops  |  💲126  |  🛠 3 Labor  |  🎨 1.3 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q31 & \" Ops  |  💲\" & R31 & \"  |  🛠 \" & V31 & \" Labor  |  🎨 \" & X31 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 31,
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tLower cover Adhesion Promoter\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tReplace\t0\tLower cover Flex Additive\t0\t1\t15\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tRefinish\t0\tLower cover Flex Mixing Time\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tLower cover DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.1\n0\t0\t0\t0\t0\tRefinish\t0\tLower cover Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tLower cover Stage and Secure for Refinish\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tR&I\t0\tLower cover Trial Fit\t0\t1\t0\t0\t0\t0\t2\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tLower cover Wrap Install\t0\t1\t111\t0\t0\t0\t1\t0\t0\n\t",
+        "labor_hours": 3.0,
+        "price": 126.0,
+        "category": "",
+        "refinish_hours": 1.3,
+        "operation_type": "",
+        "quantity": 8
+      },
+      {
+        "row": 32,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A32",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 33,
+        "description": "Lower cover Adhesion Promoter",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(B33=\"Yes\", B26 & \" Adhesion Promoter\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "B33",
+            "when": "Yes",
+            "then": "B26 & \" Adhesion Promoter"
+          }
+        ],
+        "labor_formula": "=IF(B33=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B33",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(B33=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B33",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "B33",
+        "input_value": "Yes"
+      },
+      {
+        "row": 34,
+        "description": "Lower cover Flex Additive",
+        "labor_hours": 0,
+        "price": 15.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=B26 & \" Flex Additive\"",
+        "description_conditions": null,
+        "price_formula": "=IF(B35=\"First Large Part\",15,\n   IF(B35=\"Additional Large Part\",10,\n      IF(B35=\"Additional Small Part\",5,\n         IF(B35=\"\",15,\"\"))))",
+        "price_conditions": [
+          {
+            "input_cell": "B35",
+            "when": "First Large Part",
+            "then": "15"
+          },
+          {
+            "input_cell": "B35",
+            "when": "Additional Large Part",
+            "then": "10"
+          },
+          {
+            "input_cell": "B35",
+            "when": "Additional Small Part",
+            "then": "5"
+          }
+        ],
+        "input_cell": "A34",
+        "input_value": "▼Part being Removed"
+      },
+      {
+        "row": 35,
+        "description": "Lower cover Flex Mixing Time",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(OR(B35=\"Additional Large Part\", B35=\"Additional Small Part\"), \"\", B26 & \" Flex Mixing Time\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(OR(B35=\"Additional Large Part\", B35=\"Additional Small Part\"), \"\", \"0\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(OR(B35=\"Additional Large Part\", B35=\"Additional Small Part\"), \"\", \"0\")",
+        "price_conditions": null,
+        "input_cell": "A35",
+        "input_value": "Yes"
+      },
+      {
+        "row": 36,
+        "description": "Lower cover DE-NIB",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.1,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B26 & \" DE-NIB\"",
+        "description_conditions": null,
+        "input_cell": "C36",
+        "input_value": "▼License Plate Damaged"
+      },
+      {
+        "row": 37,
+        "description": "Lower cover Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B26 & \" Wet/Dry Sand, Rub-Out & Buff\"",
+        "description_conditions": null,
+        "input_cell": "D37",
+        "input_value": "▼Paint Park Sensor Brackets"
+      },
+      {
+        "row": 38,
+        "description": "Lower cover Stage and Secure for Refinish",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A35=\"Yes\", B26 & \" Stage and Secure for Refinish\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A35",
+            "when": "Yes",
+            "then": "B26 & \" Stage and Secure for Refinish"
+          }
+        ],
+        "labor_formula": "=IF(A35=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A35",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A35=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A35",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "D38",
+        "input_value": "No"
+      },
+      {
+        "row": 39,
+        "description": "Lower cover Trial Fit",
+        "labor_hours": 2.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A37),B26 & \" Trial Fit\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A37), A37,\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A37),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "D39",
+        "input_value": "▼Radar behind Painted Portion"
+      },
+      {
+        "row": 48,
+        "description": "Lower cover Wrap Install",
+        "labor_hours": 1.0,
+        "price": 111.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(AND(E38=\"Remove\",E39=\"Install\"),\n   B26 & \" Wrap Removal and Install\",\n   IF(E38=\"Remove\",\n      B26 & \" Wrap Removal\",\n      IF(E39=\"Install\",\n         B26 & \" Wrap Install\",\n         \"\")))",
+        "description_conditions": [
+          {
+            "input_cell": "E38",
+            "when": "Remove",
+            "then": "B26 & \" Wrap Removal"
+          },
+          {
+            "input_cell": "E39",
+            "when": "Install",
+            "then": "B26 & \" Wrap Install"
+          }
+        ],
+        "labor_formula": "=IF(AND(E38=\"Remove\",E39=\"Install\"),2,\n   IF(E38=\"Remove\",1,\n      IF(E39=\"Install\",1,\"\")))",
+        "labor_conditions": [
+          {
+            "input_cell": "E38",
+            "when": "Remove",
+            "then": "1"
+          },
+          {
+            "input_cell": "E39",
+            "when": "Install",
+            "then": "1"
+          }
+        ],
+        "price_formula": "=IF(AND(E38=\"Remove\",E39=\"Install\"),MAX(E41,50),\n   IF(E38=\"Remove\",0,\n      IF(E39=\"Install\",MAX(E41,50),\"\")))",
+        "price_conditions": [
+          {
+            "input_cell": "E38",
+            "when": "Remove",
+            "then": "0"
+          },
+          {
+            "input_cell": "E39",
+            "when": "Install",
+            "then": "MAX(E41"
+          }
+        ]
+      },
+      {
+        "row": 79,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 80,
+        "description": "📊 9 Ops  |  💲15  |  🛠 1.9 Labor  |  🎨 3.02 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q81 & \" Ops  |  💲\" & R81 & \"  |  🛠 \" & V81 & \" Labor  |  🎨 \" & X81 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 81,
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Raw Plastic Prep\t0\t1\t0\t0\t0\t0\t0\t0\t0.5\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.5\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Adhesion Promoter\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tReplace\t0\tBumper cover Flex Additive\t0\t1\t15\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Flex Mixing Time\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.28\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.84\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Stage and Secure for Refinish\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tR&I\t0\tBumper cover Trial Fit\t0\t1\t0\t0\t0\t0\t1.9\t0\t0\n\t",
+        "labor_hours": 1.9,
+        "price": 15.0,
+        "category": "",
+        "refinish_hours": 3.02,
+        "operation_type": "",
+        "quantity": 9
+      },
+      {
+        "row": 82,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A82",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 83,
+        "description": "Bumper cover Raw Plastic Prep",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.5,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B76 & \" Raw Plastic Prep\"",
+        "description_conditions": null,
+        "input_cell": "B83",
+        "input_value": "Yes"
+      },
+      {
+        "row": 84,
+        "description": "Bumper cover Feather Edge & Block Sand",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.5,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B76 & \" Feather Edge & Block Sand\"",
+        "description_conditions": null,
+        "input_cell": "A84",
+        "input_value": "▼Part being Removed"
+      },
+      {
+        "row": 85,
+        "description": "Bumper cover Adhesion Promoter",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(B83=\"Yes\", B76 & \" Adhesion Promoter\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "B83",
+            "when": "Yes",
+            "then": "B76 & \" Adhesion Promoter"
+          }
+        ],
+        "labor_formula": "=IF(B83=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B83",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(B83=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B83",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A85",
+        "input_value": "Yes"
+      },
+      {
+        "row": 86,
+        "description": "Bumper cover Flex Additive",
+        "labor_hours": 0,
+        "price": 15.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=B76 & \" Flex Additive\"",
+        "description_conditions": null,
+        "price_formula": "=IF(B85=\"First Large Part\",15,\n   IF(B85=\"Additional Large Part\",10,\n      IF(B85=\"Additional Small Part\",5,\n         IF(B85=\"\",15,\"\"))))",
+        "price_conditions": [
+          {
+            "input_cell": "B85",
+            "when": "First Large Part",
+            "then": "15"
+          },
+          {
+            "input_cell": "B85",
+            "when": "Additional Large Part",
+            "then": "10"
+          },
+          {
+            "input_cell": "B85",
+            "when": "Additional Small Part",
+            "then": "5"
+          }
+        ],
+        "input_cell": "C86",
+        "input_value": "▼License Plate Damaged"
+      },
+      {
+        "row": 87,
+        "description": "Bumper cover Flex Mixing Time",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(OR(B85=\"Additional Large Part\", B85=\"Additional Small Part\"), \"\", B76 & \" Flex Mixing Time\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(OR(B85=\"Additional Large Part\", B85=\"Additional Small Part\"), \"\", \"0\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(OR(B85=\"Additional Large Part\", B85=\"Additional Small Part\"), \"\", \"0\")",
+        "price_conditions": null,
+        "input_cell": "D87",
+        "input_value": "▼Paint Park Sensor Brackets"
+      },
+      {
+        "row": 88,
+        "description": "Bumper cover DE-NIB",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.27999999999999997,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B76 & \" DE-NIB\"",
+        "description_conditions": null
+      },
+      {
+        "row": 89,
+        "description": "Bumper cover Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.84,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B76 & \" Wet/Dry Sand, Rub-Out & Buff\"",
+        "description_conditions": null,
+        "input_cell": "D89",
+        "input_value": "▼Radar behind Painted Portion"
+      },
+      {
+        "row": 90,
+        "description": "Bumper cover Stage and Secure for Refinish",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A85=\"Yes\", B76 & \" Stage and Secure for Refinish\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A85",
+            "when": "Yes",
+            "then": "B76 & \" Stage and Secure for Refinish"
+          }
+        ],
+        "labor_formula": "=IF(A85=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A85",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A85=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A85",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "C90",
+        "input_value": "▼Adhesive Cleanup"
+      },
+      {
+        "row": 91,
+        "description": "Bumper cover Trial Fit",
+        "labor_hours": 1.9,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A87), B76 & \" Trial Fit\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A87), A87,\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A87),\"0\",\"\")",
+        "price_conditions": null
+      },
+      {
+        "row": 129,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 130,
+        "description": "📊 7 Ops  |  💲270  |  🛠 2 Labor  |  🎨 1.72 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q131 & \" Ops  |  💲\" & R131 & \"  |  🛠 \" & V131 & \" Labor  |  🎨 \" & X131 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 131,
+        "description": "0\t0\t0\t0\t0\t0\tReplace\t0\tBumper cover Flex Additive\t0\t1\t15\t0\t0\t0\t0\t0\t0\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Flex Mixing Time\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.28\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.84\n0\t0\t0\t0\t0\tRefinish\t0\tBumper cover Stage and Secure for Refinish\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tR&I\t0\tBumper cover Trial Fit\t0\t1\t0\t0\t0\t0\t1\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tBumper cover Wrap Install\t0\t1\t255\t0\t0\t0\t1\t0\t0\n\t",
+        "labor_hours": 2.0,
+        "price": 270.0,
+        "category": "",
+        "refinish_hours": 1.72,
+        "operation_type": "",
+        "quantity": 7
+      },
+      {
+        "row": 132,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A132",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 134,
+        "description": "Bumper cover Flex Additive",
+        "labor_hours": 0,
+        "price": 15.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=B126 & \" Flex Additive\"",
+        "description_conditions": null,
+        "price_formula": "=IF(B135=\"First Large Part\",15,\n   IF(B135=\"Additional Large Part\",10,\n      IF(B135=\"Additional Small Part\",5,\n         IF(B135=\"\",15,\"\"))))",
+        "price_conditions": [
+          {
+            "input_cell": "B135",
+            "when": "First Large Part",
+            "then": "15"
+          },
+          {
+            "input_cell": "B135",
+            "when": "Additional Large Part",
+            "then": "10"
+          },
+          {
+            "input_cell": "B135",
+            "when": "Additional Small Part",
+            "then": "5"
+          }
+        ],
+        "input_cell": "B134",
+        "input_value": "▼Flex Additive"
+      },
+      {
+        "row": 135,
+        "description": "Bumper cover Flex Mixing Time",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(OR(B135=\"Additional Large Part\", B135=\"Additional Small Part\"), \"\", B126 & \" Flex Mixing Time\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(OR(B135=\"Additional Large Part\", B135=\"Additional Small Part\"), \"\", \"0\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(OR(B135=\"Additional Large Part\", B135=\"Additional Small Part\"), \"\", \"0\")",
+        "price_conditions": null,
+        "input_cell": "D135",
+        "input_value": "▼Number of Park Sensors"
+      },
+      {
+        "row": 136,
+        "description": "Bumper cover DE-NIB",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.27999999999999997,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B126 & \" DE-NIB\"",
+        "description_conditions": null,
+        "input_cell": "C136",
+        "input_value": "▼Drill Holes for License Plate"
+      },
+      {
+        "row": 137,
+        "description": "Bumper cover Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.84,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B126 & \" Wet/Dry Sand, Rub-Out & Buff\"",
+        "description_conditions": null,
+        "input_cell": "C137",
+        "input_value": "No"
+      },
+      {
+        "row": 138,
+        "description": "Bumper cover Stage and Secure for Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B126 & \" Stage and Secure for Refinish\"",
+        "description_conditions": null,
+        "input_cell": "C138",
+        "input_value": "▼License Plate Damaged"
+      },
+      {
+        "row": 139,
+        "description": "Bumper cover Trial Fit",
+        "labor_hours": 1.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A135), B126 & \" Trial Fit\", \"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A135), A135, \"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A135),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "D139",
+        "input_value": "▼Radar behind Painted Portion"
+      },
+      {
+        "row": 148,
+        "description": "Bumper cover Wrap Install",
+        "labor_hours": 1.0,
+        "price": 255.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(E137=\"Yes\", B126 & \" Wrap Install\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "E137",
+            "when": "Yes",
+            "then": "B126 & \" Wrap Install"
+          }
+        ],
+        "labor_formula": "=IF(E137=\"Yes\", \"1\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "E137",
+            "when": "Yes",
+            "then": "1"
+          }
+        ],
+        "price_formula": "=IF(E137=\"Yes\", MAX(E139, 50), \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "E137",
+            "when": "Yes",
+            "then": "MAX(E139"
+          }
+        ]
+      },
+      {
+        "row": 179,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 180,
+        "description": "📊 5 Ops  |  💲200  |  🛠 2 Labor  |  🎨 0.66 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q181 & \" Ops  |  💲\" & R181 & \"  |  🛠 \" & V181 & \" Labor  |  🎨 \" & X181 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 181,
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tSpoiler Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.5\n0\t0\t0\t0\t0\tRefinish\t0\tSpoiler DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.1\n0\t0\t0\t0\tRefinish\t0\tSpoiler Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.06\n0\t0\t0\t0\t0\tR&I\t0\tSpoiler Trial Fit\t0\t1\t0\t0\t0\t0\t2\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tRepair Consumables\t0\t1\t200\t0\t0\t0\t0\t0\t0\n\t",
+        "labor_hours": 2.0,
+        "price": 200.0,
+        "category": "",
+        "refinish_hours": 0.6599999999999999,
+        "operation_type": "",
+        "quantity": 5
+      },
+      {
+        "row": 182,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A182",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 183,
+        "description": "Spoiler Feather Edge & Block Sand",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.5,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A179), B176 & \" Feather Edge & Block Sand\", \"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A179),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A179),\"0\",\"\")",
+        "price_conditions": null
+      },
+      {
+        "row": 184,
+        "description": "Spoiler DE-NIB",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.1,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(OR(A183=\"First Panel\",A183=\"Additional Panel\"), B176 & \" DE-NIB\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(OR(A183=\"First Panel\",A183=\"Additional Panel\"),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(OR(A183=\"First Panel\",A183=\"Additional Panel\"),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "A184",
+        "input_value": "▼Buff"
+      },
+      {
+        "row": 185,
+        "description": "Spoiler Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.06,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A185=\"Yes\", B176 & \" Wet/Dry Sand, Rub-Out & Buff\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A185",
+            "when": "Yes",
+            "then": "B176 & \" Wet/Dry Sand"
+          }
+        ],
+        "labor_formula": "=IF(A185=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A185",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A185=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A185",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A185",
+        "input_value": "Yes"
+      },
+      {
+        "row": 187,
+        "description": "Spoiler Trial Fit",
+        "labor_hours": 2.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A189), B176 & \" Trial Fit\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A189), A189,\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A189),\"0\",\"\")",
+        "price_conditions": null
+      },
+      {
+        "row": 188,
+        "description": "Repair Consumables",
+        "labor_hours": 0.0,
+        "price": 200.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(B183),\"Repair Consumables\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(B183),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(B183), B183,\"\")",
+        "price_conditions": null
+      },
+      {
+        "row": 229,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 230,
+        "description": "📊 4 Ops  |  💲0  |  🛠 0 Labor  |  🎨 1.09 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q231 & \" Ops  |  💲\" & R231 & \"  |  🛠 \" & V231 & \" Labor  |  🎨 \" & X231 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 231,
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tRT Upper extn Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Upper extn DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.07\n0\t0\t0\t0\t0\tRefinish\t0\tRT Upper extn Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.42\n0\t0\t0\t0\t0\tRefinish\t0\tRT Upper extn Add for Edging\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n\t",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 1.09,
+        "operation_type": "",
+        "quantity": 4
+      },
+      {
+        "row": 232,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A232",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 233,
+        "description": "RT Upper extn Backtape Jambs",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B226 & \" \" & IF(A237=\"Yes\",\"Mask Backside for Refinish\",\"Backtape Jambs\")",
+        "description_conditions": [
+          {
+            "input_cell": "A237",
+            "when": "Yes",
+            "then": "Mask Backside for Refinish"
+          }
+        ]
+      },
+      {
+        "row": 234,
+        "description": "RT Upper extn DE-NIB",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.06999999999999999,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B226 & \" DE-NIB\"",
+        "description_conditions": null,
+        "input_cell": "A234",
+        "input_value": "▼Add for Edging"
+      },
+      {
+        "row": 235,
+        "description": "RT Upper extn Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.42,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B226 & \" Wet/Dry Sand, Rub-Out & Buff\"",
+        "description_conditions": null,
+        "input_cell": "A235",
+        "input_value": "Yes"
+      },
+      {
+        "row": 236,
+        "description": "RT Upper extn Add for Edging",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A235=\"Yes\", B226 & \" Add for Edging\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A235",
+            "when": "Yes",
+            "then": "B226 & \" Add for Edging"
+          }
+        ],
+        "labor_formula": "=IF(A235=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A235",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A235=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A235",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A236",
+        "input_value": "▼Part being Removed"
+      },
+      {
+        "row": 279,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 280,
+        "description": "📊 5 Ops  |  💲0  |  🛠 0 Labor  |  🎨 2.625 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q281 & \" Ops  |  💲\" & R281 & \"  |  🛠 \" & V281 & \" Labor  |  🎨 \" & X281 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 281,
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tHood Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tHood Corrosion Protection\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tHood Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.625\n0\t0\t0\t0\t0\tRefinish\t0\tHood DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.56\n0\t0\t0\t0\t0\tRefinish\t0\tHood Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.84\n\t",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 2.625,
+        "operation_type": "",
+        "quantity": 5
+      },
+      {
+        "row": 282,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A282",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 283,
+        "description": "Hood Backtape Jambs",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B276 & \" \" & IF(A285=\"Yes\",\"Mask Backside for Refinish\",\"Backtape Jambs\")",
+        "description_conditions": [
+          {
+            "input_cell": "A285",
+            "when": "Yes",
+            "then": "Mask Backside for Refinish"
+          }
+        ]
+      },
+      {
+        "row": 284,
+        "description": "Hood Corrosion Protection",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B276 & \" Corrosion Protection\"",
+        "description_conditions": null,
+        "input_cell": "A284",
+        "input_value": "▼Part being Removed"
+      },
+      {
+        "row": 285,
+        "description": "Hood Feather Edge & Block Sand",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.625,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B276 & \" Feather Edge & Block Sand\"",
+        "description_conditions": null,
+        "input_cell": "A285",
+        "input_value": "No"
+      },
+      {
+        "row": 286,
+        "description": "Hood DE-NIB",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.5599999999999999,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B276 & \" DE-NIB\"",
+        "description_conditions": null,
+        "input_cell": "B286",
+        "input_value": "▼Chip Guard"
+      },
+      {
+        "row": 287,
+        "description": "Hood Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.84,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B276 & \" Wet/Dry Sand, Rub-Out & Buff\"",
+        "description_conditions": null,
+        "input_cell": "E287",
+        "input_value": "▼PPF / Vinyl Wrap"
+      },
+      {
+        "row": 329,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 330,
+        "description": "📊 5 Ops  |  💲0  |  🛠 1.3 Labor  |  🎨 2.9 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q331 & \" Ops  |  💲\" & R331 & \"  |  🛠 \" & V331 & \" Labor  |  🎨 \" & X331 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 331,
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tRT Fender DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.1\n0\t0\t0\t0\t0\tRefinish\t0\tRT Fender Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.6\n0\t0\t0\t0\t0\tRefinish\t0\tRT Fender Stage and Secure for Refinish\t0\t1\t0\t0\t0\t0\t0\t0\t0.2\n0\t0\t0\t0\t0\tR&I\t0\tRT Fender Trial Fit\t0\t1\t0\t0\t0\t0\t1.3\t0\t0\n0\t0\t0\t0\t0\tRefinish\t0\tRT Fender Refinish Backside\t0\t1\t0\t0\t0\t0\t0\t0\t2\n\t",
+        "labor_hours": 1.3,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 2.9,
+        "operation_type": "",
+        "quantity": 5
+      },
+      {
+        "row": 332,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A332",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 333,
+        "description": "RT Fender DE-NIB",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.1,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B326 & \" DE-NIB\"",
+        "description_conditions": null,
+        "input_cell": "B333",
+        "input_value": "No"
+      },
+      {
+        "row": 334,
+        "description": "RT Fender Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.6,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B326 & \" Wet/Dry Sand, Rub-Out & Buff\"",
+        "description_conditions": null,
+        "input_cell": "B334",
+        "input_value": "▼Seam Sealer"
+      },
+      {
+        "row": 335,
+        "description": "RT Fender Stage and Secure for Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.2,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B326 & \" Stage and Secure for Refinish\"",
+        "description_conditions": null,
+        "input_cell": "B335",
+        "input_value": "No"
+      },
+      {
+        "row": 336,
+        "description": "RT Fender Trial Fit",
+        "labor_hours": 1.3,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A335), B326 & \" Trial Fit\", \"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A335), A335, \"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A335),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "A336",
+        "input_value": "▼Refinish Backside"
+      },
+      {
+        "row": 337,
+        "description": "RT Fender Refinish Backside",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 2.0,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A337=\"Yes\", B326 & \" Refinish Backside\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A337",
+            "when": "Yes",
+            "then": "B326 & \" Refinish Backside"
+          }
+        ],
+        "labor_formula": "=IF(A337=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A337",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A337=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A337",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A337",
+        "input_value": "Yes"
+      },
+      {
+        "row": 379,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 380,
+        "description": "📊 11 Ops  |  💲4  |  🛠 2.5 Labor  |  🎨 4.95 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q381 & \" Ops  |  💲\" & R381 & \"  |  🛠 \" & V381 & \" Labor  |  🎨 \" & X381 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 381,
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Corrosion Protection\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.15\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.9\n0\t0\t0\t0\t0\tRpr\t0\tRT Quarter panel Trial Fit\t0\t1\t0\t0\t0\t0\t1\t0\t0\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Refinish Backside\t0\t1\t0\t0\t0\t0\t0\t0\t3\n0\t0\t0\t0\t0\tRpr\t0\tRT Quarter panel Backing Plate\t0\t1\t0\t0\t0\t0\t0.5\t0\t0\n0\t0\t0\t0\t0\tR&I\t0\tLicense Plate\t0\t1\t0\t0\t0\t0\t0.2\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tMeasure and Mark Template for 2x Nameplate Installation\t0\t1\t4\t0\t0\t0\t0.4\t0\t0\n 0\t 0\t 0\t 0\t 0\t Rpr\t 0\tRT Quarter panel Adhesive Cleanup\t 0\t 1\t 0\t 0\t 0\t 0\t0.4\t 0\t 0\n\t",
+        "labor_hours": 2.5,
+        "price": 4.0,
+        "category": "",
+        "refinish_hours": 4.949999999999999,
+        "operation_type": "",
+        "quantity": 11
+      },
+      {
+        "row": 382,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A382",
+        "input_value": "▼DE-NIB"
+      },
+      {
+        "row": 383,
+        "description": "RT Quarter panel Backtape Jambs",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B376 & \" Backtape Jambs\"",
+        "description_conditions": null
+      },
+      {
+        "row": 384,
+        "description": "RT Quarter panel Corrosion Protection",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B376 & \" Corrosion Protection\"",
+        "description_conditions": null,
+        "input_cell": "B384",
+        "input_value": "▼Seam Sealer"
+      },
+      {
+        "row": 385,
+        "description": "RT Quarter panel Feather Edge & Block Sand",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B376 & \" Feather Edge & Block Sand\"",
+        "description_conditions": null
+      },
+      {
+        "row": 386,
+        "description": "RT Quarter panel DE-NIB",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.15000000000000002,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B376 & \" DE-NIB\"",
+        "description_conditions": null,
+        "input_cell": "A386",
+        "input_value": "▼Refinish Backside"
+      },
+      {
+        "row": 387,
+        "description": "RT Quarter panel Wet/Dry Sand, Rub-Out & Buff",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.8999999999999999,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=B376 & \" Wet/Dry Sand, Rub-Out & Buff\"",
+        "description_conditions": null,
+        "input_cell": "A387",
+        "input_value": "Yes"
+      },
+      {
+        "row": 388,
+        "description": "RT Quarter panel Trial Fit",
+        "labor_hours": 1.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A385), B376 & \" Trial Fit\", \"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A385), A385, \"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A385),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "A388",
+        "input_value": "▼Number of Backing Plates"
+      },
+      {
+        "row": 389,
+        "description": "RT Quarter panel Refinish Backside",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 3.0,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A387=\"Yes\", B376 & \" Refinish Backside\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A387",
+            "when": "Yes",
+            "then": "B376 & \" Refinish Backside"
+          }
+        ],
+        "labor_formula": "=IF(A387=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A387",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A387=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A387",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 390,
+        "description": "RT Quarter panel Backing Plate",
+        "labor_hours": 0.5,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A389),\n   B376 & \" Backing Plate\" & IF(OR(A389=\"\",A389=1),\"\",\"s\"),\n\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A389), IF(OR(A389=\"\",A389=1),0.5,A389*0.5), \"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A389),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "C390",
+        "input_value": "▼Adhesive Cleanup"
+      },
+      {
+        "row": 397,
+        "description": "License Plate",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(C385=\"Equipped\", \"License Plate\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "C385",
+            "when": "Equipped",
+            "then": "License Plate"
+          }
+        ],
+        "labor_formula": "=IF(C385=\"Equipped\", \"0.2\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "C385",
+            "when": "Equipped",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(C385=\"Equipped\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "C385",
+            "when": "Equipped",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 399,
+        "description": "Measure and Mark Template for 2x Nameplate Installation",
+        "labor_hours": 0.4,
+        "price": 4.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(C389=\"\", \"\", \"Measure and Mark Template for \" & C389 & \"x Nameplate Installation\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(C389=\"\", \"\", C389*0.2)",
+        "labor_conditions": null,
+        "price_formula": "=IF(C389=\"\", \"\", C389*2)",
+        "price_conditions": null
+      },
+      {
+        "row": 400,
+        "description": "RT Quarter panel Adhesive Cleanup",
+        "labor_hours": 0.4,
+        "price": 0,
+        "category": " 0",
+        "refinish_hours": 0,
+        "operation_type": " Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(C391=\"yes\", B376 & \" Adhesive Cleanup\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "C391",
+            "when": "yes",
+            "then": "B376 & \" Adhesive Cleanup"
+          }
+        ],
+        "labor_formula": "=IF(C391=\"Yes\",\n    IF(OR(C389=\"\", C389=1),0.2,C389*0.2),\n    \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "C391",
+            "when": "Yes",
+            "then": "IF(OR(C389="
+          }
+        ],
+        "price_formula": "=IF(C391=\"Yes\", \" 0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "C391",
+            "when": "Yes",
+            "then": " 0"
+          }
+        ]
+      },
+      {
+        "row": 429,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 430,
+        "description": "📊 3 Ops  |  💲0  |  🛠 0 Labor  |  🎨 0.75 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q431 & \" Ops  |  💲\" & R431 & \"  |  🛠 \" & V431 & \" Labor  |  🎨 \" & X431 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 431,
+        "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tRT and LT Rail End Corrosion Protection\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRpr\t0\tRT and LT Rail End Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.25\n0\t0\t0\t0\t0\tRefinish\t0\tRT and LT Rail End Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.2\n\t",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.75,
+        "operation_type": "",
+        "quantity": 3
+      },
+      {
+        "row": 432,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A432",
+        "input_value": "▼Size of Part"
+      },
+      {
+        "row": 433,
+        "description": "RT and LT Rail End Corrosion Protection",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A429), B426 & \" Corrosion Protection\", \"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A429),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A429),\"0\",\"\")",
+        "price_conditions": null
+      },
+      {
+        "row": 434,
+        "description": "RT and LT Rail End Feather Edge & Block Sand",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.25,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A429), B426 & \" Feather Edge & Block Sand\", \"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A429),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A429),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "B434",
+        "input_value": "▼Seam Sealer"
+      },
+      {
+        "row": 436,
+        "description": "RT and LT Rail End Backtape Jambs",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.2,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A437=\"Yes\", B426 & \" Backtape Jambs\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A437",
+            "when": "Yes",
+            "then": "B426 & \" Backtape Jambs"
+          }
+        ],
+        "labor_formula": "=IF(A437=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A437",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(A437=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A437",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A436",
+        "input_value": "▼Backtape Jambs"
+      },
+      {
+        "row": 479,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 480,
+        "description": "📊 3 Ops  |  💲0  |  🛠 0 Labor  |  🎨 0.75 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q431 & \" Ops  |  💲\" & R431 & \"  |  🛠 \" & V431 & \" Labor  |  🎨 \" & X431 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 481,
+        "description": "0\t0\t0\t0\t0\t0\tReplace\t0\tLift gate glass Urethane Kit\t0\t1\t50\t0\t0\t0\t0.8\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tLift gate glass Glass Primer\t0\t1\t25\t0\t0\t0\t0.5\t0\t0\n0\t0\t0\t0\t0\tRpr\t0\tBroken Glass Cleanup\t0\t1\t0\t0\t0\t0\t2\t0\t0\n\t",
+        "labor_hours": 3.3,
+        "price": 75.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 3
+      },
+      {
+        "row": 482,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A482",
+        "input_value": "▼Size of Part"
+      },
+      {
+        "row": 483,
+        "description": "Lift gate glass Urethane Kit",
+        "labor_hours": 0.8,
+        "price": 50.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=B476 & \" Urethane Kit\"",
+        "description_conditions": null,
+        "labor_formula": "=IF(A483=\"Large\",0.8,IF(A483=\"Small\",0.5,\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "A483",
+            "when": "Large",
+            "then": "0.8"
+          },
+          {
+            "input_cell": "A483",
+            "when": "Small",
+            "then": "0.5"
+          }
+        ],
+        "price_formula": "=IF(A483=\"Large\",50,IF(A483=\"Small\",25,\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "A483",
+            "when": "Large",
+            "then": "50"
+          },
+          {
+            "input_cell": "A483",
+            "when": "Small",
+            "then": "25"
+          }
+        ]
+      },
+      {
+        "row": 484,
+        "description": "Lift gate glass Glass Primer",
+        "labor_hours": 0.5,
+        "price": 25.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=B476 & \" Glass Primer\"",
+        "description_conditions": null,
+        "labor_formula": "=IF(A483=\"Large\",0.5,IF(A483=\"Small\",0.3,\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "A483",
+            "when": "Large",
+            "then": "0.5"
+          },
+          {
+            "input_cell": "A483",
+            "when": "Small",
+            "then": "0.3"
+          }
+        ],
+        "price_formula": "=IF(A483=\"Large\",25,IF(A483=\"Small\",15,\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "A483",
+            "when": "Large",
+            "then": "25"
+          },
+          {
+            "input_cell": "A483",
+            "when": "Small",
+            "then": "15"
+          }
+        ],
+        "input_cell": "A484",
+        "input_value": "▼Body Primer"
+      },
+      {
+        "row": 487,
+        "description": "Broken Glass Cleanup",
+        "labor_hours": 2.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A489<>\"\",\"Broken Glass Cleanup\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(A489=\"\", \"\", A489)",
+        "labor_conditions": null,
+        "price_formula": "=IF(A489<>\"\",\"0\",\"\")",
+        "price_conditions": null
+      }
+    ],
+    "Cover Car Operations": [
+      {
+        "row": 29,
+        "description": "Cover Car for Overspray",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.2,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(C32=\"Yes\",\"Cover Car for Overspray for Two Tone Paint\",\"Cover Car for Overspray\")",
+        "description_conditions": [
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "Cover Car for Overspray for Two Tone Paint"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          },
+          {
+            "input_cell": "D29",
+            "when": "$ and Body Labor",
+            "then": "IF(C32=\"Yes"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          },
+          {
+            "input_cell": "D29",
+            "when": "$ and Body Labor",
+            "then": "IF(C32=\"Yes"
+          }
+        ],
+        "input_cell": "A29",
+        "input_value": "Gas"
+      },
+      {
+        "row": 30,
+        "description": "Cover for Edging",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(C32=\"Yes\",\"Cover for Edging for Two Tone Paint\",\"Cover for Edging\")",
+        "description_conditions": [
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "Cover for Edging for Two Tone Paint"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.6,0.3),\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          },
+          {
+            "input_cell": "D29",
+            "when": "$ and Body Labor",
+            "then": "IF(C32=\"Yes"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          },
+          {
+            "input_cell": "D29",
+            "when": "$ and Body Labor",
+            "then": "IF(C32=\"Yes"
+          }
+        ]
+      },
+      {
+        "row": 31,
+        "description": "Mask for Buffing",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.5,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "labor_formula": "=IF(D29=\"Refinish Labor\",0,IF(D29=\"$ and Body Labor\",0.5,\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          },
+          {
+            "input_cell": "D29",
+            "when": "$ and Body Labor",
+            "then": "0.5"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Refinish Labor\",0,IF(D29=\"$ and Body Labor\",5,\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          },
+          {
+            "input_cell": "D29",
+            "when": "$ and Body Labor",
+            "then": "5"
+          }
+        ],
+        "input_cell": "C31",
+        "input_value": "▼Two Tone Paint"
+      },
+      {
+        "row": 32,
+        "description": "Cover Engine Compartment",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "0",
+        "refinish_hours": 0.2,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(AND(B29=\"Front\",A29=\"Gas\"),\n      \"Cover Engine Compartment\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\n   IF(AND(B29=\"Front\",A29=\"EV\"),\n      \"Cover Front Trunk Compartment\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\n   \"\"))",
+        "description_conditions": [
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": " for Two Tone Paint"
+          },
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": " for Two Tone Paint"
+          }
+        ],
+        "labor_formula": "=IF(B29=\"Front\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B29",
+            "when": "Front",
+            "then": "IF(D29=\"$ and Body Labor"
+          },
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "0.4"
+          },
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(B29=\"Front\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B29",
+            "when": "Front",
+            "then": "IF(D29=\"$ and Body Labor"
+          },
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "10"
+          },
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 33,
+        "description": "Cover Interior and Jambs for Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "0",
+        "refinish_hours": 0.2,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(B30=\"Side\",\"Cover Interior and Jambs for Refinish\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "B30",
+            "when": "Side",
+            "then": "Cover Interior and Jambs for Refinish\" & IF(C32=\"Yes"
+          }
+        ],
+        "labor_formula": "=IF(B30=\"Side\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B30",
+            "when": "Side",
+            "then": "IF(D29=\"$ and Body Labor"
+          },
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "0.4"
+          },
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(B30=\"Side\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B30",
+            "when": "Side",
+            "then": "IF(D29=\"$ and Body Labor"
+          },
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "10"
+          },
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 35,
+        "description": "Clean and Cover Car for Primer",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "0",
+        "refinish_hours": 0.3,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(C30=\"Repair\",\"Clean and Cover Car for Primer\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "C30",
+            "when": "Repair",
+            "then": "Clean and Cover Car for Primer\" & IF(C32=\"Yes"
+          }
+        ],
+        "labor_formula": "=IF(C30=\"Repair\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.6,0.3),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "C30",
+            "when": "Repair",
+            "then": "IF(D29=\"$ and Body Labor"
+          },
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "0.6"
+          },
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(C30=\"Repair\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "C30",
+            "when": "Repair",
+            "then": "IF(D29=\"$ and Body Labor"
+          },
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "10"
+          },
+          {
+            "input_cell": "D29",
+            "when": "Refinish Labor",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 36,
+        "description": "Cover Interior and Jambs for Repairs",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "0",
+        "refinish_hours": 0.2,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(AND(B30=\"Side\",C30=\"Repair\"),\n   \"Cover Interior and Jambs for Repairs\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\n\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": " for Two Tone Paint"
+          }
+        ],
+        "labor_formula": "=IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"$ and Body Labor\"),\n      IF(C32=\"Yes\",0.4,0.2),\n   IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"Refinish Labor\"),0,\"\"))",
+        "labor_conditions": [
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "0.4"
+          }
+        ],
+        "price_formula": "=IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"$ and Body Labor\"),\n      IF(C32=\"Yes\",10,5),\n   IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"Refinish Labor\"),0,\"\"))",
+        "price_conditions": [
+          {
+            "input_cell": "C32",
+            "when": "Yes",
+            "then": "10"
+          }
+        ]
+      }
+    ],
+    "Body Operations": [
+      {
+        "row": 41,
+        "description": "Weld Blankets",
+        "labor_hours": 0.3,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(D29=\"Yes\", \"Weld Blankets\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "Weld Blankets"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Yes\", \"0.3\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0.3"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 42,
+        "description": "1x Welder Setup, Power Up, Power Down",
+        "labor_hours": 0.5,
+        "price": 25.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(D29=\"Yes\",IF(OR(D31=0,D31=\"\"),\"Welder Setup, Power Up, Power Down\",D31 & \"x Welder Setup, Power Up, Power Down\"),\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "IF(OR(D31=0"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Yes\",IF(D31<>\"\",D31*0.5,0.5),\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "IF(D31<>"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Yes\",IF(D31<>\"\",D31*25,25),\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "IF(D31<>"
+          }
+        ]
+      },
+      {
+        "row": 43,
+        "description": "Welding Consumables",
+        "labor_hours": 0.0,
+        "price": 25.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(D29=\"Yes\", \"Welding Consumables\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "Welding Consumables"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Yes\", \"25\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "25"
+          }
+        ]
+      },
+      {
+        "row": 44,
+        "description": "Weld Through Primer",
+        "labor_hours": 0.0,
+        "price": 10.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(D29=\"Yes\", \"Weld Through Primer\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "Weld Through Primer"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Yes\", \"0\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Yes\", \"10\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "10"
+          }
+        ]
+      },
+      {
+        "row": 45,
+        "description": "Destructive Test Weld",
+        "labor_hours": 0.5,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(D29=\"Yes\", \"Destructive Test Weld\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "Destructive Test Weld"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Yes\",IF(D31<>\"\",D31*0.5,0.5),\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "IF(D31<>"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 46,
+        "description": "Remove and Cleanup Debris from Drilling and Grinding",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(D29=\"Yes\", \"Remove and Cleanup Debris from Drilling and Grinding\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "Remove and Cleanup Debris from Drilling and Grinding"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Yes\", \"0.2\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 47,
+        "description": "R&I All Electronics Within Weld Zones",
+        "labor_hours": 1.0,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(D29=\"Yes\", \"R&I All Electronics Within Weld Zones\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "R&I All Electronics Within Weld Zones"
+          }
+        ],
+        "labor_formula": "=IF(D29=\"Yes\", \"1\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "1"
+          }
+        ],
+        "price_formula": "=IF(D29=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D29",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 75,
+        "description": "🔗Back to top",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1
+      },
+      {
+        "row": 76,
+        "description": "📊 2 Ops  |  💲0  |  🛠 4.5 Labor  |  🎨 0 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 77,
+        "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tSetup\t0\t1\t0\t0\t0\t0\t2\tF\t0\n0\t0\t0\t0\t0\tRpr\t0\tPre, Post Measure\t0\t1\t0\t0\t0\t0\t2.5\tF\t0\n\t",
+        "labor_hours": 4.5,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 2
+      },
+      {
+        "row": 78,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A78",
+        "input_value": "▼Measure Gap Dimensions"
+      },
+      {
+        "row": 81,
+        "description": "Setup",
+        "labor_hours": 2.0,
+        "price": 0.0,
+        "category": "F",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(D79=\"Yes\", \"Setup\", \"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D79",
+            "when": "Yes",
+            "then": "Setup"
+          }
+        ],
+        "labor_formula": "=IF(D79=\"Yes\", \"2\", \"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D79",
+            "when": "Yes",
+            "then": "2"
+          }
+        ],
+        "price_formula": "=IF(D79=\"Yes\", \"0\", \"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D79",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      },
+      {
+        "row": 82,
+        "description": "Pre, Post Measure",
+        "labor_hours": 2.5,
+        "price": 0.0,
+        "category": "F",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(OR(D81=\"Pre\",D82=\"In-Process\",D83=\"Post\"),\n   _xlfn.TEXTJOIN(\", \",TRUE,\n      IF(D81=\"Pre\",\"Pre\",\"\"),\n      IF(D82=\"In-Process\",\"In-Process\",\"\"),\n      IF(D83=\"Post\",\"Post\",\"\")\n   ) & \" Measure\",\n\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D81",
+            "when": "Pre",
+            "then": "Pre"
+          },
+          {
+            "input_cell": "D82",
+            "when": "In-Process",
+            "then": "In-Process"
+          },
+          {
+            "input_cell": "D83",
+            "when": "Post",
+            "then": "Post"
+          }
+        ],
+        "labor_formula": "=IF(OR(D81=\"Pre\",D82=\"In-Process\",D83=\"Post\"),\n   2 + ( ( (D81=\"Pre\") + (D82=\"In-Process\") + (D83=\"Post\") - 1 ) * 0.5 ),\n\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(OR(D81<>\"\",D82<>\"\",D83<>\"\"),\"0\",\"\")",
+        "price_conditions": null
+      }
+    ],
+    "Refinish Operations": [
+      {
+        "row": 29,
+        "description": "Refinish Material Invoice",
+        "labor_hours": 0,
+        "price": 1.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "input_cell": "C29",
+        "input_value": "Yes"
+      },
+      {
+        "row": 30,
+        "description": "Color Tint (2-Stage)",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.5,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A29=\"2-Stage\",\"Color Tint (2-Stage)\",\n   IF(A29=\"3-Stage\",\"Color Tint (3-Stage)\",\n   IF(A29=\"4-Stage\",\"Color Tint (4-Stage)\",\"\")))",
+        "description_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "2-Stage",
+            "then": "Color Tint (2-Stage)"
+          },
+          {
+            "input_cell": "A29",
+            "when": "3-Stage",
+            "then": "Color Tint (3-Stage)"
+          },
+          {
+            "input_cell": "A29",
+            "when": "4-Stage",
+            "then": "Color Tint (4-Stage)"
+          }
+        ],
+        "input_cell": "A30",
+        "input_value": "▼Additional Radar Formula"
+      },
+      {
+        "row": 31,
+        "description": "Spray Out Cards (2-Stage)",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0.5,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(A29=\"2-Stage\",\"Spray Out Cards (2-Stage)\",\n   IF(A29=\"3-Stage\",\"Spray Out Cards (3-Stage)\",\n   IF(A29=\"4-Stage\",\"Spray Out Cards (4-Stage)\",\"\")))",
+        "description_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "2-Stage",
+            "then": "Spray Out Cards (2-Stage)"
+          },
+          {
+            "input_cell": "A29",
+            "when": "3-Stage",
+            "then": "Spray Out Cards (3-Stage)"
+          },
+          {
+            "input_cell": "A29",
+            "when": "4-Stage",
+            "then": "Spray Out Cards (4-Stage)"
+          }
+        ],
+        "input_cell": "A31",
+        "input_value": "No"
+      },
+      {
+        "row": 52,
+        "description": "Static Gun",
+        "labor_hours": 0.1,
+        "price": 14.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(C29=\"Yes\",\"Static Gun\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "C29",
+            "when": "Yes",
+            "then": "Static Gun"
+          }
+        ],
+        "labor_formula": "=IF(C29=\"Yes\",\"0.1\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "C29",
+            "when": "Yes",
+            "then": "0.1"
+          }
+        ],
+        "price_formula": "=IF(C29=\"Yes\",\"14\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "C29",
+            "when": "Yes",
+            "then": "14"
+          }
+        ]
+      },
+      {
+        "row": 55,
+        "description": "Monitor Flash and Cure Time",
+        "labor_hours": 0.0,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.2,
+        "operation_type": "Refinish",
+        "quantity": 1,
+        "description_formula": "=IF(D33=\"Yes\",\"Monitor Flash and Cure Time\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "D33",
+            "when": "Yes",
+            "then": "Monitor Flash and Cure Time"
+          }
+        ],
+        "labor_formula": "=IF(D33=\"Yes\",\"0\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "D33",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "price_formula": "=IF(D33=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "D33",
+            "when": "Yes",
+            "then": "0"
+          }
+        ]
+      }
+    ],
+    "Mechanical Operations": [
+      {
+        "row": 29,
+        "description": "R1234yf and Refrigerant Oil",
+        "labor_hours": 0,
+        "price": 485.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(A29=\"R134a\",\"R134a and Refrigerant Oil\",\n IF(A29=\"R1234yf\",\"R1234yf and Refrigerant Oil\",\n IF(A29=\"R744\",\"R744 and Refrigerant Oil\",\"\")))",
+        "description_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "R134a",
+            "then": "R134a and Refrigerant Oil"
+          },
+          {
+            "input_cell": "A29",
+            "when": "R1234yf",
+            "then": "R1234yf and Refrigerant Oil"
+          },
+          {
+            "input_cell": "A29",
+            "when": "R744",
+            "then": "R744 and Refrigerant Oil"
+          }
+        ],
+        "price_formula": "=IF(A29=\"R134a\",\"85\",\n IF(A29=\"R1234yf\",\"485\",\n IF(A29=\"R744\",\"600\",\"\")))",
+        "price_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "R134a",
+            "then": "85"
+          },
+          {
+            "input_cell": "A29",
+            "when": "R1234yf",
+            "then": "485"
+          },
+          {
+            "input_cell": "A29",
+            "when": "R744",
+            "then": "600"
+          }
+        ],
+        "input_cell": "B29",
+        "input_value": "Yes"
+      },
+      {
+        "row": 30,
+        "description": "Cover and Protect AC Lines",
+        "labor_hours": 0.2,
+        "price": 3.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(B29=\"Yes\",\"Cover and Protect AC Lines\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "B29",
+            "when": "Yes",
+            "then": "Cover and Protect AC Lines"
+          }
+        ],
+        "labor_formula": "=IF(B29=\"Yes\",\"0.2\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B29",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(B29=\"Yes\",\"3\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B29",
+            "when": "Yes",
+            "then": "3"
+          }
+        ],
+        "input_cell": "B30",
+        "input_value": "▼Climate Control System Check"
+      },
+      {
+        "row": 31,
+        "description": "Climate Control System Check",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(B31=\"Yes\",\"Climate Control System Check\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "B31",
+            "when": "Yes",
+            "then": "Climate Control System Check"
+          }
+        ],
+        "labor_formula": "=IF(B31=\"Yes\",\"0.2\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B31",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(B31=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B31",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "B31",
+        "input_value": "Yes"
+      },
+      {
+        "row": 32,
+        "description": "Bring Vehicle to Operating Temperatures",
+        "labor_hours": 0.2,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(B33=\"Yes\",\"Bring Vehicle to Operating Temperatures\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "B33",
+            "when": "Yes",
+            "then": "Bring Vehicle to Operating Temperatures"
+          }
+        ],
+        "labor_formula": "=IF(B33=\"Yes\",\"0.2\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "B33",
+            "when": "Yes",
+            "then": "0.2"
+          }
+        ],
+        "price_formula": "=IF(B33=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "B33",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "B32",
+        "input_value": "▼Bring Vehicle to Operating Temperatures"
+      },
+      {
+        "row": 76,
+        "description": "📊 3 Ops  |  💲25  |  🛠 1 Labor  |  🎨 0 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 77,
+        "description": "0\t0\t0\t0\t0\t0\tReplace\t0\tCoolant\t0\t3\t25\t0\t0\t0\t1\tM\t0\n\t",
+        "labor_hours": 1.0,
+        "price": 25.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 3
+      },
+      {
+        "row": 78,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "B78",
+        "input_value": "▼Clamp Cooling Hoses"
+      },
+      {
+        "row": 79,
+        "description": "Coolant",
+        "labor_hours": 1.0,
+        "price": 25.0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Replace",
+        "quantity": 3,
+        "input_cell": "B79",
+        "input_value": "No"
+      },
+      {
+        "row": 126,
+        "description": "📊 2 Ops  |  💲0  |  🛠 1.1 Labor  |  🎨 0 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q127 & \" Ops  |  💲\" & R127 & \"  |  🛠 \" & V127 & \" Labor  |  🎨 \" & X127 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 127,
+        "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tSteering Angle Sensor\t0\t1\t0\t0\t0\t0\t1\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tSteering Wheel Lock\t0\t1\t0\t0\t0\t0\t0.1\tM\t0\n\t",
+        "labor_hours": 1.1,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 2
+      },
+      {
+        "row": 128,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A128",
+        "input_value": "▼Alignment Check"
+      },
+      {
+        "row": 130,
+        "description": "Steering Angle Sensor",
+        "labor_hours": 1.0,
+        "price": 0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "input_cell": "A130",
+        "input_value": "▼Add Weight"
+      },
+      {
+        "row": 131,
+        "description": "Steering Wheel Lock",
+        "labor_hours": 0.1,
+        "price": 0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "input_cell": "B131",
+        "input_value": "No"
+      },
+      {
+        "row": 176,
+        "description": "📊 7 Ops  |  💲13.5  |  🛠 0.8 Labor  |  🎨 0 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q177 & \" Ops  |  💲\" & R177 & \"  |  🛠 \" & V177 & \" Labor  |  🎨 \" & X177 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 177,
+        "description": "0\t0\t0\t0\t0\t0\tR&I\t0\tTorque Wheels\t0\t1\t0\t0\t0\t0\t0.2\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tMount and Balance\t0\t1\t0\t0\t0\t0\t0.5\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tWheel Weights\t0\t1\t5\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tReplace\t0\tTire Mounting Paste\t0\t1\t2\t0\t0\t0\t0\tM\t0\n0\t0\t0\t0\t0\tSublet\t0\tTire Disposal\t0\t1\t5\t0\tX\t0\t0\tM\t0\n0\t0\t0\t0\t0\tSublet\t0\tTire Tax\t0\t1\t1.5\t0\tX\t0\t0\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tBring Tire to Operating Temperature\t0\t1\t0\t0\t0\t0\t0.1\tM\t0\n\t",
+        "labor_hours": 0.7999999999999999,
+        "price": 13.5,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 7
+      },
+      {
+        "row": 178,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "C178",
+        "input_value": "▼Lug Nut Covers"
+      },
+      {
+        "row": 179,
+        "description": "Torque Wheels",
+        "labor_hours": 0.2,
+        "price": 0,
+        "category": "M",
+        "refinish_hours": 0,
+        "operation_type": "R&I",
+        "quantity": 1,
+        "description_formula": "=IF(A179=\"\",\"Torque Wheels\",\n   IF(ISNUMBER(A179),\n      \"Torque Wheels \" & A179 & \" Nm / \" & ROUND(A179*0.73756,0) & \" lb-ft\",\n   \"\"))",
+        "description_conditions": null,
+        "input_cell": "C179",
+        "input_value": "No"
+      },
+      {
+        "row": 180,
+        "description": "Mount and Balance",
+        "labor_hours": 0.5,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A181),\n   \"Mount and Balance\" & IF(OR(A181=\"\",A181=1),\"\",\" \" & A181 & \"x\"),\n\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A181), IF(OR(A181=\"\",A181=1),0.5,A181*0.5), \"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A181),\"0\",\"\")",
+        "price_conditions": null,
+        "input_cell": "C180",
+        "input_value": "▼Universal Spare Wheel"
+      },
+      {
+        "row": 181,
+        "description": "Wheel Weights",
+        "labor_hours": 0.0,
+        "price": 5.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A181),\n   \"Wheel Weights\" & IF(OR(A181=\"\",A181=1),\"\",\" \" & A181 & \"x\"),\n\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A181),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A181), IF(OR(A181=\"\",A181=1),5,A181*5), \"\")",
+        "price_conditions": null,
+        "input_cell": "C181",
+        "input_value": "No"
+      },
+      {
+        "row": 182,
+        "description": "Tire Mounting Paste",
+        "labor_hours": 0.0,
+        "price": 2.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A181),\"Tire Mounting Paste\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A181),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A181),\"2\",\"\")",
+        "price_conditions": null,
+        "input_cell": "D182",
+        "input_value": "▼Wheel Dolly"
+      },
+      {
+        "row": 183,
+        "description": "Tire Disposal",
+        "labor_hours": 0.0,
+        "price": 5.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Sublet",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A183),\n   \"Tire Disposal\" & IF(OR(A183=\"\",A183=1),\"\",\" \" & A183 & \"x\"),\n\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A183),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A183), IF(OR(A183=\"\",A183=1),5,A183*5), \"\")",
+        "price_conditions": null,
+        "input_cell": "D183",
+        "input_value": "No"
+      },
+      {
+        "row": 184,
+        "description": "Tire Tax",
+        "labor_hours": 0.0,
+        "price": 1.5,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Sublet",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(A183),\n   \"Tire Tax\" & IF(OR(A183=\"\",A183=1),\"\",\" \" & A183 & \"x\"),\n\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(A183),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(A183), IF(OR(A183=\"\",A183=1.5),1.5,A183*1.5), \"\")",
+        "price_conditions": null,
+        "input_cell": "A184",
+        "input_value": "▼Bring Tire to Operating Temperature"
+      },
+      {
+        "row": 185,
+        "description": "Bring Tire to Operating Temperature",
+        "labor_hours": 0.1,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A185=\"Yes\",\"Bring Tire to Operating Temperature\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A185",
+            "when": "Yes",
+            "then": "Bring Tire to Operating Temperature"
+          }
+        ],
+        "labor_formula": "=IF(A185=\"Yes\",\"0.1\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A185",
+            "when": "Yes",
+            "then": "0.1"
+          }
+        ],
+        "price_formula": "=IF(A185=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A185",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A185",
+        "input_value": "Yes"
+      }
+    ],
+    "SRS Operations": [
+      {
+        "row": 29,
+        "description": "Safety Inspections",
+        "labor_hours": 4.0,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A29=\"Yes\",\"Safety Inspections\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "Yes",
+            "then": "Safety Inspections"
+          }
+        ],
+        "labor_formula": "=IF(A29=\"Yes\",\"4\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "Yes",
+            "then": "4"
+          }
+        ],
+        "price_formula": "=IF(A29=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A29",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A29",
+        "input_value": "Yes"
+      },
+      {
+        "row": 30,
+        "description": "Seatbelts Inspection",
+        "labor_hours": 1.0,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A31=\"Yes\",\"Seatbelts Inspection\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A31",
+            "when": "Yes",
+            "then": "Seatbelts Inspection"
+          }
+        ],
+        "labor_formula": "=IF(A31=\"Yes\",\"1\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A31",
+            "when": "Yes",
+            "then": "1"
+          }
+        ],
+        "price_formula": "=IF(A31=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A31",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A30",
+        "input_value": "▼Seatbelts Inspection"
+      },
+      {
+        "row": 31,
+        "description": "Steering Column Inspection",
+        "labor_hours": 1.0,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A33=\"Yes\",\"Steering Column Inspection\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A33",
+            "when": "Yes",
+            "then": "Steering Column Inspection"
+          }
+        ],
+        "labor_formula": "=IF(A33=\"Yes\",\"1\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A33",
+            "when": "Yes",
+            "then": "1"
+          }
+        ],
+        "price_formula": "=IF(A33=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A33",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A31",
+        "input_value": "Yes"
+      },
+      {
+        "row": 32,
+        "description": "Steering Gear Inspection",
+        "labor_hours": 0.5,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A35=\"Yes\",\"Steering Gear Inspection\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A35",
+            "when": "Yes",
+            "then": "Steering Gear Inspection"
+          }
+        ],
+        "labor_formula": "=IF(A35=\"Yes\",\"0.5\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A35",
+            "when": "Yes",
+            "then": "0.5"
+          }
+        ],
+        "price_formula": "=IF(A35=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A35",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A32",
+        "input_value": "▼Steering Column Inspection"
+      },
+      {
+        "row": 76,
+        "description": "📊 3 Ops  |  💲200  |  🛠 1.8 Labor  |  🎨 0 Refinish",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 1,
+        "description_formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+        "description_conditions": null
+      },
+      {
+        "row": 77,
+        "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tDisable and Enable SRS System\t0\t1\t0\t0\t0\t0\t0.3\tM\t0\n0\t0\t0\t0\t0\tRpr\t0\tAirbag Residue Cleanup\t0\t1\t0\t0\t0\t0\t1.5\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tRestraint Control Module Program\t0\t1\t200\t0\t0\t0\t0\t0\t0\n\t",
+        "labor_hours": 1.8,
+        "price": 200.0,
+        "category": "",
+        "refinish_hours": 0,
+        "operation_type": "",
+        "quantity": 3
+      },
+      {
+        "row": 78,
+        "description": "Description",
+        "labor_hours": 0,
+        "price": 0,
+        "category": "Category",
+        "refinish_hours": 0,
+        "operation_type": "Operation",
+        "quantity": 1,
+        "input_cell": "A78",
+        "input_value": "▼Disable/Enable SRS"
+      },
+      {
+        "row": 79,
+        "description": "Disable and Enable SRS System",
+        "labor_hours": 0.3,
+        "price": 0.0,
+        "category": "M",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A79=\"Yes\",\"Disable and Enable SRS System\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Yes",
+            "then": "Disable and Enable SRS System"
+          }
+        ],
+        "labor_formula": "=IF(A79=\"Yes\",\"0.3\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Yes",
+            "then": "0.3"
+          }
+        ],
+        "price_formula": "=IF(A79=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A79",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A79",
+        "input_value": "Yes"
+      },
+      {
+        "row": 81,
+        "description": "Airbag Residue Cleanup",
+        "labor_hours": 1.5,
+        "price": 0.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Rpr",
+        "quantity": 1,
+        "description_formula": "=IF(A83=\"Yes\",\"Airbag Residue Cleanup\",\"\")",
+        "description_conditions": [
+          {
+            "input_cell": "A83",
+            "when": "Yes",
+            "then": "Airbag Residue Cleanup"
+          }
+        ],
+        "labor_formula": "=IF(A83=\"Yes\",\"1.5\",\"\")",
+        "labor_conditions": [
+          {
+            "input_cell": "A83",
+            "when": "Yes",
+            "then": "1.5"
+          }
+        ],
+        "price_formula": "=IF(A83=\"Yes\",\"0\",\"\")",
+        "price_conditions": [
+          {
+            "input_cell": "A83",
+            "when": "Yes",
+            "then": "0"
+          }
+        ],
+        "input_cell": "A81",
+        "input_value": "No"
+      },
+      {
+        "row": 84,
+        "description": "Restraint Control Module Program",
+        "labor_hours": 0.0,
+        "price": 200.0,
+        "category": "0",
+        "refinish_hours": 0.0,
+        "operation_type": "Replace",
+        "quantity": 1,
+        "description_formula": "=IF(ISNUMBER(B79),\"Restraint Control Module Program\",\"\")",
+        "description_conditions": null,
+        "labor_formula": "=IF(ISNUMBER(B79),\"0\",\"\")",
+        "labor_conditions": null,
+        "price_formula": "=IF(ISNUMBER(B79),B79,\"\")",
+        "price_conditions": null,
+        "input_cell": "A84",
+        "input_value": "▼SRS Disposal"
+      }
+    ]
+  },
+  "labor_rates": {},
+  "operation_types": {
+    "Rpr": "Repair",
+    "Rpl": "Replace",
+    "Rfn": "Refinish",
+    "Add": "Additional",
+    "M": "Mechanical",
+    "B": "Body",
+    "R": "Refinish",
+    "F": "Frame"
+  },
+  "categories": {
+    "M": "Mechanical",
+    "B": "Body",
+    "R": "Refinish",
+    "F": "Frame",
+    "D": "Diagnostic"
+  }
+}

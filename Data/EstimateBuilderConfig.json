@@ -1,0 +1,154 @@
+{
+  "version": "1.0",
+  "description": "Simple Estimate Builder",
+
+  "sheets": [
+    {
+      "id": "partops",
+      "name": "Part Operations",
+      "icon": "\uE74C",
+      "subcategories": [
+        {
+          "id": "plasticblend",
+          "name": "Plastic Part Blend",
+          "inputs": [
+            { "id": "PB_PartName", "label": "Part Name", "type": "text", "placeholder": "e.g. Bumper Cover", "default": "" },
+            { "id": "PB_RefinishHours", "label": "Refinish Hours", "type": "number", "min": 0, "max": 20, "step": 0.1, "default": 0 },
+            { "id": "PB_DeNib", "label": "DE-NIB", "type": "dropdown", "options": ["No", "Yes"], "default": "No" },
+            { "id": "PB_FlexAdditive", "label": "Flex Additive", "type": "dropdown", "options": ["No", "Yes"], "default": "No" },
+            { "id": "PB_AdhesionPromoter", "label": "Adhesion Promoter", "type": "dropdown", "options": ["No", "Yes"], "default": "No" }
+          ]
+        },
+        {
+          "id": "plasticrepair",
+          "name": "Plastic Part Repair",
+          "inputs": [
+            { "id": "PR_PartName", "label": "Part Name", "type": "text", "placeholder": "e.g. Bumper Cover", "default": "" },
+            { "id": "PR_RepairHours", "label": "Repair Hours", "type": "number", "min": 0, "max": 20, "step": 0.1, "default": 0 },
+            { "id": "PR_RefinishHours", "label": "Refinish Hours", "type": "number", "min": 0, "max": 20, "step": 0.1, "default": 0 }
+          ]
+        },
+        {
+          "id": "plasticreplace",
+          "name": "Plastic Part Replace",
+          "inputs": [
+            { "id": "PX_PartName", "label": "Part Name", "type": "text", "placeholder": "e.g. Bumper Cover", "default": "" },
+            { "id": "PX_RefinishHours", "label": "Refinish Hours", "type": "number", "min": 0, "max": 20, "step": 0.1, "default": 0 },
+            { "id": "PX_FlexAdditive", "label": "Flex Additive", "type": "dropdown", "options": ["No", "Yes"], "default": "No" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "soplist",
+      "name": "SOP List",
+      "icon": "\uE8A5",
+      "subcategories": [
+        {
+          "id": "electrical",
+          "name": "Electrical",
+          "inputs": [
+            { "id": "SOP_Battery", "label": "12V Battery", "type": "dropdown", "options": ["Single", "Dual"], "default": "Single" },
+            { "id": "SOP_TestBattery", "label": "Test Battery", "type": "dropdown", "options": ["No", "Yes"], "default": "No" },
+            { "id": "SOP_BatterySupport", "label": "Battery Support", "type": "dropdown", "options": ["No", "Yes"], "default": "No" }
+          ]
+        },
+        {
+          "id": "misc",
+          "name": "Misc",
+          "inputs": [
+            { "id": "SOP_PreWash", "label": "Pre Wash", "type": "dropdown", "options": ["No", "Yes"], "default": "No" },
+            { "id": "SOP_Scaffolding", "label": "Scaffolding", "type": "dropdown", "options": ["No", "Yes"], "default": "No" }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "operationRules": [
+    {
+      "id": "pb_refinish",
+      "trigger": { "inputId": "PB_RefinishHours", "greaterThan": 0 },
+      "operations": [
+        { "type": "Refinish", "descriptionTemplate": "{PB_PartName} Blend", "refinishHoursFromInput": "PB_RefinishHours" }
+      ]
+    },
+    {
+      "id": "pb_denib",
+      "trigger": { "inputId": "PB_DeNib", "equals": "Yes" },
+      "operations": [
+        { "type": "Labor", "descriptionTemplate": "{PB_PartName} DE-NIB", "laborHours": 0.3 }
+      ]
+    },
+    {
+      "id": "pb_flex",
+      "trigger": { "inputId": "PB_FlexAdditive", "equals": "Yes" },
+      "operations": [
+        { "type": "Material", "descriptionTemplate": "{PB_PartName} Flex Additive", "price": 20 }
+      ]
+    },
+    {
+      "id": "pb_adhesion",
+      "trigger": { "inputId": "PB_AdhesionPromoter", "equals": "Yes" },
+      "operations": [
+        { "type": "Material", "descriptionTemplate": "{PB_PartName} Adhesion Promoter", "price": 15 }
+      ]
+    },
+    {
+      "id": "pr_repair",
+      "trigger": { "inputId": "PR_RepairHours", "greaterThan": 0 },
+      "operations": [
+        { "type": "Labor", "descriptionTemplate": "{PR_PartName} Repair", "laborHoursFromInput": "PR_RepairHours" }
+      ]
+    },
+    {
+      "id": "pr_refinish",
+      "trigger": { "inputId": "PR_RefinishHours", "greaterThan": 0 },
+      "operations": [
+        { "type": "Refinish", "descriptionTemplate": "{PR_PartName} Refinish", "refinishHoursFromInput": "PR_RefinishHours" }
+      ]
+    },
+    {
+      "id": "px_refinish",
+      "trigger": { "inputId": "PX_RefinishHours", "greaterThan": 0 },
+      "operations": [
+        { "type": "Refinish", "descriptionTemplate": "{PX_PartName} Refinish", "refinishHoursFromInput": "PX_RefinishHours" }
+      ]
+    },
+    {
+      "id": "px_flex",
+      "trigger": { "inputId": "PX_FlexAdditive", "equals": "Yes" },
+      "operations": [
+        { "type": "Material", "descriptionTemplate": "{PX_PartName} Flex Additive", "price": 20 }
+      ]
+    },
+    {
+      "id": "sop_testbattery",
+      "trigger": { "inputId": "SOP_TestBattery", "equals": "Yes" },
+      "operations": [
+        { "type": "Labor", "description": "Test Battery", "laborHours": 0.3 }
+      ]
+    },
+    {
+      "id": "sop_batterysupport",
+      "trigger": { "inputId": "SOP_BatterySupport", "equals": "Yes" },
+      "operations": [
+        { "type": "Labor", "description": "Battery Support Mode", "laborHours": 0.2 }
+      ]
+    },
+    {
+      "id": "sop_prewash",
+      "trigger": { "inputId": "SOP_PreWash", "equals": "Yes" },
+      "operations": [
+        { "type": "Labor", "description": "Pre Wash", "laborHours": 0.5 }
+      ]
+    },
+    {
+      "id": "sop_scaffolding",
+      "trigger": { "inputId": "SOP_Scaffolding", "equals": "Yes" },
+      "operations": [
+        { "type": "Labor", "description": "Scaffolding Setup", "laborHours": 0.5 }
+      ]
+    }
+  ]
+}

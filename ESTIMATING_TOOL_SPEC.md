@@ -1,4 +1,4 @@
-# McStud Estimating Tool - Excel-Like View Specification
+# Mcstud Estimating Tool - Excel-Like View Specification
 
 ## Overview
 Create a spreadsheet-like interface that matches the master.xlsx structure exactly.

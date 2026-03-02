@@ -1,0 +1,374 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-02-06",
+  "source": "MOTOR Guide to Estimating, DEG Database, CCC/Mitchell/Audatex P-Pages",
+  "description": "Operations NOT INCLUDED in standard labor times - organized by category",
+  "categories": {
+    "scanning_diagnostics": {
+      "name": "Scanning & Diagnostics",
+      "items": [
+        {
+          "item": "Pre-Repair Scan",
+          "description": "Diagnostic scan before any repair work begins",
+          "whyNotIncluded": "Separate diagnostic operation - not part of repair time",
+          "degReference": "DEG #12928",
+          "typicalTime": 0.5,
+          "notes": "Recommended on ALL repairs to document pre-existing conditions"
+        },
+        {
+          "item": "Post-Repair Scan",
+          "description": "Diagnostic scan after all repairs complete",
+          "whyNotIncluded": "Separate diagnostic operation",
+          "degReference": "DEG #12928",
+          "typicalTime": 0.5,
+          "notes": "Required to verify no new codes set during repair"
+        },
+        {
+          "item": "In-Process Scan",
+          "description": "Scan during repair process",
+          "whyNotIncluded": "Only CCC offers as database selection - NOT INCLUDED in any IP",
+          "degReference": "DEG #17537",
+          "typicalTime": 0.3,
+          "notes": "May be needed when reenergizing hybrid/EV mid-repair"
+        },
+        {
+          "item": "Code Research",
+          "description": "Researching diagnostic trouble codes",
+          "whyNotIncluded": "Time to research and understand codes",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "System Initialization",
+          "description": "Reinitialize systems after battery disconnect",
+          "whyNotIncluded": "Vehicle-specific procedures vary",
+          "typicalTime": 0.5
+        }
+      ]
+    },
+    "refinish_operations": {
+      "name": "Refinish Operations",
+      "items": [
+        {
+          "item": "Color Tinting/Matching",
+          "description": "Adjusting paint formula to match vehicle color",
+          "whyNotIncluded": "Shop-specific equipment and process",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Flex Additive",
+          "description": "Adding flex agent to paint for plastic parts",
+          "whyNotIncluded": "Material application not in paint times",
+          "typicalTime": 0.2
+        },
+        {
+          "item": "Adhesion Promoter Application",
+          "description": "Apply adhesion promoter to plastic substrates",
+          "whyNotIncluded": "Additional prep step for plastic",
+          "typicalTime": 0.2
+        },
+        {
+          "item": "Denib/Final Sand",
+          "description": "Remove paint nibs/defects from fresh finish",
+          "whyNotIncluded": "Quality control step",
+          "typicalTime": 0.3,
+          "notes": "Most paint work requires some level of denibbing"
+        },
+        {
+          "item": "Color Sand and Buff",
+          "description": "Wet sand and buff to remove orange peel",
+          "whyNotIncluded": "Additional finishing beyond spray",
+          "typicalTime": 0.4
+        },
+        {
+          "item": "Tri-Coat/3-Stage Application",
+          "description": "Additional steps for 3-stage paint",
+          "whyNotIncluded": "Extra application steps",
+          "typicalTime": "50% of refinish time",
+          "notes": "Add 50% to refinish hours for 3-stage paint"
+        },
+        {
+          "item": "Masking for Seam Sealer",
+          "description": "Mask panels for sprayable seam sealer",
+          "whyNotIncluded": "Separate masking operation",
+          "degReference": "DEG #23332",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "Backside Bumper Masking (Radar Zone)",
+          "description": "Mask radar detection area on bumper backside",
+          "whyNotIncluded": "ADAS-related refinish consideration",
+          "degReference": "DEG #40336",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "Featheredge Prime and Block",
+          "description": "Prep damaged paint edges before refinish",
+          "whyNotIncluded": "Prep work before painting",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Chip Repair/Rock Chip Touch-up",
+          "description": "Touch up small chips outside repair area",
+          "whyNotIncluded": "Cosmetic detail work",
+          "typicalTime": 0.3
+        }
+      ]
+    },
+    "structural_corrosion": {
+      "name": "Structural & Corrosion",
+      "items": [
+        {
+          "item": "Weld-Through Primer",
+          "description": "Apply zinc-rich primer before welding",
+          "whyNotIncluded": "Material and application time",
+          "degReference": "Required by OEMs but NOT INCLUDED",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "Corrosion Protection - Weld Areas",
+          "description": "Apply corrosion protection to weld seams",
+          "whyNotIncluded": "Material and application time",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "Corrosion Protection - Cavities",
+          "description": "Apply cavity wax to enclosed areas",
+          "whyNotIncluded": "Access and application time",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Seam Sealer - Beyond Attachment Points",
+          "description": "Seam sealer beyond immediate weld area",
+          "whyNotIncluded": "Seam sealer at removal point IS included; additional is NOT",
+          "degReference": "DEG #23010",
+          "typicalTime": "On-the-spot evaluation"
+        },
+        {
+          "item": "Sprayable Seam Sealer Application",
+          "description": "Apply texture-matched sprayable sealer",
+          "whyNotIncluded": "Specialized application process",
+          "typicalTime": 0.4
+        },
+        {
+          "item": "Sound Deadener Application",
+          "description": "Apply/replace sound deadening material",
+          "whyNotIncluded": "Material and application time",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "Rivet Debris Removal",
+          "description": "Remove rivet debris from cavities",
+          "whyNotIncluded": "Access and removal time",
+          "degReference": "DEG #18914",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "Access for Rivet Debris",
+          "description": "R&I components to access rivet debris",
+          "whyNotIncluded": "Additional disassembly",
+          "degReference": "DEG #18914",
+          "typicalTime": "Varies"
+        },
+        {
+          "item": "Test Welds",
+          "description": "Practice welds before repair",
+          "whyNotIncluded": "Setup and test time",
+          "typicalTime": 0.2
+        }
+      ]
+    },
+    "mechanical_operations": {
+      "name": "Mechanical Operations",
+      "items": [
+        {
+          "item": "Cooling System Fill and Bleed",
+          "description": "Fill and bleed air from cooling system",
+          "whyNotIncluded": "Separate operation from component R&R",
+          "degReference": "DEG #40223 - See MOTOR GTE RADIATOR section",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "A/C System Evacuation",
+          "description": "Recover refrigerant before service",
+          "whyNotIncluded": "Separate A/C operation",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "A/C System Recharge",
+          "description": "Recharge A/C after service",
+          "whyNotIncluded": "Separate A/C operation",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Steering Angle Sensor Reset",
+          "description": "Reset SAS after alignment or suspension work",
+          "whyNotIncluded": "Electronic reset procedure",
+          "typicalTime": 0.2
+        },
+        {
+          "item": "Brake System Bleed",
+          "description": "Bleed brakes after hydraulic work",
+          "whyNotIncluded": "Separate brake operation",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Transmission Fluid Fill",
+          "description": "Fill and check transmission fluid",
+          "whyNotIncluded": "Separate operation",
+          "typicalTime": 0.3
+        }
+      ]
+    },
+    "adas_calibrations": {
+      "name": "ADAS Calibrations",
+      "items": [
+        {
+          "item": "Forward Camera Calibration",
+          "description": "Calibrate windshield-mounted camera",
+          "whyNotIncluded": "Separate calibration operation",
+          "typicalTime": 1.0,
+          "notes": "Required after windshield R&R"
+        },
+        {
+          "item": "Front Radar Calibration",
+          "description": "Calibrate front radar module",
+          "whyNotIncluded": "Separate calibration operation",
+          "typicalTime": 0.8,
+          "notes": "Required after bumper or grille work"
+        },
+        {
+          "item": "Rear Radar Calibration (BSM)",
+          "description": "Calibrate blind spot monitoring sensors",
+          "whyNotIncluded": "Separate calibration operation",
+          "typicalTime": 0.5,
+          "notes": "Required after rear bumper or quarter work"
+        },
+        {
+          "item": "Surround Camera Calibration",
+          "description": "Calibrate 360-degree camera system",
+          "whyNotIncluded": "Separate calibration operation",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Parking Sensor Learning",
+          "description": "Teach parking sensors after replacement",
+          "whyNotIncluded": "Electronic learn procedure",
+          "typicalTime": 0.3
+        }
+      ]
+    },
+    "glass_operations": {
+      "name": "Glass Operations",
+      "items": [
+        {
+          "item": "Urethane/Adhesive",
+          "description": "Windshield bonding materials",
+          "whyNotIncluded": "Materials not included in labor",
+          "notes": "Material cost"
+        },
+        {
+          "item": "Moulding Kits",
+          "description": "New reveal mouldings for glass",
+          "whyNotIncluded": "Parts not included",
+          "notes": "Often required - old mouldings damaged during removal"
+        },
+        {
+          "item": "Safe Drive-Away Time",
+          "description": "Time for urethane to cure before driving",
+          "whyNotIncluded": "Not a labor operation",
+          "notes": "1-24 hours depending on urethane type"
+        }
+      ]
+    },
+    "safety_inspections": {
+      "name": "Safety & Inspections",
+      "items": [
+        {
+          "item": "OEM-Required Safety Inspections",
+          "description": "Vehicle safety checks per manufacturer",
+          "whyNotIncluded": "Not listed in MOTOR Guide to Estimating",
+          "degReference": "DEG #12928",
+          "typicalTime": "Varies by OEM"
+        },
+        {
+          "item": "Pre-Repair Measurements",
+          "description": "Document frame dimensions before repair",
+          "whyNotIncluded": "Separate measurement operation",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Post-Repair Measurements",
+          "description": "Document frame dimensions after repair",
+          "whyNotIncluded": "Separate measurement operation",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Test Drive",
+          "description": "Road test after repairs",
+          "whyNotIncluded": "Quality verification step",
+          "typicalTime": 0.3
+        }
+      ]
+    },
+    "miscellaneous": {
+      "name": "Miscellaneous",
+      "items": [
+        {
+          "item": "Battery Disconnect/Reconnect",
+          "description": "Disconnect battery for welding or electronics protection",
+          "whyNotIncluded": "Separate operation",
+          "typicalTime": 0.3
+        },
+        {
+          "item": "Cover Vehicle Interior",
+          "description": "Protect interior during repair",
+          "whyNotIncluded": "Setup time",
+          "typicalTime": 0.2
+        },
+        {
+          "item": "Cover Adjacent Panels",
+          "description": "Protect adjacent panels during work",
+          "whyNotIncluded": "Setup time",
+          "typicalTime": 0.2
+        },
+        {
+          "item": "Clean Vehicle",
+          "description": "Final detail cleaning",
+          "whyNotIncluded": "Delivery prep",
+          "typicalTime": 0.5
+        },
+        {
+          "item": "Hazardous Material Disposal",
+          "description": "Proper disposal of paint/solvents",
+          "whyNotIncluded": "Shop overhead",
+          "notes": "Material cost or disposal fee"
+        },
+        {
+          "item": "Transfer Components",
+          "description": "Transfer parts from old to new panel",
+          "whyNotIncluded": "May or may not be included - check P-pages",
+          "notes": "Varies by part and estimating system"
+        }
+      ]
+    }
+  },
+  "quickReference": {
+    "alwaysConsider": [
+      "Pre/Post Repair Scan",
+      "Corrosion Protection on ALL welded panels",
+      "Weld-Thru Primer on ALL welds",
+      "Seam Sealer on ALL welded seams",
+      "Flex Additive on ALL plastic refinish",
+      "Adjacent Panel Blend when refinishing",
+      "ADAS Calibration when bumper/windshield/alignment work done"
+    ],
+    "commonlyForgotten": [
+      "Rivet debris removal access",
+      "Masking for sprayable seam sealer",
+      "Backside bumper masking in radar zone",
+      "Steering angle sensor reset after alignment",
+      "Cooling system bleed after radiator work",
+      "Test welds before structural repair"
+    ]
+  }
+}

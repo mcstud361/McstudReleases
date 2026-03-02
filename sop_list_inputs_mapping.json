@@ -1,0 +1,257 @@
+{
+  "metadata": {
+    "source_file": "C:\\Users\\mcnee\\OneDrive\\Remote Estimating\\App\\2.0\\Unlocked Mcstud Estimating Tool Master.xlsx",
+    "sheet_name": "SOP List",
+    "total_inputs": 17,
+    "extraction_date": "2025-12-04"
+  },
+  "sections": {
+    "Electrical": {
+      "row_start": 25,
+      "subsections": {
+        "OEM": {
+          "inputs": [
+            {
+              "cell": "A29",
+              "label": "12V Battery",
+              "type": "dropdown",
+              "options": ["Single", "Dual"],
+              "current_value": "Single",
+              "description": "Battery configuration for the vehicle"
+            },
+            {
+              "cell": "A31",
+              "label": "Test Battery",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "No",
+              "description": "Whether to perform battery testing"
+            },
+            {
+              "cell": "A33",
+              "label": "Battery Support",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "No",
+              "description": "Whether battery support is needed"
+            },
+            {
+              "cell": "A35",
+              "label": "Vehicle Type",
+              "type": "dropdown",
+              "options": ["Gas", "Hybrid", "EV"],
+              "current_value": "Gas",
+              "description": "Type of vehicle powertrain"
+            }
+          ]
+        },
+        "ADAS Overview": {
+          "inputs": [
+            {
+              "cell": "C29",
+              "label": "ADAS",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "Yes",
+              "description": "Whether ADAS (Advanced Driver Assistance Systems) work is included"
+            }
+          ]
+        }
+      }
+    },
+    "Vehicle Diagnostics": {
+      "row_start": 75,
+      "subsections": {
+        "OEM": {
+          "inputs": [
+            {
+              "cell": "A79",
+              "label": "Scan Type",
+              "type": "dropdown",
+              "options": ["Dollar Amount", "Labor Unit", "Tesla"],
+              "current_value": "Dollar Amount",
+              "description": "Type of diagnostic scan pricing method"
+            },
+            {
+              "cell": "A81",
+              "label": "Setup Scan Tool",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "Yes",
+              "description": "Whether to set up the scan tool"
+            },
+            {
+              "cell": "A87",
+              "label": "Gateway (Unlock)",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "No",
+              "description": "Whether gateway unlocking is required"
+            }
+          ]
+        },
+        "Additional": {
+          "inputs": [
+            {
+              "cell": "B79",
+              "label": "ADAS",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "Yes",
+              "description": "Whether ADAS diagnostics are included"
+            },
+            {
+              "cell": "B81",
+              "label": "Simulate Full Fluids",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "Yes",
+              "description": "Whether to simulate full fluid levels for diagnostics"
+            },
+            {
+              "cell": "B83",
+              "label": "Adjust Tire Pressure",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "Yes",
+              "description": "Whether to adjust tire pressure for diagnostics"
+            },
+            {
+              "cell": "B85",
+              "label": "Remove Customer Belongings",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "No",
+              "description": "Whether to remove customer belongings from vehicle"
+            },
+            {
+              "cell": "B87",
+              "label": "Drive Cycle",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "No",
+              "description": "Whether to perform a drive cycle"
+            }
+          ]
+        }
+      }
+    },
+    "Misc": {
+      "row_start": 125,
+      "subsections": {
+        "Labor": {
+          "inputs": [
+            {
+              "cell": "A129",
+              "label": "Pre Wash",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "No",
+              "description": "Whether to perform pre-wash labor"
+            },
+            {
+              "cell": "A133",
+              "label": "Bio Hazard",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": "No",
+              "description": "Whether bio hazard handling is required"
+            }
+          ]
+        },
+        "Additional": {
+          "inputs": [
+            {
+              "cell": "C129",
+              "label": "Shipping/Parts Labels",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": null,
+              "description": "Whether shipping or parts labels are needed"
+            }
+          ]
+        },
+        "Equipment": {
+          "inputs": [
+            {
+              "cell": "D129",
+              "label": "Scaffolding",
+              "type": "toggle",
+              "options": ["Yes", "No"],
+              "current_value": null,
+              "description": "Whether scaffolding equipment is required"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "requested_cells_mapping": {
+    "B79": {
+      "section": "Vehicle Diagnostics",
+      "subsection": "Additional",
+      "label": "ADAS",
+      "type": "toggle"
+    },
+    "B83": {
+      "section": "Vehicle Diagnostics",
+      "subsection": "Additional",
+      "label": "Adjust Tire Pressure",
+      "type": "toggle"
+    },
+    "A81": {
+      "section": "Vehicle Diagnostics",
+      "subsection": "OEM",
+      "label": "Setup Scan Tool",
+      "type": "toggle"
+    },
+    "B81": {
+      "section": "Vehicle Diagnostics",
+      "subsection": "Additional",
+      "label": "Simulate Full Fluids",
+      "type": "toggle"
+    },
+    "B85": {
+      "section": "Vehicle Diagnostics",
+      "subsection": "Additional",
+      "label": "Remove Customer Belongings",
+      "type": "toggle"
+    },
+    "A87": {
+      "section": "Vehicle Diagnostics",
+      "subsection": "OEM",
+      "label": "Gateway (Unlock)",
+      "type": "toggle"
+    },
+    "B87": {
+      "section": "Vehicle Diagnostics",
+      "subsection": "Additional",
+      "label": "Drive Cycle",
+      "type": "toggle"
+    },
+    "A129": {
+      "section": "Misc",
+      "subsection": "Labor",
+      "label": "Pre Wash",
+      "type": "toggle"
+    },
+    "C129": {
+      "section": "Misc",
+      "subsection": "Additional",
+      "label": "Shipping/Parts Labels",
+      "type": "toggle"
+    },
+    "D129": {
+      "section": "Misc",
+      "subsection": "Equipment",
+      "label": "Scaffolding",
+      "type": "toggle"
+    },
+    "A133": {
+      "section": "Misc",
+      "subsection": "Labor",
+      "label": "Bio Hazard",
+      "type": "toggle"
+    }
+  }
+}

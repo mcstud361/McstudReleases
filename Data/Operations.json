@@ -1,0 +1,1460 @@
+{
+  "version": "1.0",
+  "source": "Industry Standard Operations Reference",
+  "lastUpdated": "2025-02-04",
+  "laborTypes": {
+    "body": { "color": "#4CAF50", "name": "Body" },
+    "paint": { "color": "#2196F3", "name": "Paint" },
+    "structural": { "color": "#F44336", "name": "Structural" },
+    "mechanical": { "color": "#FF9800", "name": "Mechanical" },
+    "detail": { "color": "#9C27B0", "name": "Detail" },
+    "other": { "color": "#607D8B", "name": "Other" }
+  },
+  "categories": [
+    { "code": "01", "name": "Front & Rear Bumpers", "icon": "bumper" },
+    { "code": "05", "name": "Hood", "icon": "hood" },
+    { "code": "10", "name": "Fender", "icon": "fender" },
+    { "code": "15", "name": "Core Support", "icon": "core" },
+    { "code": "20", "name": "Radiator/AC/Fluids", "icon": "radiator" },
+    { "code": "25", "name": "Apron/Upper Rail", "icon": "rail" },
+    { "code": "30", "name": "Wheels/Tires/Alignment", "icon": "wheel" },
+    { "code": "35", "name": "Suspension/Mechanical", "icon": "suspension" },
+    { "code": "40", "name": "SRS/Seat Belts", "icon": "airbag" },
+    { "code": "45", "name": "Pillars", "icon": "pillar" },
+    { "code": "50", "name": "Rockers", "icon": "rocker" },
+    { "code": "55", "name": "Door Skin/Shell", "icon": "door" },
+    { "code": "60", "name": "Roof", "icon": "roof" },
+    { "code": "65", "name": "Cab Corner (Pickup)", "icon": "cab" },
+    { "code": "70", "name": "Cab Back Panel (Pickup)", "icon": "cab" },
+    { "code": "75", "name": "Quarter Panel", "icon": "quarter" },
+    { "code": "80", "name": "Pickup Bed Side Panel", "icon": "bed" },
+    { "code": "85", "name": "Van/SUV Side Panel", "icon": "side" },
+    { "code": "90", "name": "Deck Lid", "icon": "trunk" },
+    { "code": "95", "name": "Rear Body Panel", "icon": "rear" },
+    { "code": "100", "name": "Floor", "icon": "floor" },
+    { "code": "105", "name": "Protection & Safety", "icon": "safety" },
+    { "code": "110", "name": "Paint Prep", "icon": "prep" },
+    { "code": "115", "name": "Refinish Process", "icon": "paint" },
+    { "code": "120", "name": "Color-Sand & Polish", "icon": "polish" },
+    { "code": "125", "name": "Stripes", "icon": "stripe" },
+    { "code": "130", "name": "Glass", "icon": "glass" },
+    { "code": "135", "name": "Frame Set Up", "icon": "frame" },
+    { "code": "140", "name": "Frame Replacement", "icon": "frame" },
+    { "code": "145", "name": "Front End Damage", "icon": "front" },
+    { "code": "150", "name": "Side Damage", "icon": "side" },
+    { "code": "155", "name": "Rear End Damage", "icon": "rear" },
+    { "code": "160", "name": "Floor Anchor Pulling", "icon": "pull" },
+    { "code": "165", "name": "Theft/Vandalism", "icon": "theft" },
+    { "code": "170", "name": "Detail/Clean-Up", "icon": "detail" },
+    { "code": "175", "name": "Tow/Storage/Admin", "icon": "admin" },
+    { "code": "180", "name": "Final Bill/Misc", "icon": "bill" }
+  ],
+  "operations": [
+    {
+      "id": "op-001",
+      "number": 1,
+      "name": "Featherfill, Sand and Block Repair Area",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-repair", "bumper-replace"],
+      "suggestWith": ["op-023", "op-024"],
+      "materials": true,
+      "pPageRef": "G34"
+    },
+    {
+      "id": "op-002",
+      "number": 2,
+      "name": "Remove Bumper Molding Adhesive",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace", "bumper-molding"],
+      "suggestWith": ["op-022"]
+    },
+    {
+      "id": "op-003",
+      "number": 3,
+      "name": "Drill for License Plate",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace-new"]
+    },
+    {
+      "id": "op-004",
+      "number": 4,
+      "name": "R&I License Plate",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace", "bumper-repair"]
+    },
+    {
+      "id": "op-005",
+      "number": 5,
+      "name": "License Plate Repair",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["license-damage"]
+    },
+    {
+      "id": "op-006",
+      "number": 6,
+      "name": "Loosen/Pull Back Bumper Cover",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["headlamp-access", "fender-replace"],
+      "notes": "For access to adjacent panels"
+    },
+    {
+      "id": "op-007",
+      "number": 7,
+      "name": "CCC Bumper Prompt - Add Back Overlap + Clear",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-refinish"],
+      "notes": "Remember to add overlap and clearcoat"
+    },
+    {
+      "id": "op-008",
+      "number": 8,
+      "name": "R&I Fog Lamps",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace", "bumper-refinish"]
+    },
+    {
+      "id": "op-009",
+      "number": 9,
+      "name": "R&I Trailer Hitch (On Bumper)",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["rear-bumper-replace"]
+    },
+    {
+      "id": "op-010",
+      "number": 10,
+      "name": "Aim Fog Lamps",
+      "category": "01",
+      "laborType": "mechanical",
+      "suggestWhen": ["fog-lamp-replace", "bumper-replace"],
+      "suggestWith": ["op-008"]
+    },
+    {
+      "id": "op-011",
+      "number": 11,
+      "name": "R&I Camera and Wiring",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace", "bumper-refinish"],
+      "notes": "Backup camera, parking sensors"
+    },
+    {
+      "id": "op-012",
+      "number": 12,
+      "name": "Trial Fit Bumper",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace-aftermarket", "bumper-replace-lkq"],
+      "pPageRef": "G9"
+    },
+    {
+      "id": "op-013",
+      "number": 13,
+      "name": "R&I Trailer Hitch (Frame Bolt-On Type)",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["rear-bumper-replace", "frame-work"]
+    },
+    {
+      "id": "op-014",
+      "number": 14,
+      "name": "R&I or R&R Sensors (SRS, Ambient Temp, etc.)",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace", "sensor-damage"]
+    },
+    {
+      "id": "op-015",
+      "number": 15,
+      "name": "Repair Bumper Bracket and/or Other Components",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["bumper-replace", "bracket-damage"]
+    },
+    {
+      "id": "op-016",
+      "number": 16,
+      "name": "Repair Bumper Bracket Mount Area",
+      "category": "01",
+      "laborType": "structural",
+      "suggestWhen": ["bumper-bracket-damage", "core-support-damage"]
+    },
+    {
+      "id": "op-017",
+      "number": 17,
+      "name": "Repair Electrical Wiring to Lamp Lights",
+      "category": "01",
+      "laborType": "mechanical",
+      "suggestWhen": ["wiring-damage", "lamp-damage"]
+    },
+    {
+      "id": "op-018",
+      "number": 18,
+      "name": "Refinish OEM 'Raw' Bumper",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-replace-new"],
+      "notes": "New OEM bumpers come unpainted"
+    },
+    {
+      "id": "op-019",
+      "number": 19,
+      "name": "Refinish Second Color on Bumper Cover",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["two-tone-bumper"],
+      "suggestWith": ["op-041"]
+    },
+    {
+      "id": "op-020",
+      "number": 20,
+      "name": "Refinish Black-Out on Bumper Cover",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-refinish"],
+      "notes": "Lower valance, grille surrounds"
+    },
+    {
+      "id": "op-021",
+      "number": 21,
+      "name": "Paint Prep & Clean Up Used Bumper",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-replace-lkq"]
+    },
+    {
+      "id": "op-022",
+      "number": 22,
+      "name": "Mask Unpainted Areas on Bumper Cover",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-refinish"]
+    },
+    {
+      "id": "op-023",
+      "number": 23,
+      "name": "Mask Bumper Cover for Primer Application",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-repair", "bumper-prime"]
+    },
+    {
+      "id": "op-024",
+      "number": 24,
+      "name": "Flexible Parts Adhesion Promoter Application",
+      "category": "01",
+      "laborType": "paint",
+      "suggestWhen": ["bumper-refinish", "bumper-repair"],
+      "materials": true,
+      "pPageRef": "G34"
+    },
+    {
+      "id": "op-025",
+      "number": 25,
+      "name": "Replace Mini Bulbs",
+      "category": "01",
+      "laborType": "body",
+      "suggestWhen": ["lamp-replace", "bumper-replace"]
+    },
+    {
+      "id": "op-026",
+      "number": 26,
+      "name": "Raw Bumper Prep Kit",
+      "category": "01",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["bumper-replace-new"]
+    },
+    {
+      "id": "op-027",
+      "number": 27,
+      "name": "Bumper Fasteners/Retainers (Kit)",
+      "category": "01",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["bumper-replace"]
+    },
+    {
+      "id": "op-028",
+      "number": 28,
+      "name": "Urethane Bumper Repair Kit (Materials)",
+      "category": "01",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["bumper-repair"]
+    },
+    {
+      "id": "op-029",
+      "number": 29,
+      "name": "Flexible Parts Additive",
+      "category": "01",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["bumper-refinish"],
+      "pPageRef": "G34"
+    },
+    {
+      "id": "op-030",
+      "number": 30,
+      "name": "R&I Windshield Washer Nozzles (Repair Situation)",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["hood-repair", "hood-replace"]
+    },
+    {
+      "id": "op-031",
+      "number": 31,
+      "name": "R&I Hood Insulation",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["hood-replace", "hood-refinish"]
+    },
+    {
+      "id": "op-032",
+      "number": 32,
+      "name": "Windshield Washer Hose Retainers",
+      "category": "05",
+      "laborType": "body",
+      "materials": true,
+      "suggestWhen": ["hood-replace"]
+    },
+    {
+      "id": "op-033",
+      "number": 33,
+      "name": "Repair Hood Latch",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["hood-damage", "latch-damage"]
+    },
+    {
+      "id": "op-034",
+      "number": 34,
+      "name": "Repair Hood Hinges and/or Hinge Mount Area",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["hood-replace", "hinge-damage"]
+    },
+    {
+      "id": "op-035",
+      "number": 35,
+      "name": "Access Time to Reveal Damage",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["teardown", "hidden-damage"]
+    },
+    {
+      "id": "op-036",
+      "number": 36,
+      "name": "Featheredge, Fill Sand and Block (Repaired Hood)",
+      "category": "05",
+      "laborType": "paint",
+      "suggestWhen": ["hood-repair"],
+      "pPageRef": "G34"
+    },
+    {
+      "id": "op-037",
+      "number": 37,
+      "name": "Seam Seal Inner Edge of New Hood",
+      "category": "05",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["hood-replace-new"],
+      "pPageRef": "G34"
+    },
+    {
+      "id": "op-038",
+      "number": 38,
+      "name": "R&I or R&R Hood Hinge",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["hood-replace", "hinge-damage"]
+    },
+    {
+      "id": "op-039",
+      "number": 39,
+      "name": "R&I Cowl Vent Panel (Access to Hinge)",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["hood-hinge-access"]
+    },
+    {
+      "id": "op-040",
+      "number": 40,
+      "name": "Test Fit Hood",
+      "category": "05",
+      "laborType": "body",
+      "suggestWhen": ["hood-replace-aftermarket", "hood-replace-lkq"],
+      "pPageRef": "G9"
+    },
+    {
+      "id": "op-041",
+      "number": 41,
+      "name": "Mix Paint for Underside Second Color",
+      "category": "05",
+      "laborType": "paint",
+      "suggestWhen": ["hood-refinish", "two-tone"],
+      "notes": "Add for 3rd and 4th color"
+    },
+    {
+      "id": "op-042",
+      "number": 42,
+      "name": "Color Tint & Test for Underside Second Color",
+      "category": "05",
+      "laborType": "paint",
+      "suggestWhen": ["hood-refinish", "two-tone"]
+    },
+    {
+      "id": "op-043",
+      "number": 43,
+      "name": "Mask Hood Inner Edges",
+      "category": "05",
+      "laborType": "paint",
+      "suggestWhen": ["hood-refinish"]
+    },
+    {
+      "id": "op-044",
+      "number": 44,
+      "name": "Windshield Washer Hose Fasteners (1st Design)",
+      "category": "05",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["hood-replace"]
+    },
+    {
+      "id": "op-045",
+      "number": 45,
+      "name": "Windshield Washer Hose Fasteners (2nd Design)",
+      "category": "05",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["hood-replace"]
+    },
+    {
+      "id": "op-046",
+      "number": 46,
+      "name": "Hood Insulation Retainer Fasteners, Replace",
+      "category": "05",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["hood-replace"]
+    },
+    {
+      "id": "op-047",
+      "number": 47,
+      "name": "Hood Front Seal/Fasteners",
+      "category": "05",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["hood-replace"]
+    },
+    {
+      "id": "op-048",
+      "number": 48,
+      "name": "Hood Rear Seal/Fasteners",
+      "category": "05",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["hood-replace"]
+    },
+    {
+      "id": "op-049",
+      "number": 49,
+      "name": "Aluminum Material Labor Rate",
+      "category": "05",
+      "laborType": "structural",
+      "suggestWhen": ["aluminum-hood", "aluminum-panel"],
+      "notes": "Higher labor rate for aluminum"
+    },
+    {
+      "id": "op-050",
+      "number": 50,
+      "name": "Hood Labels",
+      "category": "05",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["hood-replace"],
+      "notes": "Count how many labels needed"
+    },
+    {
+      "id": "op-051",
+      "number": 51,
+      "name": "R&I Tire/Wheel",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-replace", "fender-liner-access"]
+    },
+    {
+      "id": "op-052",
+      "number": 52,
+      "name": "R&I Fender Liner",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-replace", "fender-refinish"]
+    },
+    {
+      "id": "op-053",
+      "number": 53,
+      "name": "R&I Fender Moldings, Emblems and Flare",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-replace", "fender-refinish"]
+    },
+    {
+      "id": "op-054",
+      "number": 54,
+      "name": "R&I Mud Flap",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-replace"]
+    },
+    {
+      "id": "op-055",
+      "number": 55,
+      "name": "R&I Rocker Cover",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-replace", "rocker-access"]
+    },
+    {
+      "id": "op-056",
+      "number": 56,
+      "name": "Replace Rocker Cover Fasteners",
+      "category": "10",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["rocker-cover-ri"]
+    },
+    {
+      "id": "op-057",
+      "number": 57,
+      "name": "Replace Fender Flare Fasteners",
+      "category": "10",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["fender-flare-ri"]
+    },
+    {
+      "id": "op-058",
+      "number": 58,
+      "name": "Clean and Retape Fender Moldings and Emblem",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-refinish", "molding-reuse"]
+    },
+    {
+      "id": "op-059",
+      "number": 59,
+      "name": "Replace Liner Fasteners",
+      "category": "10",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["fender-liner-ri"]
+    },
+    {
+      "id": "op-060",
+      "number": 60,
+      "name": "Featheredge, Fill Sand and Block Repaired Fender",
+      "category": "10",
+      "laborType": "paint",
+      "suggestWhen": ["fender-repair"],
+      "pPageRef": "G34"
+    },
+    {
+      "id": "op-061",
+      "number": 61,
+      "name": "Cavity Wax",
+      "category": "10",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["fender-replace", "structural-replace"],
+      "pPageRef": "G9",
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-062",
+      "number": 62,
+      "name": "Remove Factory Installed Adhesive for Access",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-replace", "adhesive-removal"]
+    },
+    {
+      "id": "op-063",
+      "number": 63,
+      "name": "Align Adjacent Panels to Fender",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["fender-replace"]
+    },
+    {
+      "id": "op-064",
+      "number": 64,
+      "name": "Antenna Base Corrosion, Repair",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["antenna-damage", "fender-corrosion"]
+    },
+    {
+      "id": "op-065",
+      "number": 65,
+      "name": "Mask Fender Jams and Openings",
+      "category": "10",
+      "laborType": "paint",
+      "suggestWhen": ["fender-refinish"]
+    },
+    {
+      "id": "op-066",
+      "number": 66,
+      "name": "Fender Molding Cladding Prep for 'Raw'",
+      "category": "10",
+      "laborType": "paint",
+      "suggestWhen": ["cladding-refinish"]
+    },
+    {
+      "id": "op-067",
+      "number": 67,
+      "name": "Gravel Guard",
+      "category": "10",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["fender-replace", "fender-refinish"]
+    },
+    {
+      "id": "op-068",
+      "number": 68,
+      "name": "Remove Stripes (Eraser Wheel)",
+      "category": "10",
+      "laborType": "body",
+      "suggestWhen": ["stripe-removal", "fender-refinish"]
+    },
+    {
+      "id": "op-069",
+      "number": 69,
+      "name": "Fender Black Out Second Color",
+      "category": "10",
+      "laborType": "paint",
+      "suggestWhen": ["fender-refinish", "two-tone"]
+    },
+    {
+      "id": "op-070",
+      "number": 70,
+      "name": "Access/Pre-Pulling",
+      "category": "15",
+      "laborType": "structural",
+      "suggestWhen": ["core-support-replace", "structural-damage"]
+    },
+    {
+      "id": "op-071",
+      "number": 71,
+      "name": "Protect Engine Compartment Components",
+      "category": "15",
+      "laborType": "body",
+      "suggestWhen": ["core-support-replace", "apron-replace"]
+    },
+    {
+      "id": "op-072",
+      "number": 72,
+      "name": "Repair Cut Wiring",
+      "category": "15",
+      "laborType": "mechanical",
+      "suggestWhen": ["wiring-damage"]
+    },
+    {
+      "id": "op-073",
+      "number": 73,
+      "name": "Acquire Radio Code",
+      "category": "15",
+      "laborType": "other",
+      "suggestWhen": ["battery-disconnect"],
+      "relatedDefinition": "electronic-reset"
+    },
+    {
+      "id": "op-074",
+      "number": 74,
+      "name": "Reset Memory Functions",
+      "category": "15",
+      "laborType": "mechanical",
+      "suggestWhen": ["battery-disconnect"],
+      "pPageRef": "G9",
+      "relatedDefinition": "electronic-reset"
+    },
+    {
+      "id": "op-075",
+      "number": 75,
+      "name": "Memory Saver Collision Tool",
+      "category": "15",
+      "laborType": "other",
+      "suggestWhen": ["battery-disconnect"]
+    },
+    {
+      "id": "op-076",
+      "number": 76,
+      "name": "Remove Caulking & Seam Sealer",
+      "category": "15",
+      "laborType": "structural",
+      "suggestWhen": ["welded-panel-replace"],
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-077",
+      "number": 77,
+      "name": "Test Fit Parts Attached to Core Support",
+      "category": "15",
+      "laborType": "body",
+      "suggestWhen": ["core-support-replace"],
+      "pPageRef": "G9",
+      "relatedDefinition": "trial-fit"
+    },
+    {
+      "id": "op-078",
+      "number": 78,
+      "name": "Pull Back Wire Harness",
+      "category": "15",
+      "laborType": "body",
+      "suggestWhen": ["structural-replace", "welded-panel-replace"]
+    },
+    {
+      "id": "op-079",
+      "number": 79,
+      "name": "Repair Wire Harness Fasteners",
+      "category": "15",
+      "laborType": "body",
+      "suggestWhen": ["harness-damage"]
+    },
+    {
+      "id": "op-080",
+      "number": 80,
+      "name": "Close/Secure Open Tubes and Lines",
+      "category": "15",
+      "laborType": "body",
+      "suggestWhen": ["ac-line-open", "fuel-line-open"],
+      "relatedDefinition": "cover-protect-electrical"
+    },
+    {
+      "id": "op-081",
+      "number": 81,
+      "name": "Feather and Fill Welds at Weld Locations",
+      "category": "15",
+      "laborType": "paint",
+      "suggestWhen": ["welded-panel-replace"],
+      "pPageRef": "G34"
+    },
+    {
+      "id": "op-096",
+      "number": 96,
+      "name": "Aim Lights",
+      "category": "15",
+      "laborType": "mechanical",
+      "suggestWhen": ["headlamp-replace", "core-support-replace"]
+    },
+    {
+      "id": "op-108",
+      "number": 108,
+      "name": "Replace Caulking at Seams",
+      "category": "15",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["welded-panel-replace"],
+      "pPageRef": "G34",
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-110",
+      "number": 110,
+      "name": "Cavity Wax",
+      "category": "15",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["structural-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-111",
+      "number": 111,
+      "name": "Cobalt Drill Bit (Boron-UHSS)",
+      "category": "15",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["uhss-drilling", "boron-steel"]
+    },
+    {
+      "id": "op-113",
+      "number": 113,
+      "name": "Weld-Through Primer",
+      "category": "15",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["welded-panel-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-126",
+      "number": 126,
+      "name": "Recover AC Freon",
+      "category": "20",
+      "laborType": "mechanical",
+      "suggestWhen": ["ac-line-disconnect", "condenser-replace"]
+    },
+    {
+      "id": "op-127",
+      "number": 127,
+      "name": "Evacuate & Recharge AC System",
+      "category": "20",
+      "laborType": "mechanical",
+      "suggestWhen": ["ac-work"],
+      "relatedDefinition": "ac-leak-diagnosis"
+    },
+    {
+      "id": "op-168",
+      "number": 168,
+      "name": "Replace Valve Stems and Weights",
+      "category": "30",
+      "laborType": "mechanical",
+      "materials": true,
+      "suggestWhen": ["tire-mount"]
+    },
+    {
+      "id": "op-169",
+      "number": 169,
+      "name": "Mount & Balance Tire",
+      "category": "30",
+      "laborType": "mechanical",
+      "suggestWhen": ["tire-replace", "wheel-replace"]
+    },
+    {
+      "id": "op-174",
+      "number": 174,
+      "name": "Reset Tire Pressure Sensors",
+      "category": "30",
+      "laborType": "mechanical",
+      "suggestWhen": ["tire-replace", "tpms-work"],
+      "relatedDefinition": "tpms-sensor-disposal"
+    },
+    {
+      "id": "op-176",
+      "number": 176,
+      "name": "Four Wheel Alignment",
+      "category": "30",
+      "laborType": "mechanical",
+      "suggestWhen": ["suspension-work", "structural-repair"],
+      "relatedDefinition": "steering-angle-sensor-recal"
+    },
+    {
+      "id": "op-188",
+      "number": 188,
+      "name": "Clean Up Deployed Air Bag Residue",
+      "category": "40",
+      "laborType": "detail",
+      "suggestWhen": ["airbag-deployed"],
+      "relatedDefinition": "airbag-residue-cleanup"
+    },
+    {
+      "id": "op-191",
+      "number": 191,
+      "name": "Clear SRS Function Code on Dash",
+      "category": "40",
+      "laborType": "mechanical",
+      "suggestWhen": ["srs-work", "airbag-replace"],
+      "relatedDefinition": "scans"
+    },
+    {
+      "id": "op-193",
+      "number": 193,
+      "name": "Pre-Pull Pillar",
+      "category": "45",
+      "laborType": "structural",
+      "suggestWhen": ["pillar-replace"]
+    },
+    {
+      "id": "op-194",
+      "number": 194,
+      "name": "Remove Caulking and Seam Sealer (Pillar)",
+      "category": "45",
+      "laborType": "structural",
+      "suggestWhen": ["pillar-replace"],
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-195",
+      "number": 195,
+      "name": "Replace Caulking and Seam Sealer (Pillar)",
+      "category": "45",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["pillar-replace"],
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-196",
+      "number": 196,
+      "name": "Expansion Foam (Pillar)",
+      "category": "45",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["pillar-replace"]
+    },
+    {
+      "id": "op-197",
+      "number": 197,
+      "name": "Cavity Wax Rustproofing (Pillar)",
+      "category": "45",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["pillar-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-198",
+      "number": 198,
+      "name": "Weld-Through Primer (Pillar)",
+      "category": "45",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["pillar-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-388",
+      "number": 388,
+      "name": "D&R Battery (Quarter Panel)",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace"]
+    },
+    {
+      "id": "op-389",
+      "number": 389,
+      "name": "Reset Memory Functions (Quarter Panel)",
+      "category": "75",
+      "laborType": "mechanical",
+      "suggestWhen": ["quarter-replace", "battery-disconnect"],
+      "relatedDefinition": "electronic-reset"
+    },
+    {
+      "id": "op-390",
+      "number": 390,
+      "name": "Protect Interior from Repair Contamination",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace", "structural-work"],
+      "relatedDefinition": "cover-interior-protection"
+    },
+    {
+      "id": "op-391",
+      "number": 391,
+      "name": "Pre-Pull Quarter",
+      "category": "75",
+      "laborType": "structural",
+      "suggestWhen": ["quarter-replace"]
+    },
+    {
+      "id": "op-392",
+      "number": 392,
+      "name": "Remove Caulking and Seam Sealer (Quarter)",
+      "category": "75",
+      "laborType": "structural",
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-393",
+      "number": 393,
+      "name": "Replace Caulking and Seam Sealer (Quarter)",
+      "category": "75",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-395",
+      "number": 395,
+      "name": "Cavity Wax (Quarter)",
+      "category": "75",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-399",
+      "number": 399,
+      "name": "Weld-Through Primer (Quarter)",
+      "category": "75",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-643",
+      "number": 643,
+      "name": "Difficult Color, Tinting & Testing",
+      "category": "115",
+      "laborType": "paint",
+      "suggestWhen": ["color-match-difficult"],
+      "relatedDefinition": "color-tint"
+    },
+    {
+      "id": "op-646",
+      "number": 646,
+      "name": "Spray Out Test Panel",
+      "category": "115",
+      "laborType": "paint",
+      "suggestWhen": ["refinish"],
+      "relatedDefinition": "spray-out-cards"
+    },
+    {
+      "id": "op-661",
+      "number": 661,
+      "name": "Color Sand & Polish, 1st Panel",
+      "category": "120",
+      "laborType": "paint",
+      "suggestWhen": ["refinish-complete"],
+      "relatedDefinition": "wet-dry-sand-buff"
+    },
+    {
+      "id": "op-680",
+      "number": 680,
+      "name": "Broken Glass Clean-Up (Seats & Carpet)",
+      "category": "130",
+      "laborType": "detail",
+      "suggestWhen": ["glass-broken"],
+      "relatedDefinition": "broken-glass-cleanup"
+    },
+    {
+      "id": "op-755",
+      "number": 755,
+      "name": "Pre-Scan Vehicle",
+      "category": "140",
+      "laborType": "mechanical",
+      "suggestWhen": ["any-repair"],
+      "relatedDefinition": "scans"
+    },
+    {
+      "id": "op-756",
+      "number": 756,
+      "name": "Post-Repair Scan",
+      "category": "140",
+      "laborType": "mechanical",
+      "suggestWhen": ["repair-complete"],
+      "relatedDefinition": "scans"
+    },
+    {
+      "id": "op-778",
+      "number": 778,
+      "name": "Reset Steering Angle Sensor",
+      "category": "140",
+      "laborType": "mechanical",
+      "suggestWhen": ["alignment", "suspension-work"],
+      "relatedDefinition": "steering-angle-sensor-recal"
+    },
+    {
+      "id": "op-780",
+      "number": 780,
+      "name": "Aim Headlamps",
+      "category": "140",
+      "laborType": "mechanical",
+      "suggestWhen": ["headlamp-replace", "front-end-repair"]
+    },
+    {
+      "id": "op-904",
+      "number": 904,
+      "name": "Detail",
+      "category": "170",
+      "laborType": "detail",
+      "suggestWhen": ["delivery"],
+      "relatedDefinition": "clean-for-delivery"
+    },
+    {
+      "id": "op-909",
+      "number": 909,
+      "name": "Clean for Delivery",
+      "category": "170",
+      "laborType": "detail",
+      "suggestWhen": ["delivery"],
+      "relatedDefinition": "clean-for-delivery"
+    },
+    {
+      "id": "op-910",
+      "number": 910,
+      "name": "Clean Up Deployed Air Bag Residue",
+      "category": "170",
+      "laborType": "detail",
+      "suggestWhen": ["airbag-deployed"],
+      "relatedDefinition": "airbag-residue-cleanup"
+    },
+    {
+      "id": "op-980",
+      "number": 980,
+      "name": "Camera and Radar Recalibration Test",
+      "category": "175",
+      "laborType": "mechanical",
+      "suggestWhen": ["adas-equipped", "windshield-replace", "front-end-repair"],
+      "relatedDefinition": "adas-diagnostic-report"
+    },
+    {
+      "id": "op-400",
+      "number": 400,
+      "name": "R&I Tail Lamp Assembly",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace", "rear-repair"]
+    },
+    {
+      "id": "op-401",
+      "number": 401,
+      "name": "R&I Fuel Door/Filler Neck",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace"]
+    },
+    {
+      "id": "op-402",
+      "number": 402,
+      "name": "Pinch Weld Primer Application (Quarter)",
+      "category": "75",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-403",
+      "number": 403,
+      "name": "E-Coat Repair (Quarter Panel)",
+      "category": "75",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-404",
+      "number": 404,
+      "name": "R&I Rear Side Marker Lamp",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace"]
+    },
+    {
+      "id": "op-405",
+      "number": 405,
+      "name": "R&I Rear Bumper (for Quarter Access)",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace", "rear-repair"]
+    },
+    {
+      "id": "op-406",
+      "number": 406,
+      "name": "R&I Quarter Window Glass",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace"]
+    },
+    {
+      "id": "op-407",
+      "number": 407,
+      "name": "R&I Quarter Wheel House Liner",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace", "rear-repair"]
+    },
+    {
+      "id": "op-408",
+      "number": 408,
+      "name": "Destructive Weld Test (Quarter)",
+      "category": "75",
+      "laborType": "structural",
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "destructive-weld-test"
+    },
+    {
+      "id": "op-409",
+      "number": 409,
+      "name": "Welder Setup (Quarter Panel)",
+      "category": "75",
+      "laborType": "structural",
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "welder-setup"
+    },
+    {
+      "id": "op-410",
+      "number": 410,
+      "name": "R&I Rear Door (for Quarter Access)",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace"]
+    },
+    {
+      "id": "op-411",
+      "number": 411,
+      "name": "Blend Adjacent Panels (Quarter)",
+      "category": "75",
+      "laborType": "paint",
+      "suggestWhen": ["quarter-replace", "quarter-refinish"],
+      "relatedDefinition": "blend"
+    },
+    {
+      "id": "op-412",
+      "number": 412,
+      "name": "Prime & Block (Quarter Panel)",
+      "category": "75",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "feather-edge-block-sand"
+    },
+    {
+      "id": "op-413",
+      "number": 413,
+      "name": "R&I Electronics in Weld Zone (Quarter)",
+      "category": "75",
+      "laborType": "mechanical",
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "r-i-electronics-weld-zone"
+    },
+    {
+      "id": "op-414",
+      "number": 414,
+      "name": "R&I Trunk Weatherstrip",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace", "trunk-replace"]
+    },
+    {
+      "id": "op-415",
+      "number": 415,
+      "name": "Welding Consumables (Quarter)",
+      "category": "75",
+      "laborType": "other",
+      "materials": true,
+      "suggestWhen": ["quarter-replace"],
+      "relatedDefinition": "welding-consumables"
+    },
+    {
+      "id": "op-416",
+      "number": 416,
+      "name": "R&I Rear Seat for Quarter Access",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace"]
+    },
+    {
+      "id": "op-417",
+      "number": 417,
+      "name": "R&I C-Pillar Trim (Quarter)",
+      "category": "75",
+      "laborType": "body",
+      "suggestWhen": ["quarter-replace", "pillar-replace"]
+    },
+    {
+      "id": "op-500",
+      "number": 500,
+      "name": "R&I Rocker Molding",
+      "category": "50",
+      "laborType": "body",
+      "suggestWhen": ["rocker-replace", "quarter-replace"]
+    },
+    {
+      "id": "op-501",
+      "number": 501,
+      "name": "Seam Sealer (Rocker Panel)",
+      "category": "50",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["rocker-replace"],
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-502",
+      "number": 502,
+      "name": "Cavity Wax (Rocker Panel)",
+      "category": "50",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["rocker-replace"],
+      "relatedDefinition": "cavity-wax-injection"
+    },
+    {
+      "id": "op-503",
+      "number": 503,
+      "name": "Destructive Weld Test (Rocker)",
+      "category": "50",
+      "laborType": "structural",
+      "suggestWhen": ["rocker-replace"],
+      "relatedDefinition": "destructive-weld-test"
+    },
+    {
+      "id": "op-504",
+      "number": 504,
+      "name": "Pinch Weld Primer (Rocker)",
+      "category": "50",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["rocker-replace"],
+      "relatedDefinition": "corrosion-protection"
+    },
+    {
+      "id": "op-505",
+      "number": 505,
+      "name": "R&I Door Sill Plate",
+      "category": "50",
+      "laborType": "body",
+      "suggestWhen": ["rocker-replace", "door-replace"]
+    },
+    {
+      "id": "op-506",
+      "number": 506,
+      "name": "R&I Jack Points/Covers",
+      "category": "50",
+      "laborType": "body",
+      "suggestWhen": ["rocker-replace"]
+    },
+    {
+      "id": "op-600",
+      "number": 600,
+      "name": "R&I Door Mirror",
+      "category": "55",
+      "laborType": "body",
+      "suggestWhen": ["door-replace", "door-shell-replace"]
+    },
+    {
+      "id": "op-601",
+      "number": 601,
+      "name": "R&I Door Handle",
+      "category": "55",
+      "laborType": "body",
+      "suggestWhen": ["door-replace", "door-shell-replace"]
+    },
+    {
+      "id": "op-602",
+      "number": 602,
+      "name": "R&I Window Regulator",
+      "category": "55",
+      "laborType": "body",
+      "suggestWhen": ["door-shell-replace"]
+    },
+    {
+      "id": "op-603",
+      "number": 603,
+      "name": "R&I Door Lock Cylinder",
+      "category": "55",
+      "laborType": "body",
+      "suggestWhen": ["door-replace", "door-shell-replace"]
+    },
+    {
+      "id": "op-604",
+      "number": 604,
+      "name": "R&I Door Weatherstrip",
+      "category": "55",
+      "laborType": "body",
+      "suggestWhen": ["door-replace"]
+    },
+    {
+      "id": "op-605",
+      "number": 605,
+      "name": "Seam Sealer (Door)",
+      "category": "55",
+      "laborType": "paint",
+      "materials": true,
+      "suggestWhen": ["door-shell-replace"],
+      "relatedDefinition": "seam-sealer-additional"
+    },
+    {
+      "id": "op-606",
+      "number": 606,
+      "name": "Sound Deadener (Door)",
+      "category": "55",
+      "laborType": "body",
+      "materials": true,
+      "suggestWhen": ["door-shell-replace"]
+    },
+    {
+      "id": "op-607",
+      "number": 607,
+      "name": "R&I Door Water Shield",
+      "category": "55",
+      "laborType": "body",
+      "materials": true,
+      "suggestWhen": ["door-replace", "door-shell-replace"]
+    }
+  ],
+  "suggestionGroups": {
+    "bumper-replace": {
+      "name": "Bumper Cover Replacement",
+      "description": "Common operations when replacing a bumper cover",
+      "operations": ["op-004", "op-008", "op-011", "op-012", "op-014", "op-022", "op-024", "op-027", "op-029", "op-755", "op-756"]
+    },
+    "bumper-refinish": {
+      "name": "Bumper Cover Refinish",
+      "description": "Operations for refinishing bumper covers",
+      "operations": ["op-007", "op-022", "op-024", "op-029", "op-646"]
+    },
+    "hood-replace": {
+      "name": "Hood Replacement",
+      "description": "Common operations when replacing a hood",
+      "operations": ["op-030", "op-031", "op-037", "op-038", "op-040", "op-043", "op-046", "op-047", "op-048", "op-050", "op-755", "op-756"]
+    },
+    "fender-replace": {
+      "name": "Fender Replacement",
+      "description": "Common operations when replacing a fender",
+      "operations": ["op-051", "op-052", "op-053", "op-055", "op-059", "op-061", "op-063", "op-065", "op-067", "op-755", "op-756"]
+    },
+    "quarter-replace": {
+      "name": "Quarter Panel Replacement",
+      "description": "Don't miss these 18+ operations when replacing a quarter panel",
+      "operations": [
+        "op-388", "op-389", "op-390", "op-391", "op-392", "op-393", "op-395", "op-399",
+        "op-400", "op-401", "op-402", "op-403", "op-404", "op-405", "op-406", "op-407",
+        "op-408", "op-409", "op-410", "op-411", "op-412", "op-413", "op-414", "op-415",
+        "op-416", "op-417", "op-500", "op-755", "op-756"
+      ]
+    },
+    "rocker-replace": {
+      "name": "Rocker Panel Replacement",
+      "description": "Common operations when replacing a rocker panel",
+      "operations": [
+        "op-500", "op-501", "op-502", "op-503", "op-504", "op-505", "op-506",
+        "op-388", "op-389", "op-390", "op-755", "op-756"
+      ]
+    },
+    "door-replace": {
+      "name": "Door Shell Replacement",
+      "description": "Common operations when replacing a door shell",
+      "operations": [
+        "op-600", "op-601", "op-602", "op-603", "op-604", "op-605", "op-606", "op-607",
+        "op-755", "op-756"
+      ]
+    },
+    "structural-repair": {
+      "name": "Structural Repair",
+      "description": "Common operations for structural repairs",
+      "operations": ["op-070", "op-071", "op-076", "op-078", "op-081", "op-108", "op-110", "op-113", "op-755", "op-756"]
+    },
+    "any-repair": {
+      "name": "Every Repair",
+      "description": "Operations that should be considered on every repair",
+      "operations": ["op-755", "op-756", "op-909"]
+    },
+    "adas-equipped": {
+      "name": "ADAS Equipped Vehicle",
+      "description": "Additional operations for ADAS-equipped vehicles",
+      "operations": ["op-011", "op-980", "op-778", "op-176"]
+    },
+    "welded-panel": {
+      "name": "Any Welded Panel",
+      "description": "Operations for any panel that requires welding",
+      "operations": ["op-388", "op-389", "op-390", "op-408", "op-409", "op-415"]
+    }
+  }
+}

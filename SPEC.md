@@ -1,14 +1,14 @@
-# McStudDesktop - Product Specification
+# McstudDesktop - Product Specification
 
 ## 1. Introduction & Vision
 
-### What is McStudDesktop?
+### What is McstudDesktop?
 
-McStudDesktop is a modern Windows desktop productivity and launcher application built with WinUI 3 and .NET 10.0. Designed for Windows 10/11, it provides a clean, professional interface that stays accessible via the system tray, allowing users to quickly access productivity features without cluttering their desktop.
+McstudDesktop is a modern Windows desktop productivity and launcher application built with WinUI 3 and .NET 10.0. Designed for Windows 10/11, it provides a clean, professional interface that stays accessible via the system tray, allowing users to quickly access productivity features without cluttering their desktop.
 
 ### Vision Statement
 
-McStudDesktop aims to become a **comprehensive productivity launcher** that helps users efficiently manage their workflow, access important content, and launch applications quickly. The application combines elegant design with practical functionality, serving as a central hub for daily productivity tasks.
+McstudDesktop aims to become a **comprehensive productivity launcher** that helps users efficiently manage their workflow, access important content, and launch applications quickly. The application combines elegant design with practical functionality, serving as a central hub for daily productivity tasks.
 
 ### Design Philosophy
 
@@ -31,7 +31,7 @@ McStudDesktop aims to become a **comprehensive productivity launcher** that help
 
 ### 2.1 System Tray Integration
 
-**Description**: McStudDesktop lives in the Windows system tray, providing persistent access without occupying taskbar space.
+**Description**: McstudDesktop lives in the Windows system tray, providing persistent access without occupying taskbar space.
 
 **Features**:
 - Persistent tray icon with custom application branding
@@ -39,7 +39,7 @@ McStudDesktop aims to become a **comprehensive productivity launcher** that help
 - Right-click context menu with:
   - "Show/Hide Window" option
   - "Exit Application" option
-- Tooltip displays "McStud Desktop" on hover
+- Tooltip displays "Mcstud Desktop" on hover
 
 **User Benefit**: Quick access to the application without keeping a window open continuously.
 
@@ -62,7 +62,7 @@ McStudDesktop aims to become a **comprehensive productivity launcher** that help
 
 **UI Elements**:
 - **Window Background**: Subtle gradient from black to dark gray
-- **Title Text**: "McStud Desktop" in large, bold white text
+- **Title Text**: "Mcstud Desktop" in large, bold white text
 - **Subtitle**: "Professional Dark Mode • Premium Effects" in gray
 - **Primary Action Button**: "Get to Work" with gradient background and hover animations
 - **Secondary Action Button**: "Settings & Options" with darker styling
@@ -78,7 +78,7 @@ McStudDesktop aims to become a **comprehensive productivity launcher** that help
 
 ### 2.4 Single-Instance Behavior
 
-**Description**: Ensures only one instance of McStudDesktop runs at any time.
+**Description**: Ensures only one instance of McstudDesktop runs at any time.
 
 **Implementation**: Automatic detection and termination of existing instances on launch.
 
@@ -146,7 +146,7 @@ TrayIconView.cs (System Tray)
 
 ### 3.4 MVVM Pattern
 
-McStudDesktop uses **CommunityToolkit.Mvvm** source generators to implement MVVM:
+McstudDesktop uses **CommunityToolkit.Mvvm** source generators to implement MVVM:
 
 - `[ObservableObject]` generates INotifyPropertyChanged implementation
 - `[ObservableProperty]` auto-generates properties with change notification
@@ -188,7 +188,7 @@ This approach reduces boilerplate code while maintaining clean separation of con
 
 ### 4.1 Vision: Productivity Launcher
 
-McStudDesktop is evolving into a comprehensive **productivity and launcher application** that serves as a central hub for:
+McstudDesktop is evolving into a comprehensive **productivity and launcher application** that serves as a central hub for:
 - Quick access to frequently used applications
 - Content management (notes, files, recent items)
 - Productivity features (tasks, timers, quick captures)
@@ -328,14 +328,14 @@ dotnet restore
 ### 5.2 Project Structure
 
 ```
-McStudDesktop/
+McstudDesktop/
 ├── Program.cs              # Application entry point
 ├── App.cs                  # Application lifecycle & state management
 ├── MainWindow.cs           # Main UI window implementation
 ├── TrayIconView.cs         # System tray icon & context menu
 ├── GlobalUsings.cs         # Global namespace imports
 ├── App.xaml                # Minimal XAML resources
-├── McStudDesktop.csproj    # .NET project configuration
+├── McstudDesktop.csproj    # .NET project configuration
 ├── Assets/
 │   └── appicon.ico        # Application icon
 ├── SPEC.md                # This file - product specification
@@ -403,4 +403,4 @@ For deep technical details, initialization sequences, and implementation pattern
 
 **Document Version**: 1.0
 **Last Updated**: January 2025
-**Maintained By**: McStudDesktop Development Team
+**Maintained By**: McstudDesktop Development Team

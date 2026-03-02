@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="McStudDesktop.Views.SOPListPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:McStudDesktop.Views"
+    mc:Ignorable="d"
+    Background="#1e1e1e">
+
+    <Grid>
+        <!-- Loading Overlay (hidden by default - no Excel loading) -->
+        <Grid x:Name="LoadingOverlay" Visibility="Collapsed" Background="#1e1e1e" Canvas.ZIndex="100">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                <ProgressRing IsActive="True" Width="48" Height="48"/>
+                <TextBlock Text="Loading..." FontSize="16" HorizontalAlignment="Center" Foreground="#888888"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Content Grid -->
+        <Grid x:Name="MainContent">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Sub-Category Buttons -->
+            <Border Grid.Row="0" Background="#252526" Padding="12,8">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button x:Name="ElectricalButton" Content="Electrical" Tag="electrical" Click="SubCategoryButton_Click"
+                                Background="#0078d4" Foreground="White" Padding="12,6"/>
+                        <Button x:Name="VehicleDiagnosticsButton" Content="Vehicle Diagnostics" Tag="diagnostics" Click="SubCategoryButton_Click" Padding="12,6"/>
+                        <Button x:Name="MiscButton" Content="Misc" Tag="misc" Click="SubCategoryButton_Click" Padding="12,6"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Main Content Area -->
+            <Grid Grid.Row="1" Margin="16,8,16,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*" MinWidth="450"/>
+                    <ColumnDefinition Width="4*" MinWidth="400"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT SIDE: Inputs -->
+                <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="0,0,8,0">
+                    <Grid>
+                        <!-- ELECTRICAL SECTION -->
+                        <StackPanel x:Name="ElectricalPanel" Spacing="16" Visibility="Visible">
+                            <Border Background="#2d5a27" CornerRadius="4" Padding="12,8">
+                                <StackPanel>
+                                    <TextBlock Text="Electrical" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="Battery &amp; Vehicle Configuration" FontSize="12" Foreground="#cccccc"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="180"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Column="0" Grid.Row="0" Text="Battery" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                <TextBlock Grid.Column="1" Grid.Row="0" Text="Testing" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                <TextBlock Grid.Column="2" Grid.Row="0" Text="Support" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                <TextBlock Grid.Column="3" Grid.Row="0" Text="Vehicle" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                <TextBlock Grid.Column="4" Grid.Row="0" Text="ADAS" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+
+                                <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="12V Battery Type" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="BatteryTypeCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="0">
+                                        <ComboBoxItem Content="Single"/>
+                                        <ComboBoxItem Content="Dual"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="Test Battery" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="TestBatteryCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="Battery Support" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="BatterySupportCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="Vehicle Type" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="VehicleTypeCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="0">
+                                        <ComboBoxItem Content="Gas"/>
+                                        <ComboBoxItem Content="Hybrid"/>
+                                        <ComboBoxItem Content="EV"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="ADAS System" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="AdasCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- VEHICLE DIAGNOSTICS SECTION -->
+                        <StackPanel x:Name="VehicleDiagnosticsPanel" Spacing="16" Visibility="Collapsed">
+                            <Border Background="#5a4227" CornerRadius="4" Padding="12,8">
+                                <StackPanel>
+                                    <TextBlock Text="Vehicle Diagnostics" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="Scan Tools &amp; ADAS Preparation" FontSize="12" Foreground="#cccccc"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- OEM Section -->
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="OEM" FontWeight="SemiBold" FontSize="14" Foreground="#0078d4"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="180"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Column="0" Grid.Row="0" Text="Scan Tool" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Column="1" Grid.Row="0" Text="Setup" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Column="2" Grid.Row="0" Text="Gateway" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+
+                                    <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="Scan Type" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="ScanTypeCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="0">
+                                            <ComboBoxItem Content="Dollar Amount"/>
+                                            <ComboBoxItem Content="Labor Unit"/>
+                                            <ComboBoxItem Content="Tesla"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="Setup Scan Tool" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="SetupScanToolCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                            <ComboBoxItem Content="Yes"/>
+                                            <ComboBoxItem Content="No"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="Gateway (Unlock)" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="GatewayUnlockCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                            <ComboBoxItem Content="Yes"/>
+                                            <ComboBoxItem Content="No"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Additional Section -->
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Additional" FontWeight="SemiBold" FontSize="14" Foreground="#0078d4"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="180"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Column="0" Grid.Row="0" Text="ADAS" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Column="1" Grid.Row="0" Text="Fluids" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Column="2" Grid.Row="0" Text="Tire Pressure" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Column="3" Grid.Row="0" Text="Belongings" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                    <TextBlock Grid.Column="4" Grid.Row="0" Text="Drive Cycle" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+
+                                    <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="ADAS Diagnostic" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="AdasDiagnosticCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                            <ComboBoxItem Content="Yes"/>
+                                            <ComboBoxItem Content="No"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="Simulate Full Fluids" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="SimulateFluidsCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                            <ComboBoxItem Content="Yes"/>
+                                            <ComboBoxItem Content="No"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="Adjust Tire Pressure" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="TirePressureCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                            <ComboBoxItem Content="Yes"/>
+                                            <ComboBoxItem Content="No"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="Remove Belongings" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="RemoveBelongingsCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                            <ComboBoxItem Content="Yes"/>
+                                            <ComboBoxItem Content="No"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4" Grid.Row="1" Margin="0,4">
+                                        <TextBlock Text="Drive Cycle" Foreground="#aaa" FontSize="11"/>
+                                        <ComboBox x:Name="DriveCycleCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                            <ComboBoxItem Content="Yes"/>
+                                            <ComboBoxItem Content="No"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- ADAS Calibrations -->
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="ADAS Overview - Calibrations" FontWeight="SemiBold" FontSize="14" Foreground="#0078d4"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="80"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Calibration Name" FontWeight="SemiBold" Foreground="#888" FontSize="12"/>
+                                    <TextBlock Grid.Column="1" Text="Price" FontWeight="SemiBold" Foreground="#888" FontSize="12" TextAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="Labor" FontWeight="SemiBold" Foreground="#888" FontSize="12" TextAlignment="Center"/>
+                                </Grid>
+                                <!-- Calibration rows 1-18 -->
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib1Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib1Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib1Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib2Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib2Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib2Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib3Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib3Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib3Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib4Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib4Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib4Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib5Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib5Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib5Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib6Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib6Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib6Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib7Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib7Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib7Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib8Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib8Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib8Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib9Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib9Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib9Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib10Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib10Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib10Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib11Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib11Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib11Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib12Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib12Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib12Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib13Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib13Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib13Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib14Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib14Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib14Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib15Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib15Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib15Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib16Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib16Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib16Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib17Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib17Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib17Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="80"/><ColumnDefinition Width="80"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="Calib18Name" Grid.Column="0" PlaceholderText="Calibration name..." TextChanged="OnInputChanged" Padding="8,4" FontSize="12"/>
+                                    <NumberBox x:Name="Calib18Price" Grid.Column="1" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                    <NumberBox x:Name="Calib18Labor" Grid.Column="2" SpinButtonPlacementMode="Hidden" Minimum="0" Padding="4" FontSize="12" ValueChanged="OnNumberChanged"/>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- MISC SECTION -->
+                        <StackPanel x:Name="MiscPanel" Spacing="16" Visibility="Collapsed">
+                            <Border Background="#27425a" CornerRadius="4" Padding="12,8">
+                                <StackPanel>
+                                    <TextBlock Text="Misc" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="Miscellaneous Operations" FontSize="12" Foreground="#cccccc"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="180"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Column="0" Grid.Row="0" Text="Labor" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                <TextBlock Grid.Column="1" Grid.Row="0" Text="Additional" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+                                <TextBlock Grid.Column="2" Grid.Row="0" Text="Equipment" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,8"/>
+
+                                <StackPanel Grid.Column="0" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="Pre Wash" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="PreWashCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="Shipping/Parts Labels" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="ShippingLabelsCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Grid.Row="1" Margin="0,4">
+                                    <TextBlock Text="Scaffolding" Foreground="#aaa" FontSize="11"/>
+                                    <ComboBox x:Name="ScaffoldingCombo" Width="160" SelectionChanged="OnInputChanged" SelectedIndex="1">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- RIGHT SIDE: Output panel -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="8,0,0,0">
+                    <Border Background="#252526" CornerRadius="8" Padding="16" VerticalAlignment="Top">
+                        <StackPanel>
+                            <!-- Summary Header -->
+                            <Border Background="#1e1e1e" CornerRadius="4" Padding="12,8" Margin="0,0,0,12">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <TextBlock x:Name="SummaryOps" Text="0" Foreground="#4ec9b0"/>
+                                    <TextBlock Text="Ops" Foreground="#4ec9b0"/>
+                                    <TextBlock Text="|" Foreground="#555"/>
+                                    <TextBlock Text="$" Foreground="#4ec9b0"/>
+                                    <TextBlock x:Name="SummaryPrice" Text="0.00" Foreground="#4ec9b0"/>
+                                    <TextBlock Text="|" Foreground="#555"/>
+                                    <TextBlock x:Name="SummaryLabor" Text="0" Foreground="#9cdcfe"/>
+                                    <TextBlock Text="Labor" Foreground="#9cdcfe"/>
+                                    <TextBlock Text="|" Foreground="#555"/>
+                                    <TextBlock x:Name="SummaryRefinish" Text="0.00" Foreground="#ce9178"/>
+                                    <TextBlock Text="Refinish" Foreground="#ce9178"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Button x:Name="ClipItButton" Content="Clip it" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                    Background="#0078d4" Foreground="White" Padding="16,8" Click="ClipItButton_Click"/>
+
+                            <!-- Operations Table Header -->
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="55"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Operation" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                                <TextBlock Grid.Column="1" Text="Description" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                                <TextBlock Grid.Column="2" Text="Qty" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                                <TextBlock Grid.Column="3" Text="Price" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                                <TextBlock Grid.Column="4" Text="Labor" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                                <TextBlock Grid.Column="5" Text="Category" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                                <TextBlock Grid.Column="6" Text="Refinish" FontWeight="SemiBold" Foreground="#888" FontSize="11"/>
+                            </Grid>
+
+                            <!-- Operations List Container -->
+                            <StackPanel x:Name="OperationsList" Spacing="2">
+                                <TextBlock Text="Select options to generate operations."
+                                           Foreground="#8c8c8c" FontSize="14" TextWrapping="Wrap" Margin="0,20,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Export Panel -->
+            <views:ExportPanel x:Name="ExportPanel" Grid.Row="2"/>
+        </Grid>
+    </Grid>
+</Page>

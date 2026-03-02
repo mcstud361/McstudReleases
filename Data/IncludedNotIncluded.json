@@ -1,0 +1,1853 @@
+{
+  "version": "3.0",
+  "lastUpdated": "2025-02-20",
+  "sources": {
+    "cccMotor": {
+      "name": "CCC/MOTOR Guide to Estimating (P-Pages)",
+      "url": "https://help.cccis.com/webhelp/motor/gte/guide.htm",
+      "revision": "Rev 12-21"
+    },
+    "mitchell": {
+      "name": "Mitchell Collision Estimating Guide (CEG)",
+      "url": "http://static.mymitchell.com/static/webhelp/ppages/ceg/1033/Content/ceg010400.htm"
+    },
+    "deg": {
+      "name": "Database Enhancement Gateway (DEG)",
+      "url": "https://degweb.org"
+    },
+    "scrs": {
+      "name": "SCRS Guide to Complete Repair Planning",
+      "url": "https://scrs.com/wp-content/uploads/2018/01/2016-scrs-guide-to-complete-repair-planning-revised-11-16.pdf",
+      "notes": "Contains 1000+ not-included procedures"
+    },
+    "asa": {
+      "name": "ASA Not-Included Operations Reference Chart",
+      "url": "https://collisionadvice.com/wp-content/themes/finano-child/download_files/Estimating-Best-Practices/Not-Included-Operations-Chart-11x8_5.pdf"
+    }
+  },
+  "terminology": {
+    "operationTypes": {
+      "Repl": "Replace - Full part replacement",
+      "R&I": "Remove & Install/Reinstall - Remove, set aside, reinstall same part",
+      "R&R": "Remove & Replace - Remove old, install new part",
+      "Add": "Additional operation - Manual line added to estimate",
+      "O/H": "Overhaul - Complete disassembly, repair, reassembly (HOURS VARY BY ESTIMATE - use database time)",
+      "Rfn": "Refinish - Paint/coating operation",
+      "Rpr": "Repair - Straighten/repair without replacing"
+    },
+    "sideDesignations": {
+      "LT": "Left side",
+      "RT": "Right side",
+      "LF": "Left Front",
+      "RF": "Right Front",
+      "LR": "Left Rear",
+      "RR": "Right Rear",
+      "FR": "Front",
+      "RR": "Rear"
+    },
+    "laborTypes": {
+      "B": "Body Labor - Structural and panel work",
+      "P": "Paint/Refinish Labor - All painting operations",
+      "M": "Mechanical Labor - Suspension, drivetrain, electrical",
+      "F": "Frame Labor - Structural correction on bench",
+      "G": "Glass Labor - Windshield and glass installation"
+    },
+    "commonAbbreviations": {
+      "Assy": "Assembly",
+      "Mldg": "Molding",
+      "Brkt": "Bracket",
+      "w/": "With",
+      "w/o": "Without",
+      "Incl": "Included",
+      "Qty": "Quantity",
+      "Adj": "Adjacent or Adjustment",
+      "Pkg": "Package"
+    }
+  },
+  "calculations": {
+    "blendFormulas": {
+      "description": "Blend is added when refinishing panels adjacent to repaired/replaced panels for color match",
+      "largePanels": {
+        "panels": ["Hood", "Roof", "Trunk Lid", "Spoiler"],
+        "firstPanel": "Add up to 20% of full base refinish time",
+        "additionalPanels": "Add up to 10% for each additional panel"
+      },
+      "standardPanels": {
+        "panels": ["Fender", "Door", "Quarter Panel", "Bumper Cover"],
+        "firstPanel": "Add up to 20% of full base refinish time",
+        "additionalPanels": "Add up to 10% for each additional panel"
+      },
+      "bumperCover": {
+        "firstPanel": "Add up to 10% of full base refinish time",
+        "notes": "Lower percentage due to smaller visible blend area"
+      }
+    },
+    "overlapDeductions": {
+      "description": "Overlap deductions apply when multiple adjacent panels are refinished",
+      "majorAdjacentPanel": {
+        "deduction": -0.4,
+        "unit": "hours",
+        "notes": "Deduct when refinishing adjacent major panels (e.g., fender AND door)"
+      }
+    },
+    "maskingFormulas": {
+      "description": "Masking time for openings and adjacent areas during refinish",
+      "openings": [
+        { "area": "Hood opening", "hours": 0.30, "typicalCost": "$16.50" },
+        { "area": "Door opening", "hours": 0.20, "typicalCost": "$11.00" },
+        { "area": "Wheel opening", "hours": 0.20, "typicalCost": "$11.00" },
+        { "area": "Quarter glass opening", "hours": 0.20, "typicalCost": "$11.00" },
+        { "area": "General mask (per panel)", "hours": 0.50, "typicalCost": "$27.50" }
+      ]
+    },
+    "commonLaborTimes": {
+      "description": "Typical labor times from real estimates (may vary by vehicle)",
+      "bodyOperations": [
+        { "operation": "Add for fog lamps (bumper)", "hours": 0.4, "laborType": "B", "notes": "Manual entry - add when fog lamps present" },
+        { "operation": "License bracket R&I", "hours": 0.3, "laborType": "B", "notes": "May need manual entry" }
+      ],
+      "note": "Database times (Repl, R&I, O/H) vary by vehicle - always use the estimating system times. The operations listed here are MANUAL ENTRY operations (#) that must be added separately."
+    },
+    "manualEntryOperations": {
+      "description": "Operations marked with # in CCC are MANUAL ENTRIES - NOT INCLUDED in database times. Users must add these lines.",
+      "source": "Real estimate patterns",
+      "refinishOperations": [
+        { "operation": "Feather, prime & block", "typicalHours": "0.5-3.0", "laborType": "P", "when": "Repaired panels, weld repairs" },
+        { "operation": "Denib & polish", "typicalHours": "0.3-1.5", "laborType": "P", "when": "After clear coat application" },
+        { "operation": "Denib & buff", "typicalHours": "0.4-7.5", "laborType": "P", "when": "Complete panel finish" },
+        { "operation": "Color sand and buff", "typicalHours": "0.5-2.0", "laborType": "P", "when": "Orange peel removal" },
+        { "operation": "Mask for denib sand & buff", "typicalHours": "0.3-0.4", "laborType": "B", "when": "Protect adjacent panels" }
+      ],
+      "corrosionOperations": [
+        { "operation": "Anti-corrosion material application", "typicalHours": "0.3-0.5", "laborType": "B", "when": "All welded panels" },
+        { "operation": "Corrosion prevention", "typicalHours": "0.3", "laborType": "B", "when": "Bare metal exposed" },
+        { "operation": "Weld-through primer", "typicalHours": "0.2-0.3", "laborType": "B", "when": "Before all welding" },
+        { "operation": "Cavity wax", "typicalHours": "0.3-0.5", "laborType": "B", "when": "Enclosed cavities after welding" }
+      ],
+      "additionalOperations": [
+        { "operation": "30% of full base refinish time", "when": "Blend operations" },
+        { "operation": "Add for fog lamps", "typicalHours": "0.4", "laborType": "B", "when": "Bumper with fog lamps" },
+        { "operation": "Cover vehicle from weld sparks", "typicalHours": "0.5", "laborType": "B", "when": "Welded panel replacement" },
+        { "operation": "Pre-repair scan", "typicalHours": "0.5", "laborType": "M", "when": "All collision repairs" },
+        { "operation": "Post-repair scan", "typicalHours": "0.5", "laborType": "M", "when": "All collision repairs" }
+      ]
+    },
+    "triCoatAdditive": {
+      "description": "Three-stage/tri-coat paint requires additional time",
+      "formula": "Add 50% to refinish time for 3-stage paint",
+      "example": "2.0 hrs base refinish + 1.0 hr (50%) = 3.0 hrs total"
+    }
+  },
+  "orderOfOperations": {
+    "description": "Typical order of operations on a collision estimate",
+    "phases": [
+      {
+        "phase": 1,
+        "name": "Disassembly & Access",
+        "operations": ["Remove damaged parts", "R&I for access", "Pre-repair scan"]
+      },
+      {
+        "phase": 2,
+        "name": "Structural Repair",
+        "operations": ["Frame measurements", "Frame/unibody pulling", "Welded panel replacement", "Weld-through primer", "E-coat removal"]
+      },
+      {
+        "phase": 3,
+        "name": "Body Repair",
+        "operations": ["Panel replacement (bolted)", "Panel repair", "Seam sealer application", "Corrosion protection"]
+      },
+      {
+        "phase": 4,
+        "name": "Paint Preparation",
+        "operations": ["Feather, prime & block", "Masking", "Adhesion promoter (plastics)", "Flex additive mixing"]
+      },
+      {
+        "phase": 5,
+        "name": "Refinish",
+        "operations": ["Basecoat application", "Clearcoat application", "Blend adjacent panels"]
+      },
+      {
+        "phase": 6,
+        "name": "Post-Paint",
+        "operations": ["Denib & polish", "Color sand & buff", "Remove masking"]
+      },
+      {
+        "phase": 7,
+        "name": "Reassembly",
+        "operations": ["Install new/repaired parts", "Reinstall R&I'd parts", "Reconnect electrical"]
+      },
+      {
+        "phase": 8,
+        "name": "Calibration & Quality",
+        "operations": ["ADAS calibrations", "Headlamp aiming", "Wheel alignment", "Post-repair scan", "Test drive", "Final detail"]
+      }
+    ]
+  },
+  "operations": [
+    {
+      "id": "quarter-panel-replace-welded",
+      "partName": "Quarter Panel",
+      "operationType": "Replace",
+      "attachmentType": "Welded",
+      "aliases": ["quarter", "qtr panel", "rear quarter", "quarter replace", "quarter repair", "quarter panel replace", "quarter panel repair", "replace quarter", "repair quarter"],
+      "sourceRefs": {
+        "cccMotor": "G5, G6, G31",
+        "mitchell": "CEG Section 10, 28",
+        "degInquiries": ["13434", "23010"]
+      },
+      "included": [
+        "Removal of damaged quarter panel at factory seams (CCC/MOTOR)",
+        "Installation/welding of new quarter panel (CCC/MOTOR)",
+        "Grinding, filling and final sanding with up to 150 grit sandpaper (Mitchell CEG)",
+        "Caulking/seam sealer to joints, gaps and seams for water sealing (CCC/MOTOR)",
+        "Use of inserts and sectioning per OEM/I-CAR guidelines (CCC/MOTOR)",
+        "Basic gap and fit alignment - ONE test fit only (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "Weld-through primer application (Mitchell CEG - 'removal and/or application of weld-thru primers NOT INCLUDED')",
+        "E-Coat removal at weld flanges (DEG - protective coatings removal NOT INCLUDED)",
+        "Covering vehicle from weld spark damage (DEG Inquiry 13434)",
+        "Welding consumables: wire, gas, tips, coupons (CCC/MOTOR)",
+        "Additional seam sealer beyond attachment point (DEG Inquiry 23010)",
+        "Seam sealer as undercoating or sound deadening (CCC/MOTOR)",
+        "Seam sealer masking, setup, cleanup, test patterns (CCC/MOTOR)",
+        "Duplicating factory texture/color of seam sealer (CCC/MOTOR)",
+        "Second or additional test fits (CCC/MOTOR - only ONE test fit included)",
+        "Cavity wax / anti-corrosion treatment (Mitchell CEG G31)",
+        "Sound deadener replacement (Mitchell CEG)",
+        "Feather, Prime and Block operation (Mitchell CEG Section 28)",
+        "R&I of quarter glass (CCC Pathways - glass NOT INCLUDED)",
+        "R&I of tail light assembly (CCC Pathways)",
+        "R&I of fuel door/filler neck (CCC Pathways)",
+        "R&I of rear bumper cover (CCC Pathways)",
+        "R&I of rocker moldings (CCC Pathways)",
+        "R&I of wheel opening moldings (CCC Pathways)",
+        "R&I of belt moldings/weatherstrips (CCC Pathways)",
+        "Transfer of attached parts from old panel (Mitchell - transfer time NOT INCLUDED)",
+        "Refinish of new panel (Mitchell CEG - separate operation)",
+        "Blend to adjacent panels (Mitchell CEG Section 28 - NOT INCLUDED)",
+        "Pre-repair diagnostic scan (CCC/MOTOR - scan tool diagnostics NOT INCLUDED)",
+        "Post-repair diagnostic scan (CCC/MOTOR - scan tool diagnostics NOT INCLUDED)",
+        "ADAS calibration - blind spot monitor (CCC/MOTOR G33)",
+        "Measure/document vehicle structure (Mitchell CEG - NOT INCLUDED)"
+      ],
+      "metOperations": [
+        { "description": "Remove E-Coat", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations", "metRef": "BodyOp_A29" },
+        { "description": "Weld-Through Primer", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations", "metRef": "BodyOp_B29" },
+        { "description": "Seam Sealer", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations", "metRef": "BodyOp_C29" },
+        { "description": "Cavity Wax / Anti-Corrosion", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations", "metRef": "BodyOp_D29" },
+        { "description": "Cover Vehicle from Weld Sparks", "hours": 0.5, "laborType": "B", "source": "MET: Cover Car Operations" }
+      ],
+      "scrsNotes": "Per SCRS Guide to Complete Repair Planning: Welded panel replacement requires restoration of factory corrosion protection. Always check OEM procedures for specific requirements."
+    },
+    {
+      "id": "rocker-panel-replace-welded",
+      "partName": "Rocker Panel",
+      "operationType": "Replace",
+      "attachmentType": "Welded",
+      "aliases": ["rocker", "rocker panel", "sill", "rocker replace", "rocker repair", "rocker panel replace", "rocker panel repair", "replace rocker", "repair rocker"],
+      "sourceRefs": {
+        "cccMotor": "G5, G6, G31",
+        "mitchell": "CEG Section 10, 26",
+        "degInquiries": ["13434", "23010"]
+      },
+      "included": [
+        "Removal at factory seams (CCC/MOTOR)",
+        "Installation/welding of new rocker panel (CCC/MOTOR)",
+        "Grinding, filling and final sanding with up to 150 grit sandpaper (Mitchell CEG)",
+        "Caulking/seam sealer at welded joints for water sealing (CCC/MOTOR)",
+        "Basic gap and fit alignment - ONE test fit (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "E-Coat removal at weld flanges (Mitchell CEG - protective coatings NOT INCLUDED)",
+        "Weld-through primer application (Mitchell CEG)",
+        "Covering vehicle from weld spark damage (DEG Inquiry 13434)",
+        "Welding consumables (CCC/MOTOR)",
+        "Additional seam sealer beyond welded attachment (DEG Inquiry 23010)",
+        "Cavity wax / anti-corrosion inside rocker (Mitchell CEG G31)",
+        "R&I of rocker moldings/trim (CCC Pathways - moldings NOT INCLUDED)",
+        "R&I of door weatherstrips (CCC Pathways)",
+        "R&I of seats for access (CCC Pathways)",
+        "R&I of carpet/interior trim (CCC Pathways)",
+        "Transfer of attached parts (Mitchell - transfer time NOT INCLUDED)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Blend to adjacent panels (Mitchell CEG Section 28)",
+        "Pre/Post repair scans (CCC/MOTOR - diagnostics NOT INCLUDED)",
+        "Measure vehicle structure (Mitchell CEG)"
+      ],
+      "metOperations": [
+        { "description": "Remove Factory E-Coat", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Weld-Through Primer", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Seam Sealer - Per Application", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Cavity Wax / Corrosion Protection", "hours": 0.5, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "SCRS: Critical structural component. Rocker is primary load path - always verify structural dimensions. Inspect for additional damage at A/B pillar connections."
+    },
+    {
+      "id": "bumper-cover-replace",
+      "partName": "Bumper Cover",
+      "operationType": "Replace",
+      "attachmentType": "Clip/Bolt-on",
+      "aliases": ["bumper", "front bumper", "rear bumper", "bumper cover", "fascia", "bumper replace", "bumper repair", "replace bumper", "repair bumper", "front fascia", "rear fascia"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5, G33",
+        "mitchell": "CEG Section 22, 28",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged bumper cover (CCC/MOTOR G5)",
+        "Installation of new bumper cover (CCC/MOTOR G5)",
+        "Basic clip/fastener installation (CCC/MOTOR G7)",
+        "Basic adjustment for fit - ONE test fit (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "Transfer of fog lights (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of parking sensors (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of license plate bracket (Mitchell)",
+        "Transfer of grille/inserts (Mitchell)",
+        "Transfer of moldings/trim (CCC Pathways - moldings NOT INCLUDED)",
+        "Drill for license plate if new bumper (SCRS)",
+        "Adhesion promoter application (Mitchell CEG Section 22 - plastic NOT INCLUDED)",
+        "Flex additive in paint (Mitchell CEG Section 28)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Clear coat (Mitchell CEG Section 28 - separate operation)",
+        "Color match/tinting (Mitchell CEG Section 28 - NOT INCLUDED)",
+        "ADAS calibration - front radar (CCC/MOTOR G33)",
+        "ADAS calibration - parking sensors (CCC/MOTOR G33)",
+        "Pre/Post repair scan (CCC/MOTOR - diagnostics NOT INCLUDED)",
+        "Excessive clip replacement due to collision damage (CCC/MOTOR G7)"
+      ],
+      "metOperations": [
+        { "description": "Adhesion Promoter", "hours": 0.2, "laborType": "P", "source": "MET: Part Operations" },
+        { "description": "Flex Additive (First Large Part)", "hours": 0.2, "laborType": "P", "source": "MET: Part Operations" },
+        { "description": "DE-NIB (if applicable)", "hours": 0.3, "laborType": "P", "source": "MET: Part Operations" },
+        { "description": "Park Sensors R&I/Transfer", "hours": 0.3, "laborType": "B", "source": "MET: Part Operations" }
+      ],
+      "scrsNotes": "SCRS: Check for ADAS components (radar, camera, sensors) that require calibration after bumper R&R. Reference OEM position statements for calibration triggers."
+    },
+    {
+      "id": "fender-replace",
+      "partName": "Fender",
+      "operationType": "Replace/Repair",
+      "attachmentType": "Bolted",
+      "aliases": ["fender", "front fender", "fender replace", "fender repair", "repair fender", "replace fender"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5, G28",
+        "mitchell": "CEG Section 28",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged fender (CCC/MOTOR G5)",
+        "Installation of new fender (CCC/MOTOR G5)",
+        "Basic bolt-up and adjustment - ONE test fit (CCC/MOTOR)",
+        "Reconnection of basic electrical connectors (CCC/MOTOR G4)",
+        "For REPAIR: Straighten minor damage, file, grind, sand (CCC/MOTOR G28)"
+      ],
+      "notIncluded": [
+        "R&I of fender liner (CCC Pathways - separate operation)",
+        "R&I of antenna if applicable (CCC Pathways)",
+        "R&I of side marker lights (CCC Pathways)",
+        "Transfer of moldings/emblems (Mitchell - transfer time NOT INCLUDED)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Refinish of new/repaired panel (Mitchell CEG - separate operation)",
+        "Blend to adjacent panels - door, hood (Mitchell CEG Section 28)",
+        "Loosen adjacent panels for fit (SCRS)",
+        "Pre/Post repair scan (CCC/MOTOR)",
+        "Corrosion protection of hem flanges (Mitchell CEG G31)",
+        "Wet sand and buff (CCC/MOTOR G39)",
+        "De-nib clearcoat (CCC/MOTOR G38)",
+        "Color tint/match (Mitchell CEG Section 28)"
+      ],
+      "metOperations": [
+        { "description": "Feather/Prime/Block", "hours": 0.5, "laborType": "P", "source": "MET: Part Operations", "metRef": "PartOp_A33" },
+        { "description": "Blend to Door", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Blend to Hood", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Wet Sand & Buff", "hours": 0.3, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "De-Nib", "hours": 0.2, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Corrosion Protection - Hem Flange", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Pre-Repair Scan", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Post-Repair Scan", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "SCRS: Check adjacent panels for damage. May require loosening bumper cover for proper fit. Blend operations to door and hood are typically required for color match."
+    },
+    {
+      "id": "door-shell-replace",
+      "partName": "Door Shell",
+      "operationType": "Replace",
+      "attachmentType": "Hinged/Bolted",
+      "aliases": ["door", "front door", "rear door", "door shell", "door replace", "door repair", "door skin", "replace door", "repair door", "door panel"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5",
+        "mitchell": "CEG Section 23, 28",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged door assembly (CCC/MOTOR G5)",
+        "Installation of new door shell (CCC/MOTOR G5)",
+        "Hinge bolt-up (CCC/MOTOR)",
+        "Basic alignment - ONE test fit (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "Transfer of door trim panel (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of window regulator (Mitchell - per Mitchell P-Pages for Door R&R)",
+        "Transfer of door glass (Mitchell P-Pages)",
+        "Transfer of door handle interior/exterior (Mitchell)",
+        "Transfer of door lock actuator (Mitchell)",
+        "Transfer of mirror (CCC Pathways - mirror NOT INCLUDED)",
+        "Transfer of wiring harness (Mitchell)",
+        "Transfer of weatherstrips (CCC Pathways)",
+        "Transfer of belt moldings (CCC Pathways - moldings NOT INCLUDED)",
+        "Transfer of side impact beam if not included with door (Mitchell)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Blend to adjacent panels (Mitchell CEG Section 28)",
+        "Power window option verification (CCC Pathways)",
+        "Power lock option verification (CCC Pathways)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "Transfer All Components - Extensive", "hours": 2.0, "laborType": "B", "source": "MET: Part Operations" },
+        { "description": "Prime/Block/Refinish", "hours": 1.0, "laborType": "P", "source": "MET: Refinish Operations" }
+      ],
+      "scrsNotes": "SCRS: Always check door intrusion beam. Verify all electrical components function after transfer. R&I glass and regulator for door skin replacement is NOT INCLUDED per all three IPs."
+    },
+    {
+      "id": "hood-replace",
+      "partName": "Hood",
+      "operationType": "Replace",
+      "attachmentType": "Hinged/Bolted",
+      "aliases": ["hood", "hood panel", "hood replace", "hood repair", "replace hood", "repair hood", "bonnet"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5",
+        "mitchell": "CEG Section 28",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged hood (CCC/MOTOR G5)",
+        "Installation of new hood (CCC/MOTOR G5)",
+        "Hinge bolt-up (CCC/MOTOR)",
+        "Basic alignment - ONE test fit (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "Transfer of hood insulator (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of hood prop rod/struts (Mitchell)",
+        "Transfer of emblems/nameplates (CCC Pathways - emblems NOT INCLUDED)",
+        "Transfer of washer nozzles (Mitchell)",
+        "Transfer of hood release cable attachment (Mitchell)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Blend to adjacent panels (Mitchell CEG Section 28)",
+        "Clear coat and cut/polish (Mitchell CEG Section 28)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "Transfer Hood Insulator", "hours": 0.3, "laborType": "B", "source": "MET: Part Operations" },
+        { "description": "Prime/Block", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" }
+      ],
+      "scrsNotes": "SCRS: Check hood hinges for damage. Verify hood latch operation after installation."
+    },
+    {
+      "id": "windshield-replace",
+      "partName": "Windshield",
+      "operationType": "Replace",
+      "attachmentType": "Adhesive",
+      "aliases": ["windshield", "windscreen", "front glass", "windshield replace", "replace windshield", "w/s", "ws"],
+      "sourceRefs": {
+        "cccMotor": "G18, G33",
+        "mitchell": "CEG Section 18",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of existing glass (Mitchell CEG G18)",
+        "Basic pinchweld cleaning (Mitchell CEG G18)",
+        "Urethane application (Mitchell CEG G18)",
+        "Glass installation (Mitchell CEG G18)",
+        "Molding installation (Mitchell CEG G18)",
+        "Safe drive-away time notation (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "Pinchweld repair (Mitchell CEG G18 - NOT INCLUDED)",
+        "Rust treatment of pinchweld (Mitchell CEG G18)",
+        "Primer application to damaged areas (Mitchell CEG G18)",
+        "Urethane cure time (Mitchell CEG G18)",
+        "Water test (Mitchell CEG G18)",
+        "R&I of windshield moldings (CCC Pathways - moldings NOT INCLUDED)",
+        "R&I of rearview mirror (CCC Pathways)",
+        "R&I of rain sensor (CCC Pathways)",
+        "R&I of ADAS camera bracket (CCC Pathways)",
+        "Transfer of ADAS camera (CCC Pathways)",
+        "ADAS camera calibration - CRITICAL (CCC/MOTOR G33 - NOT INCLUDED)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "ADAS Calibration - Forward Camera", "hours": 1.0, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Pinchweld Primer", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "CRITICAL per SCRS: Forward-facing ADAS camera REQUIRES calibration after windshield replacement. This is safety-critical. Check all OEM position statements."
+    },
+    {
+      "id": "headlamp-replace",
+      "partName": "Headlamp Assembly",
+      "operationType": "Replace",
+      "attachmentType": "Bolted",
+      "aliases": ["headlight", "headlamp", "head light", "head lamp", "headlight replace", "headlamp replace", "replace headlight", "h/l", "hl"],
+      "sourceRefs": {
+        "cccMotor": "G19, G33",
+        "mitchell": "CEG Section 19",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged headlamp (CCC/MOTOR G5)",
+        "Installation of new headlamp (CCC/MOTOR G5)",
+        "Reconnection of electrical (CCC/MOTOR G4)"
+      ],
+      "notIncluded": [
+        "Transfer of bulbs (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of ballast HID/LED (Mitchell)",
+        "Headlamp aiming (Mitchell CEG G19 - 'Headlight aiming NOT INCLUDED')",
+        "ADAS calibration if forward camera affected (CCC/MOTOR G33)",
+        "Pre/Post repair scan (CCC/MOTOR)",
+        "Module programming for adaptive headlights (CCC/MOTOR G21)"
+      ],
+      "metOperations": [
+        { "description": "Aim Headlamps", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Per Mitchell G19: Headlamp aiming should be performed after headlight R&R or front-end collision repair. NOT INCLUDED in labor time."
+    },
+    {
+      "id": "a-pillar-replace",
+      "partName": "A-Pillar",
+      "operationType": "Replace",
+      "attachmentType": "Welded",
+      "aliases": ["a-pillar", "a pillar", "front pillar", "a pillar replace", "a pillar repair", "replace a pillar", "windshield pillar"],
+      "sourceRefs": {
+        "cccMotor": "G5, G6, G31, G10",
+        "mitchell": "CEG Section 26, 29",
+        "degInquiries": ["13434"]
+      },
+      "included": [
+        "Removal at factory seams (CCC/MOTOR)",
+        "Welding of new pillar per OEM/I-CAR guidelines (CCC/MOTOR)",
+        "Grinding, filling, sanding to 150 grit (Mitchell CEG)",
+        "Basic seam sealer at weld joints (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "E-Coat removal (Mitchell CEG - protective coatings NOT INCLUDED)",
+        "Weld-through primer (Mitchell CEG)",
+        "Covering from weld sparks (DEG Inquiry 13434)",
+        "Additional seam sealer (DEG Inquiry 23010)",
+        "Cavity wax (Mitchell CEG G31)",
+        "R&I of windshield (CCC/MOTOR G18)",
+        "R&I of door (CCC/MOTOR)",
+        "R&I of fender (CCC/MOTOR)",
+        "R&I of all trim (CCC Pathways)",
+        "R&I of airbag if applicable (CCC/MOTOR G14)",
+        "Frame measurement (Mitchell CEG G10 - 'measuring is NOT INCLUDED')",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Pre/Post repair scan (CCC/MOTOR G9)",
+        "SRS system inspection (CCC/MOTOR G14)"
+      ],
+      "metOperations": [
+        { "description": "Remove Factory E-Coat", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Weld-Through Primer", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Seam Sealer", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Cavity Wax", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "Per SCRS: Structural component. May contain airbag components. Always verify frame dimensions per Mitchell G10."
+    },
+    {
+      "id": "b-pillar-replace",
+      "partName": "B-Pillar",
+      "operationType": "Replace",
+      "attachmentType": "Welded",
+      "aliases": ["b-pillar", "b pillar", "center pillar", "middle pillar", "b pillar replace", "b pillar repair", "replace b pillar"],
+      "sourceRefs": {
+        "cccMotor": "G5, G6, G14, G31",
+        "mitchell": "CEG Section 26",
+        "degInquiries": ["13434"]
+      },
+      "included": [
+        "Removal at factory seams (CCC/MOTOR)",
+        "Welding of new pillar (CCC/MOTOR)",
+        "Grinding, filling, sanding to 150 grit (Mitchell CEG)",
+        "Basic seam sealer at weld joints (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "E-Coat removal (Mitchell CEG)",
+        "Weld-through primer (Mitchell CEG)",
+        "Seam sealer beyond weld joints (DEG Inquiry 23010)",
+        "Cavity wax (Mitchell CEG G31)",
+        "R&I of front door (CCC/MOTOR)",
+        "R&I of rear door (CCC/MOTOR)",
+        "R&I of rocker panel trim (CCC Pathways)",
+        "R&I of seat belt anchor (CCC/MOTOR G14 - SRS components)",
+        "R&I of seat belt retractor (CCC/MOTOR G14)",
+        "R&I of side curtain airbag (CCC/MOTOR G14 - 'SRS R&I NOT INCLUDED')",
+        "R&I of interior trim (CCC Pathways)",
+        "Frame measurement (Mitchell CEG G10)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Pre/Post repair scan (CCC/MOTOR G9)",
+        "SRS system inspection (CCC/MOTOR G14)"
+      ],
+      "metOperations": [
+        { "description": "Remove Factory E-Coat", "hours": 0.4, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Weld-Through Primer", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Seam Sealer", "hours": 0.4, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Cavity Wax", "hours": 0.4, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "Per SCRS: B-Pillar contains seat belt anchors and may house side curtain airbags. Critical structural component. SRS inspection required per CCC/MOTOR G14."
+    },
+    {
+      "id": "roof-replace-welded",
+      "partName": "Roof Panel",
+      "operationType": "Replace",
+      "attachmentType": "Welded",
+      "aliases": ["roof", "roof panel", "roof replace", "roof repair", "replace roof", "repair roof", "roof skin"],
+      "sourceRefs": {
+        "cccMotor": "G5, G6, G10, G31",
+        "mitchell": "CEG Section 26",
+        "degInquiries": ["13434", "23010"]
+      },
+      "included": [
+        "Removal at factory seams (CCC/MOTOR)",
+        "Installation/welding of new roof panel (CCC/MOTOR)",
+        "Grinding, filling, sanding to 150 grit (Mitchell CEG)",
+        "Basic seam sealer at weld joints (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "E-Coat removal at weld flanges (Mitchell CEG)",
+        "Weld-through primer application (Mitchell CEG)",
+        "Weld spark covering (DEG Inquiry 13434)",
+        "Seam sealer beyond weld joints (DEG Inquiry 23010)",
+        "R&I of headliner (CCC Pathways)",
+        "R&I of sunroof assembly if equipped (CCC Pathways)",
+        "R&I of roof rack/rails (CCC Pathways)",
+        "R&I of antenna (CCC Pathways)",
+        "R&I of all glass - windshield, back glass (CCC/MOTOR G18)",
+        "Feather, Prime and Block entire roof (Mitchell CEG Section 28)",
+        "Blend to adjacent panels (Mitchell CEG Section 28)",
+        "Measure vehicle structure (Mitchell CEG G10)",
+        "Pre/Post repair scan (CCC/MOTOR G9)",
+        "Anti-corrosion material application (Mitchell CEG G31)"
+      ],
+      "metOperations": [
+        { "description": "Remove Factory E-Coat", "hours": 0.5, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Weld-Through Primer", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Seam Sealer - Roof to Pillars", "hours": 0.5, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Cavity Wax", "hours": 0.4, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "Per SCRS: Major structural repair. Verify pillars and rails are not damaged before roof replacement. Frame measurement required per Mitchell G10."
+    },
+    {
+      "id": "diagnostic-scan",
+      "partName": "Diagnostic Scan",
+      "operationType": "Pre/Post Repair Scan",
+      "attachmentType": "N/A",
+      "aliases": ["scan", "pre-scan", "post-scan", "diagnostic", "DTC", "codes", "pre scan", "post scan", "scanning", "diagnosis", "diagnostics"],
+      "sourceRefs": {
+        "cccMotor": "G9",
+        "mitchell": "CEG Labor General Information",
+        "degInquiries": []
+      },
+      "included": [
+        "NONE - All diagnostic operations are NOT INCLUDED per CCC/MOTOR G9"
+      ],
+      "notIncluded": [
+        "Pre-repair diagnostic scan (CCC/MOTOR G9 - explicitly NOT INCLUDED)",
+        "Post-repair diagnostic scan (CCC/MOTOR G9)",
+        "DTC retrieval and documentation (CCC/MOTOR G9)",
+        "Scan tool connection time (CCC/MOTOR G9)",
+        "Battery support during scanning (CCC/MOTOR G9)",
+        "DTC research and diagnosis (CCC/MOTOR G9)",
+        "System analysis and reporting (CCC/MOTOR G9)",
+        "Scan report generation (CCC/MOTOR G9)",
+        "Scan tool clear/reset electronic module (CCC - listed as not-included)"
+      ],
+      "metOperations": [
+        { "description": "Pre-Repair Scan", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Post-Repair Scan", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Per CCC/MOTOR G9: Many OEMs recommend pre/post-repair diagnostic scans on all vehicles involved in a collision. Time should be based on actual shop time. Neither CCC nor Mitchell publish specific scan times - Audatex has begun publishing scan labor times."
+    },
+    {
+      "id": "adas-calibration",
+      "partName": "ADAS Calibration",
+      "operationType": "Calibration",
+      "attachmentType": "N/A",
+      "aliases": ["calibration", "adas", "camera calibration", "radar calibration", "sensor calibration", "adas calibration", "calibrate", "lane departure", "blind spot", "forward collision", "adaptive cruise"],
+      "sourceRefs": {
+        "cccMotor": "G33",
+        "mitchell": "CEG",
+        "degInquiries": []
+      },
+      "included": [
+        "NONE - ADAS calibration is NOT INCLUDED per CCC/MOTOR G33"
+      ],
+      "notIncluded": [
+        "Static calibration (CCC/MOTOR G33)",
+        "Dynamic calibration (CCC/MOTOR G33)",
+        "Target setup and positioning (CCC/MOTOR G33)",
+        "Calibration verification (CCC/MOTOR G33)",
+        "Calibration report/documentation (CCC/MOTOR G33)",
+        "Pre-calibration requirements (CCC/MOTOR G33)",
+        "Road test for dynamic calibration (CCC/MOTOR G33)"
+      ],
+      "triggers": [
+        "Windshield replacement with camera (CCC/MOTOR G33)",
+        "Front bumper R&R or R&I with radar (CCC/MOTOR G33)",
+        "Rear bumper R&R or R&I with parking sensors (CCC/MOTOR G33)",
+        "Mirror R&R with blind spot system (CCC/MOTOR G33)",
+        "Wheel alignment (CCC/MOTOR G33)",
+        "Structural repair (CCC/MOTOR G33)",
+        "Suspension work (CCC/MOTOR G33)"
+      ],
+      "metOperations": [
+        { "description": "ADAS Static Calibration", "hours": 1.5, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "ADAS Dynamic Calibration", "hours": 1.0, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Per CCC/MOTOR G33: ADAS calibration is required after many common collision repairs. Always check OEM requirements and position statements. Safety-critical operation."
+    },
+    {
+      "id": "corrosion-protection",
+      "partName": "Corrosion Protection",
+      "operationType": "Protection",
+      "attachmentType": "N/A",
+      "aliases": ["cavity wax", "weld-through primer", "anti-corrosion", "e-coat", "zinc", "corrosion", "rust protection", "weld thru primer", "ecoat", "undercoating"],
+      "sourceRefs": {
+        "cccMotor": "G31",
+        "mitchell": "CEG Labor General Information",
+        "degInquiries": []
+      },
+      "included": [
+        "NONE - Corrosion protection is NOT INCLUDED per CCC/MOTOR G31"
+      ],
+      "notIncluded": [
+        "Weld-through primer (Mitchell CEG - 'removal and/or application of weld-thru primers NOT INCLUDED')",
+        "Cavity wax application (CCC/MOTOR G31)",
+        "Seam sealer application beyond weld joints (CCC/MOTOR G31)",
+        "Anti-corrosion compound (CCC/MOTOR G31)",
+        "E-coat repair (CCC/MOTOR G31)",
+        "Zinc coating repair (CCC/MOTOR G31)",
+        "Remove/apply wax, petroleum based coatings (Mitchell CEG)",
+        "Undercoating application (Mitchell CEG G37)",
+        "Time to free parts frozen by rust or corrosion (Mitchell CEG)"
+      ],
+      "metOperations": [
+        { "description": "Weld-Through Primer", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Cavity Wax", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "E-Coat Repair", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "Per CCC/MOTOR G31 and Mitchell: Corrosion protection should be applied to all bare metal, weld areas, and enclosed cavities. This is NEVER included in labor times."
+    },
+    {
+      "id": "refinish-operations",
+      "partName": "Refinish Operations",
+      "operationType": "Refinish",
+      "attachmentType": "N/A",
+      "aliases": ["paint", "refinish", "clear coat", "clearcoat", "basecoat", "base coat", "prime block", "prime and block", "feather prime block", "fpb", "blend", "blending", "color match", "tint", "denib", "de-nib", "wet sand", "buff", "polish"],
+      "sourceRefs": {
+        "cccMotor": "G34, G35, G36",
+        "mitchell": "CEG Section 28",
+        "degInquiries": []
+      },
+      "included": [
+        "Solvent wash (Mitchell CEG Section 28)",
+        "Scuff panel and clean (Mitchell CEG Section 28)",
+        "Mask adjacent panels up to 36 inches (Mitchell CEG Section 28)",
+        "Prime or seal as required (Mitchell CEG Section 28)",
+        "Final sanding and clean (Mitchell CEG Section 28)",
+        "Mix materials (Mitchell CEG Section 28)",
+        "Adjust spray equipment (Mitchell CEG Section 28)",
+        "Apply color (Mitchell CEG Section 28)",
+        "Clean equipment (Mitchell CEG Section 28)"
+      ],
+      "notIncluded": [
+        "Blending into adjacent panels (Mitchell CEG Section 28 - NOT INCLUDED)",
+        "Color match or tinting (Mitchell CEG Section 28 - NOT INCLUDED)",
+        "Anti-corrosion rust resistant material (Mitchell CEG Section 28)",
+        "Soft chip primers or anti-chip undercoat (Mitchell CEG Section 28)",
+        "Finish sand and buff (Mitchell CEG Section 28 - NOT INCLUDED)",
+        "De-nib operation (CCC/MOTOR G38 - NOT INCLUDED)",
+        "Vehicle bagging when required (Mitchell - add 0.2 hour per application)",
+        "Interior masking to prevent overspray (Mitchell CEG Section 28)",
+        "Protective coating removal (Mitchell CEG Section 28)",
+        "Release agent removal from raw plastic (Mitchell CEG Section 28)",
+        "Feather, Prime & Block welded panels (Mitchell CEG Section 28)",
+        "Gravel guard refinish (Mitchell - 0.5 first panel, 0.3 each additional)",
+        "Tri-coat additional time (CCC/MOTOR G41 - add 20-30%)",
+        "Two-tone/multi-color (CCC/MOTOR G40)",
+        "Cost of paint and materials (Mitchell - NEVER included)"
+      ],
+      "metOperations": [
+        { "description": "Blend Panel", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Color Tint", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "De-Nib Large Panel", "hours": 0.3, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Wet Sand and Buff", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" }
+      ],
+      "scrsNotes": "Per Mitchell CEG Section 28: Refinish times are for NEW, UNDAMAGED PARTS without trim or attached components. The cost of paint and materials is NEVER included in refinish time."
+    },
+    {
+      "id": "wheel-alignment",
+      "partName": "Wheel Alignment",
+      "operationType": "Alignment",
+      "attachmentType": "N/A",
+      "aliases": ["alignment", "wheel alignment", "camber", "caster", "toe", "4 wheel alignment", "four wheel alignment", "front end alignment", "steering angle reset", "sas reset"],
+      "sourceRefs": {
+        "cccMotor": "G15",
+        "mitchell": "CEG Section 15",
+        "degInquiries": []
+      },
+      "included": [
+        "NONE - Wheel alignment is NOT INCLUDED per CCC/MOTOR G15"
+      ],
+      "notIncluded": [
+        "Wheel alignment - 2 or 4 wheel (CCC/MOTOR G15 - NOT INCLUDED)",
+        "Alignment check (CCC/MOTOR G15)",
+        "Camber/caster adjustment (CCC/MOTOR G15)",
+        "Toe adjustment (CCC/MOTOR G15)",
+        "Road test to verify (CCC/MOTOR G15)",
+        "Steering angle sensor reset (CCC/MOTOR G15)"
+      ],
+      "metOperations": [
+        { "description": "4-Wheel Alignment", "hours": 1.2, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Steering Angle Sensor Reset", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Per CCC/MOTOR G15: Wheel alignment should be performed after any steering/suspension work. Always a separate, not-included operation."
+    },
+    {
+      "id": "ac-service",
+      "partName": "A/C Service",
+      "operationType": "Mechanical",
+      "attachmentType": "N/A",
+      "aliases": ["a/c", "ac", "air conditioning", "refrigerant", "evacuate", "recharge", "air conditioner", "r134a", "r1234yf", "freon", "evac and recharge"],
+      "sourceRefs": {
+        "cccMotor": "G17",
+        "mitchell": "CEG Section 17",
+        "degInquiries": []
+      },
+      "included": [
+        "Component removal and installation (CCC/MOTOR G17)",
+        "O-ring replacement at disconnect points (CCC/MOTOR G17)",
+        "System evacuation (Mitchell CEG - included in some operations)",
+        "Vacuum hold verification (Mitchell CEG)",
+        "Electronic leak detection post-recharge (Mitchell CEG)"
+      ],
+      "notIncluded": [
+        "Refrigerant recovery/evacuation (CCC/MOTOR G17 - may be NOT INCLUDED)",
+        "Refrigerant recharge (CCC/MOTOR G17 - NOT INCLUDED)",
+        "System leak check (CCC/MOTOR G17)",
+        "Dye injection (CCC/MOTOR G17)",
+        "Performance test (CCC/MOTOR G17)",
+        "Compressor oil addition (CCC/MOTOR G17)",
+        "Failed leak check diagnosis (Mitchell CEG)"
+      ],
+      "metOperations": [
+        { "description": "A/C Evacuate & Recharge", "hours": 1.0, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "A/C Leak Test", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Per CCC/MOTOR G17: Refrigerant recovery is required by law. A/C system should be leak tested before recharge. Receiver/drier replacement is typically required when system is open to atmosphere."
+    },
+    {
+      "id": "tailgate-liftgate",
+      "partName": "Tailgate/Liftgate",
+      "operationType": "Replace/Repair",
+      "attachmentType": "Hinged",
+      "aliases": ["tailgate", "tail gate", "liftgate", "lift gate", "hatch", "rear hatch", "tailgate replace", "tailgate repair", "liftgate replace", "liftgate repair", "rear gate", "back hatch", "tail gate replace", "tail gate repair", "pickup tailgate", "truck tailgate"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5",
+        "mitchell": "CEG Section 28",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged tailgate/liftgate (CCC/MOTOR G5)",
+        "Installation of new tailgate/liftgate (CCC/MOTOR G5)",
+        "Hinge bolt-up (CCC/MOTOR)",
+        "Basic alignment - ONE test fit (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "Transfer of latch/striker (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of wiring harness (Mitchell)",
+        "Transfer of interior trim panel (Mitchell)",
+        "Transfer of glass (Mitchell)",
+        "Transfer of camera/sensors (Mitchell)",
+        "Transfer of spoiler (Mitchell)",
+        "Transfer of struts/supports (Mitchell)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Blend to adjacent panels (Mitchell CEG Section 28)",
+        "Pre/Post repair scan (CCC/MOTOR)",
+        "ADAS calibration - rear camera (CCC/MOTOR G33)"
+      ],
+      "metOperations": [
+        { "description": "Feather/Prime/Block", "hours": 0.5, "laborType": "P", "source": "MET: Part Operations" },
+        { "description": "Blend", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Pre-Repair Scan", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Post-Repair Scan", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Check for rear camera, parking sensors, and power liftgate components that require calibration."
+    },
+    {
+      "id": "trunk-decklid",
+      "partName": "Trunk/Decklid",
+      "operationType": "Replace/Repair",
+      "attachmentType": "Hinged",
+      "aliases": ["trunk", "decklid", "deck lid", "trunk lid", "trunk replace", "trunk repair", "decklid replace", "decklid repair", "boot lid"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5",
+        "mitchell": "CEG Section 28",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged trunk lid (CCC/MOTOR G5)",
+        "Installation of new trunk lid (CCC/MOTOR G5)",
+        "Hinge bolt-up (CCC/MOTOR)",
+        "Basic alignment - ONE test fit (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "Transfer of latch (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of hinges/struts (Mitchell)",
+        "Transfer of spoiler (Mitchell)",
+        "Transfer of emblem/nameplate (Mitchell)",
+        "Transfer of license plate lights (Mitchell)",
+        "Transfer of camera if equipped (Mitchell)",
+        "Feather, Prime and Block (Mitchell CEG Section 28)",
+        "Blend to adjacent panels (Mitchell CEG Section 28)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "Feather/Prime/Block", "hours": 0.5, "laborType": "P", "source": "MET: Part Operations" },
+        { "description": "Blend to Quarter", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Transfer Spoiler", "hours": 0.3, "laborType": "B", "source": "MET: Part Operations" }
+      ],
+      "scrsNotes": "Check for rear camera and parking sensors."
+    },
+    {
+      "id": "mirror",
+      "partName": "Mirror",
+      "operationType": "Replace",
+      "attachmentType": "Bolted",
+      "aliases": ["mirror", "side mirror", "outside mirror", "door mirror", "mirror replace", "mirror repair", "osm", "o/s mirror", "rearview", "sideview"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5",
+        "mitchell": "CEG",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged mirror (CCC/MOTOR G5)",
+        "Installation of new mirror (CCC/MOTOR G5)",
+        "Reconnection of electrical (CCC/MOTOR G4)"
+      ],
+      "notIncluded": [
+        "Transfer of mirror glass (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of mirror motor (Mitchell)",
+        "Transfer of turn signal (Mitchell)",
+        "Transfer of puddle light (Mitchell)",
+        "Transfer of blind spot sensor (Mitchell)",
+        "Transfer of camera (Mitchell)",
+        "Refinish if body color (Mitchell CEG Section 28)",
+        "ADAS calibration - blind spot monitor (CCC/MOTOR G33)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "Refinish Mirror", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "ADAS Calibration - BSM", "hours": 1.0, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Check for blind spot monitoring, lane change assist, and 360 camera systems."
+    },
+    {
+      "id": "grille",
+      "partName": "Grille",
+      "operationType": "Replace",
+      "attachmentType": "Clip/Bolt-on",
+      "aliases": ["grille", "grill", "front grille", "grille replace", "grille repair", "upper grille", "lower grille", "active grille"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5",
+        "mitchell": "CEG",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged grille (CCC/MOTOR G5)",
+        "Installation of new grille (CCC/MOTOR G5)"
+      ],
+      "notIncluded": [
+        "Transfer of emblems (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of active grille shutters (Mitchell)",
+        "Transfer of radar/sensor (Mitchell)",
+        "Transfer of camera (Mitchell)",
+        "ADAS calibration - front radar (CCC/MOTOR G33)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "ADAS Calibration - Front Radar", "hours": 1.5, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Active grille shutters and front radar commonly located behind grille."
+    },
+    {
+      "id": "radiator-support",
+      "partName": "Radiator Support",
+      "operationType": "Replace",
+      "attachmentType": "Welded/Bolted",
+      "aliases": ["radiator support", "rad support", "core support", "radiator support replace", "rad support replace", "front structure"],
+      "sourceRefs": {
+        "cccMotor": "G5, G6, G10",
+        "mitchell": "CEG Section 26",
+        "degInquiries": ["13434"]
+      },
+      "included": [
+        "Removal at factory seams (CCC/MOTOR)",
+        "Installation of new radiator support (CCC/MOTOR)",
+        "Welding per OEM/I-CAR guidelines (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "E-Coat removal (Mitchell CEG)",
+        "Weld-through primer (Mitchell CEG)",
+        "Seam sealer (DEG Inquiry 23010)",
+        "R&I of cooling system components (CCC Pathways)",
+        "R&I of A/C condenser (CCC Pathways)",
+        "R&I of headlamps (CCC Pathways)",
+        "R&I of grille (CCC Pathways)",
+        "R&I of hood latch (CCC Pathways)",
+        "Frame measurement (Mitchell CEG G10)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "Remove E-Coat", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Weld-Through Primer", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Seam Sealer", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Frame Measure", "hours": 0.5, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "Structural component - verify frame dimensions."
+    },
+    {
+      "id": "tail-light",
+      "partName": "Tail Light",
+      "operationType": "Replace",
+      "attachmentType": "Bolted",
+      "aliases": ["tail light", "taillight", "taillamp", "tail lamp", "rear light", "brake light", "tail light replace", "rear lamp"],
+      "sourceRefs": {
+        "cccMotor": "G4, G5",
+        "mitchell": "CEG",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged tail light (CCC/MOTOR G5)",
+        "Installation of new tail light (CCC/MOTOR G5)",
+        "Reconnection of electrical (CCC/MOTOR G4)"
+      ],
+      "notIncluded": [
+        "Transfer of bulbs (Mitchell - transfer time NOT INCLUDED)",
+        "Transfer of sockets (Mitchell)",
+        "Re-aim if applicable (Mitchell)",
+        "Pre/Post repair scan (CCC/MOTOR)"
+      ],
+      "metOperations": [
+        { "description": "Transfer Bulbs", "hours": 0.2, "laborType": "B", "source": "MET: Part Operations" }
+      ],
+      "scrsNotes": "Check for blind spot monitoring sensors that may be integrated."
+    },
+    {
+      "id": "fender-liner",
+      "partName": "Fender Liner/Splash Shield",
+      "operationType": "Replace",
+      "attachmentType": "Clip-on",
+      "aliases": ["fender liner", "splash shield", "inner fender", "wheel well liner", "fender liner replace", "splash guard", "wheel house liner"],
+      "sourceRefs": {
+        "cccMotor": "G5",
+        "mitchell": "CEG",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged liner (CCC/MOTOR G5)",
+        "Installation of new liner (CCC/MOTOR G5)"
+      ],
+      "notIncluded": [
+        "Excessive clip replacement (CCC/MOTOR G7)",
+        "R&I of wheel/tire (CCC Pathways)",
+        "Cleanup of debris (SCRS)"
+      ],
+      "metOperations": [
+        { "description": "Fastener Kit", "hours": 0.1, "laborType": "B", "source": "MET: Part Operations" }
+      ],
+      "scrsNotes": "Often damaged but overlooked. Check for damage during wheel well inspection."
+    },
+    {
+      "id": "wheel-tire",
+      "partName": "Wheel/Tire Assembly",
+      "operationType": "Replace",
+      "attachmentType": "Bolted",
+      "aliases": ["wheel", "rim", "tire", "alloy wheel", "steel wheel", "wheel replace", "tire replace", "wheel repair", "road wheel", "wheel assembly", "spare tire", "wheel cover", "hub cap"],
+      "sourceRefs": {
+        "cccMotor": "G5, G15",
+        "mitchell": "CEG Section 15",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged wheel (CCC/MOTOR G5)",
+        "Installation of new wheel (CCC/MOTOR G5)",
+        "Lug nut installation (CCC/MOTOR)"
+      ],
+      "notIncluded": [
+        "TPMS sensor transfer (Mitchell - NOT INCLUDED)",
+        "TPMS sensor programming (CCC/MOTOR G15)",
+        "TPMS relearn procedure (CCC/MOTOR G15)",
+        "Tire mounting and balancing (Mitchell)",
+        "Wheel alignment (CCC/MOTOR G15)",
+        "Tire disposal fee (shop overhead)",
+        "Valve stem replacement (Mitchell)",
+        "Hub cleaning and inspection (SCRS)",
+        "Torque stick/spec torque (SCRS)",
+        "R&I of brake components for access (CCC Pathways)"
+      ],
+      "metOperations": [
+        { "description": "TPMS Sensor Transfer", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "TPMS Programming", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Tire Mount & Balance", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Wheel Alignment Check", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Four Wheel Alignment", "hours": 1.2, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Always verify TPMS function after wheel work. Check for wheel bearing damage after collision."
+    },
+    {
+      "id": "suspension",
+      "partName": "Suspension Components",
+      "operationType": "Replace/Repair",
+      "attachmentType": "Bolted",
+      "aliases": ["strut", "shock", "control arm", "tie rod", "ball joint", "suspension", "spring", "coil spring", "sway bar", "stabilizer bar", "knuckle", "spindle"],
+      "sourceRefs": {
+        "cccMotor": "G15",
+        "mitchell": "CEG Section 15",
+        "degInquiries": []
+      },
+      "included": [
+        "Removal of damaged component (CCC/MOTOR G5)",
+        "Installation of new component (CCC/MOTOR G5)"
+      ],
+      "notIncluded": [
+        "Wheel alignment (CCC/MOTOR G15 - NOT INCLUDED)",
+        "Steering angle sensor reset (CCC/MOTOR G15)",
+        "Road test (CCC/MOTOR)",
+        "Suspension inspection (SCRS)",
+        "Sublet alignment (if sent out)",
+        "Pre/Post repair scan (CCC/MOTOR G9)"
+      ],
+      "metOperations": [
+        { "description": "Four Wheel Alignment", "hours": 1.2, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Steering Angle Sensor Reset", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "Wheel alignment required after ANY suspension work. SAS reset needed on most modern vehicles."
+    },
+    {
+      "id": "adhesive-bonding",
+      "partName": "Adhesive Bonding Operations",
+      "operationType": "Bonding/Curing",
+      "attachmentType": "Adhesive",
+      "aliases": ["adhesive", "bonding", "structural adhesive", "panel bonding", "rivet bonding", "cure time", "curing", "weld bond", "adhesive bond"],
+      "sourceRefs": {
+        "cccMotor": "G6",
+        "mitchell": "CEG Section 26",
+        "degInquiries": ["12709", "12953", "14014"]
+      },
+      "included": [
+        "Application of adhesive per OEM procedure (CCC/MOTOR G6)",
+        "Basic joint preparation (CCC/MOTOR G6)"
+      ],
+      "notIncluded": [
+        "Adhesive curing time (DEG 14014 CCC - wait time NOT considered in motor time)",
+        "Monitoring curing with IR lamps (DEG 12709 Mitchell - NOT INCLUDED)",
+        "Temperature monitoring during cure (DEG 12709 Mitchell)",
+        "Adhesive curing times (DEG 12953 Audatex - Section 4-2 Labor Exclusions)",
+        "IR lamp setup and positioning",
+        "Adhesive removal from damaged panels",
+        "Surface preparation beyond basic (sanding, cleaning)",
+        "Adhesive material cost",
+        "Test coupon preparation"
+      ],
+      "metOperations": [
+        { "description": "Adhesive Application - Structural", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Cure Time Monitoring", "hours": 0.5, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "Per DEG Inquiries 12709, 12953, 14014: All three information providers confirm adhesive curing/wait time is NOT INCLUDED. OEM procedures may require specific cure times before vehicle can proceed."
+    },
+    {
+      "id": "paint-thickness-measurement",
+      "partName": "Paint Thickness Measurement",
+      "operationType": "Inspection/QC",
+      "attachmentType": "N/A",
+      "aliases": ["mil thickness", "paint thickness", "film thickness", "paint gauge", "mil gauge", "coating thickness", "paint depth"],
+      "sourceRefs": {
+        "cccMotor": "G34",
+        "mitchell": "CEG Section 28",
+        "degInquiries": ["19625", "14513"]
+      },
+      "included": [
+        "NONE - Paint thickness measurement is NOT INCLUDED per DEG inquiries"
+      ],
+      "notIncluded": [
+        "Measuring MIL thickness of paint (DEG 19625 CCC - NOT INCLUDED)",
+        "Materials for ultrasonic couplant gels (DEG 19625 CCC)",
+        "Labor to create radial templates (DEG 19625 CCC)",
+        "Measuring material thickness (DEG 14513 Mitchell - NOT factored into labor times)",
+        "Paint thickness gauge equipment",
+        "Documentation of readings",
+        "Comparison to OEM specifications"
+      ],
+      "metOperations": [
+        { "description": "Paint Thickness Measurement", "hours": 0.3, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Create Measurement Template", "hours": 0.2, "laborType": "P", "source": "MET: Refinish Operations" }
+      ],
+      "scrsNotes": "DEG 19625 & 14513: Paint thickness measurement is NOT INCLUDED in any estimating system. Required by some OEMs before refinish to verify substrate condition."
+    },
+    {
+      "id": "airbag-disable-enable",
+      "partName": "Airbag System Disable/Enable",
+      "operationType": "Safety/SRS",
+      "attachmentType": "N/A",
+      "aliases": ["airbag", "srs", "supplemental restraint", "air bag", "disable airbag", "enable airbag", "airbag disable", "restraint system"],
+      "sourceRefs": {
+        "cccMotor": "G14",
+        "mitchell": "CEG Section 14",
+        "degInquiries": ["17882"]
+      },
+      "included": [
+        "ONE disable and enable cycle per OEM procedure (DEG 17882)",
+        "Battery disconnection for SRS work (CCC/MOTOR G14)"
+      ],
+      "notIncluded": [
+        "Additional disable/enable cycles (DEG 17882 - requires agreement among parties)",
+        "SRS component R&I (CCC/MOTOR G14 - NOT INCLUDED)",
+        "Airbag module inspection",
+        "Clockspring inspection/replacement",
+        "Impact sensor inspection",
+        "SRS system diagnosis",
+        "Pre/Post repair scan for SRS codes",
+        "SRS warning light diagnosis"
+      ],
+      "metOperations": [
+        { "description": "Additional SRS Disable/Enable", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "SRS System Scan", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "DEG 17882: Labor allowance includes all steps ONE time only. Multiple disable/enable cycles during repair require additional agreed-upon time."
+    },
+    {
+      "id": "battery-disconnect",
+      "partName": "Battery Disconnect/Reconnect",
+      "operationType": "Electrical",
+      "attachmentType": "N/A",
+      "aliases": ["battery", "battery disconnect", "disconnect battery", "reconnect battery", "battery d&r", "12v battery", "auxiliary battery"],
+      "sourceRefs": {
+        "cccMotor": "G4",
+        "mitchell": "CEG",
+        "degInquiries": ["16158"]
+      },
+      "included": [
+        "ONE battery disconnect and reconnect (DEG 16158)",
+        "Basic terminal disconnection (CCC/MOTOR G4)"
+      ],
+      "notIncluded": [
+        "Multiple disconnections throughout repair (DEG 16158 - requires evaluation)",
+        "Battery support/memory saver usage",
+        "Battery testing",
+        "Battery charging",
+        "Terminal cleaning",
+        "Battery hold-down R&I beyond basic",
+        "Battery tray inspection/cleaning",
+        "System relearn procedures after reconnection"
+      ],
+      "metOperations": [
+        { "description": "Additional Battery D&R", "hours": 0.2, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "Battery Support During Repair", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "DEG 16158: Battery disconnect included ONE time. Multiple disconnections during multi-stage repairs require on-the-spot evaluation."
+    },
+    {
+      "id": "electric-vehicle-hv",
+      "partName": "Electric/Hybrid HV System",
+      "operationType": "Safety/HV",
+      "attachmentType": "N/A",
+      "aliases": ["ev", "electric vehicle", "hybrid", "high voltage", "hv battery", "tesla", "ev battery", "traction battery", "phev", "bev"],
+      "sourceRefs": {
+        "cccMotor": "G14",
+        "mitchell": "CEG",
+        "degInquiries": ["16931"]
+      },
+      "included": [
+        "ONE HV system disable per OEM procedure",
+        "Basic safety verification"
+      ],
+      "notIncluded": [
+        "Duplicate disable procedures throughout repair stages (DEG 16931 Tesla)",
+        "Multiple HV disable/enable cycles",
+        "HV system testing",
+        "Insulation resistance testing",
+        "HV cable inspection",
+        "Orange cable routing verification",
+        "HV component R&I",
+        "Battery state of charge verification",
+        "Specialized PPE requirements",
+        "HV system-specific training time"
+      ],
+      "metOperations": [
+        { "description": "Additional HV Disable/Enable", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "HV System Verification", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "DEG 16931 (Tesla Model 3): Multiple HV disable procedures during repair stages are NOT INCLUDED. EV/Hybrid repairs require certified technicians."
+    },
+    {
+      "id": "recycled-parts",
+      "partName": "Recycled/Used Parts",
+      "operationType": "Salvage",
+      "attachmentType": "Various",
+      "aliases": ["recycled", "used parts", "salvage", "lkq", "recycled parts", "used assembly", "junkyard", "salvage yard"],
+      "sourceRefs": {
+        "cccMotor": "G5",
+        "mitchell": "CEG",
+        "degInquiries": ["16546"]
+      },
+      "included": [
+        "Basic installation of recycled assembly (same as new part time)"
+      ],
+      "notIncluded": [
+        "Component removal from recycled assembly (DEG 16546)",
+        "Cleaning of recycled part",
+        "Inspection of recycled part",
+        "Transfer of components TO recycled part",
+        "Repair of minor damage on recycled part",
+        "Refinish of recycled part",
+        "Hardware replacement (may be missing/damaged)",
+        "Verification of part compatibility"
+      ],
+      "metOperations": [
+        { "description": "Recycled Part Prep/Clean", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Component Removal from Recycled", "hours": 0.5, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "DEG 16546: When using recycled assemblies, component removal operations are NOT INCLUDED. Add time for prep, cleaning, and transfers."
+    },
+    {
+      "id": "spray-out-panel",
+      "partName": "Spray Out Panel/Card",
+      "operationType": "Color Match",
+      "attachmentType": "N/A",
+      "aliases": ["spray out", "spray card", "let down panel", "color check", "test panel", "variance panel", "color verification"],
+      "sourceRefs": {
+        "cccMotor": "G34",
+        "mitchell": "CEG Section 28",
+        "degInquiries": ["16149"]
+      },
+      "included": [
+        "NONE - Spray out operations are NOT INCLUDED per DEG 16149"
+      ],
+      "notIncluded": [
+        "Spray test panels done separately from vehicle (DEG 16149)",
+        "Let-down panel preparation",
+        "Color verification spray-outs",
+        "Material for spray-out cards",
+        "Time to evaluate color match",
+        "Tinting based on spray-out results",
+        "Multiple spray-out attempts"
+      ],
+      "metOperations": [
+        { "description": "Spray Out Panel/Color Check", "hours": 0.3, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Color Tint Adjustment", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" }
+      ],
+      "scrsNotes": "DEG 16149: Spray out cards/panels done separately from vehicle refinishing are NOT INCLUDED. Essential for proper color matching."
+    },
+    {
+      "id": "cooling-system",
+      "partName": "Cooling System Service",
+      "operationType": "Mechanical",
+      "attachmentType": "N/A",
+      "aliases": ["coolant", "antifreeze", "radiator fill", "bleed cooling", "cooling system", "thermostat", "water pump", "coolant flush"],
+      "sourceRefs": {
+        "cccMotor": "G17",
+        "mitchell": "CEG Section 17",
+        "degInquiries": ["40223", "17115"]
+      },
+      "included": [
+        "Basic coolant top-off after component R&R"
+      ],
+      "notIncluded": [
+        "Filling and bleeding cooling systems - certain operations (DEG 40223)",
+        "ATF fluid checking/filling after radiator service (DEG 17115)",
+        "System pressure test",
+        "Thermostat test",
+        "Coolant flush",
+        "Coolant material cost",
+        "Bleed procedure for complex systems",
+        "Transmission cooler line service"
+      ],
+      "metOperations": [
+        { "description": "Cooling System Fill & Bleed", "hours": 0.5, "laborType": "M", "source": "MET: Mechanical Operations" },
+        { "description": "ATF Level Check/Fill", "hours": 0.3, "laborType": "M", "source": "MET: Mechanical Operations" }
+      ],
+      "scrsNotes": "DEG 40223/17115: Certain cooling system operations are NOT INCLUDED. Check ATF level if transmission cooler lines were disturbed."
+    },
+    {
+      "id": "additional-technicians",
+      "partName": "Additional Technician Labor",
+      "operationType": "Labor",
+      "attachmentType": "N/A",
+      "aliases": ["helper", "second technician", "assist", "panel holding", "extra hands", "helper time"],
+      "sourceRefs": {
+        "cccMotor": "G5",
+        "mitchell": "CEG",
+        "degInquiries": ["16414"]
+      },
+      "included": [
+        "NONE - Additional technician labor is NOT INCLUDED per DEG 16414"
+      ],
+      "notIncluded": [
+        "Labor for additional technicians assisting (DEG 16414)",
+        "Holding panels during installation",
+        "Supporting heavy components",
+        "Two-person lift operations",
+        "Spotting during structural pulls",
+        "Glass handling assistance",
+        "Hood/trunk lid positioning"
+      ],
+      "metOperations": [
+        { "description": "Additional Technician - Per Hour", "hours": 1.0, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "DEG 16414: Labor times are developed for ONE technician. When OEM procedures or part size require assistance, evaluate on-the-spot."
+    },
+    {
+      "id": "masking-operations",
+      "partName": "Masking Operations",
+      "operationType": "Refinish Prep",
+      "attachmentType": "N/A",
+      "aliases": ["masking", "tape", "mask panel", "mask opening", "fuel door mask", "glass mask", "interior mask"],
+      "sourceRefs": {
+        "cccMotor": "G35",
+        "mitchell": "CEG Section 28",
+        "degInquiries": ["17278"]
+      },
+      "included": [
+        "Masking adjacent panels up to 36 inches (Mitchell CEG Section 28)",
+        "Basic perimeter masking"
+      ],
+      "notIncluded": [
+        "Masking within panel perimeter (DEG 17278)",
+        "Fuel door opening masking (DEG 17278)",
+        "Glass opening masking (DEG 17278)",
+        "Vent opening masking (DEG 17278)",
+        "Interior masking to prevent overspray",
+        "Vehicle bagging (Mitchell - add 0.2 per application)",
+        "Wheel masking",
+        "Engine bay masking",
+        "Jamb masking"
+      ],
+      "metOperations": [
+        { "description": "Mask Within Panel Perimeter", "hours": 0.3, "laborType": "P", "source": "MET: Refinish Operations" },
+        { "description": "Interior Masking/Bagging", "hours": 0.5, "laborType": "P", "source": "MET: Refinish Operations" }
+      ],
+      "scrsNotes": "DEG 17278: Masking items WITHIN panel perimeter (fuel doors, vents, openings) is NOT INCLUDED in standard refinish time."
+    },
+    {
+      "id": "door-skin-repair",
+      "partName": "Door Skin Replacement",
+      "operationType": "Replace",
+      "attachmentType": "Welded/Bonded",
+      "aliases": ["door skin", "outer door panel", "door outer", "door skin replace", "skin door"],
+      "sourceRefs": {
+        "cccMotor": "G5, G6",
+        "mitchell": "CEG Section 23",
+        "degInquiries": ["16087"]
+      },
+      "included": [
+        "Removal of damaged door skin (CCC/MOTOR G5)",
+        "Installation of new door skin (CCC/MOTOR G6)",
+        "Basic hem flange crimping"
+      ],
+      "notIncluded": [
+        "Straightening door frame (DEG 16087 - NOT INCLUDED)",
+        "Repairs post-installation (DEG 16087)",
+        "Door glass R&I",
+        "Window regulator R&I",
+        "Door trim panel R&I",
+        "Weatherstrip R&I",
+        "Mirror R&I",
+        "Handle R&I",
+        "Hem flange sealer",
+        "Corrosion protection of hem area"
+      ],
+      "metOperations": [
+        { "description": "Door Frame Straighten", "hours": 0.5, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Hem Flange Sealer", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "DEG 16087: Door frame straightening during door skin replacement is NOT INCLUDED. Door structure must be correct before skin installation."
+    },
+    {
+      "id": "frameless-door-glass",
+      "partName": "Frameless Door Glass",
+      "operationType": "Adjustment",
+      "attachmentType": "N/A",
+      "aliases": ["frameless", "hardtop door", "coupe door", "frameless glass", "door glass adjustment"],
+      "sourceRefs": {
+        "cccMotor": "G18",
+        "mitchell": "CEG Section 18",
+        "degInquiries": ["17327"]
+      },
+      "included": [
+        "Basic door glass installation",
+        "Standard alignment per OEM procedure"
+      ],
+      "notIncluded": [
+        "Additional adjustments beyond normal alignment (DEG 17327)",
+        "Multiple adjustments for correct fit",
+        "Weatherstrip sealing verification",
+        "Wind noise testing",
+        "Water leak testing"
+      ],
+      "metOperations": [
+        { "description": "Frameless Glass Additional Adjustment", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "DEG 17327: Frameless door windows may require additional adjustment time beyond standard alignment for proper fit and seal."
+    },
+    {
+      "id": "bumper-reinforcement",
+      "partName": "Bumper Reinforcement",
+      "operationType": "Replace",
+      "attachmentType": "Bolted",
+      "aliases": ["bumper bar", "rebar", "reinforcement", "impact bar", "bumper beam", "energy absorber"],
+      "sourceRefs": {
+        "cccMotor": "G5",
+        "mitchell": "CEG",
+        "degInquiries": ["40215"]
+      },
+      "included": [
+        "Removal of damaged reinforcement (CCC/MOTOR G5)",
+        "Installation of new reinforcement (CCC/MOTOR G5)"
+      ],
+      "notIncluded": [
+        "Seam sealer application on reinforcement (DEG 40215)",
+        "Energy absorber R&I",
+        "Bracket transfer",
+        "Sensor bracket transfer",
+        "Parking sensor relocation",
+        "License plate bracket transfer"
+      ],
+      "metOperations": [
+        { "description": "Seam Sealer Application", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "DEG 40215: Seam sealer application on bumper reinforcement is NOT INCLUDED per Solera/Audatex."
+    },
+    {
+      "id": "adhesive-moldings",
+      "partName": "Adhesive Moldings/Trim",
+      "operationType": "R&I",
+      "attachmentType": "Adhesive",
+      "aliases": ["adhesive molding", "taped molding", "body side molding", "wheel opening molding", "rocker molding", "fender molding"],
+      "sourceRefs": {
+        "cccMotor": "G5",
+        "mitchell": "CEG",
+        "degInquiries": ["16513"]
+      },
+      "included": [
+        "Basic clip-on molding R&I"
+      ],
+      "notIncluded": [
+        "Removal of adhesive wheel opening moldings during overhaul (DEG 16513 Audi Q5)",
+        "Adhesive removal from panel",
+        "New adhesive tape/material",
+        "Surface preparation for re-adhesion",
+        "Heat gun for removal",
+        "Residue removal (adhesive remover)",
+        "Replacement of damaged adhesive moldings"
+      ],
+      "metOperations": [
+        { "description": "Adhesive Molding Removal", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Adhesive Residue Removal", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "DEG 16513: Adhesive-attached moldings require additional time for proper removal without damage. Adhesive material is NOT INCLUDED."
+    },
+    {
+      "id": "nameplate-template",
+      "partName": "Nameplate/Emblem Transfer",
+      "operationType": "Transfer",
+      "attachmentType": "Adhesive",
+      "aliases": ["nameplate", "emblem", "badge", "decal", "logo", "letter", "decklid emblem"],
+      "sourceRefs": {
+        "cccMotor": "G5",
+        "mitchell": "CEG",
+        "degInquiries": ["15563"]
+      },
+      "included": [
+        "Basic emblem removal and reinstallation"
+      ],
+      "notIncluded": [
+        "Creating templates for nameplate positioning (DEG 15563)",
+        "Material costs for template fabrication (DEG 15563)",
+        "Adhesive promoter application",
+        "New adhesive tape",
+        "Individual letter spacing measurement",
+        "Alignment verification"
+      ],
+      "metOperations": [
+        { "description": "Nameplate Template Creation", "hours": 0.3, "laborType": "B", "source": "MET: Body Operations" },
+        { "description": "Emblem Adhesive/Installation", "hours": 0.2, "laborType": "B", "source": "MET: Body Operations" }
+      ],
+      "scrsNotes": "DEG 15563: Creating positioning templates for emblems/nameplates is NOT INCLUDED. Critical for proper alignment of individual letter nameplates."
+    },
+    {
+      "id": "refinish-break-points",
+      "partName": "Refinish Break Points",
+      "operationType": "Refinish",
+      "attachmentType": "N/A",
+      "aliases": ["break point", "blend line", "edge blend", "hard line", "refinish edge", "paint break"],
+      "sourceRefs": {
+        "cccMotor": "G34",
+        "mitchell": "CEG Section 28",
+        "degInquiries": ["17409"]
+      },
+      "included": [
+        "Standard refinish at natural break points (body lines, edges)"
+      ],
+      "notIncluded": [
+        "Creating blend lines at non-break points on welded panels (DEG 17409)",
+        "Custom break point creation",
+        "Mid-panel blend line creation",
+        "Masking for non-standard break points",
+        "Feathering at non-natural edges"
+      ],
+      "metOperations": [
+        { "description": "Custom Break Point Creation", "hours": 0.3, "laborType": "P", "source": "MET: Refinish Operations" }
+      ],
+      "scrsNotes": "DEG 17409: Creating blend/break lines at locations other than natural body line break points is NOT INCLUDED in standard refinish time."
+    }
+  ],
+  "commonNotIncludedByCategory": {
+    "weldedPanels": {
+      "source": "CCC/MOTOR, Mitchell CEG, DEG Inquiries 13434, 23010, 40215, 16414",
+      "items": [
+        "E-Coat removal at weld flanges",
+        "Weld-through primer application",
+        "Covering vehicle from weld sparks (DEG 13434)",
+        "Welding consumables: wire, gas, tips, coupons",
+        "Seam sealer beyond weld attachment points (DEG 23010)",
+        "Seam sealer on bumper reinforcements (DEG 40215)",
+        "Seam sealer as undercoating/sound deadening",
+        "Cavity wax / anti-corrosion treatment",
+        "Sound deadener R&I or replacement",
+        "Measure vehicle structure",
+        "Frame setup/pulling if needed",
+        "Second or additional test fits",
+        "Additional technicians for panel handling (DEG 16414)"
+      ]
+    },
+    "plasticParts": {
+      "source": "Mitchell CEG Section 22, CCC/MOTOR",
+      "items": [
+        "Adhesion promoter application",
+        "Flex additive in basecoat",
+        "Release agent removal from raw plastic",
+        "Transfer of parking sensors",
+        "Transfer of fog lights",
+        "ADAS calibration (radar/camera)"
+      ]
+    },
+    "allRefinish": {
+      "source": "Mitchell CEG Section 28, CCC/MOTOR G34-G41, DEG Inquiries",
+      "items": [
+        "Feather, Prime and Block new parts (Mitchell - NOT INCLUDED)",
+        "Color tint/match (Mitchell - NOT INCLUDED)",
+        "Clear coat cut and polish",
+        "Blend to adjacent panels (Mitchell - NOT INCLUDED)",
+        "Creating blend lines at non-break points (DEG 17409)",
+        "De-nib clearcoat (CCC/MOTOR G38 - NOT INCLUDED)",
+        "Wet sand and buff (CCC/MOTOR G39 - NOT INCLUDED)",
+        "Paint MIL thickness measurement (DEG 19625, 14513)",
+        "Spray out cards/panels (DEG 16149)",
+        "Masking within panel perimeter (DEG 17278)",
+        "Tri-coat additional time (add 20-30%)",
+        "Cost of paint and materials (NEVER included)"
+      ]
+    },
+    "allDiagnostics": {
+      "source": "CCC/MOTOR G9, Mitchell CEG",
+      "items": [
+        "Pre-repair diagnostic scan",
+        "Post-repair diagnostic scan",
+        "Diagnostic trouble code documentation",
+        "Battery support during diagnostics",
+        "Module programming/initialization (CCC/MOTOR G21)",
+        "System relearn procedures",
+        "Scan tool clear/reset"
+      ]
+    },
+    "adasSystems": {
+      "source": "CCC/MOTOR G33",
+      "items": [
+        "Forward camera calibration (windshield)",
+        "Front radar calibration (bumper)",
+        "Rear radar calibration (blind spot)",
+        "Parking sensor calibration",
+        "360 camera calibration",
+        "Lane keep assist calibration",
+        "Adaptive cruise control calibration",
+        "Static calibration",
+        "Dynamic calibration",
+        "Target setup and positioning"
+      ]
+    },
+    "transferTime": {
+      "source": "Mitchell P-Pages, CCC Pathways",
+      "items": [
+        "Transfer of attached parts from old to new",
+        "Transfer of welded/riveted/bonded brackets (Mitchell - NOT INCLUDED)",
+        "Transfer of moldings and emblems",
+        "Transfer of electrical components",
+        "Replacing or transfer of mounting studs (except with specific footnote)"
+      ]
+    },
+    "riOperations": {
+      "source": "CCC Pathways, Mitchell CEG",
+      "items": [
+        "Glass R&I",
+        "Mirror R&I",
+        "Moldings R&I",
+        "Emblems/nameplates R&I",
+        "Weatherstrips R&I",
+        "Interior trim R&I",
+        "Wiring harness considerations"
+      ]
+    },
+    "adhesiveBonding": {
+      "source": "DEG Inquiries 12709, 12953, 14014, 16513",
+      "items": [
+        "Adhesive curing time (DEG 14014, 12709, 12953)",
+        "IR lamp curing and monitoring (DEG 12709)",
+        "Temperature monitoring during cure",
+        "Adhesive molding removal (DEG 16513)",
+        "Adhesive residue removal",
+        "Surface preparation for re-adhesion",
+        "Adhesive material costs"
+      ]
+    },
+    "electricHybridVehicles": {
+      "source": "DEG Inquiry 16931, OEM Procedures",
+      "items": [
+        "Multiple HV disable/enable cycles (DEG 16931)",
+        "Duplicate disable procedures through repair stages",
+        "HV system testing and verification",
+        "Insulation resistance testing",
+        "Orange cable routing verification",
+        "Specialized PPE requirements"
+      ]
+    },
+    "inspectionVerification": {
+      "source": "DEG Inquiries 19625, 14513, 16149",
+      "items": [
+        "Paint MIL thickness measurement (DEG 19625, 14513)",
+        "Spray out panel color verification (DEG 16149)",
+        "Damage diagnosis beyond visual assessment"
+      ]
+    },
+    "partPreparation": {
+      "source": "DEG Inquiries 16546, 15563, 16087",
+      "items": [
+        "Component removal from recycled parts (DEG 16546)",
+        "Nameplate template creation (DEG 15563)",
+        "Door frame straightening before skin install (DEG 16087)"
+      ]
+    },
+    "multipleOperations": {
+      "source": "DEG Inquiries 16158, 17882, 16931",
+      "items": [
+        "Multiple battery disconnections (DEG 16158)",
+        "Additional airbag disable/enable cycles (DEG 17882)",
+        "Multiple HV disable/enable (DEG 16931)",
+        "Additional test fits beyond one"
+      ]
+    }
+  },
+  "degInquiryReference": {
+    "12709": {
+      "topic": "Adhesive Curing Time - Mitchell",
+      "response": "Regarding cure adhesive with IR lamps and temperature monitoring: Monitoring curing and temperature is NOT INCLUDED in published labor allowances."
+    },
+    "12953": {
+      "topic": "Adhesive Curing Time - Audatex",
+      "response": "Per Database Reference Manual Section 4-2 Labor Exclusions (page 43): Adhesive curing times is NOT INCLUDED."
+    },
+    "13434": {
+      "topic": "Weld Spark Protection",
+      "response": "Covering the exterior, interior and components of the vehicle to prevent weld spark damage is NOT INCLUDED with welded panel replacement estimated work times. Requires on-the-spot evaluation."
+    },
+    "14014": {
+      "topic": "Adhesive Curing Time - CCC",
+      "response": "The Motor labor time in CCC One is for the actual time the technician spends on the physical procedure required to complete repairs. Wait time (i.e. drying, curing, shipping) is NOT considered in motor time."
+    },
+    "14513": {
+      "topic": "Paint MIL Thickness - Mitchell",
+      "response": "Measuring material thickness is NOT factored into the development of labor times."
+    },
+    "15563": {
+      "topic": "Nameplate Templates",
+      "response": "Creating templates and material costs for template fabrication are NOT INCLUDED in transfer or installation times."
+    },
+    "16087": {
+      "topic": "Door Skin Straightening",
+      "response": "Straightening door frame during door skin replacement or repairs post-installation are NOT INCLUDED in door skin replacement time."
+    },
+    "16149": {
+      "topic": "Spray Out Card Operations",
+      "response": "Spray test panels/cards done separately from vehicle refinishing are NOT INCLUDED. Add time for color verification spray-outs."
+    },
+    "16158": {
+      "topic": "Battery Disconnect/Reconnect",
+      "response": "D&R of battery is included ONE time. Multiple disconnections throughout repair process require on-the-spot evaluation for additional time."
+    },
+    "16414": {
+      "topic": "Additional Technicians",
+      "response": "Labor for additional technicians assisting with repair tasks (holding panels, supporting components) is NOT INCLUDED. Evaluate on-the-spot."
+    },
+    "16513": {
+      "topic": "Audi Q5 Wheel Opening Moldings",
+      "response": "Removal of adhesive wheel opening moldings during overhaul operations is NOT INCLUDED in panel overhaul time."
+    },
+    "16546": {
+      "topic": "Recycled Part Operations",
+      "response": "Component removal operations when serviced with recycled assembly are NOT INCLUDED. Add R&I time for components on used parts."
+    },
+    "16931": {
+      "topic": "Tesla Model 3 HV Battery",
+      "response": "Duplicate disable procedures throughout repair stages are NOT INCLUDED. Multiple HV disable/enable cycles require additional time."
+    },
+    "17115": {
+      "topic": "ATF Fluid Checking/Filling",
+      "response": "Checking and filling ATF fluid after radiator service or cooler line disconnection is NOT INCLUDED."
+    },
+    "17278": {
+      "topic": "Masking Within Panel Perimeter",
+      "response": "Masking for fuel doors, glass openings, vents, and other items within panel perimeter is NOT INCLUDED in refinish time."
+    },
+    "17327": {
+      "topic": "Frameless Door Windows",
+      "response": "Additional adjustments beyond normal alignment for correct fit on frameless door windows is NOT INCLUDED."
+    },
+    "17409": {
+      "topic": "Refinishing Break Points",
+      "response": "Creating blend lines at non-break points on welded panels is NOT INCLUDED in standard refinish time."
+    },
+    "17882": {
+      "topic": "Disable & Enable Airbag System",
+      "response": "Labor allowance for Disable & Enable Air Bag System includes all steps ONE time. If additional Disable & Enable is required, time should be agreed upon among all parties."
+    },
+    "19625": {
+      "topic": "Paint MIL Thickness - CCC",
+      "response": "Measuring the MIL thickness of paint is NOT INCLUDED in estimated work time. Materials for ultrasonic couplant gels and labor to create radial templates are also NOT INCLUDED."
+    },
+    "23010": {
+      "topic": "Seam Sealer on Welded Panels",
+      "response": "The estimated work time INCLUDES replacing all seam sealer that was removed due to removal of part. Any ADDITIONAL seam sealer replacement would need to be an on-the-spot evaluation."
+    },
+    "23296": {
+      "topic": "Adjacent Panel Damage",
+      "response": "Provides feedback on adjacent panel damage for welded panel replacement."
+    },
+    "40215": {
+      "topic": "Seam Sealer on Bumper Reinforcements",
+      "response": "Per Solera Database Reference Manual Section 4-2, Application of Seam Sealer is listed under Labor Exclusions - NOT INCLUDED."
+    },
+    "40223": {
+      "topic": "Filling and Bleeding Cooling Systems",
+      "response": "Certain operations when filling and bleeding cooling systems are NOT INCLUDED per MOTOR feedback. Reference Guide To Estimating: RADIATOR section."
+    }
+  }
+}

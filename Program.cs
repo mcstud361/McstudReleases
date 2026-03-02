@@ -1,14 +1,18 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using System.Diagnostics;
+using Velopack;
 
-namespace McStudDesktop;
+namespace McstudDesktop;
 
 public static class Program
 {
     [STAThread]
     public static void Main(string[] args)
     {
+        // Velopack: handles install/update/uninstall hooks - MUST be first
+        VelopackApp.Build().Run();
+
         Debug.WriteLine("[Program] Starting application");
 
         // Initialize WinUI 3 application

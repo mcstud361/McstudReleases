@@ -1,0 +1,546 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="McStudDesktop.Views.MechanicalOperationsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:McStudDesktop.Views"
+    mc:Ignorable="d"
+    Background="#1e1e1e">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Category Buttons -->
+            <RowDefinition Height="*"/>
+            <!-- Content -->
+            <RowDefinition Height="Auto"/>
+            <!-- Export Panel -->
+        </Grid.RowDefinitions>
+
+        <!-- Category Buttons -->
+        <Border Grid.Row="0" Background="#252526" Padding="12,8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="ACBtn" Content="AC" Tag="ac" Click="CategoryButton_Click" Background="#0078d4" Foreground="White" Padding="12,6"/>
+                <Button x:Name="CoolingBtn" Content="Cooling" Tag="cooling" Click="CategoryButton_Click" Background="#2d2d2d" Foreground="White" Padding="12,6"/>
+                <Button x:Name="SuspensionBtn" Content="Suspension" Tag="suspension" Click="CategoryButton_Click" Background="#2d2d2d" Foreground="White" Padding="12,6"/>
+                <Button x:Name="WheelTireBtn" Content="Wheel/Tire" Tag="wheeltire" Click="CategoryButton_Click" Background="#2d2d2d" Foreground="White" Padding="12,6"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Main Content Area - Split into two columns -->
+        <Grid Grid.Row="1" Margin="16,8,16,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="600"/>
+                <ColumnDefinition Width="*" MinWidth="500"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT SIDE: Inputs -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="0,0,8,0">
+                <Grid x:Name="InputsPanel">
+                    <!-- ==================== AC OPERATIONS ==================== -->
+                    <StackPanel x:Name="ACPanel" Spacing="12" Visibility="Visible">
+                        <Border Background="#8fbc8f" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="AC Operations" FontSize="18" FontWeight="Bold" Foreground="#1e1e1e" TextDecorations="Underline"/>
+                        </Border>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="220"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Diagnosis" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 3 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="220"/>
+                                <ColumnDefinition Width="220"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Material -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Refrigerant Type" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="AC_RefrigerantType" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="R1234yf" IsSelected="True"/>
+                                        <ComboBoxItem Content="R134a"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Labor -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Cover and Protect AC Lines" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="AC_CoverProtect" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Climate Control System Check" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="AC_ClimateControl" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Bring Vehicle to Operating Temperature" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="AC_BringToTemp" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Diagnosis -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="AC Leak Check" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="AC_LeakCheck" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="AC System Dye/Electronic Test" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="AC_DyeTest" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="AC Reset" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="AC_Reset" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== COOLING OPERATIONS ==================== -->
+                    <StackPanel x:Name="CoolingPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#dda0dd" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Cooling Operations" FontSize="18" FontWeight="Bold" Foreground="#1e1e1e" TextDecorations="Underline"/>
+                        </Border>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="220"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 2 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="220"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Material -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="# of Coolant" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="COOL_CoolantQty" Width="170" Value="2" Minimum="0" Maximum="20" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Labor -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Clamp Cooling Hoses" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="COOL_ClampHoses" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Cooling Fan Operation Check" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="COOL_FanCheck" Width="200" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== SUSPENSION OPERATIONS ==================== -->
+                    <StackPanel x:Name="SuspensionPanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#add8e6" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Suspension Operations" FontSize="18" FontWeight="Bold" Foreground="#1e1e1e" TextDecorations="Underline"/>
+                        </Border>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Tooling" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 4 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Alignment Check" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_AlignmentCheck" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Add Weight" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_AddWeight" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes" IsSelected="True"/>
+                                        <ComboBoxItem Content="No"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Parking Brake Release" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_ParkingBrake" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Air Suspension" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_AirSuspension" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Ride Height" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="SUSP_RideHeight" Width="170" Value="0" Minimum="0" Maximum="100" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Ride Height Mode" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_RideHeightMode" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Power Steering Assist Check" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_PowerSteering" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Brake Fluid" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_BrakeFluid" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Hydraulic Fluid" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_HydraulicFluid" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Trans Fluid" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_TransFluid" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Power Steering Fluid" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_PowerSteeringFluid" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 3: Tooling -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Hub and Bearing Press" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_HubPress" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Spring Compressor" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_SpringCompressor" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Subframe Fixture" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="SUSP_SubframeFixture" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ==================== WHEEL AND TIRE OPERATIONS ==================== -->
+                    <StackPanel x:Name="WheelTirePanel" Spacing="12" Visibility="Collapsed">
+                        <Border Background="#f4a460" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="Wheel and Tire Operations" FontSize="18" FontWeight="Bold" Foreground="#1e1e1e" TextDecorations="Underline"/>
+                        </Border>
+
+                        <!-- Column Headers -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Labor" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="1" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Material" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="2" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Additional Parts" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                            <Border Grid.Column="3" Background="#3d3d3d" Padding="8,4" CornerRadius="4" Margin="0,0,4,8">
+                                <TextBlock Text="Equipment" Foreground="#0078d4" FontWeight="Bold" HorizontalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Main Grid with 4 columns -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="180"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Column 1: Labor -->
+                            <StackPanel Grid.Column="0" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Torque Spec" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WT_TorqueSpec" Width="190" Value="0" Minimum="0" Maximum="500" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Mount and Balance" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WT_MountBalance" Width="190" Value="1" Minimum="0" Maximum="10" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Tire Replacements" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WT_TireReplacements" Width="190" Value="0" Minimum="0" Maximum="10" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Bring Tire to Operating Temperature" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_BringToTemp" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Check Wheel Balance" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_CheckBalance" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="De-Bead Wheel/Tire for TPMS" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_DeBeadTPMS" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="TPMS Disposal" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_TPMSDisposal" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 2: Material (empty based on screenshot) -->
+                            <StackPanel Grid.Column="1" Spacing="8" Margin="0,0,4,0">
+                                <!-- Empty per Excel screenshot -->
+                            </StackPanel>
+
+                            <!-- Column 3: Additional Parts -->
+                            <StackPanel Grid.Column="2" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Lug Nut Covers" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_LugNutCovers" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Universal Spare Wheel" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_UniversalSpare" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Number of Universal Spare Wheels" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <NumberBox x:Name="WT_NumUniversalSpare" Width="190" Value="0" Minimum="0" Maximum="10" SpinButtonPlacementMode="Hidden" ValueChanged="OnInputChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Remove Locking Lug Nut" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_RemoveLockingLug" Width="190" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Column 4: Equipment -->
+                            <StackPanel Grid.Column="3" Spacing="8" Margin="0,0,4,0">
+                                <StackPanel>
+                                    <TextBlock Text="Tire Repair Kit" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_TireRepairKit" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Jack Stand" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_JackStand" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Wheel Dolly" Foreground="White" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="WT_WheelDolly" Width="170" SelectionChanged="OnInputChanged">
+                                        <ComboBoxItem Content="Yes"/>
+                                        <ComboBoxItem Content="No" IsSelected="True"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- RIGHT SIDE: Operations List -->
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="8,0,0,0">
+                <StackPanel x:Name="OperationsPanel" Spacing="8">
+                    <!-- Summary Header -->
+                    <Border Background="#2d2d2d" CornerRadius="4" Padding="12,8">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                <HyperlinkButton Content="Back to top" FontSize="11"/>
+                            </StackPanel>
+                            <StackPanel x:Name="SummaryPanel" Orientation="Horizontal" Spacing="16" Margin="0,4,0,0">
+                                <TextBlock x:Name="SummaryOps" Text="0 Ops" Foreground="#64b4ff" FontSize="12"/>
+                                <TextBlock Text="|" Foreground="#555" FontSize="12"/>
+                                <TextBlock x:Name="SummaryPrice" Text="$ 0" Foreground="#64c864" FontSize="12"/>
+                                <TextBlock Text="|" Foreground="#555" FontSize="12"/>
+                                <TextBlock x:Name="SummaryLabor" Text="0 Labor" Foreground="#64b4ff" FontSize="12"/>
+                                <TextBlock Text="|" Foreground="#555" FontSize="12"/>
+                                <TextBlock x:Name="SummaryRefinish" Text="0 Refinish" Foreground="#ffb464" FontSize="12"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Clip it button -->
+                    <Button x:Name="ClipItButton" Content="Clip it" HorizontalAlignment="Left" Padding="12,6" Background="#3c3c3c" Foreground="White"/>
+
+                    <!-- Operations Header Row -->
+                    <Border Background="#3c3c3c" CornerRadius="4" Padding="8,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="60"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Operation" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="1" Text="Description" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="2" Text="Quantity" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="3" Text="Price" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="4" Text="Labor" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="5" Text="Category" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock Grid.Column="6" Text="Refinish" Foreground="#64b4ff" FontSize="11" FontWeight="SemiBold"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Operations List Container -->
+                    <StackPanel x:Name="OperationsList" Spacing="2">
+                        <TextBlock x:Name="NoOperationsText"
+                                   Text="Select options to generate operations."
+                                   Foreground="#8c8c8c" FontSize="14" TextWrapping="Wrap" Margin="0,20,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Export Panel -->
+        <views:ExportPanel x:Name="ExportPanel" Grid.Row="2"/>
+    </Grid>
+</Page>

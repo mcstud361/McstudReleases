@@ -1,0 +1,875 @@
+{
+  "_comment": "Keyword mappings for McStud Estimate Parser. Edit this file to add new keywords.",
+  "_instructions": "Add keywords (lowercase) to map estimate line items to Excel categories. The 'excelInputs' define which Excel cells to set.",
+
+  "ExcelCategories": {
+
+    "FRONT_BUMPER_PLASTIC": {
+      "excelSheet": "Part Operations",
+      "description": "Front bumper cover/fascia (plastic part)",
+      "keywords": [
+        "front bumper cover",
+        "front bumper",
+        "front fascia",
+        "fr bumper cover",
+        "fr bumper",
+        "fr fascia",
+        "f bumper cover",
+        "f bumper",
+        "bumper cover front",
+        "fascia front",
+        "front cover",
+        "front bumper fascia",
+        "bumper assy front",
+        "front bumper assembly"
+      ],
+      "excelInputs": {
+        "PartOp_A83": "First Panel",
+        "PartOp_B83": "Yes",
+        "PartOp_A85": "Yes"
+      }
+    },
+
+    "REAR_BUMPER_PLASTIC": {
+      "excelSheet": "Part Operations",
+      "description": "Rear bumper cover/fascia (plastic part)",
+      "keywords": [
+        "rear bumper cover",
+        "rear bumper",
+        "rear fascia",
+        "rr bumper cover",
+        "rr bumper",
+        "rr fascia",
+        "r bumper cover",
+        "bumper cover rear",
+        "fascia rear",
+        "rear cover",
+        "rear bumper fascia",
+        "bumper assy rear",
+        "rear bumper assembly",
+        "back bumper"
+      ],
+      "excelInputs": {
+        "PartOp_A183": "First Panel",
+        "PartOp_A185": "Yes"
+      }
+    },
+
+    "FRONT_FENDER": {
+      "excelSheet": "Part Operations",
+      "description": "Front fender panel (steel/aluminum)",
+      "keywords": [
+        "front fender",
+        "fender",
+        "fr fender",
+        "f fender",
+        "fender panel",
+        "fender assy",
+        "fender assembly",
+        "lf fender",
+        "rf fender",
+        "left fender",
+        "right fender",
+        "driver fender",
+        "passenger fender"
+      ],
+      "excelInputs": {
+        "PartOp_A33": "First Panel",
+        "PartOp_B33": "Yes",
+        "PartOp_A35": "Yes"
+      }
+    },
+
+    "DOOR": {
+      "excelSheet": "Part Operations",
+      "description": "Door shell/panel",
+      "keywords": [
+        "door",
+        "door shell",
+        "door skin",
+        "door panel",
+        "front door",
+        "rear door",
+        "dr door",
+        "pass door",
+        "lf door",
+        "rf door",
+        "lr door",
+        "rr door",
+        "driver door",
+        "passenger door",
+        "door assy",
+        "door assembly"
+      ],
+      "excelInputs": {
+        "PartOp_A133": "Additional Panel",
+        "PartOp_B133": "Yes",
+        "PartOp_C137": "Yes"
+      }
+    },
+
+    "HOOD": {
+      "excelSheet": "Part Operations",
+      "description": "Hood panel",
+      "keywords": [
+        "hood",
+        "hood panel",
+        "hood assy",
+        "hood assembly",
+        "bonnet",
+        "engine hood"
+      ],
+      "excelInputs": {
+        "PartOp_A233": "Additional Panel",
+        "PartOp_A235": "Yes",
+        "PartOp_A237": "Yes"
+      }
+    },
+
+    "QUARTER_PANEL": {
+      "excelSheet": "Part Operations",
+      "description": "Quarter panel",
+      "keywords": [
+        "quarter panel",
+        "quarter",
+        "qtr panel",
+        "qtr",
+        "rear quarter",
+        "lq panel",
+        "rq panel",
+        "left quarter",
+        "right quarter",
+        "quarter assy"
+      ],
+      "excelInputs": {
+        "PartOp_A333": "First Panel Facing Sky",
+        "PartOp_A337": "Yes",
+        "PartOp_B337": "Yes"
+      }
+    },
+
+    "ROOF": {
+      "excelSheet": "Part Operations",
+      "description": "Roof panel",
+      "keywords": [
+        "roof",
+        "roof panel",
+        "roof skin",
+        "roof assy"
+      ],
+      "excelInputs": {
+        "PartOp_A383": "First Panel",
+        "PartOp_B383": "Yes",
+        "PartOp_B385": "Yes"
+      }
+    },
+
+    "TRUNK_DECKLID": {
+      "excelSheet": "Part Operations",
+      "description": "Trunk lid/decklid",
+      "keywords": [
+        "trunk lid",
+        "decklid",
+        "deck lid",
+        "trunk",
+        "trunk panel",
+        "trunk assy"
+      ],
+      "excelInputs": {
+        "PartOp_A283": "Additional Panel",
+        "PartOp_B283": "Yes",
+        "PartOp_A285": "Yes"
+      }
+    },
+
+    "LIFTGATE_TAILGATE": {
+      "excelSheet": "Part Operations",
+      "description": "Liftgate/Tailgate",
+      "keywords": [
+        "liftgate",
+        "lift gate",
+        "tailgate",
+        "tail gate",
+        "rear gate",
+        "hatch",
+        "hatchback"
+      ],
+      "excelInputs": {
+        "PartOp_A387": "Yes",
+        "PartOp_B387": "Yes"
+      }
+    },
+
+    "GRILLE": {
+      "excelSheet": "Part Operations",
+      "description": "Front grille",
+      "keywords": [
+        "grille",
+        "front grille",
+        "radiator grille",
+        "grill",
+        "upper grille",
+        "lower grille",
+        "grille assy",
+        "active grille",
+        "grille shutter"
+      ],
+      "excelInputs": {
+        "PartOp_A433": "Large",
+        "PartOp_A437": "Yes"
+      }
+    },
+
+    "HEADLIGHT": {
+      "excelSheet": "Part Operations",
+      "description": "Headlight/headlamp assembly",
+      "keywords": [
+        "headlight",
+        "headlamp",
+        "head light",
+        "head lamp",
+        "headlight assy",
+        "headlamp assy",
+        "lh headlight",
+        "rh headlight",
+        "left headlight",
+        "right headlight",
+        "driver headlight",
+        "passenger headlight",
+        "halogen headlight",
+        "hid headlight",
+        "led headlight",
+        "projector headlight"
+      ],
+      "excelInputs": {
+        "PartOp_A483": "Large",
+        "PartOp_A485": "Yes"
+      }
+    },
+
+    "TAILLIGHT": {
+      "excelSheet": "Part Operations",
+      "description": "Taillight/taillamp assembly",
+      "keywords": [
+        "taillight",
+        "taillamp",
+        "tail light",
+        "tail lamp",
+        "taillight assy",
+        "taillamp assy",
+        "lh taillight",
+        "rh taillight",
+        "left taillight",
+        "right taillight",
+        "stop lamp",
+        "brake light",
+        "combination lamp",
+        "led taillight"
+      ],
+      "excelInputs": {
+        "PartOp_A487": "Yes"
+      }
+    },
+
+    "MIRROR": {
+      "excelSheet": "Part Operations",
+      "description": "Door mirror/side mirror",
+      "keywords": [
+        "mirror",
+        "door mirror",
+        "side mirror",
+        "outside mirror",
+        "exterior mirror",
+        "lh mirror",
+        "rh mirror",
+        "left mirror",
+        "right mirror",
+        "driver mirror",
+        "passenger mirror",
+        "power mirror",
+        "heated mirror",
+        "mirror assy"
+      ],
+      "excelInputs": {
+        "PartOp_B433": "Yes",
+        "PartOp_B435": "Yes"
+      }
+    },
+
+    "FENDER_LINER": {
+      "excelSheet": "Part Operations",
+      "description": "Fender liner/splash shield (plastic)",
+      "keywords": [
+        "fender liner",
+        "splash shield",
+        "inner fender liner",
+        "wheel liner",
+        "wheel well liner",
+        "fr fender liner",
+        "front fender liner",
+        "inner fender"
+      ],
+      "excelInputs": {
+        "PartOp_C391": "Yes"
+      }
+    },
+
+    "VALANCE_AIR_DAM": {
+      "excelSheet": "Part Operations",
+      "description": "Valance/Air dam/Spoiler (plastic)",
+      "keywords": [
+        "valance",
+        "front valance",
+        "rear valance",
+        "lower valance",
+        "air dam",
+        "front air dam",
+        "front spoiler",
+        "chin spoiler",
+        "lower spoiler",
+        "deflector",
+        "stone deflector"
+      ],
+      "excelInputs": {
+        "PartOp_B439": "Yes"
+      }
+    },
+
+    "ABSORBER_FOAM": {
+      "excelSheet": "Part Operations",
+      "description": "Bumper absorber/energy foam",
+      "keywords": [
+        "absorber",
+        "energy absorber",
+        "bumper absorber",
+        "impact absorber",
+        "foam",
+        "bumper foam",
+        "energy foam",
+        "front absorber",
+        "rear absorber",
+        "fr absorber",
+        "rr absorber"
+      ],
+      "excelInputs": {}
+    },
+
+    "BUMPER_REINFORCEMENT": {
+      "excelSheet": "Part Operations",
+      "description": "Bumper reinforcement bar/rebar",
+      "keywords": [
+        "reinforcement",
+        "bumper reinforcement",
+        "rebar",
+        "impact bar",
+        "bumper bar",
+        "front reinforcement",
+        "rear reinforcement",
+        "fr reinforcement",
+        "rr reinforcement"
+      ],
+      "excelInputs": {}
+    },
+
+    "RADIATOR_CONDENSER": {
+      "excelSheet": "Mechanical Operations",
+      "description": "Radiator/Condenser (cooling)",
+      "keywords": [
+        "radiator",
+        "radiator assy",
+        "condenser",
+        "a/c condenser",
+        "ac condenser",
+        "intercooler",
+        "charge air cooler"
+      ],
+      "excelInputs": {
+        "MechanicalOp_B79": "Yes",
+        "MechanicalOp_B81": "Yes"
+      }
+    },
+
+    "AC_SYSTEM": {
+      "excelSheet": "Mechanical Operations",
+      "description": "A/C system service",
+      "keywords": [
+        "a/c",
+        "ac",
+        "air conditioning",
+        "evaporator",
+        "compressor",
+        "a/c compressor",
+        "accumulator",
+        "receiver drier",
+        "expansion valve",
+        "evacuate",
+        "recharge",
+        "recover",
+        "r134a",
+        "r1234yf",
+        "r744",
+        "refrigerant"
+      ],
+      "excelInputs": {
+        "MechanicalOp_B29": "Yes",
+        "MechanicalOp_C29": "Yes"
+      }
+    },
+
+    "SUSPENSION": {
+      "excelSheet": "Mechanical Operations",
+      "description": "Suspension components",
+      "keywords": [
+        "strut",
+        "strut assy",
+        "shock",
+        "shock absorber",
+        "coil spring",
+        "control arm",
+        "upper control arm",
+        "lower control arm",
+        "ball joint",
+        "tie rod",
+        "tie rod end",
+        "sway bar",
+        "stabilizer bar",
+        "sway bar link",
+        "knuckle",
+        "steering knuckle",
+        "hub",
+        "wheel hub",
+        "hub bearing",
+        "cv axle",
+        "axle shaft"
+      ],
+      "excelInputs": {
+        "MechanicalOp_A131": "Yes",
+        "MechanicalOp_B131": "Yes"
+      }
+    },
+
+    "ALIGNMENT": {
+      "excelSheet": "Mechanical Operations",
+      "description": "Wheel alignment",
+      "keywords": [
+        "alignment",
+        "wheel alignment",
+        "4 wheel alignment",
+        "four wheel alignment",
+        "front alignment",
+        "toe",
+        "camber",
+        "caster"
+      ],
+      "excelInputs": {
+        "MechanicalOp_A133": "Yes",
+        "MechanicalOp_B133": "Yes"
+      }
+    },
+
+    "WHEEL_TIRE": {
+      "excelSheet": "Mechanical Operations",
+      "description": "Wheels and tires",
+      "keywords": [
+        "wheel",
+        "rim",
+        "alloy wheel",
+        "steel wheel",
+        "tire",
+        "tyre",
+        "tpms",
+        "tire pressure sensor"
+      ],
+      "excelInputs": {
+        "MechanicalOp_A135": "Yes",
+        "MechanicalOp_B135": "Yes"
+      }
+    },
+
+    "CALIBRATION": {
+      "excelSheet": "Mechanical Operations",
+      "description": "ADAS calibration",
+      "keywords": [
+        "calibration",
+        "calibrate",
+        "recalibrate",
+        "static calibration",
+        "dynamic calibration",
+        "adas calibration",
+        "camera calibration",
+        "radar calibration",
+        "sensor calibration"
+      ],
+      "excelInputs": {
+        "MechanicalOp_A137": "Measure",
+        "MechanicalOp_A138": "Calibrate"
+      }
+    },
+
+    "AIRBAG": {
+      "excelSheet": "SRS Operations",
+      "description": "Airbag components",
+      "keywords": [
+        "airbag",
+        "air bag",
+        "srs",
+        "supplemental restraint",
+        "driver airbag",
+        "passenger airbag",
+        "side airbag",
+        "curtain airbag",
+        "knee airbag",
+        "airbag module",
+        "inflator",
+        "clockspring",
+        "clock spring"
+      ],
+      "excelInputs": {
+        "SRSOp_A29": "Yes",
+        "SRSOp_A31": "Yes",
+        "SRSOp_A79": "Yes",
+        "SRSOp_A83": "Yes"
+      }
+    },
+
+    "SEATBELT": {
+      "excelSheet": "SRS Operations",
+      "description": "Seatbelt components",
+      "keywords": [
+        "seatbelt",
+        "seat belt",
+        "safety belt",
+        "retractor",
+        "pretensioner",
+        "belt pretensioner",
+        "buckle",
+        "seatbelt buckle"
+      ],
+      "excelInputs": {
+        "SRSOp_A33": "Yes",
+        "SRSOp_A85": "Yes",
+        "SRSOp_A87": "Yes"
+      }
+    },
+
+    "REFINISH_2STAGE": {
+      "excelSheet": "Refinish Operations",
+      "description": "2-stage paint (basecoat/clearcoat)",
+      "keywords": [
+        "2 stage",
+        "2-stage",
+        "two stage",
+        "bc/cc",
+        "basecoat clearcoat",
+        "solid color",
+        "single stage"
+      ],
+      "excelInputs": {
+        "RefinishOp_A29": "2-Stage",
+        "RefinishOp_B31": "2-Stage",
+        "RefinishOp_B35": "2-Stage"
+      }
+    },
+
+    "REFINISH_3STAGE": {
+      "excelSheet": "Refinish Operations",
+      "description": "3-stage paint (pearl/tri-coat)",
+      "keywords": [
+        "3 stage",
+        "3-stage",
+        "three stage",
+        "tri-coat",
+        "tricoat",
+        "tri coat",
+        "pearl",
+        "pearl coat",
+        "mica"
+      ],
+      "excelInputs": {
+        "RefinishOp_A29": "3-Stage",
+        "RefinishOp_B31": "3-Stage",
+        "RefinishOp_B39": "3-Stage",
+        "RefinishOp_B43": "3-Stage"
+      }
+    },
+
+    "REFINISH_4STAGE": {
+      "excelSheet": "Refinish Operations",
+      "description": "4-stage paint (special finishes)",
+      "keywords": [
+        "4 stage",
+        "4-stage",
+        "four stage",
+        "candy",
+        "chameleon"
+      ],
+      "excelInputs": {
+        "RefinishOp_A29": "4-Stage",
+        "RefinishOp_B31": "4-Stage"
+      }
+    },
+
+    "BLEND": {
+      "excelSheet": "Refinish Operations",
+      "description": "Blend/color match operations",
+      "keywords": [
+        "blend",
+        "blending",
+        "color blend",
+        "edge blend",
+        "blend panel",
+        "adjacent panel"
+      ],
+      "excelInputs": {
+        "RefinishOp_A31": "Yes"
+      }
+    },
+
+    "CLEAR_COAT": {
+      "excelSheet": "Refinish Operations",
+      "description": "Clear coat operations",
+      "keywords": [
+        "clearcoat",
+        "clear coat",
+        "clear",
+        "cc"
+      ],
+      "excelInputs": {
+        "RefinishOp_C29": "Yes",
+        "RefinishOp_D29": "Yes"
+      }
+    },
+
+    "PRIME_BLOCK": {
+      "excelSheet": "Refinish Operations",
+      "description": "Prime and block",
+      "keywords": [
+        "prime",
+        "primer",
+        "prime and block",
+        "block sand",
+        "block",
+        "sealer"
+      ],
+      "excelInputs": {
+        "RefinishOp_A33": "Yes",
+        "RefinishOp_D33": "Yes"
+      }
+    },
+
+    "FRAME_DAMAGE": {
+      "excelSheet": "Body Operations",
+      "description": "Frame/structural damage",
+      "keywords": [
+        "frame",
+        "frame damage",
+        "frame time",
+        "structural",
+        "structural damage",
+        "unibody",
+        "frame pull",
+        "pull time",
+        "frame straighten",
+        "frame setup"
+      ],
+      "excelInputs": {
+        "BodyOp_A79": "Yes",
+        "BodyOp_D79": "Yes",
+        "BodyOp_D81": "Pre",
+        "BodyOp_D82": "In-Process",
+        "BodyOp_D83": "Post"
+      }
+    },
+
+    "SCAN_PRE": {
+      "excelSheet": "Body Operations",
+      "description": "Pre-repair scan",
+      "keywords": [
+        "pre-scan",
+        "pre scan",
+        "prescan",
+        "diagnostic pre",
+        "pre repair scan"
+      ],
+      "excelInputs": {
+        "BodyOp_A29": "Yes",
+        "BodyOp_B29": "Yes"
+      }
+    },
+
+    "SCAN_POST": {
+      "excelSheet": "Body Operations",
+      "description": "Post-repair scan",
+      "keywords": [
+        "post-scan",
+        "post scan",
+        "postscan",
+        "diagnostic post",
+        "post repair scan"
+      ],
+      "excelInputs": {
+        "BodyOp_C29": "Yes",
+        "BodyOp_D29": "Yes"
+      }
+    },
+
+    "CORROSION": {
+      "excelSheet": "Body Operations",
+      "description": "Corrosion protection",
+      "keywords": [
+        "corrosion",
+        "anti-corrosion",
+        "rust protection",
+        "cavity wax",
+        "undercoating",
+        "seam sealer"
+      ],
+      "excelInputs": {
+        "BodyOp_A31": "Yes",
+        "BodyOp_B31": "Yes"
+      }
+    },
+
+    "PDR": {
+      "excelSheet": "Body Operations",
+      "description": "Paintless dent repair",
+      "keywords": [
+        "pdr",
+        "paintless dent",
+        "paintless dent repair",
+        "dent removal",
+        "glue pull",
+        "dent puller"
+      ],
+      "excelInputs": {
+        "BodyOp_B35": "Yes",
+        "BodyOp_D35": "Dent Puller",
+        "BodyOp_D36": "Glue Puller"
+      }
+    },
+
+    "EV_VEHICLE": {
+      "excelSheet": "Cover Car Operations",
+      "description": "Electric vehicle",
+      "keywords": [
+        "ev",
+        "electric vehicle",
+        "bev",
+        "battery electric",
+        "tesla",
+        "rivian",
+        "lucid",
+        "polestar",
+        "high voltage",
+        "hv battery",
+        "traction battery"
+      ],
+      "excelInputs": {
+        "CoverCarOp_A29": "EV"
+      }
+    },
+
+    "HYBRID_VEHICLE": {
+      "excelSheet": "Cover Car Operations",
+      "description": "Hybrid vehicle",
+      "keywords": [
+        "hybrid",
+        "phev",
+        "plug-in hybrid"
+      ],
+      "excelInputs": {
+        "SOPList_A35": "Hybrid"
+      }
+    },
+
+    "COVER_CAR": {
+      "excelSheet": "Cover Car Operations",
+      "description": "Cover car/masking",
+      "keywords": [
+        "cover car",
+        "cover",
+        "mask",
+        "masking",
+        "protection"
+      ],
+      "excelInputs": {
+        "CoverCarOp_B29": "Front",
+        "CoverCarOp_B30": "Side",
+        "CoverCarOp_B31": "Rear",
+        "CoverCarOp_C29": "Refinish"
+      }
+    },
+
+    "TOTAL_LOSS_ADMIN": {
+      "excelSheet": "Total Loss Charges",
+      "description": "Total loss administrative charges",
+      "keywords": [
+        "total loss",
+        "totaled",
+        "salvage",
+        "admin fee",
+        "administrative fee"
+      ],
+      "excelInputs": {
+        "TotalLossCharges_AdminFeePrice": "200",
+        "TotalLossCharges_B39": "Yes"
+      }
+    },
+
+    "STORAGE": {
+      "excelSheet": "Total Loss Charges",
+      "description": "Storage charges",
+      "keywords": [
+        "storage",
+        "storage fee",
+        "yard fee",
+        "impound"
+      ],
+      "excelInputs": {
+        "TotalLossCharges_D29": "Outside",
+        "TotalLossCharges_YardFeePrice": "Yes"
+      }
+    },
+
+    "WINDSHIELD": {
+      "excelSheet": "Part Operations",
+      "description": "Windshield/front glass",
+      "keywords": [
+        "windshield",
+        "front glass",
+        "windscreen",
+        "w/s",
+        "ws"
+      ],
+      "excelInputs": {
+        "PartOp_C485": "Yes"
+      }
+    },
+
+    "BACK_GLASS": {
+      "excelSheet": "Part Operations",
+      "description": "Back glass/rear window",
+      "keywords": [
+        "back glass",
+        "rear glass",
+        "rear window",
+        "backlight",
+        "backlite"
+      ],
+      "excelInputs": {
+        "PartOp_B483": "Yes",
+        "PartOp_C483": "Yes"
+      }
+    }
+  },
+
+  "OperationTypes": {
+    "Replace": ["replace", "repl", "rplc", "new", "install new", "r/r", "remove and replace"],
+    "Repair": ["repair", "rpr", "fix", "straighten", "pdr", "paintless dent"],
+    "R&I": ["r&i", "r+i", "r/i", "remove and install", "remove & install", "remove/install"],
+    "Refinish": ["refinish", "ref", "rfn", "paint", "repaint"],
+    "Blend": ["blend", "blnd", "bld"],
+    "O/H": ["overhaul", "o/h", "oh", "rebuild", "recondition", "reman"],
+    "Sublet": ["sublet", "sub", "outside", "vendor", "outsource"]
+  }
+}

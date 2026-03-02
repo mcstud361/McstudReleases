@@ -1,0 +1,219 @@
+{
+  "id": "health-check-scanning",
+  "title": "Vehicle Health Check / Scanning",
+  "description": "Complete 20-step procedure for vehicle scanning and calibration - Source: Collision Advise LLC",
+  "version": "1.0",
+  "shopName": "Your Shop Name",
+  "laborInfo": {
+    "baseTime": "0.5m",
+    "includedNote": "0.5m labor covers steps marked as INCLUDED",
+    "additionalNote": "All NOT INCLUDED operations are billed separately as needed"
+  },
+  "sections": [
+    {
+      "id": "pre-scan-setup",
+      "title": "Pre-Scan Setup (INCLUDED in 0.5m)",
+      "icon": "Setup",
+      "items": [
+        {
+          "id": "step-1",
+          "text": "Pull vehicle into the work area",
+          "required": true
+        },
+        {
+          "id": "step-2",
+          "text": "Turn flashers on to keep computers awake",
+          "required": true
+        },
+        {
+          "id": "step-3",
+          "text": "Allow vehicle to reach operating temperature",
+          "required": true
+        },
+        {
+          "id": "step-5",
+          "text": "Hook up battery support (10 min before scan, use Midtronics DCA8000 for ECU reflash)",
+          "required": true
+        },
+        {
+          "id": "step-6",
+          "text": "Hook up scan tool to perform pre-scan",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "health-check",
+      "title": "Health Check / Pre-Scan (INCLUDED in 0.5m)",
+      "icon": "Scan",
+      "items": [
+        {
+          "id": "step-7",
+          "text": "Perform health check and document all DTCs",
+          "required": true
+        },
+        {
+          "id": "step-8",
+          "text": "Document freeze frame data (FFD), time stamp data, key cycle (when applicable)",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "access-additional",
+      "title": "Access / R&I (NOT INCLUDED - Bill Separately)",
+      "icon": "Remove",
+      "items": [
+        {
+          "id": "step-4",
+          "text": "Remove components to access battery for battery support hookup",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "verification-specs",
+      "title": "System Verification (NOT INCLUDED - Bill Separately)",
+      "icon": "Verify",
+      "items": [
+        {
+          "id": "step-9",
+          "text": "Check Live Data (when applicable)",
+          "required": false
+        },
+        {
+          "id": "step-10",
+          "text": "Verify horizontal & vertical axis values - front radar, BSM, forward camera",
+          "required": false
+        },
+        {
+          "id": "step-11",
+          "text": "Verify steering angle specifications",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "dtc-research",
+      "title": "DTC Research (NOT INCLUDED - Bill Separately)",
+      "icon": "Research",
+      "items": [
+        {
+          "id": "step-12",
+          "text": "Research individual DTCs in OEM research platform",
+          "required": false
+        },
+        {
+          "id": "step-13",
+          "text": "Navigate OEM repair procedures & flow charts (Guided Fault Finding)",
+          "required": false
+        },
+        {
+          "id": "step-14",
+          "text": "Problem solve at vehicle - check live data to determine if DTC currently present",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "repair-scan",
+      "title": "Repair & In-Process (NOT INCLUDED)",
+      "icon": "Repair",
+      "items": [
+        {
+          "id": "step-15",
+          "text": "Repair the vehicle (per repair procedures)",
+          "required": false
+        },
+        {
+          "id": "step-16",
+          "text": "Perform in-process scan",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "calibrations",
+      "title": "Calibrations & Resets (NOT INCLUDED - Bill Each)",
+      "icon": "Calibrate",
+      "items": [
+        {
+          "id": "step-17a",
+          "text": "Seat calibrations",
+          "required": false
+        },
+        {
+          "id": "step-17b",
+          "text": "ADAS calibrations (static/dynamic)",
+          "required": false
+        },
+        {
+          "id": "step-17c",
+          "text": "Headlamp calibration",
+          "required": false
+        },
+        {
+          "id": "step-17d",
+          "text": "Bluetooth pairing/reset",
+          "required": false
+        },
+        {
+          "id": "step-17e",
+          "text": "Lift gate initialization",
+          "required": false
+        },
+        {
+          "id": "step-17f",
+          "text": "Camera calibrations",
+          "required": false
+        },
+        {
+          "id": "step-17g",
+          "text": "Blind spot monitor calibrations",
+          "required": false
+        },
+        {
+          "id": "step-17h",
+          "text": "Module reprogramming",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "test-drive",
+      "title": "Test Drive / Drive Cycle (NOT INCLUDED)",
+      "icon": "Drive",
+      "items": [
+        {
+          "id": "step-18",
+          "text": "Test drive / action test / drive cycle - achieve set conditions (speed, distance, time, pattern)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "post-scan",
+      "title": "Post-Repair Scan (NOT INCLUDED - Bill Separately)",
+      "icon": "PostScan",
+      "items": [
+        {
+          "id": "step-19",
+          "text": "Re-scan (Post repair scan) - ensure DTCs did not reappear",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "cleanup",
+      "title": "Cleanup",
+      "icon": "Complete",
+      "items": [
+        {
+          "id": "step-20",
+          "text": "Properly put away tooling after diagnostic research & scanning",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

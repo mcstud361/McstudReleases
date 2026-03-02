@@ -1,0 +1,5564 @@
+{
+  "input_controls": [
+    {
+      "sheet": "SOP List",
+      "cell": "A35",
+      "type": "dropdown",
+      "options": "Gas, Hybrid, EV",
+      "current_value": "Gas",
+      "ui_label": "SOP List_A35"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "C29",
+      "type": "dropdown",
+      "options": "Yes,No",
+      "current_value": "Yes",
+      "ui_label": "SOP List_C29"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A29",
+      "type": "dropdown",
+      "options": "Single,Dual",
+      "current_value": "Single",
+      "ui_label": "SOP List_A29"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A79",
+      "type": "dropdown",
+      "options": "Dollar Amount, Labor Unit, Tesla",
+      "current_value": "Dollar Amount",
+      "ui_label": "SOP List_A79"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SOP List_A31"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "B83",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SOP List_B83"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A87",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SOP List_A87"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "B87",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SOP List_B87"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A81",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SOP List_A81"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A129",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SOP List_A129"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "B81",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SOP List_B81"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "B85",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SOP List_B85"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SOP List_A33"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "C129",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "SOP List_C129"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "D129",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "SOP List_D129"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "A133",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SOP List_A133"
+    },
+    {
+      "sheet": "SOP List",
+      "cell": "B79",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SOP List_B79"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A33",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel",
+      "current_value": "Additional Panel",
+      "ui_label": "Part Operations_A33"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A83",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel",
+      "current_value": "First Panel",
+      "ui_label": "Part Operations_A83"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A183",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel",
+      "current_value": "First Panel",
+      "ui_label": "Part Operations_A183"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A133",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel",
+      "current_value": "Additional Panel",
+      "ui_label": "Part Operations_A133"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A437",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_A437"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B437",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_B437"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A35",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_A35"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C233",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C233"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C91",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C91"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B335",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_B335"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D240",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D240"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D38",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_D38"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C237",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C237"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C37",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C37"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D290",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D290"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C87",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C87"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D88",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D88"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C391",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_C391"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B433",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_B433"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B287",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_B287"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C287",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C287"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D138",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D138"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B439",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_B439"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D90",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D90"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D388",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D388"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B435",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_B435"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C485",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C485"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A285",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_A285"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B285",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_B285"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D140",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_D140"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B333",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_B333"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C333",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_C333"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D40",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D40"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E337",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_E337"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D338",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D338"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B385",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_B385"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A237",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_A237"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B283",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_B283"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C283",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C283"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A187",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_A187"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E333",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_E333"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A485",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_A485"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D390",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D390"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D340",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D340"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C137",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_C137"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D288",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D288"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E137",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_E137"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C41",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C41"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A337",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_A337"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B337",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_B337"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C337",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_C337"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B83",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_B83"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C83",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C83"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A387",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_A387"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B387",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_B387"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C387",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C387"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A487",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_A487"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C291",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_C291"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B483",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_B483"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C483",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C483"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D483",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D483"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_B33"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_C33"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C139",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C139"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B133",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_B133"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C133",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C133"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D238",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_D238"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A235",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_A235"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B383",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_B383"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C383",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Part Operations_C383"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E133",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_E133"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A85",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_A85"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A185",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Part Operations_A185"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C241",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Part Operations_C241"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B85",
+      "type": "dropdown",
+      "options": "First Large Part, Additional Large Part, Additional Small Part",
+      "current_value": "First Large Part",
+      "ui_label": "Part Operations_B85"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B35",
+      "type": "dropdown",
+      "options": "First Large Part, Additional Large Part, Additional Small Part",
+      "current_value": "First Large Part",
+      "ui_label": "Part Operations_B35"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B135",
+      "type": "dropdown",
+      "options": "First Large Part, Additional Large Part, Additional Small Part",
+      "current_value": "Additional Large Part",
+      "ui_label": "Part Operations_B135"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C35",
+      "type": "dropdown",
+      "options": "Equipped, Not Equipped",
+      "current_value": "Not Equipped",
+      "ui_label": "Part Operations_C35"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C285",
+      "type": "dropdown",
+      "options": "Equipped, Not Equipped",
+      "current_value": "",
+      "ui_label": "Part Operations_C285"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C135",
+      "type": "dropdown",
+      "options": "Equipped, Not Equipped",
+      "current_value": "Not Equipped",
+      "ui_label": "Part Operations_C135"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C385",
+      "type": "dropdown",
+      "options": "Equipped, Not Equipped",
+      "current_value": "Not Equipped",
+      "ui_label": "Part Operations_C385"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C235",
+      "type": "dropdown",
+      "options": "Equipped, Not Equipped",
+      "current_value": "Not Equipped",
+      "ui_label": "Part Operations_C235"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C85",
+      "type": "dropdown",
+      "options": "Equipped, Not Equipped",
+      "current_value": "Not Equipped",
+      "ui_label": "Part Operations_C85"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "C335",
+      "type": "dropdown",
+      "options": "Equipped, Not Equipped",
+      "current_value": "Not Equipped",
+      "ui_label": "Part Operations_C335"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D333",
+      "type": "dropdown",
+      "options": "Punch Holes",
+      "current_value": "",
+      "ui_label": "Part Operations_D333"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D83",
+      "type": "dropdown",
+      "options": "Punch Holes",
+      "current_value": "",
+      "ui_label": "Part Operations_D83"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D33",
+      "type": "dropdown",
+      "options": "Punch Holes",
+      "current_value": "",
+      "ui_label": "Part Operations_D33"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D283",
+      "type": "dropdown",
+      "options": "Punch Holes",
+      "current_value": "",
+      "ui_label": "Part Operations_D283"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D133",
+      "type": "dropdown",
+      "options": "Punch Holes",
+      "current_value": "",
+      "ui_label": "Part Operations_D133"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D383",
+      "type": "dropdown",
+      "options": "Punch Holes",
+      "current_value": "",
+      "ui_label": "Part Operations_D383"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D233",
+      "type": "dropdown",
+      "options": "Punch Holes",
+      "current_value": "",
+      "ui_label": "Part Operations_D233"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D234",
+      "type": "dropdown",
+      "options": "Install Brackets",
+      "current_value": "",
+      "ui_label": "Part Operations_D234"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D284",
+      "type": "dropdown",
+      "options": "Install Brackets",
+      "current_value": "",
+      "ui_label": "Part Operations_D284"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D134",
+      "type": "dropdown",
+      "options": "Install Brackets",
+      "current_value": "",
+      "ui_label": "Part Operations_D134"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D384",
+      "type": "dropdown",
+      "options": "Install Brackets",
+      "current_value": "",
+      "ui_label": "Part Operations_D384"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D34",
+      "type": "dropdown",
+      "options": "Install Brackets",
+      "current_value": "",
+      "ui_label": "Part Operations_D34"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D84",
+      "type": "dropdown",
+      "options": "Install Brackets",
+      "current_value": "",
+      "ui_label": "Part Operations_D84"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "D334",
+      "type": "dropdown",
+      "options": "Install Brackets",
+      "current_value": "",
+      "ui_label": "Part Operations_D334"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A333",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel, First Panel Facing Sky",
+      "current_value": "First Panel Facing Sky",
+      "ui_label": "Part Operations_A333"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A383",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel, First Panel Facing Sky",
+      "current_value": "First Panel",
+      "ui_label": "Part Operations_A383"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A233",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel, First Panel Facing Sky",
+      "current_value": "Additional Panel",
+      "ui_label": "Part Operations_A233"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A283",
+      "type": "dropdown",
+      "options": "First Panel, Additional Panel, First Panel Facing Sky",
+      "current_value": "Additional Panel",
+      "ui_label": "Part Operations_A283"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E283",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E283"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E243",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E243"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E233",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E233"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E238",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E238"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B233",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B233"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E483",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E483"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E297",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E297"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B389",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B389"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E33",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E33"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E344",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E344"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B292",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B292"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E247",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E247"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E83",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E83"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B236",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B236"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E293",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E293"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E88",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E88"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E38",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E38"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E383",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E383"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E288",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E288"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B392",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B392"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B342",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B342"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B289",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B289"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E388",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E388"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E397",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E397"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B339",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_B339"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E393",
+      "type": "dropdown",
+      "options": "Remove",
+      "current_value": "",
+      "ui_label": "Part Operations_E393"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B343",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B343"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E234",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E234"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B390",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B390"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B290",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B290"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E34",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E34"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E244",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E244"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B237",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B237"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E341",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E341"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E394",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E394"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E294",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E294"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B234",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B234"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B293",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B293"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E384",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E384"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E284",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E284"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B393",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B393"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "B340",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_B340"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E84",
+      "type": "dropdown",
+      "options": "Apply",
+      "current_value": "",
+      "ui_label": "Part Operations_E84"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E39",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E39"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E298",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E298"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E484",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E484"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E289",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E289"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E89",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E89"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E248",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E248"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E389",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E389"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E398",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E398"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E345",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E345"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E239",
+      "type": "dropdown",
+      "options": "Install",
+      "current_value": "",
+      "ui_label": "Part Operations_E239"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E245",
+      "type": "dropdown",
+      "options": "Dual Pinstripes",
+      "current_value": "",
+      "ui_label": "Part Operations_E245"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E342",
+      "type": "dropdown",
+      "options": "Dual Pinstripes",
+      "current_value": "",
+      "ui_label": "Part Operations_E342"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E295",
+      "type": "dropdown",
+      "options": "Dual Pinstripes",
+      "current_value": "",
+      "ui_label": "Part Operations_E295"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "E395",
+      "type": "dropdown",
+      "options": "Dual Pinstripes",
+      "current_value": "",
+      "ui_label": "Part Operations_E395"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A483",
+      "type": "dropdown",
+      "options": "Large, Small",
+      "current_value": "Large",
+      "ui_label": "Part Operations_A483"
+    },
+    {
+      "sheet": "Part Operations",
+      "cell": "A433",
+      "type": "dropdown",
+      "options": "Large, Small",
+      "current_value": "Large",
+      "ui_label": "Part Operations_A433"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "C32",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Cover Car Operations_C32"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "A29",
+      "type": "dropdown",
+      "options": "Gas, EV",
+      "current_value": "EV",
+      "ui_label": "Cover Car Operations_A29"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "B29",
+      "type": "dropdown",
+      "options": "Front",
+      "current_value": "Front",
+      "ui_label": "Cover Car Operations_B29"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "B30",
+      "type": "dropdown",
+      "options": "Side",
+      "current_value": "Side",
+      "ui_label": "Cover Car Operations_B30"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "B31",
+      "type": "dropdown",
+      "options": "Rear",
+      "current_value": "Rear",
+      "ui_label": "Cover Car Operations_B31"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "C29",
+      "type": "dropdown",
+      "options": "Refinish",
+      "current_value": "Refinish",
+      "ui_label": "Cover Car Operations_C29"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "C30",
+      "type": "dropdown",
+      "options": "Repair",
+      "current_value": "Repair",
+      "ui_label": "Cover Car Operations_C30"
+    },
+    {
+      "sheet": "Cover Car Operations",
+      "cell": "D29",
+      "type": "dropdown",
+      "options": "$ and Body Labor, Refinish Labor",
+      "current_value": "Refinish Labor",
+      "ui_label": "Cover Car Operations_D29"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "A79",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body Operations_A79"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D79",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body Operations_D79"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "A31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_A31"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "B31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body Operations_B31"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "C31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Body Operations_C31"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D91",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_D91"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "A81",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_A81"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "A29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_A29"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "B29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body Operations_B29"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "C29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body Operations_C29"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body Operations_D29"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "A33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_A33"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "B33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_B33"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "C33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Body Operations_C33"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Body Operations_D33"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D38",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_D38"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D89",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body Operations_D89"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "B35",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body Operations_B35"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "C35",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Body Operations_C35"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D35",
+      "type": "dropdown",
+      "options": "Dent Puller",
+      "current_value": "",
+      "ui_label": "Body Operations_D35"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D36",
+      "type": "dropdown",
+      "options": "Glue Puller",
+      "current_value": "",
+      "ui_label": "Body Operations_D36"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D81",
+      "type": "dropdown",
+      "options": "Pre",
+      "current_value": "Pre",
+      "ui_label": "Body Operations_D81"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D82",
+      "type": "dropdown",
+      "options": "In-Process",
+      "current_value": "In-Process",
+      "ui_label": "Body Operations_D82"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D83",
+      "type": "dropdown",
+      "options": "Post",
+      "current_value": "Post",
+      "ui_label": "Body Operations_D83"
+    },
+    {
+      "sheet": "Body Operations",
+      "cell": "D87",
+      "type": "dropdown",
+      "options": "Pinch Welds, Truck Clamps",
+      "current_value": "Pinch Welds",
+      "ui_label": "Body Operations_D87"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "B35",
+      "type": "dropdown",
+      "options": "2-Stage, 3-Stage, 4-Stage",
+      "current_value": "2-Stage",
+      "ui_label": "Refinish Operations_B35"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "B43",
+      "type": "dropdown",
+      "options": "2-Stage, 3-Stage, 4-Stage",
+      "current_value": "3-Stage",
+      "ui_label": "Refinish Operations_B43"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "A29",
+      "type": "dropdown",
+      "options": "2-Stage, 3-Stage, 4-Stage",
+      "current_value": "2-Stage",
+      "ui_label": "Refinish Operations_A29"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "B39",
+      "type": "dropdown",
+      "options": "2-Stage, 3-Stage, 4-Stage",
+      "current_value": "3-Stage",
+      "ui_label": "Refinish Operations_B39"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "B31",
+      "type": "dropdown",
+      "options": "2-Stage, 3-Stage, 4-Stage",
+      "current_value": "2-Stage",
+      "ui_label": "Refinish Operations_B31"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "D31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Refinish Operations_D31"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "A31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Refinish Operations_A31"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "C29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Refinish Operations_C29"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "D29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Refinish Operations_D29"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "D33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Refinish Operations_D33"
+    },
+    {
+      "sheet": "Refinish Operations",
+      "cell": "A33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Refinish Operations_A33"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A29",
+      "type": "dropdown",
+      "options": "R134a, R1234yf, R744",
+      "current_value": "R1234yf",
+      "ui_label": "Mechanical Operations_A29"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C179",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_C179"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "D179",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_D179"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A140",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A140"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_B31"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_C31"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B79",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Mechanical Operations_B79"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A133",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A133"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B133",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_B133"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A131",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Mechanical Operations_A131"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B131",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_B131"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C131",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_C131"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B81",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Mechanical Operations_B81"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A191",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A191"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A142",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A142"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C185",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Mechanical Operations_C185"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Mechanical Operations_B29"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_C29"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "D183",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_D183"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A187",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A187"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A135",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A135"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B135",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_B135"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C181",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_C181"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "D181",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Mechanical Operations_D181"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A189",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A189"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_B33"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_C33"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A129",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A129"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "B129",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_B129"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "C129",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_C129"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "D129",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_D129"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A185",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Mechanical Operations_A185"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A137",
+      "type": "dropdown",
+      "options": "Measure",
+      "current_value": "",
+      "ui_label": "Mechanical Operations_A137"
+    },
+    {
+      "sheet": "Mechanical Operations",
+      "cell": "A138",
+      "type": "dropdown",
+      "options": "Calibrate",
+      "current_value": "",
+      "ui_label": "Mechanical Operations_A138"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A79",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SRS Operations_A79"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SRS Operations_A31"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A35",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SRS Operations_A35"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A83",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SRS Operations_A83"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SRS Operations_A29"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A87",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SRS Operations_A87"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A81",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "SRS Operations_A81"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A85",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SRS Operations_A85"
+    },
+    {
+      "sheet": "SRS Operations",
+      "cell": "A33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "SRS Operations_A33"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "D29",
+      "type": "dropdown",
+      "options": "Inside, Outside, Upstairs",
+      "current_value": "Outside",
+      "ui_label": "Total Loss Charges_D29"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "D34",
+      "type": "dropdown",
+      "options": "Inside, Outside, Upstairs",
+      "current_value": "",
+      "ui_label": "Total Loss Charges_D34"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "D39",
+      "type": "dropdown",
+      "options": "Inside, Outside, Upstairs",
+      "current_value": "",
+      "ui_label": "Total Loss Charges_D39"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "C31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Total Loss Charges_C31"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "B35",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Total Loss Charges_B35"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "B43",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Total Loss Charges_B43"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "B39",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Total Loss Charges_B39"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "B31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Total Loss Charges_B31"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "B41",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "",
+      "ui_label": "Total Loss Charges_B41"
+    },
+    {
+      "sheet": "Total Loss Charges",
+      "cell": "B45",
+      "type": "dropdown",
+      "options": "2-Stage, 3-Stage, 4-Stage",
+      "current_value": "",
+      "ui_label": "Total Loss Charges_B45"
+    },
+    {
+      "sheet": "Body On Frame",
+      "cell": "A33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Body On Frame_A33"
+    },
+    {
+      "sheet": "Body On Frame",
+      "cell": "A31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body On Frame_A31"
+    },
+    {
+      "sheet": "Body On Frame",
+      "cell": "B31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body On Frame_B31"
+    },
+    {
+      "sheet": "Body On Frame",
+      "cell": "B29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Body On Frame_B29"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "A33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _A33"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "B33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _B33"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "C33",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Stolen Recovery _C33"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "B29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _B29"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "C29",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Stolen Recovery _C29"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "A31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _A31"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "B31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _B31"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "C31",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "Yes",
+      "ui_label": "Stolen Recovery _C31"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "A43",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _A43"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "A41",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _A41"
+    },
+    {
+      "sheet": "Stolen Recovery ",
+      "cell": "A37",
+      "type": "dropdown",
+      "options": "Yes, No",
+      "current_value": "No",
+      "ui_label": "Stolen Recovery _A37"
+    }
+  ],
+  "calculated_outputs": [],
+  "operation_rows": {},
+  "sheet_summaries": {
+    "SOP List": {
+      "name": "SOP List",
+      "dropdowns": [
+        {
+          "sheet": "SOP List",
+          "cell": "A35",
+          "type": "dropdown",
+          "options": "Gas, Hybrid, EV",
+          "current_value": "Gas",
+          "ui_label": "SOP List_A35"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "C29",
+          "type": "dropdown",
+          "options": "Yes,No",
+          "current_value": "Yes",
+          "ui_label": "SOP List_C29"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A29",
+          "type": "dropdown",
+          "options": "Single,Dual",
+          "current_value": "Single",
+          "ui_label": "SOP List_A29"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A79",
+          "type": "dropdown",
+          "options": "Dollar Amount, Labor Unit, Tesla",
+          "current_value": "Dollar Amount",
+          "ui_label": "SOP List_A79"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SOP List_A31"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "B83",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SOP List_B83"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A87",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SOP List_A87"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "B87",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SOP List_B87"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A81",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SOP List_A81"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A129",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SOP List_A129"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "B81",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SOP List_B81"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "B85",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SOP List_B85"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SOP List_A33"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "C129",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "SOP List_C129"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "D129",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "SOP List_D129"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "A133",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SOP List_A133"
+        },
+        {
+          "sheet": "SOP List",
+          "cell": "B79",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SOP List_B79"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "O76",
+          "formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M79",
+          "formula": "=IF(\n  A79=\"Dollar Amount\",\n  \"Replace\",\n  IF(\n    OR(A79=\"Labor Unit\", A79=\"Tesla\"),\n    \"Rpr\",\n    \"\"\n  )\n)",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "O79",
+          "formula": "=IF(OR(A79=\"Dollar Amount\", A79=\"Labor Unit\"), \"Pre-Scan\", IF(A79=\"Tesla\", \"Trim to Access Scanner\", \"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "R79",
+          "formula": "=IF(A79=\"Dollar Amount\", 150, IF(OR(A79=\"Labor Unit\", A79=\"Tesla\"), 0, \"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "V79",
+          "formula": "=IF(A79=\"Dollar Amount\", 0, IF(A79=\"Labor Unit\", 1, IF(A79=\"Tesla\", 0.2, \"\")))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M80",
+          "formula": "=IF(\n  A79=\"Dollar Amount\",\n  \"Replace\",\n  IF(\n    OR(A79=\"Labor Unit\", A79=\"Tesla\"),\n    \"Rpr\",\n    \"\"\n  )\n)",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "O80",
+          "formula": "=IF(OR(A79=\"Dollar Amount\", A79=\"Labor Unit\"), \"In-Process Scan\", IF(A79=\"Tesla\", \"Tesla Toolbox Scan\", \"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "R80",
+          "formula": "=IF(A79=\"Dollar Amount\", 150, IF(OR(A79=\"Labor Unit\", A79=\"Tesla\"), 0, \"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "V80",
+          "formula": "=IF(A79=\"Dollar Amount\", 0, IF(A79=\"Labor Unit\", 1, IF(A79=\"Tesla\", 1, \"\")))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M81",
+          "formula": "=IF(\n  A79=\"Dollar Amount\",\n  \"Replace\",\n  IF(\n    OR(A79=\"Labor Unit\", A79=\"Tesla\"),\n    \"Rpr\",\n    \"\"\n  )\n)",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "O81",
+          "formula": "=IF(OR(A79=\"Dollar Amount\", A79=\"Labor Unit\"), \"Post Scan\", IF(A79=\"Tesla\", \"Tesla Software Script Programming\", \"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "R81",
+          "formula": "=IF(A79=\"Dollar Amount\", 150, IF(OR(A79=\"Labor Unit\", A79=\"Tesla\"), 0, \"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "V81",
+          "formula": "=IF(A79=\"Dollar Amount\", 0, IF(A79=\"Labor Unit\", 1, IF(A79=\"Tesla\", 0, \"\")))",
+          "purpose": "summary_output"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Part Operations": {
+      "name": "Part Operations",
+      "dropdowns": [
+        {
+          "sheet": "Part Operations",
+          "cell": "A33",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel",
+          "current_value": "Additional Panel",
+          "ui_label": "Part Operations_A33"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A83",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel",
+          "current_value": "First Panel",
+          "ui_label": "Part Operations_A83"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A183",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel",
+          "current_value": "First Panel",
+          "ui_label": "Part Operations_A183"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A133",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel",
+          "current_value": "Additional Panel",
+          "ui_label": "Part Operations_A133"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A437",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_A437"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B437",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_B437"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A35",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_A35"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C233",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C233"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C91",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C91"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B335",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_B335"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D240",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D240"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D38",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_D38"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C237",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C237"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C37",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C37"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D290",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D290"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C87",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C87"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D88",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D88"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C391",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_C391"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B433",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_B433"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B287",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_B287"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C287",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C287"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D138",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D138"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B439",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_B439"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D90",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D90"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D388",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D388"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B435",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_B435"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C485",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C485"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A285",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_A285"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B285",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_B285"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D140",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_D140"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B333",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_B333"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C333",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_C333"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D40",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D40"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E337",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_E337"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D338",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D338"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B385",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_B385"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A237",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_A237"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B283",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_B283"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C283",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C283"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A187",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_A187"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E333",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_E333"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A485",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_A485"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D390",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D390"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D340",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D340"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C137",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_C137"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D288",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D288"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E137",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_E137"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C41",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C41"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A337",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_A337"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B337",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_B337"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C337",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_C337"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B83",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_B83"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C83",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C83"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A387",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_A387"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B387",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_B387"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C387",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C387"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A487",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_A487"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C291",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_C291"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B483",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_B483"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C483",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C483"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D483",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D483"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_B33"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_C33"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C139",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C139"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B133",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_B133"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C133",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C133"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D238",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_D238"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A235",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_A235"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B383",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_B383"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C383",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Part Operations_C383"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E133",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_E133"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A85",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_A85"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A185",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Part Operations_A185"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C241",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Part Operations_C241"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B85",
+          "type": "dropdown",
+          "options": "First Large Part, Additional Large Part, Additional Small Part",
+          "current_value": "First Large Part",
+          "ui_label": "Part Operations_B85"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B35",
+          "type": "dropdown",
+          "options": "First Large Part, Additional Large Part, Additional Small Part",
+          "current_value": "First Large Part",
+          "ui_label": "Part Operations_B35"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B135",
+          "type": "dropdown",
+          "options": "First Large Part, Additional Large Part, Additional Small Part",
+          "current_value": "Additional Large Part",
+          "ui_label": "Part Operations_B135"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C35",
+          "type": "dropdown",
+          "options": "Equipped, Not Equipped",
+          "current_value": "Not Equipped",
+          "ui_label": "Part Operations_C35"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C285",
+          "type": "dropdown",
+          "options": "Equipped, Not Equipped",
+          "current_value": "",
+          "ui_label": "Part Operations_C285"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C135",
+          "type": "dropdown",
+          "options": "Equipped, Not Equipped",
+          "current_value": "Not Equipped",
+          "ui_label": "Part Operations_C135"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C385",
+          "type": "dropdown",
+          "options": "Equipped, Not Equipped",
+          "current_value": "Not Equipped",
+          "ui_label": "Part Operations_C385"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C235",
+          "type": "dropdown",
+          "options": "Equipped, Not Equipped",
+          "current_value": "Not Equipped",
+          "ui_label": "Part Operations_C235"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C85",
+          "type": "dropdown",
+          "options": "Equipped, Not Equipped",
+          "current_value": "Not Equipped",
+          "ui_label": "Part Operations_C85"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "C335",
+          "type": "dropdown",
+          "options": "Equipped, Not Equipped",
+          "current_value": "Not Equipped",
+          "ui_label": "Part Operations_C335"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D333",
+          "type": "dropdown",
+          "options": "Punch Holes",
+          "current_value": "",
+          "ui_label": "Part Operations_D333"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D83",
+          "type": "dropdown",
+          "options": "Punch Holes",
+          "current_value": "",
+          "ui_label": "Part Operations_D83"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D33",
+          "type": "dropdown",
+          "options": "Punch Holes",
+          "current_value": "",
+          "ui_label": "Part Operations_D33"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D283",
+          "type": "dropdown",
+          "options": "Punch Holes",
+          "current_value": "",
+          "ui_label": "Part Operations_D283"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D133",
+          "type": "dropdown",
+          "options": "Punch Holes",
+          "current_value": "",
+          "ui_label": "Part Operations_D133"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D383",
+          "type": "dropdown",
+          "options": "Punch Holes",
+          "current_value": "",
+          "ui_label": "Part Operations_D383"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D233",
+          "type": "dropdown",
+          "options": "Punch Holes",
+          "current_value": "",
+          "ui_label": "Part Operations_D233"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D234",
+          "type": "dropdown",
+          "options": "Install Brackets",
+          "current_value": "",
+          "ui_label": "Part Operations_D234"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D284",
+          "type": "dropdown",
+          "options": "Install Brackets",
+          "current_value": "",
+          "ui_label": "Part Operations_D284"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D134",
+          "type": "dropdown",
+          "options": "Install Brackets",
+          "current_value": "",
+          "ui_label": "Part Operations_D134"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D384",
+          "type": "dropdown",
+          "options": "Install Brackets",
+          "current_value": "",
+          "ui_label": "Part Operations_D384"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D34",
+          "type": "dropdown",
+          "options": "Install Brackets",
+          "current_value": "",
+          "ui_label": "Part Operations_D34"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D84",
+          "type": "dropdown",
+          "options": "Install Brackets",
+          "current_value": "",
+          "ui_label": "Part Operations_D84"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "D334",
+          "type": "dropdown",
+          "options": "Install Brackets",
+          "current_value": "",
+          "ui_label": "Part Operations_D334"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A333",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel, First Panel Facing Sky",
+          "current_value": "First Panel Facing Sky",
+          "ui_label": "Part Operations_A333"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A383",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel, First Panel Facing Sky",
+          "current_value": "First Panel",
+          "ui_label": "Part Operations_A383"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A233",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel, First Panel Facing Sky",
+          "current_value": "Additional Panel",
+          "ui_label": "Part Operations_A233"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A283",
+          "type": "dropdown",
+          "options": "First Panel, Additional Panel, First Panel Facing Sky",
+          "current_value": "Additional Panel",
+          "ui_label": "Part Operations_A283"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E283",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E283"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E243",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E243"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E233",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E233"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E238",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E238"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B233",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B233"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E483",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E483"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E297",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E297"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B389",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B389"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E33",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E33"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E344",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E344"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B292",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B292"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E247",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E247"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E83",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E83"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B236",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B236"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E293",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E293"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E88",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E88"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E38",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E38"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E383",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E383"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E288",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E288"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B392",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B392"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B342",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B342"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B289",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B289"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E388",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E388"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E397",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E397"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B339",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_B339"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E393",
+          "type": "dropdown",
+          "options": "Remove",
+          "current_value": "",
+          "ui_label": "Part Operations_E393"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B343",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B343"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E234",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E234"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B390",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B390"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B290",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B290"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E34",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E34"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E244",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E244"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B237",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B237"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E341",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E341"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E394",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E394"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E294",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E294"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B234",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B234"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B293",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B293"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E384",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E384"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E284",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E284"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B393",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B393"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "B340",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_B340"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E84",
+          "type": "dropdown",
+          "options": "Apply",
+          "current_value": "",
+          "ui_label": "Part Operations_E84"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E39",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E39"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E298",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E298"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E484",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E484"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E289",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E289"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E89",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E89"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E248",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E248"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E389",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E389"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E398",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E398"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E345",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E345"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E239",
+          "type": "dropdown",
+          "options": "Install",
+          "current_value": "",
+          "ui_label": "Part Operations_E239"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E245",
+          "type": "dropdown",
+          "options": "Dual Pinstripes",
+          "current_value": "",
+          "ui_label": "Part Operations_E245"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E342",
+          "type": "dropdown",
+          "options": "Dual Pinstripes",
+          "current_value": "",
+          "ui_label": "Part Operations_E342"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E295",
+          "type": "dropdown",
+          "options": "Dual Pinstripes",
+          "current_value": "",
+          "ui_label": "Part Operations_E295"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "E395",
+          "type": "dropdown",
+          "options": "Dual Pinstripes",
+          "current_value": "",
+          "ui_label": "Part Operations_E395"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A483",
+          "type": "dropdown",
+          "options": "Large, Small",
+          "current_value": "Large",
+          "ui_label": "Part Operations_A483"
+        },
+        {
+          "sheet": "Part Operations",
+          "cell": "A433",
+          "type": "dropdown",
+          "options": "Large, Small",
+          "current_value": "Large",
+          "ui_label": "Part Operations_A433"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O30",
+          "formula": "=\"📊 \" & Q31 & \" Ops  |  💲\" & R31 & \"  |  🛠 \" & V31 & \" Labor  |  🎨 \" & X31 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M33",
+          "formula": "=IF(B33=\"Yes\", \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B33=\"Yes\", \"Refinish\", \"\")",
+          "label_cell": "M33",
+          "value_cell": "N33",
+          "formula": "=IF(B33=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "M35",
+          "formula": "=IF(OR(B35=\"Additional Large Part\", B35=\"Additional Small Part\"), \"\", \"Refinish\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(OR(B35=\"Additional Large Part\", B35=\"Additional Small Part\"), \"\", \"Refinish\")",
+          "label_cell": "M35",
+          "value_cell": "N35",
+          "formula": "=IF(OR(B35=\"Additional Large Part\", B35=\"Additional Small Part\"), \"\", \"0\")"
+        },
+        {
+          "cell": "M38",
+          "formula": "=IF(A35=\"Yes\", \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(A35=\"Yes\", \"Refinish\", \"\")",
+          "label_cell": "M38",
+          "value_cell": "N38",
+          "formula": "=IF(A35=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "O38",
+          "formula": "=IF(A35=\"Yes\", B26 & \" Stage and Secure for Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(A35=\"Yes\", B26 & \" Stage and Secure for Refinish\", \"\")",
+          "label_cell": "O38",
+          "value_cell": "P38",
+          "formula": "=IF(A35=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "M40",
+          "formula": "=IF(C33=\"Yes\", \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(C33=\"Yes\", \"Refinish\", \"\")",
+          "label_cell": "M40",
+          "value_cell": "N40",
+          "formula": "=IF(C33=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "M46",
+          "formula": "=IF(D40=\"Yes\", \" Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(D40=\"Yes\", \" Refinish\", \"\")",
+          "label_cell": "M46",
+          "value_cell": "N46",
+          "formula": "=IF(D40=\"Yes\", \" 0\", \"\")"
+        },
+        {
+          "cell": "O80",
+          "formula": "=\"📊 \" & Q81 & \" Ops  |  💲\" & R81 & \"  |  🛠 \" & V81 & \" Labor  |  🎨 \" & X81 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M85",
+          "formula": "=IF(B83=\"Yes\", \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B83=\"Yes\", \"Refinish\", \"\")",
+          "label_cell": "M85",
+          "value_cell": "N85",
+          "formula": "=IF(B83=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "M87",
+          "formula": "=IF(OR(B85=\"Additional Large Part\", B85=\"Additional Small Part\"), \"\", \"Refinish\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(OR(B85=\"Additional Large Part\", B85=\"Additional Small Part\"), \"\", \"Refinish\")",
+          "label_cell": "M87",
+          "value_cell": "N87",
+          "formula": "=IF(OR(B85=\"Additional Large Part\", B85=\"Additional Small Part\"), \"\", \"0\")"
+        },
+        {
+          "cell": "M90",
+          "formula": "=IF(A85=\"Yes\", \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(A85=\"Yes\", \"Refinish\", \"\")",
+          "label_cell": "M90",
+          "value_cell": "N90",
+          "formula": "=IF(A85=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "O90",
+          "formula": "=IF(A85=\"Yes\", B76 & \" Stage and Secure for Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(A85=\"Yes\", B76 & \" Stage and Secure for Refinish\", \"\")",
+          "label_cell": "O90",
+          "value_cell": "P90",
+          "formula": "=IF(A85=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "M92",
+          "formula": "=IF(C83=\"Yes\", \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(C83=\"Yes\", \"Refinish\", \"\")",
+          "label_cell": "M92",
+          "value_cell": "N92",
+          "formula": "=IF(C83=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "M98",
+          "formula": "=IF(D90=\"Yes\", \" Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(D90=\"Yes\", \" Refinish\", \"\")",
+          "label_cell": "M98",
+          "value_cell": "N98",
+          "formula": "=IF(D90=\"Yes\", \" 0\", \"\")"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Cover Car Operations": {
+      "name": "Cover Car Operations",
+      "dropdowns": [
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "C32",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Cover Car Operations_C32"
+        },
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "A29",
+          "type": "dropdown",
+          "options": "Gas, EV",
+          "current_value": "EV",
+          "ui_label": "Cover Car Operations_A29"
+        },
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "B29",
+          "type": "dropdown",
+          "options": "Front",
+          "current_value": "Front",
+          "ui_label": "Cover Car Operations_B29"
+        },
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "B30",
+          "type": "dropdown",
+          "options": "Side",
+          "current_value": "Side",
+          "ui_label": "Cover Car Operations_B30"
+        },
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "B31",
+          "type": "dropdown",
+          "options": "Rear",
+          "current_value": "Rear",
+          "ui_label": "Cover Car Operations_B31"
+        },
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "C29",
+          "type": "dropdown",
+          "options": "Refinish",
+          "current_value": "Refinish",
+          "ui_label": "Cover Car Operations_C29"
+        },
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "C30",
+          "type": "dropdown",
+          "options": "Repair",
+          "current_value": "Repair",
+          "ui_label": "Cover Car Operations_C30"
+        },
+        {
+          "sheet": "Cover Car Operations",
+          "cell": "D29",
+          "type": "dropdown",
+          "options": "$ and Body Labor, Refinish Labor",
+          "current_value": "Refinish Labor",
+          "ui_label": "Cover Car Operations_D29"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M29",
+          "formula": "=IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "R29",
+          "formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "V29",
+          "formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "X29",
+          "formula": "=IF(D29=\"$ and Body Labor\",0,\n   IF(D29=\"Refinish Labor\",IF(C32=\"Yes\",0.4,0.2),\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M30",
+          "formula": "=IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "R30",
+          "formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "V30",
+          "formula": "=IF(D29=\"Refinish Labor\",0,\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.6,0.3),\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "X30",
+          "formula": "=IF(D29=\"$ and Body Labor\",0,\n   IF(D29=\"Refinish Labor\",IF(C32=\"Yes\",0.6,0.3),\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M31",
+          "formula": "=IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "R31",
+          "formula": "=IF(D29=\"Refinish Labor\",0,IF(D29=\"$ and Body Labor\",5,\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "V31",
+          "formula": "=IF(D29=\"Refinish Labor\",0,IF(D29=\"$ and Body Labor\",0.5,\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "X31",
+          "formula": "=IF(D29=\"Refinish Labor\",0.5,IF(D29=\"$ and Body Labor\",0,\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M32",
+          "formula": "=IF(B29=\"Front\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29=\"Front\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "label_cell": "M32",
+          "value_cell": "N32",
+          "formula": "=IF(B29=\"Front\",\"0\",\"\")"
+        },
+        {
+          "cell": "R32",
+          "formula": "=IF(B29=\"Front\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29=\"Front\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "R32",
+          "value_cell": "S32",
+          "formula": "=IF(B29=\"Front\",\"0\",\"\")"
+        },
+        {
+          "cell": "V32",
+          "formula": "=IF(B29=\"Front\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29=\"Front\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "V32",
+          "value_cell": "W32",
+          "formula": "=IF(B29=\"Front\",\"0\",\"\")"
+        },
+        {
+          "cell": "X32",
+          "formula": "=IF(B29=\"Front\",\n   IF(D29=\"Refinish Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"$ and Body Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M33",
+          "formula": "=IF(B30=\"Side\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B30=\"Side\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "label_cell": "M33",
+          "value_cell": "N33",
+          "formula": "=IF(B30=\"Side\",\"0\",\"\")"
+        },
+        {
+          "cell": "O33",
+          "formula": "=IF(B30=\"Side\",\"Cover Interior and Jambs for Refinish\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B30=\"Side\",\"Cover Interior and Jambs for Refinish\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\"\")",
+          "label_cell": "O33",
+          "value_cell": "P33",
+          "formula": "=IF(B30=\"Side\",\"0\",\"\")"
+        },
+        {
+          "cell": "R33",
+          "formula": "=IF(B30=\"Side\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B30=\"Side\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "R33",
+          "value_cell": "S33",
+          "formula": "=IF(B30=\"Side\",\"0\",\"\")"
+        },
+        {
+          "cell": "V33",
+          "formula": "=IF(B30=\"Side\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B30=\"Side\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "V33",
+          "value_cell": "W33",
+          "formula": "=IF(B30=\"Side\",\"0\",\"\")"
+        },
+        {
+          "cell": "X33",
+          "formula": "=IF(B30=\"Side\",\n   IF(D29=\"Refinish Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"$ and Body Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M34",
+          "formula": "=IF(B31=\"Rear\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B31=\"Rear\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "label_cell": "M34",
+          "value_cell": "N34",
+          "formula": "=IF(B31=\"Rear\",\"0\",\"\")"
+        },
+        {
+          "cell": "O34",
+          "formula": "=IF(B31=\"Rear\",\"Cover Trunk Compartment for Refinish\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B31=\"Rear\",\"Cover Trunk Compartment for Refinish\" & IF(C32=\"Yes\",\" for Two Tone Paint\",\"\"),\"\")",
+          "label_cell": "O34",
+          "value_cell": "P34",
+          "formula": "=IF(B31=\"Rear\",\"0\",\"\")"
+        },
+        {
+          "cell": "R34",
+          "formula": "=IF(B31=\"Rear\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B31=\"Rear\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "R34",
+          "value_cell": "S34",
+          "formula": "=IF(B31=\"Rear\",\"0\",\"\")"
+        },
+        {
+          "cell": "V34",
+          "formula": "=IF(B31=\"Rear\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B31=\"Rear\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "V34",
+          "value_cell": "W34",
+          "formula": "=IF(B31=\"Rear\",\"0\",\"\")"
+        },
+        {
+          "cell": "X34",
+          "formula": "=IF(B31=\"Rear\",\n   IF(D29=\"Refinish Labor\",IF(C32=\"Yes\",0.4,0.2),\n   IF(D29=\"$ and Body Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M35",
+          "formula": "=IF(C30=\"Repair\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(C30=\"Repair\",IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\"\")",
+          "label_cell": "M35",
+          "value_cell": "N35",
+          "formula": "=IF(C30=\"Repair\",\"0\",\"\")"
+        },
+        {
+          "cell": "R35",
+          "formula": "=IF(C30=\"Repair\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(C30=\"Repair\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",10,5),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "R35",
+          "value_cell": "S35",
+          "formula": "=IF(C30=\"Repair\",\"0\",\"\")"
+        },
+        {
+          "cell": "V35",
+          "formula": "=IF(C30=\"Repair\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.6,0.3),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(C30=\"Repair\",\n   IF(D29=\"$ and Body Labor\",IF(C32=\"Yes\",0.6,0.3),\n   IF(D29=\"Refinish Labor\",0,\"\")),\n\"\")",
+          "label_cell": "V35",
+          "value_cell": "W35",
+          "formula": "=IF(C30=\"Repair\",\"0\",\"\")"
+        },
+        {
+          "cell": "X35",
+          "formula": "=IF(C30=\"Repair\",\n   IF(D29=\"Refinish Labor\",IF(C32=\"Yes\",0.6,0.3),\n   IF(D29=\"$ and Body Labor\",0,\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M36",
+          "formula": "=IF(AND(B30<>\"\",C30<>\"\",OR(B30=\"Side\",C30=\"Repair\")),\n   IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\n\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B30<>\"\",C30<>\"\",OR(B30=\"Side\",C30=\"Repair\")),\n   IF(D29=\"Refinish Labor\",\"Refinish\",IF(D29=\"$ and Body Labor\",\"Replace\",\"\")),\n\"\")",
+          "label_cell": "M36",
+          "value_cell": "N36",
+          "formula": "=IF(AND(B30=\"Side\",C30=\"Repair\"),\"0\",\"\")"
+        },
+        {
+          "cell": "R36",
+          "formula": "=IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"$ and Body Labor\"),\n      IF(C32=\"Yes\",10,5),\n   IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"Refinish Labor\"),0,\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"$ and Body Labor\"),\n      IF(C32=\"Yes\",10,5),\n   IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"Refinish Labor\"),0,\"\"))",
+          "label_cell": "R36",
+          "value_cell": "S36",
+          "formula": "=IF(AND(B30=\"Side\",C30=\"Repair\"),\"0\",\"\")"
+        },
+        {
+          "cell": "V36",
+          "formula": "=IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"$ and Body Labor\"),\n      IF(C32=\"Yes\",0.4,0.2),\n   IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"Refinish Labor\"),0,\"\"))",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"$ and Body Labor\"),\n      IF(C32=\"Yes\",0.4,0.2),\n   IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"Refinish Labor\"),0,\"\"))",
+          "label_cell": "V36",
+          "value_cell": "W36",
+          "formula": "=IF(AND(B30=\"Side\",C30=\"Repair\"),\"0\",\"\")"
+        },
+        {
+          "cell": "X36",
+          "formula": "=IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"Refinish Labor\"),\n      IF(C32=\"Yes\",0.4,0.2),\n   IF(AND(B30=\"Side\",C30=\"Repair\",D29=\"$ and Body Labor\"),0,\"\"))",
+          "purpose": "summary_output"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Body Operations": {
+      "name": "Body Operations",
+      "dropdowns": [
+        {
+          "sheet": "Body Operations",
+          "cell": "A79",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body Operations_A79"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D79",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body Operations_D79"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "A31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_A31"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "B31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body Operations_B31"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "C31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Body Operations_C31"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D91",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_D91"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "A81",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_A81"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "A29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_A29"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "B29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body Operations_B29"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "C29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body Operations_C29"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body Operations_D29"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "A33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_A33"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "B33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_B33"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "C33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Body Operations_C33"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Body Operations_D33"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D38",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_D38"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D89",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body Operations_D89"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "B35",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body Operations_B35"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "C35",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Body Operations_C35"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D35",
+          "type": "dropdown",
+          "options": "Dent Puller",
+          "current_value": "",
+          "ui_label": "Body Operations_D35"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D36",
+          "type": "dropdown",
+          "options": "Glue Puller",
+          "current_value": "",
+          "ui_label": "Body Operations_D36"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D81",
+          "type": "dropdown",
+          "options": "Pre",
+          "current_value": "Pre",
+          "ui_label": "Body Operations_D81"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D82",
+          "type": "dropdown",
+          "options": "In-Process",
+          "current_value": "In-Process",
+          "ui_label": "Body Operations_D82"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D83",
+          "type": "dropdown",
+          "options": "Post",
+          "current_value": "Post",
+          "ui_label": "Body Operations_D83"
+        },
+        {
+          "sheet": "Body Operations",
+          "cell": "D87",
+          "type": "dropdown",
+          "options": "Pinch Welds, Truck Clamps",
+          "current_value": "Pinch Welds",
+          "ui_label": "Body Operations_D87"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M35",
+          "formula": "=IF(B35=\"Yes\", \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B35=\"Yes\", \"Refinish\", \"\")",
+          "label_cell": "M35",
+          "value_cell": "N35",
+          "formula": "=IF(B35=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "O43",
+          "formula": "=IF(D29=\"Yes\", \"Welding Consumables\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(D29=\"Yes\", \"Welding Consumables\", \"\")",
+          "label_cell": "O43",
+          "value_cell": "P43",
+          "formula": "=IF(D29=\"Yes\", \"0\", \"\")"
+        },
+        {
+          "cell": "O76",
+          "formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+          "purpose": "summary_output"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Refinish Operations": {
+      "name": "Refinish Operations",
+      "dropdowns": [
+        {
+          "sheet": "Refinish Operations",
+          "cell": "B35",
+          "type": "dropdown",
+          "options": "2-Stage, 3-Stage, 4-Stage",
+          "current_value": "2-Stage",
+          "ui_label": "Refinish Operations_B35"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "B43",
+          "type": "dropdown",
+          "options": "2-Stage, 3-Stage, 4-Stage",
+          "current_value": "3-Stage",
+          "ui_label": "Refinish Operations_B43"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "A29",
+          "type": "dropdown",
+          "options": "2-Stage, 3-Stage, 4-Stage",
+          "current_value": "2-Stage",
+          "ui_label": "Refinish Operations_A29"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "B39",
+          "type": "dropdown",
+          "options": "2-Stage, 3-Stage, 4-Stage",
+          "current_value": "3-Stage",
+          "ui_label": "Refinish Operations_B39"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "B31",
+          "type": "dropdown",
+          "options": "2-Stage, 3-Stage, 4-Stage",
+          "current_value": "2-Stage",
+          "ui_label": "Refinish Operations_B31"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "D31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Refinish Operations_D31"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "A31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Refinish Operations_A31"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "C29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Refinish Operations_C29"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "D29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Refinish Operations_D29"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "D33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Refinish Operations_D33"
+        },
+        {
+          "sheet": "Refinish Operations",
+          "cell": "A33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Refinish Operations_A33"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M32",
+          "formula": "=IF(A31=\"Yes\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(A31=\"Yes\",\"Refinish\",\"\")",
+          "label_cell": "M32",
+          "value_cell": "N32",
+          "formula": "=IF(A31=\"Yes\",\"0\",\"\")"
+        },
+        {
+          "cell": "M33",
+          "formula": "=IF(A31=\"Yes\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(A31=\"Yes\",\"Refinish\",\"\")",
+          "label_cell": "M33",
+          "value_cell": "N33",
+          "formula": "=IF(A31=\"Yes\",\"0\",\"\")"
+        },
+        {
+          "cell": "M34",
+          "formula": "=IF(AND(A29=\"4-Stage\", A33=\"Yes\"), \"Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(A29=\"4-Stage\", A33=\"Yes\"), \"Refinish\", \"\")",
+          "label_cell": "M34",
+          "value_cell": "N34",
+          "formula": "=IF(AND(A29=\"4-Stage\", A33=\"Yes\"), \"0\", \"\")"
+        },
+        {
+          "cell": "O34",
+          "formula": "=IF(AND(A29=\"4-Stage\", A33=\"Yes\"), \"Four Stage Refinish\", \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(A29=\"4-Stage\", A33=\"Yes\"), \"Four Stage Refinish\", \"\")",
+          "label_cell": "O34",
+          "value_cell": "P34",
+          "formula": "=IF(AND(A29=\"4-Stage\", A33=\"Yes\"), \"0\", \"\")"
+        },
+        {
+          "cell": "X34",
+          "formula": "=IF(AND(A29=\"4-Stage\", A33=\"Yes\"), SUM(A37:A55)*0.25, \"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "M35",
+          "formula": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "label_cell": "M35",
+          "value_cell": "N35",
+          "formula": "=IF(B29<>\"\",\"0\",\"\")"
+        },
+        {
+          "cell": "M36",
+          "formula": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "label_cell": "M36",
+          "value_cell": "N36",
+          "formula": "=IF(B29<>\"\",\"0\",\"\")"
+        },
+        {
+          "cell": "M37",
+          "formula": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "label_cell": "M37",
+          "value_cell": "N37",
+          "formula": "=IF(B29<>\"\",\"0\",\"\")"
+        },
+        {
+          "cell": "M38",
+          "formula": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29<>\"\",\"Refinish\",\"\")",
+          "label_cell": "M38",
+          "value_cell": "N38",
+          "formula": "=IF(B29<>\"\",\"0\",\"\")"
+        },
+        {
+          "cell": "M39",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M39",
+          "value_cell": "N39",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M40",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M40",
+          "value_cell": "N40",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M41",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M41",
+          "value_cell": "N41",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M42",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B33<>\"\",B29<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M42",
+          "value_cell": "N42",
+          "formula": "=IF(AND(B33<>\"\",B29<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M43",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M43",
+          "value_cell": "N43",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M44",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M44",
+          "value_cell": "N44",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M45",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M45",
+          "value_cell": "N45",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M46",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M46",
+          "value_cell": "N46",
+          "formula": "=IF(AND(B37<>\"\",B29<>\"\",B33<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M47",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M47",
+          "value_cell": "N47",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M48",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M48",
+          "value_cell": "N48",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M49",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M49",
+          "value_cell": "N49",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M50",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"Refinish\",\"\")",
+          "label_cell": "M50",
+          "value_cell": "N50",
+          "formula": "=IF(AND(B41<>\"\",B29<>\"\",B33<>\"\",B37<>\"\"),\"0\",\"\")"
+        },
+        {
+          "cell": "M53",
+          "formula": "=IF(D29=\"Yes\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(D29=\"Yes\",\"Refinish\",\"\")",
+          "label_cell": "M53",
+          "value_cell": "N53",
+          "formula": "=IF(D29=\"Yes\",\"0\",\"\")"
+        },
+        {
+          "cell": "M55",
+          "formula": "=IF(D33=\"Yes\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(D33=\"Yes\",\"Refinish\",\"\")",
+          "label_cell": "M55",
+          "value_cell": "N55",
+          "formula": "=IF(D33=\"Yes\",\"0\",\"\")"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Mechanical Operations": {
+      "name": "Mechanical Operations",
+      "dropdowns": [
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A29",
+          "type": "dropdown",
+          "options": "R134a, R1234yf, R744",
+          "current_value": "R1234yf",
+          "ui_label": "Mechanical Operations_A29"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C179",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_C179"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "D179",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_D179"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A140",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A140"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_B31"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_C31"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B79",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Mechanical Operations_B79"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A133",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A133"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B133",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_B133"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A131",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Mechanical Operations_A131"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B131",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_B131"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C131",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_C131"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B81",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Mechanical Operations_B81"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A191",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A191"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A142",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A142"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C185",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Mechanical Operations_C185"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Mechanical Operations_B29"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_C29"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "D183",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_D183"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A187",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A187"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A135",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A135"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B135",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_B135"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C181",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_C181"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "D181",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Mechanical Operations_D181"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A189",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A189"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_B33"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_C33"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A129",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A129"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "B129",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_B129"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "C129",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_C129"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "D129",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_D129"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A185",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Mechanical Operations_A185"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A137",
+          "type": "dropdown",
+          "options": "Measure",
+          "current_value": "",
+          "ui_label": "Mechanical Operations_A137"
+        },
+        {
+          "sheet": "Mechanical Operations",
+          "cell": "A138",
+          "type": "dropdown",
+          "options": "Calibrate",
+          "current_value": "",
+          "ui_label": "Mechanical Operations_A138"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "O76",
+          "formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+          "purpose": "summary_output"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "SRS Operations": {
+      "name": "SRS Operations",
+      "dropdowns": [
+        {
+          "sheet": "SRS Operations",
+          "cell": "A79",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SRS Operations_A79"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SRS Operations_A31"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A35",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SRS Operations_A35"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A83",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SRS Operations_A83"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SRS Operations_A29"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A87",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SRS Operations_A87"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A81",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "SRS Operations_A81"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A85",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SRS Operations_A85"
+        },
+        {
+          "sheet": "SRS Operations",
+          "cell": "A33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "SRS Operations_A33"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "O76",
+          "formula": "=\"📊 \" & Q77 & \" Ops  |  💲\" & R77 & \"  |  🛠 \" & V77 & \" Labor  |  🎨 \" & X77 & \" Refinish\"",
+          "purpose": "summary_output"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Total Loss Charges": {
+      "name": "Total Loss Charges",
+      "dropdowns": [
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "D29",
+          "type": "dropdown",
+          "options": "Inside, Outside, Upstairs",
+          "current_value": "Outside",
+          "ui_label": "Total Loss Charges_D29"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "D34",
+          "type": "dropdown",
+          "options": "Inside, Outside, Upstairs",
+          "current_value": "",
+          "ui_label": "Total Loss Charges_D34"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "D39",
+          "type": "dropdown",
+          "options": "Inside, Outside, Upstairs",
+          "current_value": "",
+          "ui_label": "Total Loss Charges_D39"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "C31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Total Loss Charges_C31"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "B35",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Total Loss Charges_B35"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "B43",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Total Loss Charges_B43"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "B39",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Total Loss Charges_B39"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "B31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Total Loss Charges_B31"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "B41",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "",
+          "ui_label": "Total Loss Charges_B41"
+        },
+        {
+          "sheet": "Total Loss Charges",
+          "cell": "B45",
+          "type": "dropdown",
+          "options": "2-Stage, 3-Stage, 4-Stage",
+          "current_value": "",
+          "ui_label": "Total Loss Charges_B45"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        },
+        {
+          "cell": "O32",
+          "formula": "=IF(B29<>\"\",\"Blueprint Labor Expense\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B29<>\"\",\"Blueprint Labor Expense\",\"\")",
+          "label_cell": "O32",
+          "value_cell": "P32",
+          "formula": "=IF(B29<>\"\",\"0\",\"\")"
+        },
+        {
+          "cell": "M40",
+          "formula": "=IF(B45<>\"\",\"Refinish\",\"\")",
+          "purpose": "summary_output"
+        },
+        {
+          "label": "=IF(B45<>\"\",\"Refinish\",\"\")",
+          "label_cell": "M40",
+          "value_cell": "N40",
+          "formula": "=IF(B45<>\"\",\"0\",\"\")"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Body On Frame": {
+      "name": "Body On Frame",
+      "dropdowns": [
+        {
+          "sheet": "Body On Frame",
+          "cell": "A33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Body On Frame_A33"
+        },
+        {
+          "sheet": "Body On Frame",
+          "cell": "A31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body On Frame_A31"
+        },
+        {
+          "sheet": "Body On Frame",
+          "cell": "B31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body On Frame_B31"
+        },
+        {
+          "sheet": "Body On Frame",
+          "cell": "B29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Body On Frame_B29"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Stolen Recovery ": {
+      "name": "Stolen Recovery ",
+      "dropdowns": [
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "A33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _A33"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "B33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _B33"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "C33",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Stolen Recovery _C33"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "B29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _B29"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "C29",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Stolen Recovery _C29"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "A31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _A31"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "B31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _B31"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "C31",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "Yes",
+          "ui_label": "Stolen Recovery _C31"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "A43",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _A43"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "A41",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _A41"
+        },
+        {
+          "sheet": "Stolen Recovery ",
+          "cell": "A37",
+          "type": "dropdown",
+          "options": "Yes, No",
+          "current_value": "No",
+          "ui_label": "Stolen Recovery _A37"
+        }
+      ],
+      "summary_formulas": [
+        {
+          "cell": "O26",
+          "formula": "=\"📊 \" & Q27 & \" Ops  |  💲\" & R27 & \"  |  🛠 \" & V27 & \" Labor  |  🎨 \" & X27 & \" Refinish\"",
+          "purpose": "summary_output"
+        }
+      ],
+      "operation_formulas": []
+    },
+    "Post Repair Inspection": {
+      "name": "Post Repair Inspection",
+      "dropdowns": [],
+      "summary_formulas": [],
+      "operation_formulas": []
+    }
+  }
+}

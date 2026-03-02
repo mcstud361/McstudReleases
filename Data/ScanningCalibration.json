@@ -1,0 +1,329 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2025-02-19",
+  "source": "Industry Best Practices",
+  "referenceUrl": "https://oemonestop.com/",
+  "healthCheckProcedure": {
+    "title": "Vehicle Diagnostic Scan Procedure",
+    "baseLabor": "0.5",
+    "baseLaborDescription": "Base scan time typically covers initial connection and code retrieval",
+    "notIncludedNote": "Additional diagnostic work requires separate billing",
+    "steps": [
+      {
+        "step": 1,
+        "description": "Position vehicle in diagnostic bay",
+        "included": true
+      },
+      {
+        "step": 2,
+        "description": "Activate hazard lights to maintain module communication",
+        "included": true
+      },
+      {
+        "step": 3,
+        "description": "Ensure vehicle reaches proper operating temperature",
+        "included": true
+      },
+      {
+        "step": 4,
+        "description": "Access battery terminals (may require component removal)",
+        "included": false
+      },
+      {
+        "step": 5,
+        "description": "Connect battery maintainer/support device",
+        "included": true,
+        "notes": "Standard charger acceptable for basic scans. ECU programming requires professional-grade power supply connected 10+ minutes before procedure."
+      },
+      {
+        "step": 6,
+        "description": "Connect diagnostic tool and initiate scan",
+        "included": true
+      },
+      {
+        "step": 7,
+        "description": "Record all diagnostic trouble codes",
+        "included": true
+      },
+      {
+        "step": 8,
+        "description": "Capture freeze frame data, timestamps, and key cycle information",
+        "included": true
+      },
+      {
+        "step": 9,
+        "description": "Review live data streams",
+        "included": false
+      },
+      {
+        "step": 10,
+        "description": "Check ADAS sensor alignment values (radar, camera, BSM)",
+        "included": false
+      },
+      {
+        "step": 11,
+        "description": "Verify steering angle sensor readings",
+        "included": false
+      },
+      {
+        "step": 12,
+        "description": "Research DTCs using manufacturer resources",
+        "included": false
+      },
+      {
+        "step": 13,
+        "description": "Follow OEM diagnostic flowcharts for fault isolation",
+        "included": false
+      },
+      {
+        "step": 14,
+        "description": "Perform live testing to confirm active faults",
+        "included": false
+      },
+      {
+        "step": 15,
+        "description": "Complete necessary repairs",
+        "included": false
+      },
+      {
+        "step": 16,
+        "description": "Perform in-process verification scan",
+        "included": false
+      },
+      {
+        "step": 17,
+        "description": "Complete required calibrations and system resets",
+        "included": false,
+        "examples": [
+          "Occupant detection calibration",
+          "ADAS sensor calibration",
+          "Adaptive headlight calibration",
+          "Power liftgate programming",
+          "Camera system calibration",
+          "Blind spot sensor calibration",
+          "Module programming/coding"
+        ]
+      },
+      {
+        "step": 18,
+        "description": "Road test to complete drive cycles and verify repairs",
+        "included": false,
+        "conditions": [
+          "Required speed",
+          "Required distance",
+          "Duration",
+          "Driving pattern"
+        ]
+      },
+      {
+        "step": 19,
+        "description": "Final post-repair scan to confirm code clearance",
+        "included": false
+      },
+      {
+        "step": 20,
+        "description": "Document results and secure equipment",
+        "included": false
+      }
+    ]
+  },
+  "batterySupport": {
+    "title": "Proper Battery Support for Diagnostics",
+    "criticalInfo": {
+      "notBatterySupport": [
+        "Portable jump starters do not provide stable voltage",
+        "Basic trickle chargers cannot maintain consistent power"
+      ],
+      "reasons": [
+        "Unregulated charging can damage sensitive electronics",
+        "Portable units may lose charge during extended procedures"
+      ],
+      "bestChoice": "Professional battery support/maintainer device",
+      "oemRecommended": "Many manufacturers specify professional-grade power supplies (e.g., Midtronics-type units)"
+    },
+    "whyBatterySupportMatters": [
+      "Low voltage causes the vehicle to disable non-essential systems to preserve starting ability",
+      "Diagnostic tools may fail to communicate with all modules when voltage drops"
+    ]
+  },
+  "oemVsAftermarket": {
+    "title": "Factory vs Third-Party Diagnostic Tools",
+    "comparison": [
+      {
+        "category": "Software Updates",
+        "oem": "Continuous updates as issues are discovered",
+        "aftermarket": "Typically updated quarterly or less frequently"
+      },
+      {
+        "category": "Repair Information Integration",
+        "oem": "Direct access to factory repair procedures",
+        "aftermarket": "May use third-party repair databases with varying accuracy"
+      },
+      {
+        "category": "New Model Coverage",
+        "oem": "Available at vehicle launch",
+        "aftermarket": "Coverage may lag 12-18 months behind new releases"
+      },
+      {
+        "category": "Build Data Access",
+        "oem": "Knows exact vehicle equipment from factory records",
+        "aftermarket": "May generate false codes for equipment not installed on that specific vehicle"
+      },
+      {
+        "category": "Security Gateway Access",
+        "oem": "Full access to protected vehicle systems",
+        "aftermarket": "Many newer vehicles block third-party access to certain modules"
+      },
+      {
+        "category": "Module Communication",
+        "oem": "Accurate module count based on build data",
+        "aftermarket": "Module counts may vary; some functions like ADAS calibration may be limited"
+      },
+      {
+        "category": "Historical Code Data",
+        "oem": "Shows current vs stored codes with cycle counts",
+        "aftermarket": "May not capture all historical fault information"
+      },
+      {
+        "category": "Freeze Frame Information",
+        "oem": "Complete snapshot data including date, time, mileage",
+        "aftermarket": "Freeze frame data may be incomplete for some systems"
+      },
+      {
+        "category": "Connected Services Status",
+        "oem": "Can verify telematics subscription status",
+        "aftermarket": "Cannot determine connected service enrollment"
+      }
+    ]
+  },
+  "aftermarketScanToolQuestions": {
+    "title": "Questions for Third-Party Tool Vendors",
+    "questions": [
+      "Can your tool access the vehicle's factory build data?",
+      "How does your tool determine which modules to test without build data?",
+      "Can your tool detect connected vehicle service subscriptions?",
+      "Will your tool generate codes for optional equipment not installed on a specific vehicle?",
+      "What is the newest model year your tool fully supports?"
+    ]
+  },
+  "scanningMyths": {
+    "title": "Addressing Scan Pricing Disputes",
+    "myth": "Insurer offers flat rate for scanning regardless of work performed",
+    "responses": [
+      {
+        "step": 1,
+        "action": "Request itemization of what their rate covers"
+      },
+      {
+        "step": 2,
+        "action": "Document each step of your scan procedure"
+      },
+      {
+        "step": 3,
+        "action": "Bill separately for DTC research time"
+      },
+      {
+        "step": 4,
+        "action": "Include safety system inspections when applicable"
+      },
+      {
+        "step": 5,
+        "action": "Document sensor specification verification",
+        "examples": [
+          "Radar sensor alignment values",
+          "Steering angle sensor calibration status",
+          "Camera alignment specifications"
+        ]
+      }
+    ]
+  },
+  "fourKeyQuestions": {
+    "title": "Determining Billable Operations",
+    "description": "Ask these questions for every operation",
+    "questions": [
+      {
+        "number": 1,
+        "question": "Is this operation necessary to restore safe, pre-loss condition?",
+        "type": "required"
+      },
+      {
+        "number": 2,
+        "question": "Is this work included in another labor operation, or is it standalone?",
+        "type": "included"
+      },
+      {
+        "number": 3,
+        "question": "Does a published labor time exist for this operation?",
+        "type": "predetermined"
+      },
+      {
+        "number": 4,
+        "question": "If no published time exists, what is the reasonable time/value?",
+        "type": "worth"
+      }
+    ]
+  },
+  "dtcCodeColors": {
+    "title": "DTC Status Indicators",
+    "colors": [
+      {
+        "color": "Red",
+        "meaning": "Active fault - currently present",
+        "action": "Requires diagnosis and repair"
+      },
+      {
+        "color": "Yellow",
+        "meaning": "Stored/historical fault - occurred previously",
+        "action": "Investigate cause; may clear after drive cycles"
+      },
+      {
+        "color": "Green",
+        "meaning": "System passed - no faults detected",
+        "action": "No action required"
+      }
+    ]
+  },
+  "calibrationTypes": {
+    "common": [
+      {
+        "type": "Occupant Detection",
+        "description": "Seat weight sensors and position detection systems"
+      },
+      {
+        "type": "ADAS Systems",
+        "description": "Cameras, radar, and ultrasonic sensors for driver assistance"
+      },
+      {
+        "type": "Adaptive Lighting",
+        "description": "Auto-leveling and directional headlight systems"
+      },
+      {
+        "type": "Connectivity",
+        "description": "Bluetooth, wireless charging, and infotainment pairing"
+      },
+      {
+        "type": "Power Closure",
+        "description": "Liftgate, sliding door, and trunk position limits"
+      },
+      {
+        "type": "Vision Systems",
+        "description": "Backup camera, surround view, and mirror cameras"
+      },
+      {
+        "type": "Blind Spot Detection",
+        "description": "Rear corner radar and cross-traffic sensors"
+      },
+      {
+        "type": "Module Configuration",
+        "description": "Programming replacement control units with vehicle data"
+      }
+    ]
+  },
+  "resources": {
+    "oem": {
+      "name": "OEM Position Statements",
+      "url": "https://oemonestop.com/",
+      "description": "Manufacturer guidance on repair procedures and requirements"
+    }
+  }
+}

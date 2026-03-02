@@ -1,0 +1,545 @@
+{
+  "Plastic Part Blend": {
+    "start_row": 25,
+    "end_row": 27,
+    "inputs": [],
+    "operations": []
+  },
+  "Exterior Refinish Unit of Part": {
+    "start_row": 378,
+    "end_row": 424,
+    "inputs": [
+      {
+        "name": "DE-NIB",
+        "cell": "A382",
+        "row": 382,
+        "col": 1
+      },
+      {
+        "name": "Cavity Wax",
+        "cell": "B382",
+        "row": 382,
+        "col": 2
+      },
+      {
+        "name": "Textured Portion on Part",
+        "cell": "C382",
+        "row": 382,
+        "col": 3
+      },
+      {
+        "name": "Ceramic Coat",
+        "cell": "E382",
+        "row": 382,
+        "col": 5
+      },
+      {
+        "name": "Seam Sealer",
+        "cell": "B384",
+        "row": 384,
+        "col": 2
+      },
+      {
+        "name": "License Plate",
+        "cell": "C384",
+        "row": 384,
+        "col": 3
+      },
+      {
+        "name": "Refinish Backside",
+        "cell": "A386",
+        "row": 386,
+        "col": 1
+      },
+      {
+        "name": "Chip Guard",
+        "cell": "B386",
+        "row": 386,
+        "col": 2
+      },
+      {
+        "name": "License Plate Damaged",
+        "cell": "C386",
+        "row": 386,
+        "col": 3
+      },
+      {
+        "name": "PPF / Vinyl Wrap",
+        "cell": "E387",
+        "row": 387,
+        "col": 5
+      },
+      {
+        "name": "Number of Backing Plates",
+        "cell": "A388",
+        "row": 388,
+        "col": 1
+      },
+      {
+        "name": "Butyl Tape",
+        "cell": "B388",
+        "row": 388,
+        "col": 2
+      },
+      {
+        "name": "Adhesive Cleanup",
+        "cell": "C390",
+        "row": 390,
+        "col": 3
+      },
+      {
+        "name": "Foam",
+        "cell": "B391",
+        "row": 391,
+        "col": 2
+      },
+      {
+        "name": "Pinstripes",
+        "cell": "E392",
+        "row": 392,
+        "col": 5
+      },
+      {
+        "name": "Edge Guard",
+        "cell": "E396",
+        "row": 396,
+        "col": 5
+      }
+    ],
+    "operations": [
+      {
+        "description": "🔗Back to top",
+        "row": 379,
+        "has_formula": false
+      },
+      {
+        "description": "📊 11 Ops  |  💲4  |  🛠 2.5 Labor  |  🎨 4.95 Refinish",
+        "row": 380,
+        "has_formula": true
+      },
+      {
+        "description": "0\t0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Corrosion Protection\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel DE-NIB\t0\t1\t0\t0\t0\t0\t0\t0\t0.15\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Wet/Dry Sand, Rub-Out & Buff\t0\t1\t0\t0\t0\t0\t0\t0\t0.9\n0\t0\t0\t0\t0\tRpr\t0\tRT Quarter panel Trial Fit\t0\t1\t0\t0\t0\t0\t1\t0\t0\n0\t0\t0\t0\t0\tRefinish\t0\tRT Quarter panel Refinish Backside\t0\t1\t0\t0\t0\t0\t0\t0\t3\n0\t0\t0\t0\t0\tRpr\t0\tRT Quarter panel Backing Plate\t0\t1\t0\t0\t0\t0\t0.5\t0\t0\n0\t0\t0\t0\t0\tR&I\t0\tLicense Plate\t0\t1\t0\t0\t0\t0\t0.2\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tMeasure and Mark Template for 2x Nameplate Installation\t0\t1\t4\t0\t0\t0\t0.4\t0\t0\n 0\t 0\t 0\t 0\t 0\t Rpr\t 0\tRT Quarter panel Adhesive Cleanup\t 0\t 1\t 0\t 0\t 0\t 0\t0.4\t 0\t 0\n\t",
+        "row": 381,
+        "has_formula": false
+      },
+      {
+        "description": "Refinish",
+        "row": 383,
+        "has_formula": false
+      },
+      {
+        "description": "RT Quarter panel Backtape Jambs",
+        "row": 383,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 384,
+        "has_formula": false
+      },
+      {
+        "description": "RT Quarter panel Corrosion Protection",
+        "row": 384,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 385,
+        "has_formula": false
+      },
+      {
+        "description": "RT Quarter panel Feather Edge & Block Sand",
+        "row": 385,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 386,
+        "has_formula": false
+      },
+      {
+        "description": "RT Quarter panel DE-NIB",
+        "row": 386,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 387,
+        "has_formula": false
+      },
+      {
+        "description": "RT Quarter panel Wet/Dry Sand, Rub-Out & Buff",
+        "row": 387,
+        "has_formula": true
+      },
+      {
+        "description": "Rpr",
+        "row": 388,
+        "has_formula": true
+      },
+      {
+        "description": "RT Quarter panel Trial Fit",
+        "row": 388,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 389,
+        "has_formula": true
+      },
+      {
+        "description": "RT Quarter panel Refinish Backside",
+        "row": 389,
+        "has_formula": true
+      },
+      {
+        "description": "Rpr",
+        "row": 390,
+        "has_formula": true
+      },
+      {
+        "description": "RT Quarter panel Backing Plate",
+        "row": 390,
+        "has_formula": true
+      },
+      {
+        "description": "R&I",
+        "row": 397,
+        "has_formula": true
+      },
+      {
+        "description": "License Plate",
+        "row": 397,
+        "has_formula": true
+      },
+      {
+        "description": "Replace",
+        "row": 399,
+        "has_formula": true
+      },
+      {
+        "description": "Measure and Mark Template for 2x Nameplate Installation",
+        "row": 399,
+        "has_formula": true
+      },
+      {
+        "description": " Rpr",
+        "row": 400,
+        "has_formula": true
+      },
+      {
+        "description": "RT Quarter panel Adhesive Cleanup",
+        "row": 400,
+        "has_formula": true
+      }
+    ]
+  },
+  "Plastic Part Repair": {
+    "start_row": 75,
+    "end_row": 77,
+    "inputs": [],
+    "operations": []
+  },
+  "Plastic Part Replace": {
+    "start_row": 125,
+    "end_row": 127,
+    "inputs": [],
+    "operations": []
+  },
+  "Carbon Fiber / SMC / Composite": {
+    "start_row": 175,
+    "end_row": 177,
+    "inputs": [],
+    "operations": []
+  },
+  "Repair Consumables": {
+    "start_row": 182,
+    "end_row": 224,
+    "inputs": [
+      {
+        "name": "DE-NIB",
+        "cell": "A182",
+        "row": 182,
+        "col": 1
+      },
+      {
+        "name": "Buff",
+        "cell": "A184",
+        "row": 184,
+        "col": 1
+      },
+      {
+        "name": "Part being Removed",
+        "cell": "A186",
+        "row": 186,
+        "col": 1
+      }
+    ],
+    "operations": [
+      {
+        "description": "Refinish",
+        "row": 183,
+        "has_formula": true
+      },
+      {
+        "description": "Spoiler Feather Edge & Block Sand",
+        "row": 183,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 184,
+        "has_formula": true
+      },
+      {
+        "description": "Spoiler DE-NIB",
+        "row": 184,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 185,
+        "has_formula": true
+      },
+      {
+        "description": "Spoiler Wet/Dry Sand, Rub-Out & Buff",
+        "row": 185,
+        "has_formula": true
+      },
+      {
+        "description": "R&I",
+        "row": 187,
+        "has_formula": true
+      },
+      {
+        "description": "Spoiler Trial Fit",
+        "row": 187,
+        "has_formula": true
+      },
+      {
+        "description": "Replace",
+        "row": 188,
+        "has_formula": true
+      },
+      {
+        "description": "Repair Consumables",
+        "row": 188,
+        "has_formula": true
+      }
+    ]
+  },
+  "Metal Part Blend": {
+    "start_row": 225,
+    "end_row": 227,
+    "inputs": [],
+    "operations": []
+  },
+  "Metal Part Repair": {
+    "start_row": 275,
+    "end_row": 277,
+    "inputs": [],
+    "operations": []
+  },
+  "Bolted on Metal Part Replace": {
+    "start_row": 325,
+    "end_row": 327,
+    "inputs": [],
+    "operations": []
+  },
+  "Welded on Exterior Metal Part Replace": {
+    "start_row": 375,
+    "end_row": 377,
+    "inputs": [],
+    "operations": []
+  },
+  "Inner Panel": {
+    "start_row": 425,
+    "end_row": 474,
+    "inputs": [
+      {
+        "name": "Size of Part",
+        "cell": "A432",
+        "row": 432,
+        "col": 1
+      },
+      {
+        "name": "Cavity Wax",
+        "cell": "B432",
+        "row": 432,
+        "col": 2
+      },
+      {
+        "name": "Seam Sealer",
+        "cell": "B434",
+        "row": 434,
+        "col": 2
+      },
+      {
+        "name": "Backtape Jambs",
+        "cell": "A436",
+        "row": 436,
+        "col": 1
+      },
+      {
+        "name": "Chip Guard",
+        "cell": "B436",
+        "row": 436,
+        "col": 2
+      },
+      {
+        "name": "Undercoat",
+        "cell": "B438",
+        "row": 438,
+        "col": 2
+      }
+    ],
+    "operations": [
+      {
+        "description": "🔗Back to top",
+        "row": 429,
+        "has_formula": false
+      },
+      {
+        "description": "📊 3 Ops  |  💲0  |  🛠 0 Labor  |  🎨 0.75 Refinish",
+        "row": 430,
+        "has_formula": true
+      },
+      {
+        "description": "0\t0\t0\t0\t0\t0\tRpr\t0\tRT and LT Rail End Corrosion Protection\t0\t1\t0\t0\t0\t0\t0\t0\t0.3\n0\t0\t0\t0\t0\tRpr\t0\tRT and LT Rail End Feather Edge & Block Sand\t0\t1\t0\t0\t0\t0\t0\t0\t0.25\n0\t0\t0\t0\t0\tRefinish\t0\tRT and LT Rail End Backtape Jambs\t0\t1\t0\t0\t0\t0\t0\t0\t0.2\n\t",
+        "row": 431,
+        "has_formula": false
+      },
+      {
+        "description": "Rpr",
+        "row": 433,
+        "has_formula": true
+      },
+      {
+        "description": "RT and LT Rail End Corrosion Protection",
+        "row": 433,
+        "has_formula": true
+      },
+      {
+        "description": "Rpr",
+        "row": 434,
+        "has_formula": true
+      },
+      {
+        "description": "RT and LT Rail End Feather Edge & Block Sand",
+        "row": 434,
+        "has_formula": true
+      },
+      {
+        "description": "Refinish",
+        "row": 436,
+        "has_formula": true
+      },
+      {
+        "description": "RT and LT Rail End Backtape Jambs",
+        "row": 436,
+        "has_formula": true
+      }
+    ]
+  },
+  "Glass": {
+    "start_row": 475,
+    "end_row": null,
+    "inputs": [
+      {
+        "name": "Size of Part",
+        "cell": "A482",
+        "row": 482,
+        "col": 1
+      },
+      {
+        "name": "Washer Fluid",
+        "cell": "B482",
+        "row": 482,
+        "col": 2
+      },
+      {
+        "name": "Inspection Sticker",
+        "cell": "C482",
+        "row": 482,
+        "col": 3
+      },
+      {
+        "name": "Dash Cam",
+        "cell": "D482",
+        "row": 482,
+        "col": 4
+      },
+      {
+        "name": "Window Tint",
+        "cell": "E482",
+        "row": 482,
+        "col": 5
+      },
+      {
+        "name": "Body Primer",
+        "cell": "A484",
+        "row": 484,
+        "col": 1
+      },
+      {
+        "name": "EZ Pass Velcro",
+        "cell": "C484",
+        "row": 484,
+        "col": 3
+      },
+      {
+        "name": "Check Defrost",
+        "cell": "A486",
+        "row": 486,
+        "col": 1
+      }
+    ],
+    "operations": [
+      {
+        "description": "🔗Back to top",
+        "row": 479,
+        "has_formula": false
+      },
+      {
+        "description": "📊 3 Ops  |  💲0  |  🛠 0 Labor  |  🎨 0.75 Refinish",
+        "row": 480,
+        "has_formula": true
+      },
+      {
+        "description": "0\t0\t0\t0\t0\t0\tReplace\t0\tLift gate glass Urethane Kit\t0\t1\t50\t0\t0\t0\t0.8\t0\t0\n0\t0\t0\t0\t0\tReplace\t0\tLift gate glass Glass Primer\t0\t1\t25\t0\t0\t0\t0.5\t0\t0\n0\t0\t0\t0\t0\tRpr\t0\tBroken Glass Cleanup\t0\t1\t0\t0\t0\t0\t2\t0\t0\n\t",
+        "row": 481,
+        "has_formula": false
+      },
+      {
+        "description": "Replace",
+        "row": 483,
+        "has_formula": false
+      },
+      {
+        "description": "Lift gate glass Urethane Kit",
+        "row": 483,
+        "has_formula": true
+      },
+      {
+        "description": "Replace",
+        "row": 484,
+        "has_formula": false
+      },
+      {
+        "description": "Lift gate glass Glass Primer",
+        "row": 484,
+        "has_formula": true
+      },
+      {
+        "description": "Rpr",
+        "row": 487,
+        "has_formula": true
+      },
+      {
+        "description": "Broken Glass Cleanup",
+        "row": 487,
+        "has_formula": true
+      }
+    ]
+  }
+}

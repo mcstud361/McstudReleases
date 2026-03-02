@@ -1,0 +1,720 @@
+{
+  "version": "1.0",
+  "source": "McStud Estimating Tool Excel - master.xlsx",
+  "lastUpdated": "2025-02-05",
+  "description": "Real operation formulas and calculations extracted from the McStud Estimating Tool",
+
+  "partTypes": {
+    "plasticPart": {
+      "name": "Plastic Part",
+      "aliases": ["bumper", "fascia", "valance", "spoiler", "air dam", "ground effects", "plastic cover", "rocker cover", "wheel lip molding", "fender flare"],
+      "requiresAdhesionPromoter": true,
+      "requiresFlexAdditive": true
+    },
+    "metalPartBolted": {
+      "name": "Bolted Metal Part",
+      "aliases": ["fender", "hood", "trunk lid", "deck lid", "liftgate", "tailgate", "tail gate", "door shell", "mirror", "door", "front door", "rear door"],
+      "requiresAdhesionPromoter": false,
+      "requiresFlexAdditive": false
+    },
+    "wheelTire": {
+      "name": "Wheel/Tire",
+      "aliases": ["wheel", "rim", "tire", "alloy wheel", "steel wheel", "spare tire", "wheel cover", "hub cap", "hubcap", "lug nuts", "tpms", "tpms sensor"],
+      "requiresTPMS": true,
+      "requiresBalancing": true
+    },
+    "metalPartWelded": {
+      "name": "Welded Metal Part",
+      "aliases": ["quarter panel", "quarter", "rocker", "pillar", "a-pillar", "b-pillar", "c-pillar", "roof", "floor pan", "wheelhouse", "inner fender", "apron", "rail", "frame rail"],
+      "requiresCorrosionProtection": true,
+      "requiresWeldThroughPrimer": true,
+      "requiresSeamSealer": true
+    },
+    "carbonFiber": {
+      "name": "Carbon Fiber / SMC / Composite",
+      "aliases": ["carbon fiber", "carbon fibre", "smc", "composite", "fiberglass"],
+      "requiresSpecialRepair": true
+    },
+    "glass": {
+      "name": "Glass",
+      "aliases": ["windshield", "back glass", "rear glass", "door glass", "quarter glass", "vent glass"],
+      "requiresSpecialHandling": true
+    }
+  },
+
+  "operationCategories": {
+    "labor": {
+      "name": "Labor Operations",
+      "operations": [
+        {
+          "id": "de-nib",
+          "name": "DE-NIB",
+          "description": "Remove nibs and imperfections from painted surface",
+          "category": "refinish",
+          "appliesTo": ["blend", "repair", "replace"],
+          "formula": {
+            "type": "conditional",
+            "condition": "refinishHours >= 0.5",
+            "value": 0.2,
+            "notes": "Flat rate when refinishing"
+          }
+        },
+        {
+          "id": "trial-fit",
+          "name": "Trial Fit",
+          "description": "Test fit replacement part before paint",
+          "category": "body",
+          "appliesTo": ["replace"],
+          "formula": {
+            "type": "input",
+            "defaultValue": 0.3,
+            "notes": "User inputs actual labor units based on part"
+          }
+        },
+        {
+          "id": "part-removed",
+          "name": "Part Being Removed for Refinish",
+          "description": "When part is removed from vehicle for painting",
+          "category": "body",
+          "appliesTo": ["blend", "refinish"],
+          "formula": {
+            "type": "conditional",
+            "condition": "partRemoved == true",
+            "value": 0.0,
+            "notes": "Just a flag indicating removal"
+          }
+        }
+      ]
+    },
+
+    "material": {
+      "name": "Material Operations",
+      "operations": [
+        {
+          "id": "adhesion-promoter",
+          "name": "Adhesion Promoter",
+          "description": "Chemical prep for flexible/plastic parts",
+          "category": "refinish",
+          "appliesTo": ["blend", "repair", "replace"],
+          "partTypes": ["plasticPart"],
+          "formula": {
+            "type": "percentage",
+            "baseOn": "refinishHours",
+            "percentage": 0.10,
+            "min": 0.2,
+            "max": 0.5,
+            "notes": "10% of refinish hours, min 0.2, max 0.5"
+          }
+        },
+        {
+          "id": "flex-additive",
+          "name": "Flex Additive",
+          "description": "Flexible additive for paint on plastic parts",
+          "category": "refinish",
+          "appliesTo": ["blend", "repair", "replace"],
+          "partTypes": ["plasticPart"],
+          "formula": {
+            "type": "conditional",
+            "condition": "isFirstLargePart && isPlasticPart",
+            "value": 0.2,
+            "notes": "0.2 for first large plastic part being painted"
+          }
+        }
+      ]
+    },
+
+    "additionalParts": {
+      "name": "Additional Parts Operations",
+      "operations": [
+        {
+          "id": "textured-portion",
+          "name": "Textured Portion on Part",
+          "description": "Part has textured/grained finish areas",
+          "category": "refinish",
+          "appliesTo": ["replace"],
+          "formula": {
+            "type": "conditional",
+            "condition": "hasTexturedPortion == true",
+            "value": 0.3,
+            "notes": "Additional time for textured areas"
+          }
+        },
+        {
+          "id": "license-plate-ri",
+          "name": "R&I License Plate",
+          "description": "Remove and install license plate",
+          "category": "body",
+          "appliesTo": ["replace", "refinish"],
+          "formula": {
+            "type": "conditional",
+            "condition": "hasLicensePlate == true",
+            "value": 0.1,
+            "notes": "When license plate is mounted on part"
+          }
+        },
+        {
+          "id": "license-plate-drill",
+          "name": "Drill for License Plate",
+          "description": "Drill holes for license plate on new part",
+          "category": "body",
+          "appliesTo": ["replace"],
+          "formula": {
+            "type": "conditional",
+            "condition": "licensePlateDamaged == true || newPartNoDrills == true",
+            "value": 0.2,
+            "notes": "When drilling required on new part"
+          }
+        },
+        {
+          "id": "nameplate-transfer",
+          "name": "Transfer Nameplates/Emblems",
+          "description": "Transfer nameplates and emblems to new part",
+          "category": "body",
+          "appliesTo": ["replace"],
+          "formula": {
+            "type": "perItem",
+            "valuePerItem": 0.1,
+            "notes": "0.1 per nameplate/emblem"
+          }
+        },
+        {
+          "id": "adhesive-cleanup",
+          "name": "Adhesive Cleanup",
+          "description": "Clean adhesive residue from emblem/molding removal",
+          "category": "body",
+          "appliesTo": ["replace", "refinish"],
+          "formula": {
+            "type": "conditional",
+            "condition": "adhesiveCleanup == true",
+            "value": 0.2,
+            "notes": "When cleaning old adhesive"
+          }
+        }
+      ]
+    },
+
+    "equipment": {
+      "name": "Equipment Operations",
+      "operations": [
+        {
+          "id": "park-sensors",
+          "name": "R&I Park Sensors",
+          "description": "Remove and install parking sensors",
+          "category": "body",
+          "appliesTo": ["replace", "refinish"],
+          "formula": {
+            "type": "perItem",
+            "valuePerItem": 0.15,
+            "notes": "0.15 per sensor"
+          }
+        },
+        {
+          "id": "paint-sensor-brackets",
+          "name": "Paint Park Sensor Brackets",
+          "description": "Paint sensor bracket mounting areas",
+          "category": "refinish",
+          "appliesTo": ["replace"],
+          "formula": {
+            "type": "conditional",
+            "condition": "paintSensorBrackets == true",
+            "value": 0.2,
+            "notes": "When painting sensor mounting areas"
+          }
+        },
+        {
+          "id": "radar-painted-portion",
+          "name": "Radar Behind Painted Portion",
+          "description": "Special coating for radar-transparent painted area",
+          "category": "refinish",
+          "appliesTo": ["replace", "refinish"],
+          "formula": {
+            "type": "conditional",
+            "condition": "hasRadarBehindPaint == true",
+            "value": 0.3,
+            "notes": "Special paint/clear requirements for radar"
+          }
+        }
+      ]
+    },
+
+    "addOns": {
+      "name": "Add-On Operations",
+      "operations": [
+        {
+          "id": "ceramic-coat",
+          "name": "Ceramic Coat",
+          "description": "Apply ceramic coating to painted surface",
+          "category": "detail",
+          "appliesTo": ["replace", "refinish"],
+          "formula": {
+            "type": "priced",
+            "defaultPrice": 100,
+            "laborHours": 0.5,
+            "notes": "Price varies by customer preference"
+          }
+        },
+        {
+          "id": "ppf-vinyl",
+          "name": "PPF / Vinyl Wrap",
+          "description": "Install paint protection film or vinyl wrap",
+          "category": "detail",
+          "appliesTo": ["replace", "refinish"],
+          "formula": {
+            "type": "priced",
+            "defaultPrice": 150,
+            "laborHours": 1.0,
+            "notes": "Install protective film"
+          }
+        }
+      ]
+    }
+  },
+
+  "bodyOperations": {
+    "description": "Operations from Body Operations sheet",
+    "categories": {
+      "labor": [
+        {
+          "id": "collision-damage-access",
+          "name": "Collision Damage Access",
+          "description": "Additional time to access damage",
+          "condition": "structuralDamage == true",
+          "value": 0.5
+        },
+        {
+          "id": "body-plugs",
+          "name": "Body Plugs",
+          "description": "Install body plugs in welded panels",
+          "condition": "weldedPanel == true",
+          "value": 0.2
+        },
+        {
+          "id": "remove-ecoat",
+          "name": "Remove Factory E-Coat",
+          "description": "Remove e-coat for weld preparation",
+          "condition": "weldedPanel == true",
+          "value": 0.3
+        }
+      ],
+      "material": [
+        {
+          "id": "structural-adhesive",
+          "name": "Structural Adhesive",
+          "description": "Apply structural adhesive per OEM specs",
+          "condition": "structuralAdhesive == true",
+          "value": 0.3
+        },
+        {
+          "id": "cure-time",
+          "name": "Adhesive Cure Time",
+          "description": "Wait time for adhesive cure",
+          "condition": "structuralAdhesive == true",
+          "value": 0.2
+        },
+        {
+          "id": "spark-paper",
+          "name": "Spark Paper",
+          "description": "Apply spark paper for fire protection",
+          "condition": "weldingRequired == true",
+          "value": 0.1
+        },
+        {
+          "id": "undercoat",
+          "name": "Undercoat",
+          "description": "Apply undercoating",
+          "condition": "undercoatDamaged == true",
+          "value": 0.3
+        },
+        {
+          "id": "sound-deadener",
+          "name": "Sound Deadener Pads",
+          "description": "Replace sound deadener pads",
+          "formula": {
+            "type": "perItem",
+            "valuePerItem": 0.1,
+            "notes": "0.1 per pad"
+          }
+        }
+      ],
+      "tooling": [
+        {
+          "id": "rivet-gun",
+          "name": "Rivet Gun",
+          "description": "Rivet gun rental/use",
+          "condition": "rivetingRequired == true",
+          "value": 25.0,
+          "unit": "dollars"
+        },
+        {
+          "id": "nutsert-gun",
+          "name": "Nutsert Gun",
+          "description": "Nutsert gun rental/use",
+          "condition": "nutsertRequired == true",
+          "value": 25.0,
+          "unit": "dollars"
+        },
+        {
+          "id": "tap-die-set",
+          "name": "Tap and Die Set",
+          "description": "Thread repair tools",
+          "condition": "threadRepairRequired == true",
+          "value": 15.0,
+          "unit": "dollars"
+        },
+        {
+          "id": "crack-dye-test",
+          "name": "Crack Dye Test",
+          "description": "Dye penetrant for crack detection",
+          "condition": "crackTestRequired == true",
+          "value": 0.2
+        }
+      ],
+      "equipment": [
+        {
+          "id": "welding",
+          "name": "Welding",
+          "description": "MIG/TIG welding",
+          "condition": "weldingRequired == true",
+          "formula": {
+            "type": "perWelder",
+            "baseValue": 0.0,
+            "notes": "Number of welders to charge"
+          }
+        },
+        {
+          "id": "plastic-welder",
+          "name": "Plastic Welder",
+          "description": "Plastic repair welding equipment",
+          "condition": "plasticWeldRequired == true",
+          "value": 25.0,
+          "unit": "dollars"
+        },
+        {
+          "id": "puller-dent",
+          "name": "Dent Puller",
+          "description": "Stud welder dent puller",
+          "condition": "pullerType == 'dent'",
+          "value": 20.0,
+          "unit": "dollars"
+        },
+        {
+          "id": "puller-glue",
+          "name": "Glue Puller",
+          "description": "Glue pull dent repair",
+          "condition": "pullerType == 'glue'",
+          "value": 15.0,
+          "unit": "dollars"
+        },
+        {
+          "id": "weld-pull-tabs",
+          "name": "Weld Pull Tabs",
+          "description": "Weld-on pull tabs for pulling",
+          "condition": "weldPullTabs == true",
+          "value": 0.3
+        }
+      ]
+    },
+    "measurementOperations": [
+      {
+        "id": "measure-gap-dimensions",
+        "name": "Measure Gap Dimensions",
+        "description": "Check panel gap measurements",
+        "value": 0.3
+      },
+      {
+        "id": "tram-gauge",
+        "name": "Tram Gauge",
+        "description": "Use tram gauge for measurements",
+        "value": 0.2
+      },
+      {
+        "id": "frame-bench",
+        "name": "Frame Bench Setup",
+        "description": "Set up frame bench",
+        "value": 0.5
+      },
+      {
+        "id": "structural-measure",
+        "name": "Structural Measurements",
+        "description": "Full structural dimension check",
+        "value": 1.0
+      }
+    ]
+  },
+
+  "refinishOperations": {
+    "description": "Operations from Refinish Operations sheet",
+    "paintStage": {
+      "2-stage": {
+        "name": "2-Stage (Base/Clear)",
+        "clearCoatMultiplier": 1.0
+      },
+      "3-stage": {
+        "name": "3-Stage (Base/Mid/Clear)",
+        "clearCoatMultiplier": 1.3,
+        "additionalOps": ["tri-coat-sand", "tri-coat-clear"]
+      },
+      "4-stage": {
+        "name": "4-Stage (Special)",
+        "clearCoatMultiplier": 1.5,
+        "additionalOps": ["special-clear"]
+      }
+    },
+    "additionalOperations": [
+      {
+        "id": "additional-radar-formula",
+        "name": "Additional Radar Formula",
+        "description": "Special formula for radar-transparent paint",
+        "condition": "radarBehindPaint == true",
+        "value": 0.3
+      },
+      {
+        "id": "static-gun",
+        "name": "Static Gun",
+        "description": "Use static gun for dust removal",
+        "condition": "useStaticGun == true",
+        "value": 0.1
+      },
+      {
+        "id": "touch-up-bolts",
+        "name": "Touch Up Painted Bolts",
+        "description": "Paint touch-up on visible bolts",
+        "condition": "touchUpBolts == true",
+        "value": 0.2
+      },
+      {
+        "id": "special-color-tint",
+        "name": "Special Color Tint",
+        "description": "Difficult color tinting required",
+        "condition": "specialColorTint == true",
+        "value": 0.5
+      },
+      {
+        "id": "monitor-time",
+        "name": "Monitor Time",
+        "description": "Time to monitor curing process",
+        "condition": "monitorTime == true",
+        "value": 0.2
+      },
+      {
+        "id": "matte-color",
+        "name": "Matte Color Clearcoat",
+        "description": "Special matte clearcoat",
+        "condition": "matteFinish == true",
+        "price": 125,
+        "laborValue": 0.3
+      }
+    ],
+    "multiColorOperations": [
+      {
+        "id": "second-color",
+        "name": "Second Color Paint",
+        "description": "Additional color on same part",
+        "additionalHours": 0.5,
+        "notes": "Add 0.5 hours for second color"
+      },
+      {
+        "id": "third-color",
+        "name": "Third Color Paint",
+        "description": "Third color on same part",
+        "additionalHours": 0.4,
+        "notes": "Add 0.4 hours for third color"
+      },
+      {
+        "id": "fourth-color",
+        "name": "Fourth Color Paint",
+        "description": "Fourth color on same part",
+        "additionalHours": 0.4,
+        "notes": "Add 0.4 hours for fourth color"
+      },
+      {
+        "id": "fifth-color",
+        "name": "Fifth Color Paint",
+        "description": "Fifth color on same part",
+        "additionalHours": 0.4,
+        "notes": "Add 0.4 hours for fifth color"
+      }
+    ]
+  },
+
+  "coverCarOperations": {
+    "description": "Operations from Cover Car Operations sheet",
+    "operations": [
+      {
+        "id": "cover-car-basic",
+        "name": "Cover Car (Basic)",
+        "description": "Basic car covering for paint",
+        "condition": "refinishHours >= 1.0",
+        "value": 0.3
+      },
+      {
+        "id": "cover-car-full",
+        "name": "Cover Car (Full)",
+        "description": "Full car masking and covering",
+        "condition": "refinishHours >= 2.0",
+        "value": 0.5
+      },
+      {
+        "id": "mask-overspray",
+        "name": "Mask for Overspray",
+        "description": "Mask adjacent panels for overspray",
+        "formula": {
+          "type": "percentage",
+          "baseOn": "refinishHours",
+          "percentage": 0.10,
+          "min": 0.2,
+          "max": 0.5
+        }
+      }
+    ]
+  },
+
+  "calculationPresets": {
+    "plasticPartBlend": {
+      "name": "Plastic Part Blend",
+      "description": "Blending adjacent plastic panel",
+      "operations": ["de-nib", "adhesion-promoter", "flex-additive", "mask-overspray"],
+      "conditions": {
+        "requiresRefinishHours": true,
+        "requiresPartRemoval": "optional"
+      }
+    },
+    "plasticPartRepair": {
+      "name": "Plastic Part Repair",
+      "description": "Repairing damage on plastic part",
+      "operations": ["de-nib", "adhesion-promoter", "flex-additive", "prime-block", "mask-overspray"],
+      "conditions": {
+        "requiresRefinishHours": true,
+        "requiresBodyHours": true
+      }
+    },
+    "plasticPartReplace": {
+      "name": "Plastic Part Replace",
+      "description": "Replacing plastic part",
+      "operations": ["de-nib", "adhesion-promoter", "flex-additive", "trial-fit", "prep-new-part", "mask-overspray", "cover-car-basic"],
+      "conditions": {
+        "requiresRefinishHours": true,
+        "checkLicensePlate": true,
+        "checkParkSensors": true,
+        "checkRadar": true
+      }
+    },
+    "metalPartBlend": {
+      "name": "Metal Part Blend",
+      "description": "Blending adjacent metal panel",
+      "operations": ["de-nib", "mask-overspray"],
+      "conditions": {
+        "requiresRefinishHours": true
+      }
+    },
+    "metalPartRepair": {
+      "name": "Metal Part Repair",
+      "description": "Repairing damage on metal part",
+      "operations": ["de-nib", "prime-block", "corrosion-protection", "mask-overspray"],
+      "conditions": {
+        "requiresRefinishHours": true,
+        "requiresBodyHours": true
+      }
+    },
+    "boltedMetalReplace": {
+      "name": "Bolted Metal Part Replace",
+      "description": "Replacing bolted-on metal part (fender, hood, etc.)",
+      "operations": ["de-nib", "trial-fit", "prep-new-part", "transfer-emblems", "corrosion-protection", "mask-overspray", "cover-car-basic"],
+      "conditions": {
+        "requiresRefinishHours": true,
+        "checkEmblemTransfer": true
+      }
+    },
+    "weldedMetalReplace": {
+      "name": "Welded Metal Part Replace",
+      "description": "Replacing welded structural panel (quarter, rocker, etc.)",
+      "operations": ["remove-ecoat", "weld-through-primer", "seam-sealer", "corrosion-protection", "cavity-wax", "de-nib", "mask-overspray", "cover-car-full"],
+      "conditions": {
+        "requiresRefinishHours": true,
+        "requiresBodyHours": true,
+        "structuralWork": true,
+        "checkWelding": true,
+        "checkAdhesive": true
+      }
+    }
+  },
+
+  "commonOperationDefaults": {
+    "primeBlock": {
+      "name": "Prime & Block Repair Area",
+      "category": "body",
+      "formula": {
+        "type": "percentage",
+        "baseOn": "bodyHours",
+        "percentage": 0.15,
+        "min": 0.3,
+        "max": 1.0
+      }
+    },
+    "corrosionProtection": {
+      "name": "Corrosion Protection",
+      "category": "body",
+      "formula": {
+        "type": "conditional",
+        "condition": "bodyHours >= 1.0 || weldedPanel == true",
+        "value": 0.3
+      }
+    },
+    "seamSealer": {
+      "name": "Seam Sealer",
+      "category": "body",
+      "formula": {
+        "type": "conditional",
+        "condition": "weldedPanel == true",
+        "value": 0.4
+      }
+    },
+    "weldThroughPrimer": {
+      "name": "Weld-Through Primer",
+      "category": "body",
+      "formula": {
+        "type": "conditional",
+        "condition": "weldedPanel == true",
+        "value": 0.2
+      }
+    },
+    "cavityWax": {
+      "name": "Cavity Wax",
+      "category": "body",
+      "formula": {
+        "type": "conditional",
+        "condition": "weldedPanel == true || hasClosedCavities == true",
+        "value": 0.3
+      }
+    },
+    "prepNewPart": {
+      "name": "Prep New/Unprimed Part",
+      "category": "body",
+      "formula": {
+        "type": "conditional",
+        "condition": "isReplacement == true",
+        "value": 0.4
+      }
+    },
+    "transferEmblems": {
+      "name": "Transfer Emblems/Moldings",
+      "category": "body",
+      "formula": {
+        "type": "perItem",
+        "valuePerItem": 0.1
+      }
+    },
+    "wetDrySand": {
+      "name": "Wet/Dry Sand & Buff",
+      "category": "refinish",
+      "formula": {
+        "type": "percentage",
+        "baseOn": "refinishHours",
+        "percentage": 0.10,
+        "min": 0.2,
+        "max": 0.8,
+        "condition": "refinishHours >= 1.5"
+      }
+    }
+  }
+}

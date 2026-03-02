@@ -1,0 +1,228 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-02-06",
+  "description": "ADAS calibration requirements by operation and sensor type",
+  "sensorTypes": {
+    "front_radar": {
+      "name": "Front Radar",
+      "location": "Front bumper/grille area",
+      "commonNames": ["Adaptive Cruise Control", "ACC", "Forward Collision Warning", "FCW", "Automatic Emergency Braking", "AEB"],
+      "calibrationType": "static_or_dynamic"
+    },
+    "front_camera": {
+      "name": "Forward Camera",
+      "location": "Windshield mounted",
+      "commonNames": ["Lane Departure Warning", "LDW", "Lane Keep Assist", "LKA", "Traffic Sign Recognition", "TSR", "Forward Collision Camera"],
+      "calibrationType": "static"
+    },
+    "rear_radar": {
+      "name": "Rear Radar",
+      "location": "Rear bumper corners",
+      "commonNames": ["Blind Spot Monitor", "BSM", "Blind Spot Warning", "BSW", "Rear Cross Traffic Alert", "RCTA"],
+      "calibrationType": "dynamic"
+    },
+    "surround_cameras": {
+      "name": "Surround View Cameras",
+      "location": "Front/Rear/Side mirrors",
+      "commonNames": ["360 Camera", "Bird's Eye View", "Around View Monitor", "Surround View"],
+      "calibrationType": "static"
+    },
+    "parking_sensors": {
+      "name": "Parking Sensors",
+      "location": "Front and rear bumpers",
+      "commonNames": ["Park Assist", "Ultrasonic Sensors", "Parking Sonar"],
+      "calibrationType": "learn_procedure"
+    },
+    "lidar": {
+      "name": "LiDAR",
+      "location": "Various (roof, bumper, grille)",
+      "commonNames": ["LiDAR", "Light Detection and Ranging"],
+      "calibrationType": "static"
+    },
+    "steering_angle": {
+      "name": "Steering Angle Sensor",
+      "location": "Steering column",
+      "commonNames": ["SAS", "Steering Angle Sensor", "Stability Control"],
+      "calibrationType": "reset_procedure"
+    }
+  },
+  "calibrationTriggers": {
+    "windshield_replace": {
+      "operation": "Windshield Replace/R&I",
+      "triggerKeywords": ["windshield", "w/s", "front glass", "laminated glass"],
+      "affectedSensors": ["front_camera"],
+      "calibrationRequired": true,
+      "calibrationType": "static",
+      "explanation": "Forward camera is mounted to windshield. Any disturbance requires recalibration.",
+      "oemNotes": "ALL manufacturers require camera recalibration after windshield work",
+      "typicalCost": 350.00,
+      "typicalTime": 1.0
+    },
+    "front_bumper_replace": {
+      "operation": "Front Bumper Cover Replace",
+      "triggerKeywords": ["front bumper", "bumper cover front", "front fascia"],
+      "affectedSensors": ["front_radar", "parking_sensors"],
+      "calibrationRequired": true,
+      "calibrationType": "static_or_dynamic",
+      "explanation": "Front radar module often mounted behind bumper cover. Parking sensors embedded in cover.",
+      "oemNotes": "Even if radar not removed, bumper alignment affects radar aim",
+      "typicalCost": 250.00,
+      "typicalTime": 0.8
+    },
+    "front_bumper_repair": {
+      "operation": "Front Bumper Cover Repair",
+      "triggerKeywords": ["front bumper repair"],
+      "affectedSensors": ["front_radar"],
+      "calibrationRequired": "verify",
+      "calibrationType": "verification",
+      "explanation": "If radar area repainted, metal flake or film thickness may affect radar. Verify operation.",
+      "oemNotes": "Some OEMs prohibit metallic paint in radar zone"
+    },
+    "rear_bumper_replace": {
+      "operation": "Rear Bumper Cover Replace",
+      "triggerKeywords": ["rear bumper", "bumper cover rear", "rear fascia"],
+      "affectedSensors": ["rear_radar", "parking_sensors"],
+      "calibrationRequired": true,
+      "calibrationType": "dynamic",
+      "explanation": "Blind spot sensors mounted in rear bumper corners. Position critical for proper operation.",
+      "oemNotes": "Rear radar calibration typically requires road test",
+      "typicalCost": 200.00,
+      "typicalTime": 0.5
+    },
+    "quarter_panel_work": {
+      "operation": "Quarter Panel Repair/Replace",
+      "triggerKeywords": ["quarter panel", "qtr panel", "quarter pnl"],
+      "affectedSensors": ["rear_radar"],
+      "calibrationRequired": true,
+      "calibrationType": "dynamic",
+      "explanation": "Blind spot sensors may be mounted in quarter panel area near rear bumper",
+      "oemNotes": "Check sensor mounting location - varies by manufacturer",
+      "typicalCost": 200.00,
+      "typicalTime": 0.5
+    },
+    "mirror_replace": {
+      "operation": "Side Mirror Replace",
+      "triggerKeywords": ["mirror", "door mirror", "side mirror"],
+      "affectedSensors": ["surround_cameras", "rear_radar"],
+      "calibrationRequired": "if_equipped",
+      "calibrationType": "static",
+      "explanation": "Some vehicles have cameras or sensors integrated into mirrors",
+      "oemNotes": "Check if mirror contains camera or blind spot indicator",
+      "typicalCost": 150.00,
+      "typicalTime": 0.5
+    },
+    "grille_replace": {
+      "operation": "Grille Replace",
+      "triggerKeywords": ["grille", "grill", "radiator grille"],
+      "affectedSensors": ["front_radar", "front_camera"],
+      "calibrationRequired": "if_equipped",
+      "calibrationType": "static",
+      "explanation": "Some radar modules mounted behind grille area",
+      "oemNotes": "Radar emblem or grille-mounted modules may be disturbed"
+    },
+    "headlight_replace": {
+      "operation": "Headlight Replace",
+      "triggerKeywords": ["headlight", "headlamp", "head light"],
+      "affectedSensors": ["front_camera"],
+      "calibrationRequired": "verify",
+      "calibrationType": "aim_check",
+      "explanation": "Headlight aim affects some camera systems that use headlight patterns"
+    },
+    "wheel_alignment": {
+      "operation": "Wheel Alignment",
+      "triggerKeywords": ["alignment", "wheel align", "4-wheel align"],
+      "affectedSensors": ["front_radar", "front_camera", "rear_radar", "steering_angle"],
+      "calibrationRequired": true,
+      "calibrationType": "reset_and_verify",
+      "explanation": "Alignment changes vehicle thrust angle which affects all directional sensors",
+      "oemNotes": "Steering angle sensor reset required. ADAS verification recommended.",
+      "typicalCost": 100.00,
+      "typicalTime": 0.3
+    },
+    "suspension_work": {
+      "operation": "Suspension Repair/Replace",
+      "triggerKeywords": ["strut", "shock", "control arm", "suspension", "tie rod", "ball joint"],
+      "affectedSensors": ["front_radar", "front_camera", "rear_radar", "steering_angle"],
+      "calibrationRequired": true,
+      "calibrationType": "alignment_then_calibration",
+      "explanation": "Suspension changes affect ride height and vehicle aim",
+      "oemNotes": "Alignment required first, then ADAS calibration"
+    },
+    "structural_repair": {
+      "operation": "Structural/Frame Repair",
+      "triggerKeywords": ["frame", "rail", "apron", "structural", "unibody"],
+      "affectedSensors": ["front_radar", "front_camera", "rear_radar", "surround_cameras", "lidar"],
+      "calibrationRequired": true,
+      "calibrationType": "full_system",
+      "explanation": "Structural repairs affect all sensor mounting points and vehicle geometry",
+      "oemNotes": "Full ADAS system verification required after structural repair",
+      "typicalCost": 500.00,
+      "typicalTime": 2.0
+    },
+    "roof_replace": {
+      "operation": "Roof Panel Replace",
+      "triggerKeywords": ["roof", "roof panel"],
+      "affectedSensors": ["front_camera", "surround_cameras", "lidar"],
+      "calibrationRequired": true,
+      "calibrationType": "static",
+      "explanation": "Roof-mounted sensors and windshield angle may be affected",
+      "oemNotes": "Some vehicles have roof-mounted cameras or LiDAR"
+    },
+    "airbag_deploy": {
+      "operation": "Airbag Deployment/SRS Work",
+      "triggerKeywords": ["airbag", "air bag", "srs", "restraint"],
+      "affectedSensors": ["front_radar", "front_camera"],
+      "calibrationRequired": true,
+      "calibrationType": "static",
+      "explanation": "SRS components may share mounting with ADAS sensors",
+      "oemNotes": "Pre-collision systems linked to SRS"
+    }
+  },
+  "paintingConsiderations": {
+    "radar_zones": {
+      "description": "Areas where radar sensors look through body panels",
+      "requirement": "No metallic or metal flake paint in radar detection zone",
+      "maxFilmThickness": "Typically 6 mils total including primer",
+      "masking": "Mask backside of bumper in radar zone during refinish",
+      "degReference": "DEG #40336 - Bumper masking in radar zone NOT INCLUDED"
+    },
+    "camera_zones": {
+      "description": "Glass or covers in front of cameras",
+      "requirement": "Keep clean, no tint, no aftermarket films in camera view area"
+    }
+  },
+  "vehicleSpecificNotes": {
+    "tesla": {
+      "notes": "Tesla requires all ADAS recalibration through Tesla service or authorized body shop",
+      "specialRequirements": ["Tesla diagnostic tool required", "Must be Tesla certified facility"]
+    },
+    "subaru_eyesight": {
+      "notes": "Subaru EyeSight uses stereo cameras - both must be calibrated together",
+      "specialRequirements": ["Static calibration with specific targets", "Dealer-level tool often required"]
+    },
+    "honda_sensing": {
+      "notes": "Honda Sensing combines camera and radar",
+      "specialRequirements": ["Both systems must be calibrated", "Check for TSBs on calibration procedures"]
+    },
+    "toyota_safety_sense": {
+      "notes": "Toyota Safety Sense has multiple generations with different requirements",
+      "specialRequirements": ["Verify TSS generation", "Some require dealer calibration"]
+    }
+  },
+  "calibrationTypes": {
+    "static": {
+      "description": "Performed in shop with targets/fixtures",
+      "requirements": ["Level floor", "Proper lighting", "OEM or equivalent targets", "Scan tool"],
+      "typicalTime": "30-60 minutes"
+    },
+    "dynamic": {
+      "description": "Performed via road test at specific speeds",
+      "requirements": ["Straight road", "Lane markings visible", "Specific speed range", "Scan tool"],
+      "typicalTime": "15-30 minutes"
+    },
+    "static_and_dynamic": {
+      "description": "Both static setup and road verification required",
+      "typicalTime": "60-90 minutes"
+    }
+  }
+}

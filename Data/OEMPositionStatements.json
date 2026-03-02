@@ -1,0 +1,396 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2025-02-04",
+  "note": "All links verified from official OEM sources, I-CAR RTS, and OEM1Stop.com",
+  "statements": [
+    {
+      "id": "honda-scanning",
+      "oem": "Honda/Acura",
+      "title": "Pre and Post Repair Scanning Requirements",
+      "category": "Scanning",
+      "dateIssued": "March 2024 (Updated)",
+      "summary": "All Honda/Acura vehicles (1996+) involved in a collision REQUIRE both pre-repair and post-repair diagnostic scans. Dashboard indicators are NOT acceptable for determining if scans are necessary.",
+      "fullText": "American Honda's position states that all vehicles involved in a collision (defined as damage that exceeds minor outer panel cosmetic distortion) must have minimum diagnostic scans, inspections and/or calibrations done to avoid improper repair. A pre-repair scan during estimation identifies DTCs present. A post-repair scan confirms no DTCs remain. Any repair requiring disconnection of electrical components requires a post-repair scan. Dashboard indicators are intended for driver notification, not vehicle diagnostics.",
+      "keyPoints": [
+        "Pre-repair scan REQUIRED during estimation phase",
+        "Post-repair scan REQUIRED after all repairs complete",
+        "Applies to ALL 1996+ Honda/Acura vehicles",
+        "Dashboard warning lights are NOT sufficient - scan required regardless",
+        "Use i-HDS with 'All DTC Check' feature recommended"
+      ],
+      "link": "https://techinfo.honda.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Honda_Pos_Diagnostic-Scans_Revised_FINAL(5-19).pdf",
+      "icarLink": "https://rts.i-car.com/crn-1126.html",
+      "collisionLink": "https://techinfo.honda.com/rjanisis/pubs/web/RJAAI001_COLLISION.htm"
+    },
+    {
+      "id": "toyota-scanning",
+      "oem": "Toyota/Lexus",
+      "title": "Pre and Post Repair System Scanning",
+      "category": "Scanning",
+      "dateIssued": "July 2016",
+      "summary": "Toyota/Lexus/Scion requires health check before and after collision repairs to ensure electronic systems operate as designed.",
+      "fullText": "Toyota recommends that a health check be performed prior to and after any collision repair to ensure all electronic systems are operating as designed. This includes vehicles that may not have visible damage to components containing electronic control units. Access to TIS repair manuals and technical bulletins is available at techinfo.toyota.com. ADAS information is found in Audio/Visual/Telematics, Engine/Hybrid System, Vehicle Interior, and ADAS/AD categories.",
+      "keyPoints": [
+        "Health check BEFORE and AFTER collision repair required",
+        "Applies even without visible electronic damage",
+        "Access repair manuals at techinfo.toyota.com ($15 for 48 hours)",
+        "ADAS calibration required after windshield, bumper, deck lid repairs",
+        "Wheel alignment triggers calibration requirements"
+      ],
+      "link": "https://techinfo.toyota.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/oem-information/toyota.html",
+      "calibrationLink": "https://www.toyotapartsandservice.com/wp-content/uploads/2019/08/2019-2_CP-a5.pdf"
+    },
+    {
+      "id": "gm-scanning",
+      "oem": "General Motors",
+      "title": "Pre and Post-Scan of Collision Vehicles",
+      "category": "Scanning",
+      "dateIssued": "2022 (Updated)",
+      "summary": "GM REQUIRES all collision vehicles be tested for DTCs during repair estimation AND after repairs are complete to verify faults are repaired and no new faults introduced.",
+      "fullText": "General Motors takes the position that all vehicles being assessed for collision damage repairs must be tested for Diagnostic Trouble Codes (DTCs) during the repair estimation in order to identify the required repairs. Additionally, the vehicle must be retested after all repairs are complete to verify that faults have been repaired and new faults have not been introduced. Many safety and security-related components require calibration when replaced. MDI2 is required for 2021+ vehicles.",
+      "keyPoints": [
+        "Pre-repair scan REQUIRED during estimation",
+        "Post-repair scan REQUIRED to verify repairs complete",
+        "Safety components require calibration when replaced",
+        "MDI2 required for 2021+ model year vehicles",
+        "Not all scan tools read all DTC codes - use GM approved tools"
+      ],
+      "link": "https://www.acdelcotds.com",
+      "pdfLink": "https://www.gmparts.com/content/dam/gmparts/na/us/en/index/technical-resources/position-statements/02-pdfs/new/pre-post-scan-collision-vehicles.pdf",
+      "icarLink": "https://rts.i-car.com/crn-469.html",
+      "positionStatementsPage": "https://www.gmparts.com/technical-resources/position-statements"
+    },
+    {
+      "id": "ford-scanning",
+      "oem": "Ford/Lincoln",
+      "title": "Pre and Post Repair Diagnostic Scanning",
+      "category": "Scanning",
+      "dateIssued": "October 2025 (Updated)",
+      "summary": "ALL Ford vehicles (1996+) involved in a collision REQUIRE both pre-repair and post-repair diagnostic scans for optimal restoration of safety and driver-assist systems.",
+      "fullText": "For optimal restoration of all safety and driver-assist systems to their pre-accident performance condition, all Ford Motor Co. vehicles (model year 1996 and newer) involved in a collision (defined as damage beyond minor outer-panel cosmetic distortion) are required to undergo both pre-repair and post-repair diagnostic scans. Ford recommends use of IDS (1996-2018) or FDRS (2018+) with VCMII, VCM3 or J2534-compliant interface. Ford does not approve aftermarket, recycled, salvaged, or reconditioned parts.",
+      "keyPoints": [
+        "Pre AND post repair scans REQUIRED on all 1996+ vehicles",
+        "Ford IDS (1996-2018) or FDRS (2018+) required",
+        "VCMII, VCM3, or J2534 interface needed",
+        "Aftermarket/recycled/salvaged parts NOT approved",
+        "Follow Ford factory diagnostic and repair procedures"
+      ],
+      "link": "https://www.motorcraftservice.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/FORD%20Position%20Statement%20ADAS%20Scanning%20-%20FNL%20(9-30-25).pdf",
+      "icarLink": "https://rts.i-car.com/oem-information/ford.html",
+      "adasJobAid": "https://fordcrashparts.com/wp-content/uploads/2022/01/Advanced-driver-assistance-systems-ADAS-Job-Aid-D6.pdf"
+    },
+    {
+      "id": "stellantis-scanning",
+      "oem": "Stellantis (Chrysler/Dodge/Jeep/Ram)",
+      "title": "Pre and Post Repair System Scanning",
+      "category": "Scanning",
+      "dateIssued": "June 2016",
+      "summary": "FCA/Stellantis requires pre-repair and post-repair scanning on all collision damaged vehicles. MDP with wiTECH 2.0 required for CAN-FD DoIP vehicles.",
+      "fullText": "FCA/Stellantis has released a position statement requiring pre-repair scan to determine full extent of damage including electronic systems, and post-repair scan to verify all systems functioning properly. ADAS information is located in Chime/Buzzer/Driver Assist, Lamps and Lighting, Speed Control, and Driver Assistance sections of service manuals. The MDP with wiTECH 2.0 is required for diagnostic, programming, and ADAS calibration on newer CAN-FD DoIP vehicles.",
+      "keyPoints": [
+        "Pre-repair and post-repair scans REQUIRED",
+        "MDP with wiTECH 2.0 required for newer vehicles",
+        "ADAS info in multiple service manual sections",
+        "PROXI alignment may be required on some systems",
+        "Body repair manuals at techauthority.com"
+      ],
+      "link": "https://www.techauthority.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-405.html",
+      "freeResources": "https://www.moparrepairconnect.com"
+    },
+    {
+      "id": "nissan-scanning",
+      "oem": "Nissan/Infiniti",
+      "title": "Pre and Post Repair Scanning and Calibrations",
+      "category": "Scanning",
+      "dateIssued": "January 2026 (Updated)",
+      "summary": "Nissan/Infiniti REQUIRES pre-repair and post-repair scanning on all collision vehicles. New position statements released on salvaged/aftermarket ADAS components.",
+      "fullText": "Nissan/Infiniti requires pre-repair and post-repair diagnosis on all collision vehicles. Mandatory radar calibration prevents malfunctions of Forward Emergency Braking (FEB), Predictive Forward Collision Warning (PFCW), and Intelligent Cruise Control (ICC). Module 'configuration' (programming) is required after replacement. Action tests required after ADAS repairs even when calibration is not needed. Nine new position statements released January 2026 on salvaged/aftermarket ADAS components.",
+      "keyPoints": [
+        "Pre-repair and post-repair scans REQUIRED",
+        "Mandatory radar calibration for FEB, PFCW, ICC systems",
+        "Module configuration required after replacement",
+        "Action tests required after ADAS repairs",
+        "NEW: Position statements on salvaged/aftermarket ADAS parts"
+      ],
+      "link": "https://www.nissan-techinfo.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Nissan_Pos_Pre-and-Post-Repair-Scanning,-Calibrations-asTech_Revised_July2019(8-7-20).pdf",
+      "icarLink": "https://rts.i-car.com/crn-1023.html",
+      "adasLink": "https://rts.i-car.com/oem-information/nissan/nissan-adas.html"
+    },
+    {
+      "id": "subaru-scanning",
+      "oem": "Subaru",
+      "title": "Pre and Post-Scan of Collision Vehicles",
+      "category": "Scanning",
+      "dateIssued": "March 2020 (Revised)",
+      "summary": "Subaru REQUIRES pre-repair and post-repair scanning for all 2004+ vehicles involved in collision (damage exceeding minor outer panel cosmetic distortion).",
+      "fullText": "For Subaru vehicles from model year 2004 and forward involved in a collision, Subaru collision repair procedure requires that pre-repair scanning be performed. Pre-scanning will reveal DTCs for items that are not functioning properly. Subaru defines a collision as 'damage that exceeds minor outer body panel cosmetic distortion.' Post-repair scanning is also required to ensure malfunctioning items have been repaired and appropriate calibrations performed.",
+      "keyPoints": [
+        "Pre-repair scan REQUIRED for 2004+ vehicles",
+        "Post-repair scan REQUIRED to verify repairs",
+        "Collision = damage exceeding minor cosmetic distortion",
+        "EyeSight vehicles have additional calibration requirements",
+        "Subaru Select Monitor (SSM) required for calibrations"
+      ],
+      "link": "https://techinfo.subaru.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Subaru_Pos_Pre-and-Post-Scan_Revised(8-7-20).pdf",
+      "icarLink": "https://rts.i-car.com/crn-1357.html",
+      "adasLink": "https://rts.i-car.com/oem-information/subaru/subaru-adas.html"
+    },
+    {
+      "id": "hyundai-scanning",
+      "oem": "Hyundai/Kia/Genesis",
+      "title": "Pre and Post Repair Scanning Requirements",
+      "category": "Scanning",
+      "dateIssued": "2024 (Updated)",
+      "summary": "Hyundai Motors America REQUIRES pre-repair scan for safe repairs AND post-repair scan to ensure all systems functioning with NO DTCs present, regardless of warning lights.",
+      "fullText": "Hyundai Motors America requires a pre-repair scan to ensure safe and accurate repairs and also a post-repair scan to ensure all systems and components are functioning, calibrated, and communicating properly with NO diagnostic trouble codes present. Scanning is required regardless if a warning light or malfunction indicator light is illuminated. Kia states scanning 'should not be considered an option, but rather as an essential task.'",
+      "keyPoints": [
+        "Pre-repair scan REQUIRED for safe repairs",
+        "Post-repair scan REQUIRED - NO DTCs allowed",
+        "Scanning required REGARDLESS of warning lights",
+        "Kia: Scanning is ESSENTIAL, not optional",
+        "Additional calibrations in Body Electrical System > General Information"
+      ],
+      "link": "https://www.hyundaitechinfo.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-2296.html",
+      "kiaLink": "https://www.kiatechinfo.com"
+    },
+    {
+      "id": "volkswagen-scanning",
+      "oem": "Volkswagen/Audi",
+      "title": "Collision Repair Diagnostic Requirements",
+      "category": "Scanning",
+      "dateIssued": "2020",
+      "summary": "VW/Audi requires comprehensive diagnostic scans and does NOT support use of recycled vehicle parts or assemblies for repairs.",
+      "fullText": "Volkswagen and Audi require comprehensive diagnostic scans to be performed before and after any collision repair. VWoA does not support the repair of Volkswagen vehicles with recycled vehicle parts or assemblies. Due to the complexity of modern vehicle electronics, collision forces can affect systems throughout the vehicle. Only fastening elements with Dacromet® surface coating should be installed. Wheel repair and reconditioning must meet VW standards.",
+      "keyPoints": [
+        "Comprehensive diagnostic scans REQUIRED",
+        "Recycled parts/assemblies NOT supported",
+        "Fasteners require Dacromet® coating",
+        "Wheel repair must meet VW standards",
+        "Access repair info at erwin.vw.com"
+      ],
+      "link": "https://erwin.vw.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/VW_Pos_Recycled-Parts(3-24-20).pdf",
+      "icarLink": "https://rts.i-car.com/oem-information/volkswagen.html",
+      "audiStructuralPdf": "https://www.oem1stop.com/sites/default/files/Audi_Position_Vehicle-Structure-and-Unibody-Component-Replacement(12-4-18).pdf"
+    },
+    {
+      "id": "bmw-scanning",
+      "oem": "BMW/MINI",
+      "title": "Collision Repair Diagnostics",
+      "category": "Scanning",
+      "dateIssued": "2019",
+      "summary": "BMW requires pre and post repair diagnostic testing on all collision repairs. Electronic systems are highly integrated.",
+      "fullText": "BMW requires that pre-repair and post-repair diagnostic testing be performed on all vehicles undergoing collision repair. The vehicle's electronic systems are highly integrated and can be affected by collision damage even when not directly impacted. All repair work must be verified through proper diagnostic procedures before the vehicle is returned to the customer.",
+      "keyPoints": [
+        "Pre and post repair diagnostics REQUIRED",
+        "Electronic systems highly integrated",
+        "Indirect damage can affect systems",
+        "Verify ALL repairs through diagnostics"
+      ],
+      "link": "https://www.bmwtis.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/oem-information/bmw.html"
+    },
+    {
+      "id": "mercedes-scanning",
+      "oem": "Mercedes-Benz",
+      "title": "Diagnostic Scan Requirements",
+      "category": "Scanning",
+      "dateIssued": "2018",
+      "summary": "Mercedes-Benz requires thorough diagnostic evaluation before and after collision repair due to sophisticated interconnected systems.",
+      "fullText": "Mercedes-Benz requires a thorough diagnostic evaluation be performed before and after any collision repair. Modern Mercedes-Benz vehicles contain sophisticated electronic systems that are interconnected. Collision forces can affect sensors, modules, and wiring throughout the vehicle. Complete system diagnostics ensure all issues are identified and properly addressed.",
+      "keyPoints": [
+        "Thorough diagnostic evaluation REQUIRED",
+        "Sophisticated interconnected systems",
+        "Collision affects sensors, modules, wiring",
+        "Complete system diagnostics needed"
+      ],
+      "link": "https://www.startekinfo.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/oem-information/mercedes-benz.html"
+    },
+    {
+      "id": "honda-adas-calibration",
+      "oem": "Honda/Acura",
+      "title": "Honda Sensing/AcuraWatch Calibration",
+      "category": "ADAS Calibration",
+      "dateIssued": "March 2024 (Updated)",
+      "summary": "Honda Sensing systems often will NOT display DTCs during scan unless there is damage - aiming and/or calibration may be required regardless.",
+      "fullText": "Honda/Acura noted that 'these driver assistive systems often will not display DTCs during a vehicle scan unless there is damage to the applicable system, so aiming and/or calibration may be required.' Calibration required after: windshield replacement, front radar sensor R&R, front camera R&R, front bumper R&R, wheel alignment, and collision repairs affecting mounting points. Both static and dynamic calibration may be required.",
+      "keyPoints": [
+        "ADAS systems may NOT show DTCs even when calibration needed",
+        "Windshield replacement = calibration required",
+        "Radar/camera R&R = calibration required",
+        "Bumper R&R = calibration required",
+        "Wheel alignment = calibration required"
+      ],
+      "link": "https://techinfo.honda.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Honda_Pos_Diagnostic-Scans_Revised_FINAL(5-19).pdf",
+      "icarLink": "https://rts.i-car.com/crn-1126.html"
+    },
+    {
+      "id": "toyota-tss-calibration",
+      "oem": "Toyota/Lexus",
+      "title": "Toyota Safety Sense Calibration",
+      "category": "ADAS Calibration",
+      "dateIssued": "2020",
+      "summary": "Cameras need calibration after windshield, bumper, or deck lid R&R. Calibration also required after wheel alignment.",
+      "fullText": "Calibration ensures that the cameras point in the desired direction. They all need calibration after replacement or after any collision repair that involves removal or adjustment of the body part (windshield, bumper, deck lid, etc) on which the camera is mounted. From a collision repair point of view, that means any time a vehicle has had a bumper cover or grille removed and reinstalled or replaced, or needs a wheel alignment.",
+      "keyPoints": [
+        "Camera calibration after windshield R&R",
+        "Calibration after bumper cover/grille R&R",
+        "Calibration after deck lid repair",
+        "Wheel alignment = calibration required",
+        "TSS 2.0/2.5+ have enhanced requirements"
+      ],
+      "link": "https://techinfo.toyota.com",
+      "pdfLink": "https://www.toyotapartsandservice.com/wp-content/uploads/2022/05/2022-TPAS-Issue-3-Part-2-v7-1.pdf",
+      "icarLink": "https://rts.i-car.com/oem-information/toyota/toyota-adas.html"
+    },
+    {
+      "id": "subaru-eyesight-calibration",
+      "oem": "Subaru",
+      "title": "EyeSight System Calibration",
+      "category": "ADAS Calibration",
+      "dateIssued": "2020",
+      "summary": "Subaru EyeSight uses DUAL STEREO CAMERAS (no front radar). Calibration required after windshield, camera work, alignment, or suspension work.",
+      "fullText": "Uniquely in the ADAS market, Subaru vehicles are not equipped with a front radar. Instead, Subaru uses dual stereoscopic cameras mounted several inches apart from the roof behind the windshield. These cameras perform ALL forward-facing ADAS duties. Calibration required after: windshield replacement, EyeSight camera R&R, certain A-pillar/cowl repairs, wheel alignment, suspension component replacement. Tires must be properly inflated and vehicle aligned before calibration.",
+      "keyPoints": [
+        "NO front radar - dual stereo cameras only",
+        "Windshield replacement = calibration required",
+        "Wheel alignment = calibration required",
+        "Suspension work = calibration required",
+        "Proper tire inflation and alignment BEFORE calibration",
+        "Subaru Select Monitor (SSM) required"
+      ],
+      "link": "https://techinfo.subaru.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Subaru_Pos_Pre-and-Post-Scan_Revised(8-7-20).pdf",
+      "icarLink": "https://rts.i-car.com/crn-1623.html"
+    },
+    {
+      "id": "ford-copilot-calibration",
+      "oem": "Ford/Lincoln",
+      "title": "Ford Co-Pilot360 ADAS Calibration",
+      "category": "ADAS Calibration",
+      "dateIssued": "2025",
+      "summary": "Ford requires ADAS calibration after windshield, camera, radar, bumper repairs. Static and/or dynamic calibration may be required.",
+      "fullText": "Ford Co-Pilot360 equipped vehicles require calibration of ADAS components after: windshield replacement, front camera R&R, radar sensor R&R, alignment, and collision repairs affecting sensor mounting or aim. Static and/or dynamic calibration may be required. Ford IDS or FDRS and proper targets are required for static calibration procedures. Ford publishes On Target publications with ADAS guidance.",
+      "keyPoints": [
+        "Windshield replacement = calibration required",
+        "Camera/radar R&R = calibration required",
+        "Alignment = check calibration requirements",
+        "Ford IDS/FDRS required for calibration",
+        "Proper OEM targets required for static calibration"
+      ],
+      "link": "https://www.motorcraftservice.com",
+      "pdfLink": "https://fordcrashparts.com/wp-content/uploads/2022/01/Advanced-driver-assistance-systems-ADAS-Job-Aid-D6.pdf",
+      "icarLink": "https://rts.i-car.com/oem-information/ford/ford-adas.html"
+    },
+    {
+      "id": "nissan-radar-calibration",
+      "oem": "Nissan/Infiniti",
+      "title": "Required Radar Recalibration Post-Repair",
+      "category": "ADAS Calibration",
+      "dateIssued": "2019",
+      "summary": "Mandatory radar calibration required to prevent malfunction of FEB, PFCW, and ICC systems. Action tests required after ADAS repairs.",
+      "fullText": "Mandatory calibration is required to help prevent the radar from malfunctioning, especially because it is a main component for Forward Emergency Braking (FEB), Predictive Forward Collision Warning (PFCW), and Intelligent Cruise Control (ICC). After ADAS repairs, action tests must be completed even if calibration is not required. Action tests verify proper operation but do not replace calibrations or diagnosis.",
+      "keyPoints": [
+        "Radar calibration MANDATORY after related repairs",
+        "FEB, PFCW, ICC depend on proper radar calibration",
+        "Action tests REQUIRED after ADAS repairs",
+        "Action tests do NOT replace calibration",
+        "Module configuration required after replacement"
+      ],
+      "link": "https://www.nissan-techinfo.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-420.html"
+    },
+    {
+      "id": "gm-adas-calibration",
+      "oem": "General Motors",
+      "title": "ADAS Configuration Reference",
+      "category": "ADAS Calibration",
+      "dateIssued": "2021",
+      "summary": "GM provides ADAS overview documents (Document IDs 5577683 and 5834891) on ACDelco TDS website covering all ADAS components and calibration requirements.",
+      "fullText": "General Motors provides 'Driver Assistance Systems Configuration Reference' (Document ID #5577683) and 'Important Advanced Driver Assistance Systems Considerations' (Document ID #5834891) on acdelcotds.com. Vehicles with Super Cruise, HD Surround Vision require calibration after windshield, camera, sensor, bumper, grille R&R or wheel alignment. GM approved scan tools and procedures required.",
+      "keyPoints": [
+        "ADAS documents on acdelcotds.com (IDs 5577683, 5834891)",
+        "Super Cruise/HD Surround Vision require calibration",
+        "Windshield, bumper, grille R&R = calibration",
+        "Wheel alignment = check calibration requirements",
+        "GM approved tools required"
+      ],
+      "link": "https://www.acdelcotds.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-1761.html"
+    },
+    {
+      "id": "oem-repair-procedures",
+      "oem": "All OEMs",
+      "title": "OEM Repair Procedures Required",
+      "category": "Repair Procedures",
+      "dateIssued": "Ongoing",
+      "summary": "ALL major OEMs require collision repairs be performed following manufacturer's published repair procedures. Improper repairs may compromise safety and void warranties.",
+      "fullText": "All major vehicle manufacturers require that collision repairs be performed following the manufacturer's published repair procedures. This includes proper sectioning locations, welding methods, materials, and finishing. Failure to follow OEM procedures may compromise vehicle safety and could void warranties. OEM1Stop.com and I-CAR RTS provide centralized access to OEM position statements and repair information portals.",
+      "keyPoints": [
+        "OEM procedures REQUIRED for all repairs",
+        "Includes sectioning, welding, materials",
+        "Improper repairs may void warranties",
+        "May compromise vehicle safety",
+        "Access OEM info at oem1stop.com and rts.i-car.com"
+      ],
+      "link": "https://www.oem1stop.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com",
+      "allOemStatements": "https://airprodiagnostics.com/oem-position-statements/"
+    },
+    {
+      "id": "tesla-body-repair",
+      "oem": "Tesla",
+      "title": "Tesla Approved Body Shop Program",
+      "category": "Repair Procedures",
+      "dateIssued": "2021",
+      "summary": "Tesla REQUIRES repairs by Tesla Approved Body Shops only. Aluminum construction and high-voltage systems require specific training/equipment.",
+      "fullText": "Tesla requires that all collision repairs be performed by shops enrolled in the Tesla Approved Body Shop program using Tesla-published repair procedures. Due to the aluminum-intensive construction and high-voltage systems, improper repairs can create safety hazards. Tesla provides repair procedures through the Tesla Service platform and requires specific training and equipment.",
+      "keyPoints": [
+        "Tesla Approved Body Shop REQUIRED",
+        "Tesla repair procedures MUST be followed",
+        "Aluminum construction = special procedures",
+        "High-voltage system safety critical",
+        "Specific training and equipment required"
+      ],
+      "link": "https://service.tesla.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/oem-information/tesla.html"
+    },
+    {
+      "id": "audi-structural",
+      "oem": "Audi",
+      "title": "Vehicle Structure and Unibody Component Replacement",
+      "category": "Repair Procedures",
+      "dateIssued": "December 2018",
+      "summary": "Audi does NOT support aftermarket, alternative, reverse-engineered, or remanufactured parts for structural component repairs.",
+      "fullText": "Audi position statement covers unibody/structural components including frame rails, apron assemblies, quarter panels, floor structures, bumpers, bumper reinforcement bars, A-pillars, B-pillars, and body panels. These structural components are specifically designed to work together to provide maximum passenger safety in the event of a future collision. Audi does not support the use of aftermarket, alternative, reverse-engineered, or remanufactured collision parts for structural component repairs.",
+      "keyPoints": [
+        "Aftermarket structural parts NOT supported",
+        "Alternative/reverse-engineered parts NOT approved",
+        "Structural components work together for safety",
+        "Frame rails, pillars, floor structures affected",
+        "OEM parts required for proper crashworthiness"
+      ],
+      "link": "https://erwin.vw.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Audi_Position_Vehicle-Structure-and-Unibody-Component-Replacement(12-4-18).pdf",
+      "icarLink": "https://rts.i-car.com/oem-information/audi.html"
+    }
+  ]
+}

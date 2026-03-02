@@ -1,0 +1,109 @@
+{
+  "id": "driveable-checklist",
+  "title": "Driveable vs Non-Drivable Vehicle Check",
+  "description": "Quick safety checklist to determine if a vehicle is safe to drive",
+  "version": "1.0",
+  "shopName": "Ultimate Collision Repair",
+  "sections": [
+    {
+      "id": "lighting",
+      "title": "Lighting Systems",
+      "icon": "E793",
+      "items": [
+        { "id": "light-1", "text": "Headlamps functional", "required": true },
+        { "id": "light-2", "text": "Tail lamps functional", "required": true },
+        { "id": "light-3", "text": "Brake lights functional", "required": true },
+        { "id": "light-4", "text": "Turn signals functional", "required": true },
+        { "id": "light-5", "text": "Hazard lights functional", "required": true }
+      ]
+    },
+    {
+      "id": "fluids",
+      "title": "Fluids & Leaks",
+      "icon": "E9F5",
+      "items": [
+        { "id": "fluid-1", "text": "No coolant leaks", "required": true },
+        { "id": "fluid-2", "text": "No fuel leaks", "required": true },
+        { "id": "fluid-3", "text": "No brake fluid leaks", "required": true },
+        { "id": "fluid-4", "text": "No oil leaks (excessive)", "required": true },
+        { "id": "fluid-5", "text": "No transmission fluid leaks", "required": false }
+      ]
+    },
+    {
+      "id": "body",
+      "title": "Body & Glass",
+      "icon": "E804",
+      "items": [
+        { "id": "body-1", "text": "No metal tears into cabin", "required": true },
+        { "id": "body-2", "text": "Windshield intact (no major cracks in view)", "required": true },
+        { "id": "body-3", "text": "Doors close and latch properly", "required": true },
+        { "id": "body-4", "text": "Hood latches securely", "required": true },
+        { "id": "body-5", "text": "Trunk/hatch latches securely", "required": false }
+      ]
+    },
+    {
+      "id": "srs",
+      "title": "SRS / Safety Systems",
+      "icon": "E730",
+      "items": [
+        { "id": "srs-1", "text": "Airbags NOT deployed", "required": true },
+        { "id": "srs-2", "text": "Seatbelts functional and retract properly", "required": true },
+        { "id": "srs-3", "text": "SRS warning light NOT illuminated", "required": true },
+        { "id": "srs-4", "text": "No visible damage to airbag modules", "required": true }
+      ]
+    },
+    {
+      "id": "wheels",
+      "title": "Wheels & Tires",
+      "icon": "E7F7",
+      "items": [
+        { "id": "wheel-1", "text": "All wheels secure and not damaged", "required": true },
+        { "id": "wheel-2", "text": "Tires hold air / no blowouts", "required": true },
+        { "id": "wheel-3", "text": "No sidewall damage", "required": true },
+        { "id": "wheel-4", "text": "Lug nuts present and torqued", "required": true }
+      ]
+    },
+    {
+      "id": "suspension",
+      "title": "Suspension & Steering",
+      "icon": "E7F4",
+      "items": [
+        { "id": "susp-1", "text": "Vehicle sits level (no sagging)", "required": true },
+        { "id": "susp-2", "text": "No visible suspension damage", "required": true },
+        { "id": "susp-3", "text": "Steering wheel centered and responsive", "required": true },
+        { "id": "susp-4", "text": "No unusual noises when turning", "required": true },
+        { "id": "susp-5", "text": "Vehicle tracks straight", "required": true }
+      ]
+    },
+    {
+      "id": "brakes",
+      "title": "Brakes",
+      "icon": "E7E8",
+      "items": [
+        { "id": "brake-1", "text": "Brake pedal firm (not spongy)", "required": true },
+        { "id": "brake-2", "text": "Vehicle stops in straight line", "required": true },
+        { "id": "brake-3", "text": "No grinding or unusual brake noise", "required": true },
+        { "id": "brake-4", "text": "Parking brake functional", "required": false }
+      ]
+    },
+    {
+      "id": "visibility",
+      "title": "Visibility",
+      "icon": "E890",
+      "items": [
+        { "id": "vis-1", "text": "All mirrors intact", "required": true },
+        { "id": "vis-2", "text": "Wipers functional", "required": true },
+        { "id": "vis-3", "text": "Driver has clear line of sight", "required": true }
+      ]
+    },
+    {
+      "id": "determination",
+      "title": "Final Determination",
+      "icon": "E73E",
+      "items": [
+        { "id": "det-1", "text": "DRIVABLE - All required items pass", "required": false },
+        { "id": "det-2", "text": "NON-DRIVABLE - One or more required items fail", "required": false }
+      ]
+    }
+  ]
+}
