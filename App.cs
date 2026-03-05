@@ -40,6 +40,16 @@ public partial class App : Application
 
             Debug.WriteLine("[App] Starting McStud Tool");
 
+            // Apply baseline data before any services are accessed
+            try
+            {
+                McStudDesktop.Services.BaselineDataService.Instance.ApplyBaselineIfNeeded();
+            }
+            catch (Exception baselineEx)
+            {
+                Debug.WriteLine($"[App] Baseline apply error (non-fatal): {baselineEx.Message}");
+            }
+
             // Create and show main window
             MainWindow = new MainWindow();
             MainDispatcherQueue = MainWindow.DispatcherQueue;

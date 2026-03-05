@@ -46,6 +46,7 @@
 		<Content Include="Assets\*.*" CopyToOutputDirectory="PreserveNewest" />
 		<Content Include="Assets\GuideImages\*.*" CopyToOutputDirectory="PreserveNewest" />
 		<Content Include="Data\*.json" CopyToOutputDirectory="PreserveNewest" />
+		<Content Include="Data\baseline_version.txt" CopyToOutputDirectory="PreserveNewest" />
 		<Content Include="Data\Checklists\*.json" CopyToOutputDirectory="PreserveNewest" />
 		<Content Include="Services\KeywordMappings.json" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>

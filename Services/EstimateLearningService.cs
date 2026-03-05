@@ -29,6 +29,9 @@ namespace McStudDesktop.Services
         private readonly string _dataFilePath;
         private LearnedPatternDatabase _database;
 
+        /// <summary>Read-only access to the current database for cleanup/analysis</summary>
+        public LearnedPatternDatabase CurrentDatabase => _database;
+
         // License state - set by UI when checking license
         private LicenseTier _currentTier = LicenseTier.Shop; // Default to Shop for dev
 
@@ -214,6 +217,13 @@ namespace McStudDesktop.Services
                 }
             }
 
+            // Initialize co-occurrences if missing
+            if (db.CoOccurrences == null)
+            {
+                db.CoOccurrences = new Dictionary<string, CoOccurrenceRecord>();
+                needsSave = true;
+            }
+
             // Migrate patterns to include PatternVersion if not set
             foreach (var pattern in db.Patterns.Values)
             {
@@ -367,6 +377,38 @@ namespace McStudDesktop.Services
             {
                 baseDb.LastUpdated = userDb.LastUpdated;
             }
+
+            // Merge co-occurrence data
+            if (userDb.CoOccurrences != null)
+            {
+                baseDb.CoOccurrences ??= new Dictionary<string, CoOccurrenceRecord>();
+                foreach (var (key, userRecord) in userDb.CoOccurrences)
+                {
+                    if (baseDb.CoOccurrences.TryGetValue(key, out var baseRecord))
+                    {
+                        baseRecord.TotalEstimateCount += userRecord.TotalEstimateCount;
+                        foreach (var (entryKey, userEntry) in userRecord.CoOccurringOperations)
+                        {
+                            if (baseRecord.CoOccurringOperations.TryGetValue(entryKey, out var baseEntry))
+                            {
+                                int total = baseEntry.TimesSeenTogether + userEntry.TimesSeenTogether;
+                                baseEntry.AvgLaborHours = (baseEntry.AvgLaborHours * baseEntry.TimesSeenTogether + userEntry.AvgLaborHours * userEntry.TimesSeenTogether) / total;
+                                baseEntry.AvgRefinishHours = (baseEntry.AvgRefinishHours * baseEntry.TimesSeenTogether + userEntry.AvgRefinishHours * userEntry.TimesSeenTogether) / total;
+                                baseEntry.AvgPrice = (baseEntry.AvgPrice * baseEntry.TimesSeenTogether + userEntry.AvgPrice * userEntry.TimesSeenTogether) / total;
+                                baseEntry.TimesSeenTogether = total;
+                            }
+                            else
+                            {
+                                baseRecord.CoOccurringOperations[entryKey] = userEntry;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        baseDb.CoOccurrences[key] = userRecord;
+                    }
+                }
+            }
         }
 
         public void SaveDatabase()
@@ -412,6 +454,26 @@ namespace McStudDesktop.Services
             {
                 System.Diagnostics.Debug.WriteLine($"[Learning] Error saving database: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Replace the current database with a cleaned/rebuilt version.
+        /// Creates a timestamped backup before replacing.
+        /// </summary>
+        public void ReplaceDatabase(LearnedPatternDatabase newDb)
+        {
+            // Create timestamped backup
+            if (File.Exists(_dataFilePath))
+            {
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var backupPath = _dataFilePath + $".pre_cleanup_{timestamp}";
+                File.Copy(_dataFilePath, backupPath, overwrite: true);
+                System.Diagnostics.Debug.WriteLine($"[Learning] Backup saved to {backupPath}");
+            }
+
+            _database = newDb;
+            SaveDatabase();
+            System.Diagnostics.Debug.WriteLine($"[Learning] Database replaced: {newDb.Patterns.Count} patterns, {newDb.TrainingExamples.Count} examples");
         }
 
         /// <summary>
@@ -463,6 +525,17 @@ namespace McStudDesktop.Services
         /// </summary>
         public void AddTrainingExample(TrainingExample example)
         {
+            // Skip junk lines that pass the strong header/footer filter
+            if (!string.IsNullOrWhiteSpace(example.EstimateLine) &&
+                EstimatePdfParser.IsHeaderOrFooter(example.EstimateLine))
+                return;
+
+            // Skip lines with no meaningful data
+            if (string.IsNullOrWhiteSpace(example.PartName) &&
+                string.IsNullOrWhiteSpace(example.OperationType) &&
+                example.RepairHours == 0 && example.RefinishHours == 0 && example.Price == 0)
+                return;
+
             // Normalize the line item for pattern matching
             var normalizedKey = NormalizeLineItem(example.EstimateLine);
             example.NormalizedKey = normalizedKey;
@@ -516,10 +589,24 @@ namespace McStudDesktop.Services
                 AddTrainingExample(example);
             }
 
+            // Build co-occurrence data from all operations in this estimate
+            var opsList = trainingData.LineMappings
+                .Where(m => !string.IsNullOrWhiteSpace(m.PartName))
+                .Select(m =>
+                {
+                    var normPart = NormalizePartName(m.PartName);
+                    var normOp = NormalizeOperationType(m.OperationType);
+                    var patternKey = string.IsNullOrEmpty(normOp) ? normPart : $"{normPart}|{normOp}";
+                    return (PatternKey: patternKey, PartName: m.PartName, OperationType: m.OperationType,
+                            LaborHours: m.RepairHours, RefinishHours: m.RefinishHours, Price: m.Price);
+                })
+                .ToList();
+            UpdateCoOccurrences(opsList);
+
             _database.TrainedEstimates.Add(trainingData);
             SaveDatabase();
 
-            System.Diagnostics.Debug.WriteLine($"[Learning] Learned estimate with full context linking");
+            System.Diagnostics.Debug.WriteLine($"[Learning] Learned estimate with full context linking ({opsList.Count} ops for co-occurrence)");
             return true;
         }
 
@@ -647,9 +734,16 @@ namespace McStudDesktop.Services
 
                     if (existingOp != null)
                     {
-                        // Update with average values
                         existingOp.TimesUsed++;
-                        // Could do weighted average here for hours/price
+                        // Running average: new_avg = ((old_avg * (n-1)) + new_value) / n
+                        if (op.LaborHours > 0)
+                            existingOp.LaborHours = ((existingOp.LaborHours * (existingOp.TimesUsed - 1)) + op.LaborHours) / existingOp.TimesUsed;
+                        if (op.RepairHours > 0)
+                            existingOp.RepairHours = ((existingOp.RepairHours * (existingOp.TimesUsed - 1)) + op.RepairHours) / existingOp.TimesUsed;
+                        if (op.RefinishHours > 0)
+                            existingOp.RefinishHours = ((existingOp.RefinishHours * (existingOp.TimesUsed - 1)) + op.RefinishHours) / existingOp.TimesUsed;
+                        if (op.Price > 0)
+                            existingOp.Price = ((existingOp.Price * (existingOp.TimesUsed - 1)) + op.Price) / existingOp.TimesUsed;
                     }
                     else
                     {
@@ -1447,20 +1541,7 @@ namespace McStudDesktop.Services
         /// </summary>
         private bool IsHeaderOrFooterLine(string line)
         {
-            var lower = line.ToLowerInvariant();
-            return lower.Contains("preliminary estimate") ||
-                   lower.Contains("customer:") ||
-                   lower.Contains("job number:") ||
-                   lower.Contains("line oper description") ||
-                   lower.Contains("part number") ||
-                   lower.Contains("extended price") ||
-                   lower.Contains("subtotals") ||
-                   lower.Contains("estimate totals") ||
-                   lower.Contains("page ") ||
-                   lower.Contains("www.carwise") ||
-                   lower.Contains("get live updates") ||
-                   lower.StartsWith("note:") ||
-                   System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d{1,2}/\d{1,2}/\d{4}");
+            return EstimatePdfParser.IsHeaderOrFooter(line);
         }
 
         /// <summary>
@@ -2345,6 +2426,11 @@ namespace McStudDesktop.Services
 
         public IReadOnlyList<LearnedPattern> GetAllPatterns() => _database.Patterns.Values.ToList();
 
+        /// <summary>
+        /// Expose the patterns dictionary keyed by pattern key for the intelligence service.
+        /// </summary>
+        public IReadOnlyDictionary<string, LearnedPattern> GetAllPatternsDict() => _database.Patterns;
+
         public IReadOnlyList<TrainingExample> GetRecentExamples(int count = 20) =>
             _database.TrainingExamples
                 .OrderByDescending(e => e.DateAdded)
@@ -2672,8 +2758,18 @@ namespace McStudDesktop.Services
                 .OrderByDescending(o => o.Confidence)
                 .ToList();
 
-            // Add related parts that are often done together
-            result.RelatedParts = FindRelatedParts(normalizedPart);
+            // Add related parts — prefer learned co-occurrence data, fall back to hardcoded
+            var coOccurrences = GetRelatedOperations(partName, operationType ?? "");
+            if (coOccurrences.Count > 0)
+            {
+                result.RelatedParts = coOccurrences
+                    .Select(c => $"{c.PartName} {c.OperationType} ({c.CoOccurrenceRate:P0})")
+                    .ToList();
+            }
+            else
+            {
+                result.RelatedParts = FindRelatedParts(normalizedPart);
+            }
 
             // Build explanation
             result.Explanation = BuildQueryExplanation(result, matchingPatterns.Count, relevantExamples.Count);
@@ -2787,6 +2883,92 @@ namespace McStudDesktop.Services
             var overlap = storedWords.Intersect(queryWords, StringComparer.OrdinalIgnoreCase).Count();
 
             return overlap >= 1 && (overlap >= storedWords.Count * 0.5 || overlap >= queryWords.Count * 0.5);
+        }
+
+        /// <summary>
+        /// Record co-occurrences for all operations from a single estimate.
+        /// Each operation pair is recorded bidirectionally with running-averaged values.
+        /// </summary>
+        public void UpdateCoOccurrences(List<(string PatternKey, string PartName, string OperationType, decimal LaborHours, decimal RefinishHours, decimal Price)> estimateOperations)
+        {
+            if (estimateOperations.Count < 2) return;
+            _database.CoOccurrences ??= new Dictionary<string, CoOccurrenceRecord>();
+
+            foreach (var op in estimateOperations)
+            {
+                if (string.IsNullOrWhiteSpace(op.PatternKey)) continue;
+
+                if (!_database.CoOccurrences.TryGetValue(op.PatternKey, out var record))
+                {
+                    record = new CoOccurrenceRecord
+                    {
+                        PatternKey = op.PatternKey,
+                        PartName = op.PartName,
+                        OperationType = op.OperationType
+                    };
+                    _database.CoOccurrences[op.PatternKey] = record;
+                }
+
+                record.TotalEstimateCount++;
+
+                foreach (var other in estimateOperations)
+                {
+                    if (string.IsNullOrWhiteSpace(other.PatternKey) || other.PatternKey == op.PatternKey) continue;
+
+                    if (!record.CoOccurringOperations.TryGetValue(other.PatternKey, out var entry))
+                    {
+                        entry = new CoOccurrenceEntry
+                        {
+                            PatternKey = other.PatternKey,
+                            PartName = other.PartName,
+                            OperationType = other.OperationType
+                        };
+                        record.CoOccurringOperations[other.PatternKey] = entry;
+                    }
+
+                    // Running average
+                    int n = entry.TimesSeenTogether;
+                    entry.AvgLaborHours = (entry.AvgLaborHours * n + other.LaborHours) / (n + 1);
+                    entry.AvgRefinishHours = (entry.AvgRefinishHours * n + other.RefinishHours) / (n + 1);
+                    entry.AvgPrice = (entry.AvgPrice * n + other.Price) / (n + 1);
+                    entry.TimesSeenTogether++;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get operations that frequently co-occur with the given operation, sorted by rate descending.
+        /// </summary>
+        public List<CoOccurrenceEntry> GetRelatedOperations(string partName, string operationType, int maxResults = 10)
+        {
+            _database.CoOccurrences ??= new Dictionary<string, CoOccurrenceRecord>();
+
+            var normalizedPart = NormalizePartName(partName);
+            var normalizedOp = NormalizeOperationType(operationType);
+            var key = string.IsNullOrEmpty(normalizedOp) ? normalizedPart : $"{normalizedPart}|{normalizedOp}";
+
+            if (!_database.CoOccurrences.TryGetValue(key, out var record))
+            {
+                // Try without operation type
+                key = normalizedPart;
+                if (!_database.CoOccurrences.TryGetValue(key, out record))
+                    return new List<CoOccurrenceEntry>();
+            }
+
+            if (record.TotalEstimateCount == 0)
+                return new List<CoOccurrenceEntry>();
+
+            var results = new List<CoOccurrenceEntry>();
+            foreach (var entry in record.CoOccurringOperations.Values)
+            {
+                entry.CoOccurrenceRate = (double)entry.TimesSeenTogether / record.TotalEstimateCount;
+                results.Add(entry);
+            }
+
+            return results
+                .OrderByDescending(e => e.CoOccurrenceRate)
+                .Take(maxResults)
+                .ToList();
         }
 
         /// <summary>
@@ -2904,6 +3086,12 @@ namespace McStudDesktop.Services
         /// Key: Normalized vehicle info (e.g., "2022_toyota_camry")
         /// </summary>
         public Dictionary<string, List<VehicleEstimateSummary>>? VehicleEstimates { get; set; }
+
+        /// <summary>
+        /// Co-occurrence data: which operations appear together on the same estimate.
+        /// Key: PatternKey (e.g., "lt_fender|replace")
+        /// </summary>
+        public Dictionary<string, CoOccurrenceRecord>? CoOccurrences { get; set; }
 
         /// <summary>
         /// Returns true if system is in bootstrap mode (< 20 estimates imported)
@@ -3734,6 +3922,37 @@ namespace McStudDesktop.Services
         public string ConflictType { get; set; } = "";  // "same_part_different_ops", "overlapping_hours"
         public double Severity { get; set; }  // 0-1
         public string Description { get; set; } = "";
+    }
+
+    // ==================== CO-OCCURRENCE DATA MODELS ====================
+
+    /// <summary>
+    /// Tracks which operations appear together on the same estimate.
+    /// One record per unique operation (pattern key).
+    /// </summary>
+    public class CoOccurrenceRecord
+    {
+        public string PatternKey { get; set; } = "";
+        public string PartName { get; set; } = "";
+        public string OperationType { get; set; } = "";
+        public int TotalEstimateCount { get; set; }
+        public Dictionary<string, CoOccurrenceEntry> CoOccurringOperations { get; set; } = new();
+    }
+
+    /// <summary>
+    /// A single co-occurring operation entry with running-averaged values.
+    /// </summary>
+    public class CoOccurrenceEntry
+    {
+        public string PatternKey { get; set; } = "";
+        public string PartName { get; set; } = "";
+        public string OperationType { get; set; } = "";
+        public int TimesSeenTogether { get; set; }
+        [JsonIgnore]
+        public double CoOccurrenceRate { get; set; }
+        public decimal AvgLaborHours { get; set; }
+        public decimal AvgRefinishHours { get; set; }
+        public decimal AvgPrice { get; set; }
     }
 
     #endregion

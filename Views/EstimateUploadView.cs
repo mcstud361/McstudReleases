@@ -39,6 +39,8 @@ namespace McStudDesktop.Views
         private Button? _clearDataButton;
         private Button? _buildLinesButton;
         private Button? _publishButton;
+        private Button? _exportBaselineButton;
+        private Button? _cleanupButton;
         private TextBox? _pasteArea;
         private ListView? _parsedItemsList;
         private ProgressRing? _progressRing;
@@ -70,6 +72,10 @@ namespace McStudDesktop.Views
         private readonly SmartEstimateAnalyzerService _analyzerService;
         private AnalysisResult? _currentAnalysis;
 
+        // Reference matching
+        private readonly EstimateReferenceMatcherService _referenceMatcher;
+        private TextBlock? _refMatchStatusText;
+
         // Parsed data
         private List<ParsedEstimateLine> _parsedLines = new();
 
@@ -86,6 +92,7 @@ namespace McStudDesktop.Views
             _feedbackService = LearningFeedbackService.Instance;
             _healthService = LearningHealthService.Instance;
             _scoringService = EstimateScoringService.Instance;
+            _referenceMatcher = EstimateReferenceMatcherService.Instance;
             BuildUI();
             UpdateStats();
             UpdateUIForLicenseTier();
@@ -135,6 +142,13 @@ namespace McStudDesktop.Views
             if (_publishButton != null)
             {
                 _publishButton.Visibility = canTrain ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            // Show/hide export baseline button (Admin only)
+            if (_exportBaselineButton != null)
+            {
+                _exportBaselineButton.Visibility = _learningService.CurrentTier == LicenseTier.Admin
+                    ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
@@ -216,6 +230,29 @@ namespace McStudDesktop.Views
             _publishButton.Click += PublishButton_Click;
             ToolTipService.SetToolTip(_publishButton, "Bake learned knowledge into app for distribution. Other users will get your learning when they receive the app.");
             statsSection.Children.Add(_publishButton);
+
+            // Export Baseline button (Admin only) - Exports sanitized data for all services
+            _exportBaselineButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uEDE1", FontSize = 12 }, // Database icon
+                        new TextBlock { Text = "Export Baseline", FontSize = 11 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 140, 80, 80)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6),
+                CornerRadius = new CornerRadius(4),
+                Visibility = _learningService.CurrentTier == LicenseTier.Admin ? Visibility.Visible : Visibility.Collapsed
+            };
+            _exportBaselineButton.Click += ExportBaselineButton_Click;
+            ToolTipService.SetToolTip(_exportBaselineButton, "Export and sanitize ALL learning data (history, feedback, accuracy) for distribution as baseline. Admin only.");
+            statsSection.Children.Add(_exportBaselineButton);
 
             Grid.SetColumn(statsSection, 1);
             headerGrid.Children.Add(statsSection);
@@ -649,6 +686,19 @@ namespace McStudDesktop.Views
             _suggestionsSection.Child = suggestionsStack;
             mainStack.Children.Add(_suggestionsSection);
 
+            // === REFERENCE MATCH STATUS ===
+            _refMatchStatusText = new TextBlock
+            {
+                Text = "",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            mainStack.Children.Add(_refMatchStatusText);
+
             // === STATUS ===
             _statusText = new TextBlock
             {
@@ -678,6 +728,17 @@ namespace McStudDesktop.Views
             };
             _clearDataButton.Click += ClearDataButton_Click;
             footerStack.Children.Add(_clearDataButton);
+
+            _cleanupButton = new Button
+            {
+                Content = "Clean & Rebuild Database",
+                Background = new SolidColorBrush(Color.FromArgb(255, 40, 60, 80)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 180, 220)),
+                Padding = new Thickness(12, 6, 12, 6),
+                FontSize = 11
+            };
+            _cleanupButton.Click += CleanupButton_Click;
+            footerStack.Children.Add(_cleanupButton);
 
             mainStack.Children.Add(footerStack);
 
@@ -949,32 +1010,8 @@ namespace McStudDesktop.Views
 
                             System.Diagnostics.Debug.WriteLine($"[Import] {file.Name}: {estimate.Source} estimate, {estimate.LineItems.Count} items, Vehicle: {estimate.VehicleInfo}");
 
-                            // Auto-save to Estimate History Database for DNA/payment tracking
-                            try
-                            {
-                                var historyDb = EstimateHistoryDatabase.Instance;
-                                var estimateId = historyDb.AddEstimate(estimate);
-                                System.Diagnostics.Debug.WriteLine($"[EstimateHistory] Auto-saved estimate {estimateId} to history database");
-
-                                // CONTINUOUS LEARNING: Mine this estimate for patterns
-                                try
-                                {
-                                    var storedEstimate = historyDb.GetEstimateById(estimateId);
-                                    if (storedEstimate != null)
-                                    {
-                                        EstimateMiningEngine.Instance.LearnFromEstimate(storedEstimate);
-                                        System.Diagnostics.Debug.WriteLine($"[Mining] Learned patterns from estimate {estimateId}");
-                                    }
-                                }
-                                catch (Exception miningEx)
-                                {
-                                    System.Diagnostics.Debug.WriteLine($"[Mining] Failed to learn: {miningEx.Message}");
-                                }
-                            }
-                            catch (Exception historyEx)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"[EstimateHistory] Failed to auto-save: {historyEx.Message}");
-                            }
+                            // Auto-save to Estimate History Database and mine for patterns
+                            EstimatePersistenceHelper.PersistAndMine(estimate);
                         }
                         else
                         {
@@ -987,6 +1024,10 @@ namespace McStudDesktop.Views
                                 totalLines += parsed.Count;
                                 totalParts += parsed.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                                 totalManualLines += parsed.Count(p => p.IsManualLine);
+
+                                // Persist fallback-parsed PDF to history
+                                var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
+                                EstimatePersistenceHelper.PersistAndMine(fallbackEstimate);
                             }
                         }
                     }
@@ -1001,6 +1042,10 @@ namespace McStudDesktop.Views
                             totalLines += parsed.Count;
                             totalParts += parsed.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                             totalManualLines += parsed.Count(p => p.IsManualLine);
+
+                            // Persist text/CSV file to history
+                            var csvEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
+                            EstimatePersistenceHelper.PersistAndMine(csvEstimate);
                         }
                     }
                 }
@@ -1146,6 +1191,10 @@ namespace McStudDesktop.Views
 
                 ShowStatus($"SMART Parse: {parts} parts, {additionalOps} additional operations detected", isSuccess: true);
 
+                // Persist pasted text estimate to history
+                estimate.SourceFile = "TextPaste";
+                EstimatePersistenceHelper.PersistAndMine(estimate);
+
                 // Run SMART analysis for suggestions
                 RunSmartAnalysis();
             }
@@ -1163,6 +1212,10 @@ namespace McStudDesktop.Views
                 _resultsTitle!.Text = $"Parsed: {parts} parts, {manualLines} manual lines (#)";
 
                 ShowStatus($"Parsed {_parsedLines.Count} lines: {parts} parts, {manualLines} manual lines");
+
+                // Persist fallback-parsed text paste to history
+                var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(_parsedLines, text, "TextPaste");
+                EstimatePersistenceHelper.PersistAndMine(fallbackEstimate);
 
                 // Run SMART analysis for suggestions
                 RunSmartAnalysis();
@@ -1721,6 +1774,74 @@ namespace McStudDesktop.Views
             }
         }
 
+        private async void CleanupButton_Click(object sender, RoutedEventArgs e)
+        {
+            var confirmDialog = new ContentDialog
+            {
+                Title = "Clean & Rebuild Database?",
+                Content = "This will:\n" +
+                    "- Remove junk lines (shop info, boilerplate, addresses)\n" +
+                    "- Keep only real operation data (parts, hours, prices)\n" +
+                    "- Rebuild patterns with accurate averages\n" +
+                    "- Populate estimate history from imported batches\n\n" +
+                    "A backup will be created before changes are made.",
+                PrimaryButtonText = "Clean & Rebuild",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot,
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            var confirmResult = await confirmDialog.ShowAsync();
+            if (confirmResult != ContentDialogResult.Primary)
+                return;
+
+            _cleanupButton!.IsEnabled = false;
+            ShowStatus("Cleaning database...");
+
+            DatabaseCleanupService.CleanupResult? cleanupResult = null;
+            Exception? error = null;
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    var service = new DatabaseCleanupService();
+                    cleanupResult = service.CleanupAndRebuild();
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+            });
+
+            _cleanupButton.IsEnabled = true;
+
+            if (error != null)
+            {
+                ShowStatus($"Cleanup failed: {error.Message}", isError: true);
+                return;
+            }
+
+            UpdateStats();
+
+            var resultDialog = new ContentDialog
+            {
+                Title = "Database Cleanup Complete",
+                Content = $"Total examples processed: {cleanupResult!.TotalExamples}\n" +
+                    $"Operation examples kept: {cleanupResult.OperationExamplesKept}\n" +
+                    $"Metadata lines found: {cleanupResult.MetadataLinesFound}\n" +
+                    $"Junk lines removed: {cleanupResult.JunkLinesRemoved}\n" +
+                    $"Patterns rebuilt: {cleanupResult.PatternsRebuilt}\n" +
+                    $"Batches found: {cleanupResult.BatchesFound}\n" +
+                    $"History entries created: {cleanupResult.HistoryEntriesCreated}",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await resultDialog.ShowAsync();
+
+            ShowStatus($"Cleanup done: {cleanupResult.OperationExamplesKept} kept, {cleanupResult.JunkLinesRemoved} junk removed.");
+        }
+
         private async void PublishButton_Click(object sender, RoutedEventArgs e)
         {
             // Check license tier
@@ -1791,6 +1912,99 @@ namespace McStudDesktop.Views
             }
         }
 
+        private async void ExportBaselineButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_learningService.CurrentTier != LicenseTier.Admin)
+            {
+                ShowStatus("Baseline export is only available for Admin users.", isError: true);
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = "Export Baseline Data",
+                Content = new StackPanel
+                {
+                    Spacing = 12,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = "This will export and sanitize ALL your learning data for distribution as baseline.",
+                            TextWrapping = TextWrapping.Wrap
+                        },
+                        new TextBlock
+                        {
+                            Text = "Sanitization:\n• RO numbers, claim numbers, VINs — stripped\n• Source file paths, user IDs — stripped\n• Estimate IDs — regenerated\n• Patterns, hours, insurers, vehicle info — kept",
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 100))
+                        },
+                        new TextBlock
+                        {
+                            Text = "After export, bump Data/baseline_version.txt and build to ship the update.",
+                            TextWrapping = TextWrapping.Wrap,
+                            FontStyle = Windows.UI.Text.FontStyle.Italic,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180))
+                        }
+                    }
+                },
+                PrimaryButtonText = "Export",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot,
+                DefaultButton = ContentDialogButton.Primary
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                ShowStatus("Exporting baseline data...");
+
+                var exportResult = BaselineExportTool.ExportAndSanitize();
+
+                if (exportResult.Success)
+                {
+                    ShowStatus("Baseline exported successfully!", isSuccess: true);
+
+                    var successDialog = new ContentDialog
+                    {
+                        Title = "Baseline Exported",
+                        Content = new StackPanel
+                        {
+                            Spacing = 8,
+                            Children =
+                            {
+                                new TextBlock
+                                {
+                                    Text = exportResult.FormattedSummary,
+                                    FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+                                    FontSize = 12
+                                },
+                                new TextBlock
+                                {
+                                    Text = $"\nOutput: {exportResult.OutputPath}",
+                                    FontSize = 11,
+                                    Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                                    IsTextSelectionEnabled = true
+                                },
+                                new TextBlock
+                                {
+                                    Text = "\nNext: Bump baseline_version.txt and rebuild.",
+                                    FontStyle = Windows.UI.Text.FontStyle.Italic,
+                                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150))
+                                }
+                            }
+                        },
+                        CloseButtonText = "OK",
+                        XamlRoot = this.XamlRoot
+                    };
+                    await successDialog.ShowAsync();
+                }
+                else
+                {
+                    ShowStatus($"Export failed: {exportResult.Message}", isError: true);
+                }
+            }
+        }
+
         private void ShowStatus(string message, bool isError = false, bool isSuccess = false)
         {
             _statusText!.Text = message;
@@ -1846,11 +2060,41 @@ namespace McStudDesktop.Views
                 {
                     _suggestionsSection!.Visibility = Visibility.Collapsed;
                 }
+
+                // Run reference matching to auto-populate PDF queue
+                _ = RunReferenceMatchingAsync();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Error: {ex.Message}");
                 _suggestionsSection!.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// Auto-match parsed lines against reference data and add to PDF queue
+        /// </summary>
+        private async Task RunReferenceMatchingAsync()
+        {
+            if (_parsedLines.Count == 0) return;
+
+            try
+            {
+                var matchResult = await _referenceMatcher.MatchEstimateLinesAsync(_parsedLines);
+                if (matchResult.Items.Count > 0)
+                {
+                    ReferenceView.Instance?.ShowStagedItems(matchResult.Items);
+
+                    if (_refMatchStatusText != null)
+                    {
+                        _refMatchStatusText.Text = $"Found {matchResult.Items.Count} reference matches — review in Reference tab";
+                        _refMatchStatusText.Visibility = Visibility.Visible;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[EstimateUpload] Reference matching error: {ex.Message}");
             }
         }
 

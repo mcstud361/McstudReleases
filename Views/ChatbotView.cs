@@ -31,6 +31,7 @@ public class ChatbotView : UserControl
     private readonly EstimatingHelperService _helperService;
     private readonly TypeItService _typeItService;
     private readonly OperationDescriptionBuilderService _descriptionBuilder;
+    private readonly EstimateAIAdvisorService _advisorService;
 
     private StackPanel _chatHistory = null!;
     private TextBox _inputBox = null!;
@@ -45,12 +46,15 @@ public class ChatbotView : UserControl
     private DamageZoneSelectorPanel? _damageZonePanel;
     private ExcelEstimateBuilder? _excelEstimateBuilder;
     private GhostEstimatePanel? _ghostEstimatePanel;
+    private ScreenMonitorPanel? _screenMonitorPanel;
     private Border? _chatTabButton;
     private Border? _learnedPatternsTabButton;
     private Border? _assistantTabButton;
     private Border? _damageZoneTabButton;
     private Border? _ghostTabButton;
+    private Border? _screenMonitorTabButton;
     private int _selectedTab = 0;
+    private Button? _subtabHelpButton;
 
     // Track operations mentioned in conversation for context
     private List<EstimateOperation> _mentionedOperations = new();
@@ -90,6 +94,7 @@ public class ChatbotView : UserControl
         _typeItService.SetSpeedLevel(4); // Insane speed
         _typeItService.BlockUserInput = true; // Safety: block input during paste
         _descriptionBuilder = OperationDescriptionBuilderService.Instance;
+        _advisorService = EstimateAIAdvisorService.Instance;
 
         // Chat history path
         var appDataPath = Path.Combine(
@@ -172,8 +177,21 @@ public class ChatbotView : UserControl
         // Ghost Estimate Comparison (hidden initially)
         _ghostEstimatePanel = new GhostEstimatePanel { Visibility = Visibility.Collapsed };
         _ghostEstimatePanel.OnOperationAccepted += GhostEstimatePanel_OnOperationAccepted;
-        _ghostEstimatePanel.OnComparisonComplete += GhostEstimatePanel_OnComparisonComplete;
         _chatContent.Children.Add(_ghostEstimatePanel);
+
+        // Screen OCR Monitor (hidden initially)
+        _screenMonitorPanel = new ScreenMonitorPanel { Visibility = Visibility.Collapsed };
+        _screenMonitorPanel.OnFeedToChat += ScreenMonitorPanel_OnFeedToChat;
+        _screenMonitorPanel.OnLoadToBuilder += ScreenMonitorPanel_OnLoadToBuilder;
+        _chatContent.Children.Add(_screenMonitorPanel);
+
+        // Floating help button for sub-tabs
+        _subtabHelpButton = ContextualHelpButton.Create("chat-subtab");
+        _subtabHelpButton.HorizontalAlignment = HorizontalAlignment.Right;
+        _subtabHelpButton.VerticalAlignment = VerticalAlignment.Top;
+        _subtabHelpButton.Margin = new Thickness(0, 8, 12, 0);
+        Canvas.SetZIndex(_subtabHelpButton, 10);
+        _chatContent.Children.Add(_subtabHelpButton);
 
         Grid.SetRow(_chatContent, 3);
         mainGrid.Children.Add(_chatContent);
@@ -793,12 +811,14 @@ public class ChatbotView : UserControl
         _assistantTabButton = CreateTabButton("🔧 Assistant", "Build operations", 2, false);
         _damageZoneTabButton = CreateTabButton("🚗 Build Estimate", "Visual builder", 3, false);
         _ghostTabButton = CreateTabButton("👻 Ghost Compare", "AI training", 4, false);
+        _screenMonitorTabButton = CreateTabButton("\uD83D\uDDA5 Screen OCR", "Monitor screen", 5, false);
 
         panel.Children.Add(_chatTabButton);
         panel.Children.Add(_learnedPatternsTabButton);
         panel.Children.Add(_assistantTabButton);
         panel.Children.Add(_damageZoneTabButton);
         panel.Children.Add(_ghostTabButton);
+        panel.Children.Add(_screenMonitorTabButton);
 
         return panel;
     }
@@ -900,6 +920,7 @@ public class ChatbotView : UserControl
         UpdateTabButtonStyle(_assistantTabButton, index == 2);
         UpdateTabButtonStyle(_damageZoneTabButton, index == 3);
         UpdateTabButtonStyle(_ghostTabButton, index == 4);
+        UpdateTabButtonStyle(_screenMonitorTabButton, index == 5);
 
         // Show/hide content
         if (index == 0)
@@ -911,6 +932,7 @@ public class ChatbotView : UserControl
             _damageZonePanel!.Visibility = Visibility.Collapsed;
             _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
             _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
+            _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Visible;
             _inputBox.Visibility = Visibility.Visible;
         }
@@ -923,6 +945,7 @@ public class ChatbotView : UserControl
             _damageZonePanel!.Visibility = Visibility.Collapsed;
             _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
             _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
+            _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Collapsed;
             _inputBox.Visibility = Visibility.Collapsed;
         }
@@ -935,6 +958,7 @@ public class ChatbotView : UserControl
             _damageZonePanel!.Visibility = Visibility.Collapsed;
             _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
             _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
+            _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Collapsed;
             _inputBox.Visibility = Visibility.Collapsed;
         }
@@ -947,10 +971,11 @@ public class ChatbotView : UserControl
             _damageZonePanel!.Visibility = Visibility.Collapsed;
             _excelEstimateBuilder!.Visibility = Visibility.Visible;
             _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
+            _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Collapsed;
             _inputBox.Visibility = Visibility.Collapsed;
         }
-        else
+        else if (index == 4)
         {
             // Ghost Estimate Comparison tab
             _scrollViewer.Visibility = Visibility.Collapsed;
@@ -959,8 +984,43 @@ public class ChatbotView : UserControl
             _damageZonePanel!.Visibility = Visibility.Collapsed;
             _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
             _ghostEstimatePanel!.Visibility = Visibility.Visible;
+            _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Collapsed;
             _inputBox.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            // Screen OCR Monitor tab
+            _scrollViewer.Visibility = Visibility.Collapsed;
+            _learnedPatternsPanel!.Visibility = Visibility.Collapsed;
+            _assistantView!.Visibility = Visibility.Collapsed;
+            _damageZonePanel!.Visibility = Visibility.Collapsed;
+            _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
+            _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
+            _screenMonitorPanel!.Visibility = Visibility.Visible;
+            _quickRepliesPanel.Visibility = Visibility.Collapsed;
+            _inputBox.Visibility = Visibility.Collapsed;
+        }
+
+        // Update help button for active sub-tab
+        if (_subtabHelpButton != null)
+        {
+            var viewId = index switch
+            {
+                0 => "chat-subtab",
+                1 => "learned-subtab",
+                2 => "assistant-subtab",
+                3 => "build-estimate-subtab",
+                4 => "ghost-compare-subtab",
+                5 => "screen-ocr-subtab",
+                _ => "chat-subtab"
+            };
+            var flyout = new Flyout
+            {
+                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight
+            };
+            flyout.Content = new ContextualHelpPanel(viewId) { MinWidth = 250, MaxWidth = 300 };
+            _subtabHelpButton.Flyout = flyout;
         }
     }
 
@@ -1324,7 +1384,21 @@ public class ChatbotView : UserControl
         // Process message and determine response type
         var response = ProcessMessage(message);
 
-        if (response.IsDescriptionBuilderRequest)
+        if (response.IsAdvisorQuery)
+        {
+            // AI Advisor mode - unified intelligence from all learning services
+            var advisorResult = _advisorService.ProcessAdvisorQuery(message);
+            if (advisorResult != null)
+            {
+                AddAdvisorResponse(advisorResult);
+            }
+            else
+            {
+                var chatResponse = _chatbotService.GetResponse(message);
+                AddBotMessage(chatResponse.Message, chatResponse.RelatedTopics);
+            }
+        }
+        else if (response.IsDescriptionBuilderRequest)
         {
             // Description builder mode - professional descriptions from informal input
             AddDescriptionBuilderResponse(response);
@@ -1511,6 +1585,86 @@ public class ChatbotView : UserControl
             var related = new List<string> { "What's NOT INCLUDED?", "Why flex additive?", "Why corrosion protection?" };
             AddBotMessage(degResponse.ToString(), related);
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // SECTION 5: AI ADVISOR PROACTIVE SUGGESTIONS
+        // ═══════════════════════════════════════════════════════════════
+        try
+        {
+            var enteredOpTypes = parsedOps.Select(o => o.OperationType).ToList();
+            var proactive = _advisorService.GetProactiveSuggestions(part, opType, enteredOpTypes, null);
+            if (proactive != null)
+            {
+                var advisorSb = new System.Text.StringBuilder();
+                advisorSb.AppendLine("🤖 AI ADVISOR");
+                advisorSb.AppendLine("───────────────────────────────────────────");
+
+                if (proactive.PatternSuggestions.Any())
+                {
+                    advisorSb.AppendLine("📋 COMMONLY MISSED:");
+                    foreach (var sug in proactive.PatternSuggestions)
+                    {
+                        advisorSb.AppendLine($"   • {sug.Description} ({sug.Hours:N1} hr, used {sug.TimesUsed}x)");
+                    }
+                    advisorSb.AppendLine();
+                }
+
+                if (!string.IsNullOrEmpty(proactive.AccuracyWarning))
+                {
+                    advisorSb.AppendLine($"⚠️ {proactive.AccuracyWarning}");
+                    advisorSb.AppendLine();
+                }
+
+                if (!string.IsNullOrEmpty(proactive.InsurerNote))
+                {
+                    advisorSb.AppendLine($"💰 {proactive.InsurerNote}");
+                }
+
+                var advisorRelated = new List<string> { "What am I missing?", "Show similar estimates", "Review my estimate" };
+                AddBotMessage(advisorSb.ToString(), advisorRelated);
+
+                // Track this operation in the advisor session
+                var totalHours = parsedOps.Sum(o => o.Hours);
+                _advisorService.TrackEnteredOperation(part, opType, totalHours);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Advisor] Proactive suggestion error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Renders a multi-section AI Advisor response with dark theme cards
+    /// </summary>
+    private void AddAdvisorResponse(AdvisorResponse advisorResult)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("🤖 AI ADVISOR");
+        sb.AppendLine("═══════════════════════════════════════════");
+        sb.AppendLine();
+
+        foreach (var section in advisorResult.Sections)
+        {
+            sb.AppendLine($"{section.Icon} {section.Title}");
+            sb.AppendLine("───────────────────────────────────────────");
+            foreach (var item in section.Items)
+            {
+                var hoursStr = item.Hours > 0 ? $" ({item.Hours:N1} hr)" : "";
+                sb.AppendLine($"   • {item.Description}{hoursStr}");
+                if (!string.IsNullOrEmpty(item.Detail))
+                    sb.AppendLine($"     {item.Detail}");
+            }
+            sb.AppendLine();
+        }
+
+        if (!string.IsNullOrEmpty(advisorResult.Summary))
+        {
+            sb.AppendLine($"📊 {advisorResult.Summary}");
+            sb.AppendLine();
+        }
+
+        AddBotMessage(sb.ToString(), advisorResult.FollowUpQuestions);
     }
 
     /// <summary>
@@ -1965,10 +2119,35 @@ public class ChatbotView : UserControl
         AddBotMessage($"Added from Ghost Compare: {e.Description}");
     }
 
-    private void GhostEstimatePanel_OnComparisonComplete(object? sender, GhostComparisonResult e)
+    private void ScreenMonitorPanel_OnFeedToChat(object? sender, McstudDesktop.Models.ScreenOcrResult ocrResult)
     {
-        // Optionally show summary in chat
-        System.Diagnostics.Debug.WriteLine($"[Ghost] Comparison complete: {e.Summary}");
+        // Switch to Chat tab and prefill the input with OCR text
+        SelectTab(0);
+        _inputBox.Text = ScreenMonitorPanel.FormatResultForChat(ocrResult);
+        _inputBox.Focus(FocusState.Programmatic);
+
+        // Persist OCR data to estimate history
+        if (ocrResult.DetectedOperations.Count > 0)
+        {
+            McStudDesktop.Services.EstimatePersistenceHelper.PersistAndMine(
+                McStudDesktop.Services.EstimatePersistenceHelper.ConvertFromOcr(ocrResult));
+        }
+    }
+
+    private void ScreenMonitorPanel_OnLoadToBuilder(object? sender, McstudDesktop.Models.ScreenOcrResult ocrResult)
+    {
+        var operations = ocrResult.DetectedOperations;
+        // Load OCR-detected operations into the estimate builder and switch to that tab
+        _excelEstimateBuilder?.AddOperationsFromOcr(operations);
+        SelectTab(3);
+        AddBotMessage($"Loaded {operations.Count} operations from Screen OCR into the estimate builder.");
+
+        // Persist OCR data to estimate history
+        if (operations.Count > 0)
+        {
+            McStudDesktop.Services.EstimatePersistenceHelper.PersistAndMine(
+                McStudDesktop.Services.EstimatePersistenceHelper.ConvertFromOcr(ocrResult));
+        }
     }
 
     private void AddOperationActionButtons()
@@ -2245,8 +2424,18 @@ public class ChatbotView : UserControl
             return result;
         }
 
+        // Check for AI Advisor queries FIRST
+        // "what am i missing", "similar estimates", "what does State Farm pay", "review my estimate", etc.
+        if (_advisorService.IsAdvisorQuery(message))
+        {
+            result.IsAdvisorQuery = true;
+            result.DetectedPart = ExtractPart(msgLower);
+            result.DetectedOperation = ExtractOperation(msgLower);
+            return result;
+        }
+
         // Check for suggestion requests - "suggest bumper cover replace" or "what do I need for bumper replace"
-        var suggestionTriggers = new[] { "suggest", "what do i need", "help me with", "what operations", "what manual lines" };
+        var suggestionTriggers = new[] { "suggest", "help me with", "what manual lines" };
         if (suggestionTriggers.Any(t => msgLower.StartsWith(t) || msgLower.Contains(t)))
         {
             var part = ExtractPart(msgLower);
@@ -3495,6 +3684,7 @@ internal class ProcessedMessage
     public bool IsFullOperationEntry { get; set; }
     public bool IsSuggestionRequest { get; set; }
     public bool IsDescriptionBuilderRequest { get; set; }
+    public bool IsAdvisorQuery { get; set; }
     public string DetectedPart { get; set; } = "";
     public string DetectedOperation { get; set; } = "";
     public string TrainingTopic { get; set; } = "";

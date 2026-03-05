@@ -29,6 +29,8 @@ namespace McStudDesktop.Services
         private readonly SmartEstimateEngine _smartEngine;
         private readonly EstimateLearningService _learningService;
         private readonly PatternIntelligenceService _patternIntelligence;
+        private readonly OperationKnowledgeService _knowledgeService;
+        private readonly SmartSuggestionService _suggestionService;
 
         // Loaded knowledge from real estimates
         private GhostIncludedNotIncludedData? _operationsData;
@@ -65,6 +67,8 @@ namespace McStudDesktop.Services
             _smartEngine = SmartEstimateEngine.Instance;
             _learningService = EstimateLearningService.Instance;
             _patternIntelligence = PatternIntelligenceService.Instance;
+            _knowledgeService = OperationKnowledgeService.Instance;
+            _suggestionService = SmartSuggestionService.Instance;
             LoadRealEstimateData();
         }
 
@@ -110,6 +114,15 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Detect affected panels from input without generating the full estimate.
+        /// Used by the UI to show per-panel severity selection before generation.
+        /// </summary>
+        public List<AffectedPanel> DetectAffectedPanels(GhostEstimateInput input)
+        {
+            return GetAffectedPanels(input);
+        }
+
+        /// <summary>
         /// Generate a ghost estimate based on damage input
         /// </summary>
         public GhostEstimateResult GenerateGhostEstimate(GhostEstimateInput input)
@@ -128,10 +141,22 @@ namespace McStudDesktop.Services
             // Step 1: Determine affected panels from impact zones
             var affectedPanels = GetAffectedPanels(input);
 
-            // Step 2: Generate operations for each panel
+            // Apply per-panel severity overrides
+            if (input.PanelSeverities.Count > 0)
+            {
+                foreach (var panel in affectedPanels)
+                {
+                    if (input.PanelSeverities.TryGetValue(panel.Name, out var panelSeverity))
+                    {
+                        panel.Severity = panelSeverity;
+                    }
+                }
+            }
+
+            // Step 2: Generate operations for each panel (using per-panel severity)
             foreach (var panel in affectedPanels)
             {
-                var operations = GenerateOperationsForPanel(panel, input.Severity, vehicleType);
+                var operations = GenerateOperationsForPanel(panel, panel.Severity, vehicleType);
                 result.Operations.AddRange(operations);
             }
 
@@ -217,26 +242,246 @@ namespace McStudDesktop.Services
             List<GhostOperation> acceptedSuggestions,
             List<GhostOperation> rejectedSuggestions)
         {
+            var feedbackService = LearningFeedbackService.Instance;
+            var intelligenceService = PatternIntelligenceService.Instance;
+            var learningService = EstimateLearningService.Instance;
+
             // Learn from user's extra operations (things AI missed)
+            // These are operations the user wrote that the ghost didn't suggest
             foreach (var extra in comparison.UserFoundExtra)
             {
-                // This is something the user knows that AI didn't suggest
-                // Increase pattern weight for this operation
-                System.Diagnostics.Debug.WriteLine($"[Ghost] Learning from user: {extra.Operation.Description}");
+                var patternKey = $"{extra.Operation.PartName}|{extra.Operation.OperationType}".ToLower();
+                feedbackService.RecordOperationAccepted(patternKey, "ghost_user_extra");
+
+                // Find corresponding learned pattern and snapshot before modification
+                var patterns = learningService.SearchPatterns(extra.Operation.PartName ?? "", 5);
+                var match = patterns.FirstOrDefault(p =>
+                    p.PartName.Equals(extra.Operation.PartName, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                {
+                    intelligenceService.CreatePatternSnapshot(match, "ghost_learned_from_user");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Learned from user extra: {extra.Operation.Description}");
             }
 
             // Learn from rejected suggestions (AI was wrong)
             foreach (var rejected in rejectedSuggestions)
             {
-                // Decrease confidence in this pattern
-                System.Diagnostics.Debug.WriteLine($"[Ghost] Pattern rejected: {rejected.Description}");
+                var patternKey = $"{rejected.PartName}|{rejected.OperationType}".ToLower();
+                feedbackService.RecordOperationRejected(patternKey, "ghost_rejected");
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Pattern rejected, recorded: {rejected.Description}");
             }
 
-            // Reinforce accepted suggestions
+            // Reinforce accepted suggestions (AI was right)
             foreach (var accepted in acceptedSuggestions)
             {
-                System.Diagnostics.Debug.WriteLine($"[Ghost] Pattern confirmed: {accepted.Description}");
+                var patternKey = $"{accepted.PartName}|{accepted.OperationType}".ToLower();
+                feedbackService.RecordOperationAccepted(patternKey, "ghost_accepted");
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Pattern confirmed, recorded: {accepted.Description}");
             }
+
+            // Save feedback
+            feedbackService.SaveFeedback();
+        }
+
+        /// <summary>
+        /// Generate a guidance estimate that merges operations from all data sources:
+        /// 1. MET/CCC database (via GenerateGhostEstimate)
+        /// 2. Operation Knowledge Base (570+ operations with justifications)
+        /// 3. Learned patterns from uploaded estimates
+        /// </summary>
+        public GuidanceEstimateResult GenerateGuidanceEstimate(GhostEstimateInput input)
+        {
+            // Step 1: Get base MET/CCC operations from existing ghost estimate logic
+            var baseEstimate = GenerateGhostEstimate(input);
+
+            var result = new GuidanceEstimateResult
+            {
+                VehicleInfo = baseEstimate.VehicleInfo,
+                VehicleType = baseEstimate.VehicleType,
+                DamageDescription = baseEstimate.DamageDescription,
+                GeneratedAt = baseEstimate.GeneratedAt,
+                TotalBodyHours = baseEstimate.TotalBodyHours,
+                TotalRefinishHours = baseEstimate.TotalRefinishHours,
+                TotalSubletAmount = baseEstimate.TotalSubletAmount,
+                RefinishPanelCount = baseEstimate.RefinishPanelCount,
+                BlendPanelCount = baseEstimate.BlendPanelCount,
+                TotalBodyLaborDollars = baseEstimate.TotalBodyLaborDollars,
+                TotalRefinishLaborDollars = baseEstimate.TotalRefinishLaborDollars,
+                TotalMechLaborDollars = baseEstimate.TotalMechLaborDollars,
+                TotalFrameLaborDollars = baseEstimate.TotalFrameLaborDollars,
+                GrandTotalLaborDollars = baseEstimate.GrandTotalLaborDollars,
+                Notes = baseEstimate.Notes
+            };
+
+            // Track operations by normalized key for deduplication
+            var seenOperations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Add base database operations
+            foreach (var op in baseEstimate.Operations)
+            {
+                var normalizedKey = NormalizeOperationKey(op.PartName, op.OperationType);
+                if (seenOperations.Add(normalizedKey))
+                {
+                    result.GuidanceOperations.Add(new GuidanceOperation
+                    {
+                        OperationType = op.OperationType,
+                        PartName = op.PartName,
+                        Description = op.Description,
+                        Category = op.Category,
+                        Side = op.Side,
+                        LaborHours = op.LaborHours,
+                        RefinishHours = op.RefinishHours,
+                        Price = op.Price,
+                        Confidence = op.Confidence,
+                        Source = op.Source,
+                        DataSource = "Database",
+                        ConfidenceLabel = op.Confidence >= 0.9 ? "High" : (op.Confidence >= 0.7 ? "Medium" : "Low"),
+                        IsRequired = op.Confidence >= 0.9
+                    });
+                    result.DatabaseCount++;
+                }
+            }
+
+            // Step 2: Query Operation Knowledge Base for each affected panel
+            var affectedPanels = GetAffectedPanels(input);
+
+            // Apply per-panel severity overrides
+            if (input.PanelSeverities.Count > 0)
+            {
+                foreach (var panel in affectedPanels)
+                {
+                    if (input.PanelSeverities.TryGetValue(panel.Name, out var panelSeverity))
+                    {
+                        panel.Severity = panelSeverity;
+                    }
+                }
+            }
+
+            foreach (var panel in affectedPanels)
+            {
+                var partOps = _knowledgeService.GetOperationsForPart(panel.Name);
+                if (partOps?.Operations != null)
+                {
+                    foreach (var rec in partOps.Operations)
+                    {
+                        var normalizedKey = NormalizeOperationKey(panel.Name, rec.Name);
+                        if (seenOperations.Add(normalizedKey))
+                        {
+                            var justification = _knowledgeService.GetJustification(rec.Name);
+                            var sideCode = panel.Side switch
+                            {
+                                "Left" => "LT ",
+                                "Right" => "RT ",
+                                _ => ""
+                            };
+
+                            result.GuidanceOperations.Add(new GuidanceOperation
+                            {
+                                OperationType = rec.Category switch
+                                {
+                                    "Diagnostic" => "Mech",
+                                    "Refinish" => "Rfn",
+                                    "Body" => "Body",
+                                    _ => "Body"
+                                },
+                                PartName = rec.Name.ToLower(),
+                                Description = $"{sideCode}{rec.Name}",
+                                Category = rec.Category == "Diagnostic" ? "Scanning" :
+                                           rec.Category == "Refinish" ? "Refinish Operations" :
+                                           "Body Operations",
+                                Side = panel.Side,
+                                LaborHours = rec.LaborHours,
+                                Price = rec.IsMaterial ? rec.TypicalCost : 0,
+                                Confidence = rec.IsCommon ? 0.90 : 0.70,
+                                Source = rec.Notes,
+                                DataSource = "Knowledge Base",
+                                Justification = justification?.WhyNeeded ?? rec.Notes,
+                                PPageReference = justification?.PPageReference ?? "",
+                                DEGReference = justification?.DEGReference ?? "",
+                                ConfidenceLabel = rec.IsCommon ? "High" : "Medium",
+                                IsRequired = rec.IsCommon
+                            });
+                            result.KnowledgeBaseCount++;
+                        }
+                    }
+                }
+            }
+
+            // Step 3: Query Smart Suggestion Service for learned patterns
+            foreach (var panel in affectedPanels)
+            {
+                var primaryOp = panel.Severity.ToLower() switch
+                {
+                    "severe" or "heavy" => "Replace",
+                    _ => "Repair"
+                };
+
+                var suggestions = _suggestionService.GetSuggestionsForPart(
+                    panel.Name, primaryOp, input.VehicleInfo);
+
+                if (suggestions.HasData)
+                {
+                    foreach (var sug in suggestions.ManualOperations)
+                    {
+                        var normalizedKey = NormalizeOperationKey(panel.Name, sug.Description);
+                        if (seenOperations.Add(normalizedKey))
+                        {
+                            result.GuidanceOperations.Add(new GuidanceOperation
+                            {
+                                OperationType = sug.OperationType,
+                                PartName = panel.Name,
+                                Description = sug.Description,
+                                Category = sug.OperationType == "Rfn" || sug.OperationType == "Refinish" || sug.OperationType == "Blend"
+                                    ? "Refinish Operations" : "Body Operations",
+                                Side = panel.Side,
+                                LaborHours = sug.LaborHours,
+                                RefinishHours = sug.RefinishHours,
+                                Price = sug.Price,
+                                Confidence = sug.Confidence,
+                                Source = sug.Reason,
+                                DataSource = "Learned",
+                                Justification = sug.Reason,
+                                LearnedFrequency = sug.TimesUsed,
+                                ConfidenceLabel = sug.Confidence >= 0.8 ? "High" :
+                                                  (sug.Confidence >= 0.5 ? "Medium" : "Low"),
+                                IsRequired = false
+                            });
+                            result.LearnedCount++;
+                        }
+                    }
+                }
+            }
+
+            // Add warnings
+            if (result.LearnedCount == 0)
+                result.Warnings.Add("No learned patterns available. Upload estimates to improve suggestions.");
+
+            if (result.KnowledgeBaseCount == 0)
+                result.Warnings.Add("No knowledge base operations matched. Try a more specific damage description.");
+
+            var stats = _smartEngine.GetStats();
+            if (stats.TotalEstimatesLearned < 10)
+                result.ProTips.Add("Upload more estimates to unlock learned pattern suggestions.");
+
+            if (result.GuidanceOperations.Any(o => o.Category == "Scanning"))
+                result.ProTips.Add("Pre/Post scans are required on most modern vehicles. Don't skip them.");
+
+            if (result.GuidanceOperations.Any(o => o.PartName.Contains("quarter") || o.PartName.Contains("rocker")))
+                result.ProTips.Add("Welded panels require destructive weld tests, corrosion protection, and cavity wax.");
+
+            // Copy operations list for backward compat
+            result.Operations = result.GuidanceOperations.Cast<GhostOperation>().ToList();
+
+            return result;
+        }
+
+        private string NormalizeOperationKey(string partName, string operationName)
+        {
+            return $"{partName.ToLower().Trim()}|{operationName.ToLower().Trim()}"
+                .Replace("  ", " ")
+                .Replace("-", " ");
         }
 
         #region Private Methods
@@ -1039,6 +1284,12 @@ namespace McStudDesktop.Services
         public List<string> ImpactZones { get; set; } = new();
         public string Severity { get; set; } = "moderate";
         public List<string> SelectedPanels { get; set; } = new(); // From damage zone selector
+
+        /// <summary>
+        /// Per-panel severity overrides. Key = panel name, Value = severity string (light/moderate/heavy/severe).
+        /// When set, these override the blanket Severity for individual panels.
+        /// </summary>
+        public Dictionary<string, string> PanelSeverities { get; set; } = new();
     }
 
     public class GhostEstimateResult
@@ -1115,6 +1366,30 @@ namespace McStudDesktop.Services
     {
         public GhostOperation Operation { get; set; } = new();
         public bool LearnFromThis { get; set; }
+    }
+
+    public class GuidanceOperation : GhostOperation
+    {
+        public string DataSource { get; set; } = "Database"; // "Database", "Knowledge Base", "Learned"
+        public string Justification { get; set; } = "";
+        public string PPageReference { get; set; } = "";
+        public string DEGReference { get; set; } = "";
+        public bool IsRequired { get; set; }
+        public int LearnedFrequency { get; set; }
+        public string ConfidenceLabel { get; set; } = "Medium"; // "High", "Medium", "Low"
+    }
+
+    public class GuidanceEstimateResult : GhostEstimateResult
+    {
+        public List<GuidanceOperation> GuidanceOperations { get; set; } = new();
+
+        // Source breakdown counts
+        public int DatabaseCount { get; set; }
+        public int KnowledgeBaseCount { get; set; }
+        public int LearnedCount { get; set; }
+
+        public List<string> Warnings { get; set; } = new();
+        public List<string> ProTips { get; set; } = new();
     }
 
     #endregion

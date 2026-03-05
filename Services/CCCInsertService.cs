@@ -154,6 +154,13 @@ namespace McstudDesktop.Services
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<InsertProgressArgs>? ProgressChanged;
         public event EventHandler<bool>? InsertCompleted;
+        public event EventHandler<RowInsertedEventArgs>? RowInserted;
+
+        /// <summary>
+        /// When true and ScreenMonitorService is running, verifies each row landed
+        /// by capturing the screen after insert and checking for changes.
+        /// </summary>
+        public bool ScreenVerificationEnabled { get; set; } = false;
 
         // State
         private IntPtr _targetWindow = IntPtr.Zero;
@@ -662,6 +669,45 @@ namespace McstudDesktop.Services
                     SendKeyPress(VK_RETURN);
                     await Task.Delay(_enterDelay, _cts.Token);
 
+                    // === STEP 6: Screen verification (if enabled) ===
+                    bool rowVerified = true;
+                    if (ScreenVerificationEnabled)
+                    {
+                        try
+                        {
+                            // Temporarily release input block for screen capture
+                            BlockInput(false);
+                            await Task.Delay(200, _cts.Token); // Let screen update
+
+                            var monitor = ScreenMonitorService.Instance;
+                            var verifyResult = await monitor.CaptureOnceAsync();
+                            rowVerified = verifyResult.HasChanges && verifyResult.ErrorMessage == null;
+
+                            var args = new RowInsertedEventArgs
+                            {
+                                RowIndex = i,
+                                TotalRows = totalRows,
+                                Description = description,
+                                Verified = rowVerified,
+                                OcrResult = verifyResult
+                            };
+                            RowInserted?.Invoke(this, args);
+
+                            if (!rowVerified)
+                            {
+                                StatusChanged?.Invoke(this, $"Row {i+1}: screen unchanged - may not have inserted");
+                            }
+
+                            // Re-enable input block for next row
+                            BlockInput(true);
+                        }
+                        catch (Exception verifyEx)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[CCC] Verification error: {verifyEx.Message}");
+                            BlockInput(true); // Ensure re-blocked
+                        }
+                    }
+
                     // Extra delay between rows for CCC to finish processing
                     System.Diagnostics.Debug.WriteLine($"[CCC] Row {i+1} complete, waiting before next row...");
                     await Task.Delay(_betweenRowDelay, _cts.Token);
@@ -731,5 +777,14 @@ namespace McstudDesktop.Services
             Current = current;
             Total = total;
         }
+    }
+
+    public class RowInsertedEventArgs : EventArgs
+    {
+        public int RowIndex { get; set; }
+        public int TotalRows { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public bool Verified { get; set; }
+        public McstudDesktop.Models.ScreenOcrResult? OcrResult { get; set; }
     }
 }

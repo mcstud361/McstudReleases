@@ -1057,7 +1057,7 @@ namespace McStudDesktop.Services
         /// Check if line is a header, footer, or non-item line
         /// Aggressively filters out shop info, boilerplate, disclaimers, etc.
         /// </summary>
-        private bool IsHeaderOrFooter(string line)
+        public static bool IsHeaderOrFooter(string line)
         {
             var trimmed = line.Trim();
             var upper = trimmed.ToUpperInvariant();

@@ -25,6 +25,7 @@ namespace McStudDesktop.Views
         private TextBlock? _totalRefinish;
         private TextBlock? _totalPrice;
         private TextBlock? _lineCount;
+        private StackPanel? _relatedOpsPanel;
 
         // Data
         private List<EstimateLine> _estimateLines = new();
@@ -53,19 +54,26 @@ namespace McStudDesktop.Views
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Search
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Content
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Related ops
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Footer
 
-            // Header
-            var header = new TextBlock
+            // Header with help button
+            var headerGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            headerGrid.Children.Add(new TextBlock
             {
                 Text = "Build Estimate",
                 FontSize = 18,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White),
-                Margin = new Thickness(0, 0, 0, 12)
-            };
-            Grid.SetRow(header, 0);
-            root.Children.Add(header);
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var buildHelpButton = ContextualHelpButton.Create("build-estimate-subtab");
+            Grid.SetColumn(buildHelpButton, 1);
+            headerGrid.Children.Add(buildHelpButton);
+            Grid.SetRow(headerGrid, 0);
+            root.Children.Add(headerGrid);
 
             // Search box
             var searchPanel = CreateSearchPanel();
@@ -77,9 +85,19 @@ namespace McStudDesktop.Views
             Grid.SetRow(content, 2);
             root.Children.Add(content);
 
+            // Related operations panel (collapsed by default)
+            _relatedOpsPanel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            Grid.SetRow(_relatedOpsPanel, 3);
+            root.Children.Add(_relatedOpsPanel);
+
             // Footer: Totals + Export
             var footer = CreateFooter();
-            Grid.SetRow(footer, 3);
+            Grid.SetRow(footer, 4);
             root.Children.Add(footer);
 
             Content = root;
@@ -605,6 +623,107 @@ namespace McStudDesktop.Views
 
             _estimateLines.Add(line);
             UpdateEstimateDisplay();
+            ShowRelatedOperations(suggestion.PartName, suggestion.OperationType);
+        }
+
+        private void ShowRelatedOperations(string partName, string operationType)
+        {
+            if (_relatedOpsPanel == null) return;
+
+            var related = _learningService.GetRelatedOperations(partName, operationType, 8);
+
+            // Filter out operations already on the estimate
+            var existingKeys = _estimateLines
+                .Select(l => $"{l.PartName}|{l.OperationType}".ToLowerInvariant())
+                .ToHashSet();
+            related = related
+                .Where(r => !existingKeys.Contains($"{r.PartName}|{r.OperationType}".ToLowerInvariant()))
+                .ToList();
+
+            _relatedOpsPanel.Children.Clear();
+            if (related.Count == 0)
+            {
+                _relatedOpsPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Header
+            _relatedOpsPanel.Children.Add(new TextBlock
+            {
+                Text = "Also typically on this estimate:",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+
+            // Chips wrap panel
+            var wrapGrid = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6
+            };
+
+            foreach (var entry in related)
+            {
+                wrapGrid.Children.Add(CreateRelatedOpChip(entry));
+            }
+
+            _relatedOpsPanel.Children.Add(new ScrollViewer
+            {
+                Content = wrapGrid,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                MaxHeight = 50
+            });
+
+            _relatedOpsPanel.Visibility = Visibility.Visible;
+        }
+
+        private Border CreateRelatedOpChip(CoOccurrenceEntry entry)
+        {
+            var rateText = $"{entry.CoOccurrenceRate:P0}";
+            var hoursText = entry.AvgLaborHours > 0 ? $" {entry.AvgLaborHours:F1}h" : "";
+            var refinText = entry.AvgRefinishHours > 0 ? $" R:{entry.AvgRefinishHours:F1}h" : "";
+
+            var chip = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(10, 4, 10, 4),
+                Child = new TextBlock
+                {
+                    Text = $"{entry.PartName} {entry.OperationType} ({rateText}{hoursText}{refinText})",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200))
+                }
+            };
+
+            chip.PointerEntered += (s, e) =>
+            {
+                chip.Background = new SolidColorBrush(Color.FromArgb(255, 65, 65, 65));
+                chip.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 0, 120, 212));
+            };
+            chip.PointerExited += (s, e) =>
+            {
+                chip.Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45));
+                chip.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80));
+            };
+            chip.Tapped += (s, e) =>
+            {
+                AddToEstimate(new PatternSuggestion
+                {
+                    PartName = entry.PartName,
+                    OperationType = entry.OperationType,
+                    LaborHours = entry.AvgLaborHours,
+                    RefinishHours = entry.AvgRefinishHours,
+                    Price = entry.AvgPrice,
+                    Confidence = entry.CoOccurrenceRate
+                });
+            };
+
+            return chip;
         }
 
         private void RemoveLine_Click(object sender, RoutedEventArgs e)
@@ -708,6 +827,25 @@ namespace McStudDesktop.Views
             public decimal Price { get; set; }
             public double Confidence { get; set; }
             public int TimesUsed { get; set; }
+        }
+
+        /// <summary>
+        /// Adds operations detected by Screen OCR into the estimate builder.
+        /// </summary>
+        public void AddOperationsFromOcr(List<McstudDesktop.Models.OcrDetectedOperation> operations)
+        {
+            foreach (var op in operations)
+            {
+                _estimateLines.Add(new EstimateLine
+                {
+                    PartName = op.PartName,
+                    OperationType = op.OperationType,
+                    LaborHours = op.LaborHours,
+                    RefinishHours = op.RefinishHours,
+                    Price = op.Price
+                });
+            }
+            UpdateEstimateDisplay();
         }
 
         private class EstimateLine

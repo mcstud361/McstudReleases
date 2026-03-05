@@ -396,6 +396,96 @@
         "Required items are marked with red asterisk",
         "Use checklists to ensure nothing is missed"
       ]
+    },
+    "chat-subtab": {
+      "title": "Chat Help",
+      "description": "Ask questions about estimating, operations, and MET features. The chatbot understands collision repair terminology.",
+      "steps": [
+        "1. Type your question in the input box at the bottom",
+        "2. Use quick-reply buttons for common questions",
+        "3. Operations mentioned in answers can be copied to clipboard",
+        "4. Pin important messages for quick reference"
+      ],
+      "tips": [
+        "Ask about specific operations like 'R&I bumper cover'",
+        "Use categories bar to filter question types",
+        "Chat history is saved between sessions"
+      ]
+    },
+    "learned-subtab": {
+      "title": "Learned Patterns Help",
+      "description": "View patterns the tool has learned from uploaded estimates. Shows which operations commonly appear together.",
+      "steps": [
+        "1. Browse learned operation patterns",
+        "2. See frequency and confidence scores",
+        "3. Patterns improve as you upload more estimates"
+      ],
+      "tips": [
+        "Upload more estimates to improve pattern accuracy",
+        "High-confidence patterns are most reliable",
+        "Patterns are used to suggest missing operations"
+      ]
+    },
+    "assistant-subtab": {
+      "title": "Estimator Assistant Help",
+      "description": "Get guided help building estimates with step-by-step assistance.",
+      "steps": [
+        "1. Select the type of damage or repair",
+        "2. Follow the guided prompts",
+        "3. Review suggested operations",
+        "4. Export operations to your estimate"
+      ],
+      "tips": [
+        "The assistant walks you through common repair scenarios",
+        "Suggestions are based on real estimate data",
+        "You can modify suggestions before exporting"
+      ]
+    },
+    "build-estimate-subtab": {
+      "title": "Build Estimate Help",
+      "description": "Search for operations and build an estimate line by line. The related operations panel shows co-occurring items that typically appear together.",
+      "steps": [
+        "1. Type an operation name in the search box",
+        "2. Click a suggestion to add it to your estimate",
+        "3. Check the 'Related Operations' panel for commonly paired items",
+        "4. Review your estimate in the right panel",
+        "5. Click 'Export' to send operations to the Export tab"
+      ],
+      "tips": [
+        "Related operations are based on real estimate patterns",
+        "The percentage shows how often items appear together",
+        "Use short keywords like 'bumper' or 'blend' for faster search"
+      ]
+    },
+    "ghost-compare-subtab": {
+      "title": "Ghost Estimate Comparison Help",
+      "description": "Compare your estimate against AI-generated 'ghost' estimates to find missing operations.",
+      "steps": [
+        "1. Upload or paste your current estimate",
+        "2. The tool generates a comparison ghost estimate",
+        "3. Review highlighted differences",
+        "4. Accept suggested operations to add them to your estimate"
+      ],
+      "tips": [
+        "Green items are in your estimate, red items may be missing",
+        "Click 'Accept' on individual operations to add them",
+        "Ghost estimates are suggestions - always verify with your judgment"
+      ]
+    },
+    "screen-ocr-subtab": {
+      "title": "Screen OCR Monitor Help",
+      "description": "Capture and read text from your screen to quickly import estimate data.",
+      "steps": [
+        "1. Click 'Start Capture' to begin monitoring",
+        "2. Select the screen area to read",
+        "3. Captured text is parsed for operations",
+        "4. Send results to Chat or Build Estimate"
+      ],
+      "tips": [
+        "Works with CCC ONE, Mitchell, and other estimating platforms",
+        "Position the capture area over the operations list",
+        "Use 'Feed to Chat' to ask questions about captured data"
+      ]
     }
   },
   "quickAnswers": {

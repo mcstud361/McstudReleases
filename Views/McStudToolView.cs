@@ -149,10 +149,14 @@ namespace McStudDesktop.Views
         // Reference feature (Definitions, DEG, P-Pages, Procedures combined)
         private ReferenceView? _referenceView;
 
+        // PDF queue badge on Reference tab
+        private Border? _pdfQueueBadge;
+        private TextBlock? _pdfQueueBadgeText;
+
         // Update feature
         private UpdateService? _updateService;
         private Border? _updateBanner;
-        private UpdateManifest? _pendingUpdate;
+        private UpdateInfo? _pendingUpdateInfo;
 
         public McStudToolView()
         {
@@ -198,21 +202,25 @@ namespace McStudDesktop.Views
         {
             try
             {
-                var result = await _updateService!.CheckForUpdatesAsync();
-                if (result.UpdateAvailable && _updateBanner != null)
+                var source = new GithubSource("https://github.com/mcstud361/McstudReleases", null, false);
+                var mgr = new UpdateManager(source);
+
+                if (!mgr.IsInstalled)
                 {
-                    _pendingUpdate = new UpdateManifest
-                    {
-                        Version = result.LatestVersion,
-                        ReleaseNotes = result.ReleaseNotes ?? "",
-                        DownloadUrl = result.DownloadUrl ?? ""
-                    };
-                    ShowUpdateBanner(result.LatestVersion, result.ReleaseNotes ?? "");
+                    Debug.WriteLine("[Update] Not installed via Velopack - skipping startup update check");
+                    return;
+                }
+
+                var newVersion = await mgr.CheckForUpdatesAsync();
+                if (newVersion != null && _updateBanner != null)
+                {
+                    _pendingUpdateInfo = newVersion;
+                    ShowUpdateBanner(newVersion.TargetFullRelease.Version.ToString(), "");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Update] Check failed: {ex.Message}");
+                Debug.WriteLine($"[Update] Check failed: {ex.Message}");
             }
         }
 
@@ -296,6 +304,7 @@ namespace McStudDesktop.Views
             _importTabButton = CreateTabButton("Import", "\uE8E5", 2);
             _statsTabButton = CreateTabButton("Stats", "\uE9D9", 3);
             _referenceTabButton = CreateTabButton("Reference", "\uE82D", 4);
+            AttachPdfQueueBadge(_referenceTabButton);
             _settingsTabButton = CreateTabButton("Settings", "\uE713", 5); // Gear icon
             _guideTabButton = CreateTabButton("Guide", "\uE82D", 6); // Book icon
             _shopDocsTabButton = CreateTabButton("Shop Docs", "\uE8A5", 7); // Document icon
@@ -382,9 +391,22 @@ namespace McStudDesktop.Views
             };
             updateButton.Click += async (s, e) =>
             {
+                if (_pendingUpdateInfo == null) return;
                 updateButton.IsEnabled = false;
                 updateButton.Content = "Downloading...";
-                await _updateService!.DownloadAndInstallUpdateAsync();
+                try
+                {
+                    var source = new GithubSource("https://github.com/mcstud361/McstudReleases", null, false);
+                    var mgr = new UpdateManager(source);
+                    await mgr.DownloadUpdatesAsync(_pendingUpdateInfo);
+                    mgr.ApplyUpdatesAndRestart(_pendingUpdateInfo);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Update] Banner install failed: {ex.Message}");
+                    updateButton.Content = "Update Failed";
+                    updateButton.IsEnabled = true;
+                }
             };
             Grid.SetColumn(updateButton, 1);
 
@@ -478,6 +500,66 @@ namespace McStudDesktop.Views
             };
 
             return border;
+        }
+
+        private void AttachPdfQueueBadge(Border? tabButton)
+        {
+            if (tabButton == null) return;
+
+            // Replace the border's child with a Grid that overlays the badge
+            var existingChild = tabButton.Child;
+            tabButton.Child = null;
+
+            var overlayGrid = new Grid();
+            overlayGrid.Children.Add(existingChild!);
+
+            _pdfQueueBadge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 200, 60, 60)),
+                CornerRadius = new CornerRadius(8),
+                MinWidth = 16,
+                Height = 16,
+                Padding = new Thickness(4, 0, 4, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, -4, -4, 0),
+                Visibility = Visibility.Collapsed
+            };
+            _pdfQueueBadgeText = new TextBlock
+            {
+                Text = "0",
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _pdfQueueBadge.Child = _pdfQueueBadgeText;
+            overlayGrid.Children.Add(_pdfQueueBadge);
+
+            tabButton.Child = overlayGrid;
+
+            // Subscribe to queue changes (add and clear/remove)
+            DefinitionsView.OnPdfQueueChanged += (s, e) =>
+            {
+                DispatcherQueue?.TryEnqueue(UpdatePdfQueueBadge);
+            };
+        }
+
+        private void UpdatePdfQueueBadge()
+        {
+            if (_pdfQueueBadge == null || _pdfQueueBadgeText == null) return;
+
+            var count = DefinitionsView.PdfQueue.Count;
+            if (count > 0)
+            {
+                _pdfQueueBadgeText.Text = count.ToString();
+                _pdfQueueBadge.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                _pdfQueueBadge.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void OpenSupportEmail()
@@ -1129,9 +1211,22 @@ namespace McStudDesktop.Views
                 Tag = 3,
                 Visibility = Visibility.Collapsed
             };
+            statsContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            statsContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            // Header with help button
+            var statsHeader = new Grid { Margin = new Thickness(16, 8, 16, 4) };
+            statsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            statsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var statsHelpButton = ContextualHelpButton.Create("stats-tab");
+            Grid.SetColumn(statsHelpButton, 1);
+            statsHeader.Children.Add(statsHelpButton);
+            Grid.SetRow(statsHeader, 0);
+            statsContent.Children.Add(statsHeader);
 
             // Create the StatisticsView and add it to the content
             _statisticsView = new StatisticsView();
+            Grid.SetRow(_statisticsView, 1);
 
             statsContent.Children.Add(_statisticsView);
             _tabContent?.Children.Add(statsContent);
@@ -1144,9 +1239,22 @@ namespace McStudDesktop.Views
                 Tag = 4,
                 Visibility = Visibility.Collapsed
             };
+            referenceContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            referenceContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            // Header with help button
+            var refHeader = new Grid { Margin = new Thickness(16, 8, 16, 4) };
+            refHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            refHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var refHelpButton = ContextualHelpButton.Create("reference-tab");
+            Grid.SetColumn(refHelpButton, 1);
+            refHeader.Children.Add(refHelpButton);
+            Grid.SetRow(refHeader, 0);
+            referenceContent.Children.Add(refHeader);
 
             // Create the ReferenceView (combined: Definitions, DEG, P-Pages, Procedures)
             _referenceView = new ReferenceView();
+            Grid.SetRow(_referenceView, 1);
 
             referenceContent.Children.Add(_referenceView);
             _tabContent?.Children.Add(referenceContent);
@@ -1271,7 +1379,16 @@ namespace McStudDesktop.Views
             // Version history - newest at top. Add new versions here when releasing updates.
             var changesList = new StackPanel { Spacing = 20 };
 
-            // v1.0.4 - Current
+            // v1.0.5 - Current
+            changesList.Children.Add(CreateVersionEntry("v1.0.5", "March 2026", new[]
+            {
+                "Auto-matched references now go to a staging panel for review before adding to PDF queue",
+                "Checkbox list grouped by source type (Definitions, P-Pages, DEG, Procedures, Incl/Not Incl)",
+                "Add Selected, Add All, and Clear actions for staged reference matches",
+                "OCR and estimate upload matches merge into staging without duplicates"
+            }));
+
+            // v1.0.4
             changesList.Children.Add(CreateVersionEntry("v1.0.4", "February 2026", new[]
             {
                 "Consolidated Shop Docs tab - Invoices and PPF now under Shop Docs",
@@ -1387,9 +1504,22 @@ namespace McStudDesktop.Views
                 Tag = 6,
                 Visibility = Visibility.Collapsed
             };
+            guideContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            guideContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            // Header with help button
+            var guideHeader = new Grid { Margin = new Thickness(16, 8, 16, 4) };
+            guideHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            guideHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var guideHelpButton = ContextualHelpButton.Create("guide-tab");
+            Grid.SetColumn(guideHelpButton, 1);
+            guideHeader.Children.Add(guideHelpButton);
+            Grid.SetRow(guideHeader, 0);
+            guideContent.Children.Add(guideHeader);
 
             // Create the METGuideView
             _metGuideView = new METGuideView();
+            Grid.SetRow(_metGuideView, 1);
 
             guideContent.Children.Add(_metGuideView);
             _tabContent?.Children.Add(guideContent);
@@ -1402,9 +1532,22 @@ namespace McStudDesktop.Views
                 Tag = 7,
                 Visibility = Visibility.Collapsed
             };
+            shopDocsContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            shopDocsContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            // Header with help button
+            var shopDocsHeader = new Grid { Margin = new Thickness(16, 8, 16, 4) };
+            shopDocsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            shopDocsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var shopDocsHelpButton = ContextualHelpButton.Create("shop-docs-tab");
+            Grid.SetColumn(shopDocsHelpButton, 1);
+            shopDocsHeader.Children.Add(shopDocsHelpButton);
+            Grid.SetRow(shopDocsHeader, 0);
+            shopDocsContent.Children.Add(shopDocsHeader);
 
             // Create the ShopDocsView
             _shopDocsView = new ShopDocsView();
+            Grid.SetRow(_shopDocsView, 1);
 
             shopDocsContent.Children.Add(_shopDocsView);
             _tabContent?.Children.Add(shopDocsContent);

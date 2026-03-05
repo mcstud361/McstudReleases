@@ -83,9 +83,9 @@ namespace McStudDesktop.Services
         /// </summary>
         public List<LearnedPattern> GetPatternsForVehicleType(string vehicleType)
         {
-            var stats = _learningService.GetStatistics();
-            // This would need database access - for now return empty
-            return new List<LearnedPattern>();
+            return _learningService.GetAllPatterns()
+                .Where(p => PatternAppliesToVehicle(p, vehicleType))
+                .ToList();
         }
 
         /// <summary>
@@ -230,12 +230,29 @@ namespace McStudDesktop.Services
         public List<PatternConflict> DetectConflicts()
         {
             var conflicts = new List<PatternConflict>();
-            var stats = _learningService.GetStatistics();
+            var allPatterns = _learningService.GetAllPatterns();
 
-            // This would need access to all patterns
-            // For now, return empty - will be populated when integrated with learning service
+            // Compare patterns that share the same part name
+            var byPart = allPatterns
+                .Where(p => !string.IsNullOrEmpty(p.PartName))
+                .GroupBy(p => p.PartName.ToLower())
+                .Where(g => g.Count() > 1);
 
-            System.Diagnostics.Debug.WriteLine("[Intelligence] Conflict detection completed");
+            foreach (var group in byPart)
+            {
+                var patterns = group.ToList();
+                for (int i = 0; i < patterns.Count; i++)
+                {
+                    for (int j = i + 1; j < patterns.Count; j++)
+                    {
+                        var conflict = CheckConflict(patterns[i], patterns[j]);
+                        if (conflict != null)
+                            conflicts.Add(conflict);
+                    }
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[Intelligence] Conflict detection completed: {conflicts.Count} conflicts found");
             return conflicts;
         }
 
@@ -347,8 +364,10 @@ namespace McStudDesktop.Services
         /// </summary>
         public List<string> GetStalePatterns()
         {
-            // Would need access to pattern database
-            return new List<string>();
+            return _learningService.GetAllPatterns()
+                .Where(p => p.IsStale)
+                .Select(p => $"{p.PartName} {p.OperationType} (last updated {p.LastUpdated:d})")
+                .ToList();
         }
 
         /// <summary>
@@ -356,8 +375,10 @@ namespace McStudDesktop.Services
         /// </summary>
         public List<string> GetPatternsNeedingRefresh()
         {
-            // Would check where DecayedConfidence is significantly lower than Confidence
-            return new List<string>();
+            return _learningService.GetAllPatterns()
+                .Where(p => p.DecayedConfidence < p.Confidence * 0.8)
+                .Select(p => $"{p.PartName} {p.OperationType} (confidence: {p.DecayedConfidence:P0})")
+                .ToList();
         }
 
         #endregion
@@ -398,8 +419,11 @@ namespace McStudDesktop.Services
         /// </summary>
         public List<PatternAnalysis> GetPatternsByQuality(int count = 50)
         {
-            // Would iterate through all patterns and analyze them
-            return new List<PatternAnalysis>();
+            return _learningService.GetAllPatterns()
+                .Select(p => AnalyzePattern(p))
+                .OrderByDescending(a => a.QualityScore)
+                .Take(count)
+                .ToList();
         }
 
         #endregion

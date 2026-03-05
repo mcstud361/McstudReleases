@@ -803,6 +803,64 @@ namespace McStudDesktop.Services
 
         #endregion
 
+        #region Baseline Merge
+
+        /// <summary>
+        /// Merge baseline accuracy feedbacks into this service's data.
+        /// Detects duplicates by category + operation type combo (not RO number since those are stripped).
+        /// User's personal accuracy data is always preserved.
+        /// </summary>
+        public void MergeBaseline(List<EstimateFeedback> baselineFeedbacks)
+        {
+            if (baselineFeedbacks == null || baselineFeedbacks.Count == 0) return;
+
+            lock (_lock)
+            {
+                // Build signature set from existing feedbacks for duplicate detection
+                var existingSignatures = _data.Feedbacks
+                    .Select(f => GenerateFeedbackSignature(f))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                int added = 0;
+                foreach (var feedback in baselineFeedbacks)
+                {
+                    var sig = GenerateFeedbackSignature(feedback);
+                    if (!existingSignatures.Contains(sig))
+                    {
+                        _data.Feedbacks.Add(feedback);
+                        existingSignatures.Add(sig);
+                        added++;
+                    }
+                }
+
+                if (added > 0)
+                {
+                    SaveData();
+                    System.Diagnostics.Debug.WriteLine($"[AccuracyService] Merged baseline: added {added} feedback entries");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Generate a signature for duplicate detection during baseline merge.
+        /// Uses category + operation types + was accurate flag + supplement count.
+        /// </summary>
+        private string GenerateFeedbackSignature(EstimateFeedback feedback)
+        {
+            var category = NormalizeCategory(feedback.PrimaryCategory ?? "");
+            var ops = string.Join(",", feedback.SupplementItems
+                .Select(s => $"{NormalizeCategory(s.PartCategory)}:{s.OperationType}:{s.HoursAdded:F1}")
+                .OrderBy(s => s));
+            return $"{category}|{feedback.WasAccurate}|{ops}";
+        }
+
+        /// <summary>
+        /// Get raw accuracy data (for baseline export)
+        /// </summary>
+        public AccuracyData GetRawData() => _data;
+
+        #endregion
+
         #region Helper Methods
 
         private string NormalizeCategory(string category)

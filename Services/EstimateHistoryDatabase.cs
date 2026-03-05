@@ -784,6 +784,82 @@ public class EstimateHistoryDatabase
         return query.OrderByDescending(e => e.ImportedDate).ToList();
     }
 
+    #region Baseline Merge
+
+    /// <summary>
+    /// Merge baseline estimate history data into this database.
+    /// Uses a signature (vehicle type + insurer + line count + grand total) to detect duplicates.
+    /// For OperationPaymentIndex, keeps whichever entry has higher TimesPaid.
+    /// </summary>
+    public void MergeBaseline(EstimateHistoryData baseline)
+    {
+        if (baseline == null) return;
+
+        var existingSignatures = _data.Estimates
+            .Select(e => GenerateEstimateSignature(e))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        int added = 0;
+        foreach (var estimate in baseline.Estimates)
+        {
+            var sig = GenerateEstimateSignature(estimate);
+            if (!existingSignatures.Contains(sig))
+            {
+                _data.Estimates.Add(estimate);
+                existingSignatures.Add(sig);
+                added++;
+            }
+        }
+
+        // Merge OperationPaymentIndex
+        foreach (var (insurerKey, baselineOps) in baseline.OperationPaymentIndex)
+        {
+            if (!_data.OperationPaymentIndex.ContainsKey(insurerKey))
+            {
+                _data.OperationPaymentIndex[insurerKey] = new Dictionary<string, OperationPaymentStats>();
+            }
+
+            var existingOps = _data.OperationPaymentIndex[insurerKey];
+            foreach (var (opKey, baselineStats) in baselineOps)
+            {
+                if (!existingOps.ContainsKey(opKey))
+                {
+                    existingOps[opKey] = baselineStats;
+                }
+                else if (baselineStats.TimesPaid > existingOps[opKey].TimesPaid)
+                {
+                    existingOps[opKey] = baselineStats;
+                }
+            }
+        }
+
+        if (added > 0)
+        {
+            SaveDatabase();
+            System.Diagnostics.Debug.WriteLine($"[EstimateHistory] Merged baseline: added {added} estimates");
+        }
+    }
+
+    /// <summary>
+    /// Generate a signature for duplicate detection during baseline merge.
+    /// Uses vehicle type + insurer + line count + grand total (rounded).
+    /// </summary>
+    private string GenerateEstimateSignature(StoredEstimate estimate)
+    {
+        var vehicle = (estimate.VehicleInfo ?? "").Trim().ToLowerInvariant();
+        var insurer = (estimate.InsuranceCompany ?? "").Trim().ToLowerInvariant();
+        var lineCount = estimate.LineItems.Count;
+        var total = Math.Round(estimate.GrandTotal, 0);
+        return $"{vehicle}|{insurer}|{lineCount}|{total}";
+    }
+
+    /// <summary>
+    /// Get the raw history data (for baseline export)
+    /// </summary>
+    public EstimateHistoryData GetRawData() => _data;
+
+    #endregion
+
     /// <summary>
     /// Get all estimates in the database (for mining/analysis)
     /// </summary>

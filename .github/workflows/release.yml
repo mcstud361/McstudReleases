@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish application
+        run: dotnet publish -c Release -r win-x64 --self-contained -o publish
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk
+
+      - name: Pack with Velopack
+        run: |
+          vpk pack `
+            --packId McstudDesktop `
+            --packVersion ${{ steps.version.outputs.VERSION }} `
+            --packDir publish `
+            --mainExe McstudDesktop.exe `
+            --outputDir velopack_out
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            velopack_out/*.nupkg
+            velopack_out/*-Setup.exe
+            velopack_out/*-Portable.zip
+            velopack_out/RELEASES
+            velopack_out/assets.win.json
+            velopack_out/releases.win.json

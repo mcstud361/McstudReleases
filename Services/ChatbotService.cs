@@ -27,6 +27,7 @@ public class ChatbotService
     private readonly ScanningKnowledgeService _scanningKnowledge;
     private readonly EstimateAccuracyService _accuracyService;
     private readonly EstimateQueryService _estimateQueryService;
+    private readonly EstimateAIAdvisorService _advisorService;
     private bool _isLoaded;
 
     public bool IsLoaded => _isLoaded;
@@ -39,6 +40,7 @@ public class ChatbotService
         _scanningKnowledge = ScanningKnowledgeService.Instance;
         _accuracyService = EstimateAccuracyService.Instance;
         _estimateQueryService = EstimateQueryService.Instance;
+        _advisorService = EstimateAIAdvisorService.Instance;
         LoadKnowledgeBase();
         LoadDefinitions();
         LoadOEMStatements();
@@ -2147,7 +2149,28 @@ public class ChatbotService
                 "**Documentation includes:**\n" +
                 "• Official PDF links\n" +
                 "• I-CAR RTS references\n" +
-                "• OEM portal links")
+                "• OEM portal links"),
+
+            ["vehicle protection"] = ("Vehicle Protection Pricing",
+                "🛡️ **Vehicle Protection** - PPF / Vinyl Wrap / Ceramic Coating\n\n" +
+                "Found in: **Shop Docs > Vehicle Protection**\n\n" +
+                "**How to use:**\n" +
+                "1. Choose a service type (PPF, Vinyl Wrap, or Ceramic Coat) using the toggle buttons\n" +
+                "2. Select a vehicle style from the dropdown (16 styles: sedan, coupe, SUV, truck, van, etc.)\n" +
+                "3. Click panels on the interactive vehicle diagram to select them\n" +
+                "4. Selected panels appear in the right panel with prices\n" +
+                "5. Edit any price by clicking the price field\n" +
+                "6. Click 'Generate Quote PDF' to export\n\n" +
+                "**Features:**\n" +
+                "• Interactive clickable vehicle diagram with pan & zoom\n" +
+                "• Prices auto-adjust per vehicle size and service type\n" +
+                "• Volume discounts: 5+ panels = 5% off, 8+ = 10%, 12+ = 15%\n" +
+                "• Custom prices are saved and persist across sessions\n" +
+                "• PDF quote generation with full breakdown\n\n" +
+                "**Diagram controls:**\n" +
+                "• Left-click a panel to select/deselect\n" +
+                "• Right-click + drag to pan\n" +
+                "• Scroll wheel to zoom in/out")
         };
 
         // Check for navigation keywords
@@ -2171,7 +2194,13 @@ public class ChatbotService
                          inputLower.Contains("definitions tab") ||
                          inputLower.Contains("speed") ||
                          inputLower.Contains("learning center") ||
-                         inputLower.Contains("oem statement");
+                         inputLower.Contains("oem statement") ||
+                         inputLower.Contains("ppf") ||
+                         inputLower.Contains("vinyl wrap") ||
+                         inputLower.Contains("ceramic coat") ||
+                         inputLower.Contains("paint protection") ||
+                         inputLower.Contains("vehicle protection") ||
+                         inputLower.Contains("shop doc");
 
         if (!isNavQuery)
             return null;
@@ -2220,6 +2249,11 @@ public class ChatbotService
                 score += 5;
             if (inputLower.Contains("learning") && key.Contains("learning"))
                 score += 5;
+            if ((inputLower.Contains("ppf") || inputLower.Contains("vinyl") ||
+                 inputLower.Contains("ceramic") || inputLower.Contains("paint protection") ||
+                 inputLower.Contains("vehicle protection") || inputLower.Contains("shop doc")) &&
+                key.Contains("vehicle protection"))
+                score += 10;
 
             if (score > bestScore)
             {
@@ -2263,6 +2297,207 @@ public class ChatbotService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Search for vehicle protection / PPF / vinyl / ceramic pricing queries.
+    /// Handles questions about pricing, panel costs, discounts, and service differences.
+    /// </summary>
+    private ChatResponse? SearchVehicleProtection(string input)
+    {
+        var inputLower = input.ToLowerInvariant();
+
+        var isVpQuery = inputLower.Contains("ppf") ||
+                        inputLower.Contains("paint protection film") ||
+                        inputLower.Contains("paint protection") ||
+                        inputLower.Contains("vinyl wrap") ||
+                        inputLower.Contains("ceramic coat") ||
+                        inputLower.Contains("vehicle protection") ||
+                        (inputLower.Contains("clear bra") && !inputLower.Contains("bracket"));
+
+        if (!isVpQuery)
+            return null;
+
+        var ppfService = PPFPricingService.Instance;
+
+        // Price lookup: "how much is hood ppf on a sedan"
+        var isPriceQuery = inputLower.Contains("price") || inputLower.Contains("cost") ||
+                           inputLower.Contains("how much") || inputLower.Contains("rate") ||
+                           inputLower.Contains("charge");
+
+        if (isPriceQuery)
+        {
+            // Detect service type
+            var serviceType = "ppf";
+            var serviceLabel = "PPF";
+            if (inputLower.Contains("vinyl"))
+            {
+                serviceType = "vinyl";
+                serviceLabel = "Vinyl Wrap";
+            }
+            else if (inputLower.Contains("ceramic"))
+            {
+                serviceType = "ceramic";
+                serviceLabel = "Ceramic Coating";
+            }
+
+            // Try to find a vehicle style
+            VehicleStyle? matchedStyle = null;
+            foreach (var style in ppfService.GetVehicleStyles())
+            {
+                var styleName = style.Name?.ToLowerInvariant() ?? "";
+                var styleId = style.Id?.ToLowerInvariant() ?? "";
+                if (inputLower.Contains(styleName) || inputLower.Contains(styleId) ||
+                    (styleName.Contains("sedan") && inputLower.Contains("sedan")) ||
+                    (styleName.Contains("coupe") && inputLower.Contains("coupe")) ||
+                    (styleName.Contains("suv") && (inputLower.Contains("suv") || inputLower.Contains("crossover"))) ||
+                    (styleName.Contains("pickup") && (inputLower.Contains("truck") || inputLower.Contains("pickup"))) ||
+                    (styleName.Contains("van") && inputLower.Contains("van")) ||
+                    (styleName.Contains("exotic") && (inputLower.Contains("exotic") || inputLower.Contains("supercar"))))
+                {
+                    matchedStyle = style;
+                    break;
+                }
+            }
+
+            var sizeCategory = matchedStyle?.SizeCategory ?? "medium";
+            var vehicleName = matchedStyle?.Name ?? "Sedan / 4-Door";
+
+            // Check for a specific panel
+            var panelKeywords = new Dictionary<string, string>
+            {
+                ["hood"] = "hood_full",
+                ["front bumper"] = "bumper_front",
+                ["rear bumper"] = "bumper_rear",
+                ["fender"] = "fender_front_left",
+                ["door"] = "door_front_left",
+                ["quarter panel"] = "quarter_left",
+                ["roof"] = "roof",
+                ["trunk"] = "trunk_lid",
+                ["liftgate"] = "trunk_lid",
+                ["mirror"] = "mirror_left",
+                ["headlight"] = "headlights",
+                ["taillight"] = "taillights",
+                ["rocker"] = "rocker_left"
+            };
+
+            string? matchedPanelName = null;
+            decimal matchedPrice = 0;
+
+            foreach (var pk in panelKeywords)
+            {
+                if (inputLower.Contains(pk.Key))
+                {
+                    matchedPanelName = pk.Key;
+                    matchedPrice = ppfService.GetServicePanelPrice(serviceType, pk.Value, sizeCategory);
+                    break;
+                }
+            }
+
+            if (matchedPanelName != null)
+            {
+                return new ChatResponse
+                {
+                    Message = $"💰 **{serviceLabel} Pricing - {matchedPanelName.ToUpper()}**\n\n" +
+                              $"For a **{vehicleName}** ({sizeCategory} size):\n" +
+                              $"• {matchedPanelName}: **${matchedPrice:F2}**\n\n" +
+                              "Prices adjust based on vehicle size category. " +
+                              "You can customize prices in the Vehicle Protection tool.\n\n" +
+                              "📍 Go to **Shop Docs > Vehicle Protection** to build a full quote with the interactive diagram.",
+                    Confidence = 0.9,
+                    Category = "vehicle_protection"
+                };
+            }
+
+            // General price overview for this service type
+            var commonPanels = new[] { "hood_full", "bumper_front", "bumper_rear", "fender_front_left", "roof", "door_front_left" };
+            var panelNames = new[] { "Hood (full)", "Front Bumper", "Rear Bumper", "Front Fender", "Roof", "Front Door" };
+            var priceLines = "";
+            for (int i = 0; i < commonPanels.Length; i++)
+            {
+                var p = ppfService.GetServicePanelPrice(serviceType, commonPanels[i], sizeCategory);
+                priceLines += $"• {panelNames[i]}: **${p:F2}**\n";
+            }
+
+            return new ChatResponse
+            {
+                Message = $"💰 **{serviceLabel} Pricing Overview**\n\n" +
+                          $"Common panel prices for **{vehicleName}** ({sizeCategory}):\n\n" +
+                          priceLines + "\n" +
+                          "**Volume discounts:**\n" +
+                          "• 5+ panels: 5% off\n" +
+                          "• 8+ panels: 10% off\n" +
+                          "• 12+ panels: 15% off\n\n" +
+                          "📍 Go to **Shop Docs > Vehicle Protection** to build a full interactive quote.",
+                Confidence = 0.9,
+                Category = "vehicle_protection"
+            };
+        }
+
+        // Discount question
+        if (inputLower.Contains("discount") || inputLower.Contains("volume"))
+        {
+            return new ChatResponse
+            {
+                Message = "💰 **Vehicle Protection Volume Discounts**\n\n" +
+                          "Discounts are applied automatically based on panel count:\n\n" +
+                          "• **5+ panels** selected: 5% off subtotal\n" +
+                          "• **8+ panels** selected: 10% off subtotal\n" +
+                          "• **12+ panels** selected: 15% off subtotal\n\n" +
+                          "Discounts apply to all service types (PPF, Vinyl Wrap, Ceramic Coating).\n\n" +
+                          "📍 Go to **Shop Docs > Vehicle Protection** to see discounts applied live as you select panels.",
+                Confidence = 0.9,
+                Category = "vehicle_protection"
+            };
+        }
+
+        // Service type comparison
+        if (inputLower.Contains("difference") || inputLower.Contains("compare") || inputLower.Contains("vs") ||
+            (inputLower.Contains("which") && (inputLower.Contains("better") || inputLower.Contains("choose"))))
+        {
+            return new ChatResponse
+            {
+                Message = "🛡️ **PPF vs Vinyl Wrap vs Ceramic Coating**\n\n" +
+                          "**Paint Protection Film (PPF)**\n" +
+                          "• Self-healing clear film, 8-10 mil thick\n" +
+                          "• Best protection against rock chips, scratches, and road debris\n" +
+                          "• Base pricing (1.0x multiplier)\n\n" +
+                          "**Vinyl Wrap**\n" +
+                          "• Color-change or design wraps, 3-4 mil thick\n" +
+                          "• Cosmetic customization + moderate protection\n" +
+                          "• Typically 1.2x the PPF price per panel\n\n" +
+                          "**Ceramic Coating**\n" +
+                          "• Liquid polymer bond, hydrophobic surface\n" +
+                          "• Protects against UV, chemicals, and light scratches\n" +
+                          "• Typically 0.6x the PPF price per panel (less material)\n\n" +
+                          "📍 Toggle between all three in **Shop Docs > Vehicle Protection** to compare prices live.",
+                Confidence = 0.95,
+                Category = "vehicle_protection"
+            };
+        }
+
+        // General fallback
+        return new ChatResponse
+        {
+            Message = "🛡️ **Vehicle Protection Tool**\n\n" +
+                      "McStud has an interactive vehicle protection pricing tool for:\n" +
+                      "• **PPF** (Paint Protection Film)\n" +
+                      "• **Vinyl Wrap**\n" +
+                      "• **Ceramic Coating**\n\n" +
+                      "**Features:**\n" +
+                      "• Interactive vehicle diagram - click panels to select\n" +
+                      "• 16 vehicle styles with size-based pricing\n" +
+                      "• Editable per-panel prices (saved automatically)\n" +
+                      "• Volume discounts (5%/10%/15%)\n" +
+                      "• PDF quote generation\n\n" +
+                      "📍 **Shop Docs > Vehicle Protection**\n\n" +
+                      "You can also ask me specific questions like:\n" +
+                      "• 'How much is PPF for a hood on a sedan?'\n" +
+                      "• 'What's the volume discount?'\n" +
+                      "• 'PPF vs ceramic coating?'",
+            Confidence = 0.85,
+            Category = "vehicle_protection"
+        };
     }
 
     /// <summary>
@@ -3408,6 +3643,15 @@ public class ChatbotService
                          "📊 **Your Accuracy Heatmap**\n" +
                          "• 'Where am I off?' - See your supplement patterns\n" +
                          "• 'Where am I leaving money?' - Find missed revenue\n\n" +
+                         "🤖 **AI Advisor**\n" +
+                         "• 'What am I missing on bumper replace?'\n" +
+                         "• 'Show similar estimates for 2024 Civic'\n" +
+                         "• 'What does State Farm pay for on front bumper?'\n" +
+                         "• 'What should I watch for?'\n\n" +
+                         "🛡️ **Vehicle Protection Pricing**\n" +
+                         "• 'How much is PPF for a hood on a sedan?'\n" +
+                         "• 'PPF vs ceramic coating?'\n" +
+                         "• 'What's the volume discount?'\n\n" +
                          "What would you like to know?",
                 Confidence = 1.0,
                 Category = "greeting"
@@ -3425,6 +3669,11 @@ public class ChatbotService
         {
             return GetMethodologyResponse();
         }
+
+        // Check for AI Advisor queries (unified intelligence layer)
+        var advisorResponse = _advisorService.ProcessAdvisorQuery(userInput);
+        if (advisorResponse != null)
+            return FormatAdvisorAsChatResponse(advisorResponse);
 
         // Check for accuracy/heatmap/supplement pattern queries
         var accuracyResponse = SearchAccuracyQuery(input);
@@ -3465,6 +3714,11 @@ public class ChatbotService
         var estimateResponse = SearchEstimateQuery(input);
         if (estimateResponse != null)
             return estimateResponse;
+
+        // Check vehicle protection / PPF / vinyl / ceramic queries
+        var vpResponse = SearchVehicleProtection(input);
+        if (vpResponse != null)
+            return vpResponse;
 
         // Check app navigation queries first
         var navResponse = SearchAppNavigation(input);
@@ -4261,6 +4515,39 @@ public class ChatbotService
             .Take(3)
             .Select(e => e.Question)
             .ToList();
+    }
+
+    /// <summary>
+    /// Formats an AI Advisor response as a text-based ChatResponse (fallback path).
+    /// </summary>
+    private ChatResponse FormatAdvisorAsChatResponse(AdvisorResponse advisor)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("🤖 **AI Advisor**\n");
+
+        foreach (var section in advisor.Sections)
+        {
+            sb.AppendLine($"{section.Icon} **{section.Title}**");
+            foreach (var item in section.Items)
+            {
+                var hoursStr = item.Hours > 0 ? $" ({item.Hours:N1} hr)" : "";
+                sb.AppendLine($"• {item.Description}{hoursStr}");
+                if (!string.IsNullOrEmpty(item.Detail))
+                    sb.AppendLine($"  _{item.Detail}_");
+            }
+            sb.AppendLine();
+        }
+
+        if (!string.IsNullOrEmpty(advisor.Summary))
+            sb.AppendLine($"📊 {advisor.Summary}");
+
+        return new ChatResponse
+        {
+            Message = sb.ToString(),
+            Confidence = 0.9,
+            Category = "advisor",
+            RelatedTopics = advisor.FollowUpQuestions
+        };
     }
 }
 

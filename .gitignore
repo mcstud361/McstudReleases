@@ -122,3 +122,8 @@ logic_analysis.txt
 
 # Temporary/null files
 nul
+
+# Publish output and zip archives
+publish/
+publish_velopack/
+*.zip

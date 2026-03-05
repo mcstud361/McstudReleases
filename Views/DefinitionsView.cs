@@ -21,6 +21,7 @@ namespace McStudDesktop.Views
         // Static queue shared with PdfExportView
         public static List<PdfQueueItem> PdfQueue { get; } = new();
         public static event EventHandler<PdfQueueItem>? OnItemAddedToPdfQueue;
+        public static event EventHandler? OnPdfQueueChanged;
 
         /// <summary>
         /// Static helper to raise the OnItemAddedToPdfQueue event from other views
@@ -28,6 +29,15 @@ namespace McStudDesktop.Views
         public static void RaiseItemAddedToPdfQueue(PdfQueueItem item)
         {
             OnItemAddedToPdfQueue?.Invoke(null, item);
+            OnPdfQueueChanged?.Invoke(null, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Static helper to raise OnPdfQueueChanged (e.g., after clear or remove)
+        /// </summary>
+        public static void RaisePdfQueueChanged()
+        {
+            OnPdfQueueChanged?.Invoke(null, EventArgs.Empty);
         }
 
         private TextBox? _searchBox;

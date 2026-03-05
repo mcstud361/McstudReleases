@@ -63,28 +63,12 @@ namespace McStudDesktop.Views
         private List<HourlyActivity>? _cached3DHourlyActivity;
         private TextBlock? _3dZoomLabel;
 
-        // Chart filter toggles - which charts are visible
-        private Dictionary<string, bool> _chartFilters = new()
-        {
-            ["operations_bar"] = true,
-            ["value_bar"] = true,
-            ["labor_chart"] = true,
-            ["category_pie"] = true,
-            ["operation_pie"] = true,
-            ["activity_calendar"] = true,
-            ["hourly_heatmap"] = true,
-            ["weekday_heatmap"] = true,
-            ["3d_heatmap"] = true,
-            ["depth_heatmap"] = true,
-            ["operations_trend"] = true,
-            ["value_trend"] = true,
-            ["avg_per_export"] = true,
-            ["peak_hours"] = true,
-            ["streak_stats"] = true
-        };
+        // Chart selection state
+        private string _selectedChartCategory = "bar";
+        private string _selectedChart = "operations_bar";
+        private ComboBox? _chartCategoryCombo;
+        private ComboBox? _chartItemCombo;
         private StackPanel? _chartsContainer;
-        private string _currentTab = "overview";
-        private StackPanel? _tabBar;
 
         public StatisticsView()
         {
@@ -2553,21 +2537,53 @@ namespace McStudDesktop.Views
         {
             var mainStack = new StackPanel { Spacing = 0 };
 
-            // Filter panel at top
-            mainStack.Children.Add(CreateChartFilterPanel());
+            // Chart selector panel at top
+            mainStack.Children.Add(CreateChartSelectorPanel());
 
             // Stats summary row with key metrics
             mainStack.Children.Add(CreateStatsSummaryRow());
 
-            // Charts container
+            // Charts container - shows only the selected chart
             _chartsContainer = new StackPanel { Spacing = 16, Margin = new Thickness(0, 12, 0, 0) };
-            RefreshChartsBasedOnFilters();
+            RefreshSelectedChart();
             mainStack.Children.Add(_chartsContainer);
 
             return mainStack;
         }
 
-        private Border CreateChartFilterPanel()
+        // Chart category and item definitions
+        private static readonly Dictionary<string, (string Label, Color AccentColor, (string Key, string Label)[] Charts)> ChartCategories = new()
+        {
+            ["bar"] = ("Bar Charts", AccentBlue, new[]
+            {
+                ("operations_bar", "Operations by Day"),
+                ("value_bar", "Value by Day"),
+                ("labor_chart", "Labor Breakdown")
+            }),
+            ["pie"] = ("Pie Charts", AccentPurple, new[]
+            {
+                ("category_pie", "Category Distribution"),
+                ("operation_pie", "Operation Types")
+            }),
+            ["heatmap"] = ("Heatmaps", AccentOrange, new[]
+            {
+                ("activity_calendar", "Activity Calendar"),
+                ("hourly_heatmap", "Hourly Activity"),
+                ("weekday_heatmap", "Weekday Activity"),
+                ("3d_heatmap", "3D Visualization"),
+                ("depth_heatmap", "Depth View")
+            }),
+            ["trend"] = ("Trends & Stats", AccentGreen, new[]
+            {
+                ("operations_trend", "Operations Trend"),
+                ("value_trend", "Value Trend"),
+                ("avg_per_export", "Avg Per Export"),
+                ("peak_hours", "Peak Hours"),
+                ("streak_stats", "Streak Stats")
+            })
+        };
+
+        private Border CreateChartSelectorPanel()
         {
             var border = new Border
             {
@@ -2579,204 +2595,113 @@ namespace McStudDesktop.Views
 
             var mainStack = new StackPanel { Spacing = 12 };
 
-            // Header row with title and expand/collapse all
-            var headerRow = new Grid();
-            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            // Row with chart type and chart item selectors
+            var selectorRow = new Grid();
+            selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var titleStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            titleStack.Children.Add(new FontIcon
+            // Chart Type label + combo
+            var typeStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            typeStack.Children.Add(new FontIcon
             {
-                Glyph = "\uE71C", // Filter icon
+                Glyph = "\uE9D9",
                 FontSize = 16,
-                Foreground = new SolidColorBrush(AccentBlue)
-            });
-            titleStack.Children.Add(new TextBlock
-            {
-                Text = "Chart Filters",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White),
+                Foreground = new SolidColorBrush(AccentBlue),
                 VerticalAlignment = VerticalAlignment.Center
             });
-            Grid.SetColumn(titleStack, 0);
-            headerRow.Children.Add(titleStack);
-
-            // Select All button
-            var selectAllBtn = new Button
+            typeStack.Children.Add(new TextBlock
             {
-                Content = "Select All",
-                FontSize = 11,
-                Padding = new Thickness(10, 4, 10, 4),
-                Background = new SolidColorBrush(Color.FromArgb(255, 40, 80, 60)),
-                Foreground = new SolidColorBrush(AccentGreen),
-                BorderThickness = new Thickness(0),
-                CornerRadius = new CornerRadius(4),
+                Text = "Chart Type",
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 8, 0)
+            });
+
+            _chartCategoryCombo = new ComboBox
+            {
+                MinWidth = 150,
+                Background = new SolidColorBrush(SectionBg),
+                FontSize = 12
             };
-            selectAllBtn.Click += (s, e) =>
+            foreach (var (key, (label, _, _)) in ChartCategories)
             {
-                foreach (var key in _chartFilters.Keys.ToList())
-                    _chartFilters[key] = true;
-                RefreshStats();
+                _chartCategoryCombo.Items.Add(new ComboBoxItem { Content = label, Tag = key });
+            }
+            _chartCategoryCombo.SelectedIndex = 0;
+            _chartCategoryCombo.SelectionChanged += (s, e) =>
+            {
+                if (_chartCategoryCombo.SelectedItem is ComboBoxItem item && item.Tag is string cat)
+                {
+                    _selectedChartCategory = cat;
+                    PopulateChartItemCombo();
+                    RefreshSelectedChart();
+                }
             };
-            Grid.SetColumn(selectAllBtn, 2);
-            headerRow.Children.Add(selectAllBtn);
+            typeStack.Children.Add(_chartCategoryCombo);
+            Grid.SetColumn(typeStack, 0);
+            selectorRow.Children.Add(typeStack);
 
-            // Deselect All button
-            var deselectAllBtn = new Button
+            // Chart selector label + combo
+            var chartStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(20, 0, 0, 0) };
+            chartStack.Children.Add(new TextBlock
             {
-                Content = "Deselect All",
-                FontSize = 11,
-                Padding = new Thickness(10, 4, 10, 4),
-                Background = new SolidColorBrush(Color.FromArgb(255, 80, 50, 50)),
-                Foreground = new SolidColorBrush(AccentRed),
-                BorderThickness = new Thickness(0),
-                CornerRadius = new CornerRadius(4)
+                Text = "Chart",
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
+            });
+
+            _chartItemCombo = new ComboBox
+            {
+                MinWidth = 200,
+                Background = new SolidColorBrush(SectionBg),
+                FontSize = 12
             };
-            deselectAllBtn.Click += (s, e) =>
-            {
-                foreach (var key in _chartFilters.Keys.ToList())
-                    _chartFilters[key] = false;
-                RefreshStats();
-            };
-            Grid.SetColumn(deselectAllBtn, 3);
-            headerRow.Children.Add(deselectAllBtn);
+            PopulateChartItemCombo();
+            _chartItemCombo.SelectionChanged += ChartItemCombo_SelectionChanged;
+            chartStack.Children.Add(_chartItemCombo);
+            Grid.SetColumn(chartStack, 1);
+            selectorRow.Children.Add(chartStack);
 
-            mainStack.Children.Add(headerRow);
-
-            // Filter categories in a grid layout
-            var filterGrid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
-            filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            // Bar Charts category
-            var barFilters = CreateFilterCategory("📊 Bar Charts", new[]
-            {
-                ("operations_bar", "Operations by Day"),
-                ("value_bar", "Value by Day"),
-                ("labor_chart", "Labor Breakdown")
-            }, 0);
-            Grid.SetColumn(barFilters, 0);
-            filterGrid.Children.Add(barFilters);
-
-            // Pie Charts category
-            var pieFilters = CreateFilterCategory("🥧 Pie Charts", new[]
-            {
-                ("category_pie", "Category Distribution"),
-                ("operation_pie", "Operation Types")
-            }, 1);
-            Grid.SetColumn(pieFilters, 1);
-            filterGrid.Children.Add(pieFilters);
-
-            // Heatmaps category
-            var heatmapFilters = CreateFilterCategory("🔥 Heatmaps", new[]
-            {
-                ("activity_calendar", "Activity Calendar"),
-                ("hourly_heatmap", "Hourly Activity"),
-                ("weekday_heatmap", "Weekday Activity"),
-                ("3d_heatmap", "3D Visualization"),
-                ("depth_heatmap", "Depth View")
-            }, 2);
-            Grid.SetColumn(heatmapFilters, 2);
-            filterGrid.Children.Add(heatmapFilters);
-
-            // Line/Trend Charts & Stats category
-            var trendFilters = CreateFilterCategory("📈 Trends & Stats", new[]
-            {
-                ("operations_trend", "Operations Trend"),
-                ("value_trend", "Value Trend"),
-                ("avg_per_export", "Avg Per Export"),
-                ("peak_hours", "Peak Hours"),
-                ("streak_stats", "Streak Stats")
-            }, 3);
-            Grid.SetColumn(trendFilters, 3);
-            filterGrid.Children.Add(trendFilters);
-
-            mainStack.Children.Add(filterGrid);
-
+            mainStack.Children.Add(selectorRow);
             border.Child = mainStack;
             return border;
         }
 
-        private StackPanel CreateFilterCategory(string title, (string key, string label)[] filters, int colorIndex)
+        private void PopulateChartItemCombo()
         {
-            var colors = new[] { AccentBlue, AccentPurple, AccentOrange, AccentGreen };
-            var accentColor = colors[colorIndex % colors.Length];
+            if (_chartItemCombo == null) return;
+            _chartItemCombo.SelectionChanged -= ChartItemCombo_SelectionChanged; // temporarily unhook
+            _chartItemCombo.Items.Clear();
 
-            var stack = new StackPanel { Spacing = 6, Margin = new Thickness(4) };
-
-            // Category header
-            stack.Children.Add(new TextBlock
+            if (ChartCategories.TryGetValue(_selectedChartCategory, out var category))
             {
-                Text = title,
-                FontSize = 12,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(accentColor),
-                Margin = new Thickness(0, 0, 0, 4)
-            });
-
-            // Filter toggles
-            foreach (var (key, label) in filters)
-            {
-                var toggle = CreateFilterToggle(key, label, accentColor);
-                stack.Children.Add(toggle);
+                foreach (var (key, label) in category.Charts)
+                {
+                    _chartItemCombo.Items.Add(new ComboBoxItem { Content = label, Tag = key });
+                }
             }
 
-            return stack;
+            _chartItemCombo.SelectedIndex = 0;
+            if (_chartItemCombo.SelectedItem is ComboBoxItem selected && selected.Tag is string chartKey)
+                _selectedChart = chartKey;
+
+            _chartItemCombo.SelectionChanged += ChartItemCombo_SelectionChanged;
         }
 
-        private Grid CreateFilterToggle(string filterKey, string label, Color accentColor)
+        private void ChartItemCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var grid = new Grid
+            if (_chartItemCombo?.SelectedItem is ComboBoxItem item && item.Tag is string chartKey)
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
-                Padding = new Thickness(8, 4, 8, 4),
-                CornerRadius = new CornerRadius(4),
-                Margin = new Thickness(0, 1, 0, 1)
-            };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var labelText = new TextBlock
-            {
-                Text = label,
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
-                VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            Grid.SetColumn(labelText, 0);
-            grid.Children.Add(labelText);
-
-            // Toggle switch
-            var toggleSwitch = new ToggleSwitch
-            {
-                IsOn = _chartFilters.ContainsKey(filterKey) && _chartFilters[filterKey],
-                MinWidth = 0,
-                MinHeight = 0,
-                OnContent = "",
-                OffContent = ""
-            };
-
-            toggleSwitch.Toggled += (s, e) =>
-            {
-                _chartFilters[filterKey] = toggleSwitch.IsOn;
-                RefreshChartsBasedOnFilters();
-            };
-
-            Grid.SetColumn(toggleSwitch, 1);
-            grid.Children.Add(toggleSwitch);
-
-            // Hover effect
-            grid.PointerEntered += (s, e) => grid.Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45));
-            grid.PointerExited += (s, e) => grid.Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35));
-
-            return grid;
+                _selectedChart = chartKey;
+                RefreshSelectedChart();
+            }
         }
 
         private Border CreateStatsSummaryRow()
@@ -2900,7 +2825,7 @@ namespace McStudDesktop.Views
             return streak;
         }
 
-        private void RefreshChartsBasedOnFilters()
+        private void RefreshSelectedChart()
         {
             if (_chartsContainer == null) return;
             _chartsContainer.Children.Clear();
@@ -2910,62 +2835,33 @@ namespace McStudDesktop.Views
             var categoryBreakdown = _exportStats.GetCategoryBreakdown(_currentUserId, GetSelectedPeriod());
             var operationTypes = _exportStats.GetOperationTypeBreakdown(_currentUserId, GetSelectedPeriod());
 
-            // Bar Charts
-            if (_chartFilters["operations_bar"])
-                _chartsContainer.Children.Add(CreateEnhancedHorizontalBarChart("📊 Operations by Day", dailyStats));
-            if (_chartFilters["value_bar"])
-                _chartsContainer.Children.Add(CreateEnhancedVerticalColumnChart("💰 Value by Day", dailyStats));
-            if (_chartFilters["labor_chart"])
-                _chartsContainer.Children.Add(CreateEnhancedLaborChart(dailyStats));
-
-            // Pie Charts
-            if (_chartFilters["category_pie"])
-                _chartsContainer.Children.Add(CreateEnhancedPieChart("🥧 Category Distribution", categoryBreakdown));
-            if (_chartFilters["operation_pie"])
-                _chartsContainer.Children.Add(CreateOperationTypePieChart("📋 Operation Types", operationTypes));
-
-            // Heatmaps
-            if (_chartFilters["activity_calendar"])
-                _chartsContainer.Children.Add(CreateGitHubStyleHeatmap("📅 Activity Calendar", dailyStats));
-            if (_chartFilters["hourly_heatmap"])
-                _chartsContainer.Children.Add(CreateEnhancedHourlyHeatmap("⏰ Hourly Activity", hourlyActivity));
-            if (_chartFilters["weekday_heatmap"])
-                _chartsContainer.Children.Add(CreateEnhancedWeekdayHeatmap("📆 Weekday Activity", dailyStats));
-            if (_chartFilters["3d_heatmap"])
-                _chartsContainer.Children.Add(Create3DHeatmapView("🎯 3D Activity Visualization", dailyStats, hourlyActivity));
-            if (_chartFilters["depth_heatmap"])
-                _chartsContainer.Children.Add(CreateDepthHeatmap("📊 Depth View - Weekly Layers", dailyStats));
-
-            // Line/Trend Charts
-            if (_chartFilters["operations_trend"])
-                _chartsContainer.Children.Add(CreateEnhancedLineChart("📈 Operations Trend", dailyStats));
-            if (_chartFilters["value_trend"])
-                _chartsContainer.Children.Add(CreateEnhancedValueLineChart("💹 Value Trend", dailyStats));
-
-            // Additional Stats
-            if (_chartFilters["avg_per_export"])
-                _chartsContainer.Children.Add(CreateAvgPerExportChart(dailyStats));
-            if (_chartFilters["peak_hours"])
-                _chartsContainer.Children.Add(CreatePeakHoursChart(hourlyActivity));
-            if (_chartFilters["streak_stats"])
-                _chartsContainer.Children.Add(CreateStreakStatsCard(dailyStats));
-
-            // Show message if nothing selected
-            if (!_chartFilters.Values.Any(v => v))
+            UIElement? chart = _selectedChart switch
             {
-                _chartsContainer.Children.Add(new Border
-                {
-                    Background = new SolidColorBrush(CardBg),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(32),
-                    Child = new TextBlock
-                    {
-                        Text = "No charts selected. Use the filters above to show charts.",
-                        FontSize = 14,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
-                        HorizontalAlignment = HorizontalAlignment.Center
-                    }
-                });
+                // Bar Charts
+                "operations_bar" => CreateEnhancedHorizontalBarChart("Operations by Day", dailyStats),
+                "value_bar" => CreateEnhancedVerticalColumnChart("Value by Day", dailyStats),
+                "labor_chart" => CreateEnhancedLaborChart(dailyStats),
+                // Pie Charts
+                "category_pie" => CreateEnhancedPieChart("Category Distribution", categoryBreakdown),
+                "operation_pie" => CreateOperationTypePieChart("Operation Types", operationTypes),
+                // Heatmaps
+                "activity_calendar" => CreateGitHubStyleHeatmap("Activity Calendar", dailyStats),
+                "hourly_heatmap" => CreateEnhancedHourlyHeatmap("Hourly Activity", hourlyActivity),
+                "weekday_heatmap" => CreateEnhancedWeekdayHeatmap("Weekday Activity", dailyStats),
+                "3d_heatmap" => Create3DHeatmapView("3D Activity Visualization", dailyStats, hourlyActivity),
+                "depth_heatmap" => CreateDepthHeatmap("Depth View - Weekly Layers", dailyStats),
+                // Trends & Stats
+                "operations_trend" => CreateEnhancedLineChart("Operations Trend", dailyStats),
+                "value_trend" => CreateEnhancedValueLineChart("Value Trend", dailyStats),
+                "avg_per_export" => CreateAvgPerExportChart(dailyStats),
+                "peak_hours" => CreatePeakHoursChart(hourlyActivity),
+                "streak_stats" => CreateStreakStatsCard(dailyStats),
+                _ => null
+            };
+
+            if (chart != null)
+            {
+                _chartsContainer.Children.Add(chart);
             }
         }
 

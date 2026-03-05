@@ -1,0 +1,209 @@
+#nullable enable
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace McstudDesktop.Services
+{
+    /// <summary>
+    /// Captures screenshots of estimating application windows or the full screen.
+    /// Auto-discovers CCC ONE / Mitchell / Audatex windows by title.
+    /// </summary>
+    public class ScreenCaptureService
+    {
+        private static ScreenCaptureService? _instance;
+        public static ScreenCaptureService Instance => _instance ??= new ScreenCaptureService();
+
+        // Window title patterns for estimating apps (matches CCCAutomationService)
+        private static readonly string[] ESTIMATING_TITLES = new[]
+        {
+            "CCC ONE", "CCC Estimating", "CCCONE", "CCC Desktop",
+            "Mitchell", "Audatex", "Estimate"
+        };
+
+        // P/Invoke declarations
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint nFlags);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left, Top, Right, Bottom;
+            public int Width => Right - Left;
+            public int Height => Bottom - Top;
+        }
+
+        public event EventHandler<string>? StatusChanged;
+
+        /// <summary>
+        /// Captures a screenshot of the best available estimating window, or full screen as fallback.
+        /// Returns the bitmap and the window title that was captured.
+        /// </summary>
+        public (Bitmap? bitmap, string windowTitle) CaptureEstimatingWindow()
+        {
+            try
+            {
+                // Try to find an estimating app window first
+                var windows = FindEstimatingWindows();
+                if (windows.Count > 0)
+                {
+                    var (hWnd, title) = windows[0];
+                    var bitmap = CaptureWindow(hWnd);
+                    if (bitmap != null)
+                    {
+                        StatusChanged?.Invoke(this, $"Captured: {title}");
+                        return (bitmap, title);
+                    }
+                }
+
+                // Fallback: capture full primary screen
+                var screenBitmap = CaptureFullScreen();
+                StatusChanged?.Invoke(this, "Captured: Full screen");
+                return (screenBitmap, "Full Screen");
+            }
+            catch (Exception ex)
+            {
+                StatusChanged?.Invoke(this, $"Capture failed: {ex.Message}");
+                return (null, string.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Captures only the full primary screen.
+        /// </summary>
+        public Bitmap CaptureFullScreen()
+        {
+            var bounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
+            var bitmap = new Bitmap(bounds.Width, bounds.Height);
+            using var graphics = Graphics.FromImage(bitmap);
+            graphics.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
+            return bitmap;
+        }
+
+        /// <summary>
+        /// Captures a specific window by handle using PrintWindow.
+        /// </summary>
+        public Bitmap? CaptureWindow(IntPtr hWnd)
+        {
+            try
+            {
+                if (!GetWindowRect(hWnd, out var rect))
+                    return null;
+
+                if (rect.Width <= 0 || rect.Height <= 0)
+                    return null;
+
+                var bitmap = new Bitmap(rect.Width, rect.Height);
+                using var graphics = Graphics.FromImage(bitmap);
+                var hdc = graphics.GetHdc();
+
+                // PW_RENDERFULLCONTENT = 2 for better capture of layered windows
+                bool success = PrintWindow(hWnd, hdc, 2);
+                graphics.ReleaseHdc(hdc);
+
+                if (!success)
+                {
+                    // Fallback: use CopyFromScreen for the window area
+                    bitmap.Dispose();
+                    var fallback = new Bitmap(rect.Width, rect.Height);
+                    using var g = Graphics.FromImage(fallback);
+                    g.CopyFromScreen(rect.Left, rect.Top, 0, 0, new Size(rect.Width, rect.Height));
+                    return fallback;
+                }
+
+                return bitmap;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ScreenCapture] CaptureWindow failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Finds all visible estimating application windows.
+        /// Returns list of (handle, title) tuples, prioritized by match quality.
+        /// </summary>
+        public List<(IntPtr hWnd, string title)> FindEstimatingWindows()
+        {
+            var results = new List<(IntPtr hWnd, string title, int priority)>();
+
+            EnumWindows((hWnd, lParam) =>
+            {
+                if (!IsWindowVisible(hWnd)) return true;
+
+                var sb = new StringBuilder(256);
+                GetWindowText(hWnd, sb, 256);
+                var title = sb.ToString();
+
+                if (string.IsNullOrWhiteSpace(title)) return true;
+
+                // Skip our own app
+                GetWindowThreadProcessId(hWnd, out uint processId);
+                try
+                {
+                    var process = Process.GetProcessById((int)processId);
+                    if (process.ProcessName.Equals("McstudDesktop", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                catch { /* process may have exited */ }
+
+                // Check for estimating app titles
+                for (int i = 0; i < ESTIMATING_TITLES.Length; i++)
+                {
+                    if (title.Contains(ESTIMATING_TITLES[i], StringComparison.OrdinalIgnoreCase))
+                    {
+                        results.Add((hWnd, title, i)); // Lower index = higher priority
+                        break;
+                    }
+                }
+
+                return true;
+            }, IntPtr.Zero);
+
+            return results
+                .OrderBy(r => r.priority)
+                .Select(r => (r.hWnd, r.title))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Detects which estimating platform a window title belongs to.
+        /// </summary>
+        public static Models.OcrEstimateSource DetectSource(string windowTitle)
+        {
+            if (string.IsNullOrEmpty(windowTitle))
+                return Models.OcrEstimateSource.Unknown;
+
+            if (windowTitle.Contains("CCC", StringComparison.OrdinalIgnoreCase))
+                return Models.OcrEstimateSource.CCCOne;
+            if (windowTitle.Contains("Mitchell", StringComparison.OrdinalIgnoreCase))
+                return Models.OcrEstimateSource.Mitchell;
+            if (windowTitle.Contains("Audatex", StringComparison.OrdinalIgnoreCase))
+                return Models.OcrEstimateSource.Audatex;
+
+            return Models.OcrEstimateSource.Unknown;
+        }
+    }
+}

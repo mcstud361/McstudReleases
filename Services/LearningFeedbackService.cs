@@ -435,6 +435,41 @@ namespace McStudDesktop.Services
 
         #endregion
 
+        #region Baseline Merge
+
+        /// <summary>
+        /// Merge baseline feedback data. User's personal feedback always takes precedence.
+        /// Only adds baseline entries for patterns the user has no feedback on.
+        /// </summary>
+        public void MergeBaseline(Dictionary<string, PatternFeedback> baseline)
+        {
+            if (baseline == null) return;
+
+            int added = 0;
+            foreach (var (key, baselineFeedback) in baseline)
+            {
+                if (!_feedbacks.ContainsKey(key))
+                {
+                    _feedbacks[key] = baselineFeedback;
+                    added++;
+                }
+                // If user has feedback for this key, keep user's data (personal experience takes precedence)
+            }
+
+            if (added > 0)
+            {
+                SaveFeedback();
+                System.Diagnostics.Debug.WriteLine($"[Feedback] Merged baseline: added {added} feedback entries");
+            }
+        }
+
+        /// <summary>
+        /// Get all feedback data (for baseline export)
+        /// </summary>
+        public Dictionary<string, PatternFeedback> GetAllFeedback() => _feedbacks;
+
+        #endregion
+
         #region Persistence
 
         public void SaveFeedback()

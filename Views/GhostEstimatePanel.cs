@@ -7,21 +7,18 @@ using Windows.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using McStudDesktop.Services;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace McStudDesktop.Views
 {
     /// <summary>
-    /// Ghost Estimate Comparison Panel
+    /// Estimate Assistant - Damage Guidance Panel
     ///
-    /// Before you write your estimate:
-    /// - AI writes one based on the damage description
-    /// - You write yours independently
-    /// - Compare side-by-side
-    /// - "AI found 4 operations you missed"
-    /// - "You caught 2 things AI missed"
-    ///
-    /// Learn from AI, but AI learns from YOU too.
+    /// Describe the damage, generate a comprehensive list of operations
+    /// pulled from all data sources (MET/CCC database, operation knowledge base,
+    /// learned patterns from uploaded estimates).
     /// </summary>
     public sealed class GhostEstimatePanel : UserControl
     {
@@ -34,24 +31,45 @@ namespace McStudDesktop.Views
         private ComboBox? _severityCombo;
         private Button? _generateGhostButton;
 
-        // Your estimate input
-        private TextBox? _userEstimateBox;
-        private Button? _compareButton;
+
+        // Toolbar controls
+        private ComboBox? _categoryFilter;
+        private ComboBox? _confidenceFilter;
+        private Button? _copyAllButton;
+        private Button? _copySelectedButton;
+        private Button? _exportButton;
 
         // Results display
-        private StackPanel? _ghostOperationsPanel;
-        private StackPanel? _userOperationsPanel;
-        private StackPanel? _comparisonResultsPanel;
-        private TextBlock? _summaryText;
+        private StackPanel? _resultsPanel;
+        private StackPanel? _summaryCardsPanel;
+        private TextBlock? _statusText;
 
         // State
-        private GhostEstimateResult? _currentGhostEstimate;
-        private List<GhostOperation> _userOperations = new();
-        private GhostComparisonResult? _comparisonResult;
+        private GuidanceEstimateResult? _currentResult;
+        private readonly Dictionary<string, bool> _collapsedCategories = new();
+        private readonly Dictionary<GuidanceOperation, CheckBox> _operationCheckboxes = new();
 
         // Events
         public event EventHandler<GhostOperation>? OnOperationAccepted;
-        public event EventHandler<GhostComparisonResult>? OnComparisonComplete;
+
+        // Category display order
+        private static readonly string[] CategoryOrder = new[]
+        {
+            "Part Operations", "Body Operations", "Refinish Operations",
+            "Scanning", "Calibration", "Structural", "Frame Operations"
+        };
+
+        // Category colors
+        private static readonly Dictionary<string, Color> CategoryColors = new()
+        {
+            ["Part Operations"] = Color.FromArgb(255, 100, 180, 255),
+            ["Body Operations"] = Color.FromArgb(255, 255, 180, 100),
+            ["Refinish Operations"] = Color.FromArgb(255, 180, 130, 255),
+            ["Scanning"] = Color.FromArgb(255, 100, 220, 180),
+            ["Calibration"] = Color.FromArgb(255, 100, 220, 180),
+            ["Structural"] = Color.FromArgb(255, 255, 130, 130),
+            ["Frame Operations"] = Color.FromArgb(255, 255, 130, 130),
+        };
 
         public GhostEstimatePanel()
         {
@@ -77,21 +95,17 @@ namespace McStudDesktop.Views
 
             var mainStack = new StackPanel { Spacing = 20 };
 
-            // === HEADER ===
-            var headerPanel = CreateHeader();
-            mainStack.Children.Add(headerPanel);
+            // 1. Header
+            mainStack.Children.Add(CreateHeader());
 
-            // === INPUT SECTION ===
-            var inputSection = CreateInputSection();
-            mainStack.Children.Add(inputSection);
+            // 2. Input Section (kept as-is: vehicle, damage desc, severity, diagram)
+            mainStack.Children.Add(CreateInputSection());
 
-            // === COMPARISON SECTION ===
-            var comparisonSection = CreateComparisonSection();
-            mainStack.Children.Add(comparisonSection);
+            // 3. Toolbar (filters + action buttons)
+            mainStack.Children.Add(CreateToolbar());
 
-            // === RESULTS SECTION ===
-            var resultsSection = CreateResultsSection();
-            mainStack.Children.Add(resultsSection);
+            // 4. Results Output (categorized operations)
+            mainStack.Children.Add(CreateResultsOutputSection());
 
             scrollViewer.Content = mainStack;
             mainBorder.Child = scrollViewer;
@@ -105,20 +119,19 @@ namespace McStudDesktop.Views
             var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             titleRow.Children.Add(new FontIcon
             {
-                Glyph = "\uE8F4", // Ghost icon
+                Glyph = "\uE8F4",
                 FontSize = 28,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
             });
             titleRow.Children.Add(new TextBlock
             {
-                Text = "Ghost Estimate - AI Training Tool",
+                Text = "Estimate Assistant - Damage Guidance",
                 FontSize = 24,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White)
             });
             panel.Children.Add(titleRow);
 
-            // Better explanation of what this feature does
             var descriptionPanel = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 65)),
@@ -138,11 +151,10 @@ namespace McStudDesktop.Views
 
             var steps = new[]
             {
-                "1. Describe the damage (vehicle info + damage description)",
-                "2. AI generates a \"ghost\" estimate based on your description",
-                "3. Write YOUR estimate independently in the comparison section",
-                "4. Compare: See what AI found that you missed, and what you caught that AI didn't",
-                "5. Learn from each other - AI improves from your expertise!"
+                "1. Describe the damage (vehicle info + damage description + click diagram)",
+                "2. Click \"Generate Estimate Guide\" to pull operations from all data sources",
+                "3. Review categorized operations with confidence levels and justifications",
+                "4. Copy or export the operations you need to your estimate"
             };
 
             foreach (var step in steps)
@@ -180,7 +192,6 @@ namespace McStudDesktop.Views
             // Left: Input fields
             var inputStack = new StackPanel { Spacing = 16 };
 
-            // Section header
             inputStack.Children.Add(new TextBlock
             {
                 Text = "STEP 1: Describe the Damage",
@@ -249,7 +260,7 @@ namespace McStudDesktop.Views
             // Generate button
             _generateGhostButton = new Button
             {
-                Content = "Generate AI Ghost Estimate",
+                Content = "Generate Estimate Guide",
                 HorizontalAlignment = HorizontalAlignment.Left,
                 Padding = new Thickness(20, 10, 20, 10),
                 FontSize = 14,
@@ -283,118 +294,104 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        private Border CreateComparisonSection()
+        private Border CreateToolbar()
         {
             var border = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 35, 40, 48)),
                 CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(16),
+                Padding = new Thickness(12, 8, 12, 8),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 55, 60, 70)),
-                BorderThickness = new Thickness(1)
+                BorderThickness = new Thickness(1),
+                Visibility = Visibility.Collapsed
             };
+            border.Name = "ToolbarBorder";
 
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) }); // Divider
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var toolbarGrid = new Grid();
+            toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            toolbarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Left: Ghost estimate
-            var ghostPanel = new StackPanel { Spacing = 12 };
-            var ghostHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            ghostHeader.Children.Add(new FontIcon
-            {
-                Glyph = "\uE8F4",
-                FontSize = 18,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
-            });
-            ghostHeader.Children.Add(new TextBlock
-            {
-                Text = "AI GHOST ESTIMATE",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
-            });
-            ghostPanel.Children.Add(ghostHeader);
+            // Left: Filters
+            var filtersPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
 
-            _ghostOperationsPanel = new StackPanel { Spacing = 4 };
-            _ghostOperationsPanel.Children.Add(new TextBlock
+            filtersPanel.Children.Add(new TextBlock
             {
-                Text = "Generate a ghost estimate to see AI suggestions",
+                Text = "Filter:",
                 FontSize = 12,
-                FontStyle = Windows.UI.Text.FontStyle.Italic,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 105, 110))
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 155, 160)),
+                VerticalAlignment = VerticalAlignment.Center
             });
-            ghostPanel.Children.Add(_ghostOperationsPanel);
 
-            Grid.SetColumn(ghostPanel, 0);
-            grid.Children.Add(ghostPanel);
-
-            // Divider
-            var divider = new Border
+            _categoryFilter = new ComboBox
             {
-                Width = 1,
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 65, 75)),
-                Margin = new Thickness(8, 0, 8, 0)
-            };
-            Grid.SetColumn(divider, 1);
-            grid.Children.Add(divider);
-
-            // Right: Your estimate
-            var userPanel = new StackPanel { Spacing = 12 };
-            var userHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            userHeader.Children.Add(new FontIcon
-            {
-                Glyph = "\uE77B",
-                FontSize = 18,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 100))
-            });
-            userHeader.Children.Add(new TextBlock
-            {
-                Text = "YOUR ESTIMATE",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 100))
-            });
-            userPanel.Children.Add(userHeader);
-
-            // User estimate input
-            _userEstimateBox = new TextBox
-            {
-                PlaceholderText = "Enter your estimate operations (one per line):\ne.g., Replace front bumper cover\nR&I headlight\nRepair hood\nRefinish bumper, hood, fenders",
+                Width = 180,
                 FontSize = 12,
-                Height = 150,
-                AcceptsReturn = true,
-                TextWrapping = TextWrapping.Wrap,
-                Background = new SolidColorBrush(Color.FromArgb(255, 45, 50, 58)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 65, 70, 80))
+                Items = { "All Categories", "Part Operations", "Body Operations", "Refinish Operations", "Scanning/Calibration", "Structural/Frame" },
+                SelectedIndex = 0
             };
-            userPanel.Children.Add(_userEstimateBox);
+            _categoryFilter.SelectionChanged += FilterChanged;
+            filtersPanel.Children.Add(_categoryFilter);
 
-            _compareButton = new Button
+            _confidenceFilter = new ComboBox
             {
-                Content = "Compare Estimates",
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Padding = new Thickness(16, 8, 16, 8),
-                FontSize = 13,
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 160, 60)),
+                Width = 150,
+                FontSize = 12,
+                Items = { "All Confidence", "High Only", "Medium & High" },
+                SelectedIndex = 0
+            };
+            _confidenceFilter.SelectionChanged += FilterChanged;
+            filtersPanel.Children.Add(_confidenceFilter);
+
+            Grid.SetColumn(filtersPanel, 0);
+            toolbarGrid.Children.Add(filtersPanel);
+
+            // Right: Action buttons
+            var actionsPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+            _copySelectedButton = new Button
+            {
+                Content = "Copy Selected",
+                Padding = new Thickness(12, 6, 12, 6),
+                FontSize = 12,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 55, 65)),
                 Foreground = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(6)
+                CornerRadius = new CornerRadius(4)
             };
-            _compareButton.Click += CompareButton_Click;
-            userPanel.Children.Add(_compareButton);
+            _copySelectedButton.Click += CopySelectedButton_Click;
+            actionsPanel.Children.Add(_copySelectedButton);
 
-            _userOperationsPanel = new StackPanel { Spacing = 4 };
-            userPanel.Children.Add(_userOperationsPanel);
+            _copyAllButton = new Button
+            {
+                Content = "Copy All",
+                Padding = new Thickness(12, 6, 12, 6),
+                FontSize = 12,
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 130, 200)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(4)
+            };
+            _copyAllButton.Click += CopyAllButton_Click;
+            actionsPanel.Children.Add(_copyAllButton);
 
-            Grid.SetColumn(userPanel, 2);
-            grid.Children.Add(userPanel);
+            _exportButton = new Button
+            {
+                Content = "Export",
+                Padding = new Thickness(12, 6, 12, 6),
+                FontSize = 12,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 55, 65)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(4)
+            };
+            _exportButton.Click += ExportButton_Click;
+            actionsPanel.Children.Add(_exportButton);
 
-            border.Child = grid;
+            Grid.SetColumn(actionsPanel, 1);
+            toolbarGrid.Children.Add(actionsPanel);
+
+            border.Child = toolbarGrid;
             return border;
         }
 
-        private Border CreateResultsSection()
+        private Border CreateResultsOutputSection()
         {
             var border = new Border
             {
@@ -405,45 +402,36 @@ namespace McStudDesktop.Views
                 BorderThickness = new Thickness(1),
                 Visibility = Visibility.Collapsed
             };
+            border.Name = "ResultsBorder";
 
             var stack = new StackPanel { Spacing = 16 };
 
-            // Summary header
-            var summaryHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            summaryHeader.Children.Add(new FontIcon
-            {
-                Glyph = "\uE9D9",
-                FontSize = 20,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100))
-            });
-            summaryHeader.Children.Add(new TextBlock
-            {
-                Text = "COMPARISON RESULTS",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100))
-            });
-            stack.Children.Add(summaryHeader);
+            // Summary cards row
+            _summaryCardsPanel = new StackPanel { Spacing = 0 };
+            stack.Children.Add(_summaryCardsPanel);
 
-            _summaryText = new TextBlock
+            // Status text
+            _statusText = new TextBlock
             {
-                FontSize = 14,
-                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 155, 160)),
                 TextWrapping = TextWrapping.Wrap
             };
-            stack.Children.Add(_summaryText);
+            stack.Children.Add(_statusText);
 
-            _comparisonResultsPanel = new StackPanel { Spacing = 12 };
-            stack.Children.Add(_comparisonResultsPanel);
+            // Operations output
+            _resultsPanel = new StackPanel { Spacing = 12 };
+            stack.Children.Add(_resultsPanel);
 
             border.Child = stack;
             return border;
         }
 
+        #region Event Handlers
+
         private void VehicleDiagram_SelectionChanged(object? sender, PanelSelectionChangedEventArgs e)
         {
-            // Optional: Update damage description based on selected panels
-            System.Diagnostics.Debug.WriteLine($"[Ghost] Panels selected: {string.Join(", ", e.SelectedPanelIds)}");
+            System.Diagnostics.Debug.WriteLine($"[Guidance] Panels selected: {string.Join(", ", e.SelectedPanelIds)}");
         }
 
         private void GenerateGhostButton_Click(object sender, RoutedEventArgs e)
@@ -466,7 +454,6 @@ namespace McStudDesktop.Views
                 _ => "moderate"
             };
 
-            // Get selected panels from diagram
             var selectedPanels = _vehicleDiagram.SelectedPanels.ToList();
             var impactZones = new List<string>();
             foreach (var panel in selectedPanels)
@@ -483,142 +470,108 @@ namespace McStudDesktop.Views
                 SelectedPanels = selectedPanels
             };
 
-            // Generate ghost estimate
-            _currentGhostEstimate = _ghostService.GenerateGhostEstimate(input);
+            // Generate guidance estimate
+            _currentResult = _ghostService.GenerateGuidanceEstimate(input);
 
-            // Display ghost operations
-            DisplayGhostOperations(_currentGhostEstimate);
+            // Show toolbar and results
+            ShowToolbarAndResults();
+
+            // Display
+            DisplayGuidanceResults(_currentResult);
         }
 
-        private void DisplayGhostOperations(GhostEstimateResult estimate)
+        private void FilterChanged(object sender, SelectionChangedEventArgs e)
         {
-            _ghostOperationsPanel?.Children.Clear();
+            if (_currentResult != null)
+                DisplayGuidanceResults(_currentResult);
+        }
 
-            // Group by category
-            var grouped = estimate.Operations.GroupBy(o => o.Category);
+        private void CopyAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentResult == null) return;
+            var ops = GetFilteredOperations(_currentResult.GuidanceOperations);
+            CopyOperationsToClipboard(ops);
+            ShowMessage($"Copied {ops.Count} operations to clipboard");
+        }
+
+        private void CopySelectedButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentResult == null) return;
+            var selected = _operationCheckboxes
+                .Where(kv => kv.Value.IsChecked == true)
+                .Select(kv => kv.Key)
+                .ToList();
+
+            if (!selected.Any())
+            {
+                ShowMessage("No operations selected. Check the boxes next to operations to select them.");
+                return;
+            }
+
+            CopyOperationsToClipboard(selected);
+            ShowMessage($"Copied {selected.Count} selected operations to clipboard");
+        }
+
+        private void ExportButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentResult == null) return;
+            var ops = GetFilteredOperations(_currentResult.GuidanceOperations);
+            CopyOperationsToClipboard(ops, includeDetails: true);
+            ShowMessage($"Exported {ops.Count} operations with details to clipboard");
+        }
+
+        #endregion
+
+        #region Display Methods
+
+        private void ShowToolbarAndResults()
+        {
+            // Find toolbar and results borders by walking the visual tree
+            var mainBorder = Content as Border;
+            var scrollViewer = mainBorder?.Child as ScrollViewer;
+            var mainStack = scrollViewer?.Content as StackPanel;
+            if (mainStack == null) return;
+
+            foreach (var child in mainStack.Children)
+            {
+                if (child is Border b)
+                {
+                    if (b.Name == "ToolbarBorder" || b.Name == "ResultsBorder")
+                        b.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
+        private void DisplayGuidanceResults(GuidanceEstimateResult result)
+        {
+            _operationCheckboxes.Clear();
+            _resultsPanel?.Children.Clear();
+            _summaryCardsPanel?.Children.Clear();
+
+            var filteredOps = GetFilteredOperations(result.GuidanceOperations);
+
+            // Build summary cards
+            BuildSummaryCards(result, filteredOps);
+
+            // Build warnings/tips
+            BuildWarningsAndTips(result);
+
+            // Group operations by category and display
+            var grouped = filteredOps
+                .GroupBy(o => o.Category)
+                .OrderBy(g => Array.IndexOf(CategoryOrder, g.Key) is int idx && idx >= 0 ? idx : 99);
 
             foreach (var group in grouped)
             {
-                // Category header
-                var catHeader = new TextBlock
-                {
-                    Text = group.Key.ToUpper(),
-                    FontSize = 11,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 125, 130)),
-                    Margin = new Thickness(0, 8, 0, 4)
-                };
-                _ghostOperationsPanel?.Children.Add(catHeader);
-
-                foreach (var op in group)
-                {
-                    var opRow = CreateOperationRow(op, true);
-                    _ghostOperationsPanel?.Children.Add(opRow);
-                }
+                var categorySection = CreateCategorySection(group.Key, group.ToList());
+                _resultsPanel?.Children.Add(categorySection);
             }
-
-            // Totals - ACTUAL DOLLARS like real estimates
-            var totalsPanel = new StackPanel
-            {
-                Margin = new Thickness(0, 12, 0, 0),
-                Padding = new Thickness(10),
-                Background = new SolidColorBrush(Color.FromArgb(255, 35, 45, 55))
-            };
-
-            // Header
-            totalsPanel.Children.Add(new TextBlock
-            {
-                Text = "LABOR SUMMARY",
-                FontSize = 11,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
-                Margin = new Thickness(0, 0, 0, 6)
-            });
-
-            // Body Labor
-            totalsPanel.Children.Add(new TextBlock
-            {
-                Text = $"Body Labor: {estimate.TotalBodyHours:F1}h @ $55/hr = ${estimate.TotalBodyLaborDollars:F2}",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 205, 210))
-            });
-
-            // Refinish Labor
-            totalsPanel.Children.Add(new TextBlock
-            {
-                Text = $"Refinish Labor: {estimate.TotalRefinishHours:F1}h @ $55/hr = ${estimate.TotalRefinishLaborDollars:F2}",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 205, 210))
-            });
-
-            // Mech Labor (if any)
-            if (estimate.TotalMechLaborDollars > 0)
-            {
-                var mechHours = estimate.TotalMechLaborDollars / 95m;
-                totalsPanel.Children.Add(new TextBlock
-                {
-                    Text = $"Mechanical Labor: {mechHours:F1}h @ $95/hr = ${estimate.TotalMechLaborDollars:F2}",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 205, 210))
-                });
-            }
-
-            // Frame Labor (if any)
-            if (estimate.TotalFrameLaborDollars > 0)
-            {
-                var frameHours = estimate.TotalFrameLaborDollars / 75m;
-                totalsPanel.Children.Add(new TextBlock
-                {
-                    Text = $"Frame Labor: {frameHours:F1}h @ $75/hr = ${estimate.TotalFrameLaborDollars:F2}",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 205, 210))
-                });
-            }
-
-            // Sublet
-            if (estimate.TotalSubletAmount > 0)
-            {
-                totalsPanel.Children.Add(new TextBlock
-                {
-                    Text = $"Sublet/Other: ${estimate.TotalSubletAmount:F2}",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 205, 210))
-                });
-            }
-
-            // Separator
-            totalsPanel.Children.Add(new Border
-            {
-                Height = 1,
-                Background = new SolidColorBrush(Color.FromArgb(255, 80, 85, 95)),
-                Margin = new Thickness(0, 8, 0, 8)
-            });
-
-            // Grand Total
-            totalsPanel.Children.Add(new TextBlock
-            {
-                Text = $"LABOR TOTAL: ${estimate.GrandTotalLaborDollars:F2}",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 100))
-            });
-
-            // Panel count info
-            totalsPanel.Children.Add(new TextBlock
-            {
-                Text = $"Refinish: {estimate.RefinishPanelCount} panels | Blend: {estimate.BlendPanelCount} panels",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 155, 160)),
-                Margin = new Thickness(0, 4, 0, 0)
-            });
-
-            _ghostOperationsPanel?.Children.Add(totalsPanel);
 
             // Notes
-            if (estimate.Notes.Any())
+            if (result.Notes.Any())
             {
                 var notesPanel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
-                foreach (var note in estimate.Notes)
+                foreach (var note in result.Notes)
                 {
                     notesPanel.Children.Add(new TextBlock
                     {
@@ -629,539 +582,534 @@ namespace McStudDesktop.Views
                         TextWrapping = TextWrapping.Wrap
                     });
                 }
-                _ghostOperationsPanel?.Children.Add(notesPanel);
+                _resultsPanel?.Children.Add(notesPanel);
             }
         }
 
-        private Border CreateOperationRow(GhostOperation op, bool isGhost)
+        private void BuildSummaryCards(GuidanceEstimateResult result, List<GuidanceOperation> filteredOps)
+        {
+            var cardsGrid = new Grid();
+            cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // Card 1: Total Operations
+            var totalCard = CreateSummaryCard("Total Ops",
+                filteredOps.Count.ToString(),
+                Color.FromArgb(255, 100, 200, 255));
+            Grid.SetColumn(totalCard, 0);
+            cardsGrid.Children.Add(totalCard);
+
+            // Card 2: Body Hours
+            var bodyHours = filteredOps.Sum(o => o.LaborHours);
+            var bodyCard = CreateSummaryCard("Body Hours",
+                $"{bodyHours:F1}h",
+                Color.FromArgb(255, 255, 180, 100));
+            Grid.SetColumn(bodyCard, 1);
+            cardsGrid.Children.Add(bodyCard);
+
+            // Card 3: Refinish Hours
+            var refinishHours = filteredOps.Sum(o => o.RefinishHours);
+            var refinishCard = CreateSummaryCard("Refinish Hours",
+                $"{refinishHours:F1}h",
+                Color.FromArgb(255, 180, 130, 255));
+            Grid.SetColumn(refinishCard, 2);
+            cardsGrid.Children.Add(refinishCard);
+
+            // Card 4: Labor Total
+            var laborTotal = result.GrandTotalLaborDollars;
+            var laborCard = CreateSummaryCard("Labor Total",
+                $"${laborTotal:F0}",
+                Color.FromArgb(255, 100, 220, 100));
+            Grid.SetColumn(laborCard, 3);
+            cardsGrid.Children.Add(laborCard);
+
+            // Card 5: Data Sources
+            var sourceText = $"DB:{result.DatabaseCount} KB:{result.KnowledgeBaseCount} L:{result.LearnedCount}";
+            var sourceCard = CreateSummaryCard("Sources",
+                sourceText,
+                Color.FromArgb(255, 150, 200, 255));
+            Grid.SetColumn(sourceCard, 4);
+            cardsGrid.Children.Add(sourceCard);
+
+            _summaryCardsPanel?.Children.Add(cardsGrid);
+        }
+
+        private Border CreateSummaryCard(string label, string value, Color color)
         {
             var border = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 45, 50, 58)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(8, 6, 8, 6),
-                Margin = new Thickness(0, 2, 0, 2)
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 38, 48)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(4)
             };
 
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var descStack = new StackPanel();
-            descStack.Children.Add(new TextBlock
+            var stack = new StackPanel
             {
-                Text = op.Description,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
-
-            // Hours/price info
-            var infoText = "";
-            if (op.LaborHours > 0) infoText += $"{op.LaborHours:F1}h body";
-            if (op.RefinishHours > 0) infoText += (infoText.Length > 0 ? " | " : "") + $"{op.RefinishHours:F1}h ref";
-            if (op.Price > 0) infoText += (infoText.Length > 0 ? " | " : "") + $"${op.Price:F2}";
-
-            if (!string.IsNullOrEmpty(infoText))
-            {
-                descStack.Children.Add(new TextBlock
-                {
-                    Text = infoText,
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140))
-                });
-            }
-
-            Grid.SetColumn(descStack, 0);
-            grid.Children.Add(descStack);
-
-            // Confidence indicator for ghost operations
-            if (isGhost && op.Confidence < 1.0)
-            {
-                var confIcon = new FontIcon
-                {
-                    Glyph = op.Confidence >= 0.8 ? "\uE73E" : (op.Confidence >= 0.6 ? "\uE8E5" : "\uE783"),
-                    FontSize = 14,
-                    Foreground = new SolidColorBrush(op.Confidence >= 0.8
-                        ? Color.FromArgb(255, 100, 220, 100)
-                        : (op.Confidence >= 0.6 ? Color.FromArgb(255, 255, 200, 100) : Color.FromArgb(255, 255, 150, 150)))
-                };
-                ToolTipService.SetToolTip(confIcon, $"Confidence: {op.Confidence:P0}");
-                Grid.SetColumn(confIcon, 1);
-                grid.Children.Add(confIcon);
-            }
-
-            border.Child = grid;
-            return border;
-        }
-
-        private void CompareButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentGhostEstimate == null)
-            {
-                ShowMessage("Generate a ghost estimate first");
-                return;
-            }
-
-            var userText = _userEstimateBox?.Text?.Trim() ?? "";
-            if (string.IsNullOrEmpty(userText))
-            {
-                ShowMessage("Enter your estimate operations to compare");
-                return;
-            }
-
-            // Parse user operations from text
-            _userOperations = ParseUserOperations(userText);
-
-            // Display parsed user operations
-            DisplayUserOperations(_userOperations);
-
-            // Compare
-            _comparisonResult = _ghostService.CompareEstimates(_userOperations, _currentGhostEstimate);
-
-            // Display results
-            DisplayComparisonResults(_comparisonResult);
-
-            OnComparisonComplete?.Invoke(this, _comparisonResult);
-        }
-
-        private List<GhostOperation> ParseUserOperations(string text)
-        {
-            var operations = new List<GhostOperation>();
-            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-            foreach (var line in lines)
-            {
-                var trimmed = line.Trim();
-                if (string.IsNullOrEmpty(trimmed)) continue;
-
-                var op = ParseOperationLine(trimmed);
-                if (op != null)
-                {
-                    operations.Add(op);
-                }
-            }
-
-            return operations;
-        }
-
-        private GhostOperation? ParseOperationLine(string line)
-        {
-            var lower = line.ToLower();
-
-            // Detect operation type
-            var opType = "Repair"; // Default
-            if (lower.StartsWith("replace") || lower.Contains("rplc") || lower.Contains(" rp "))
-                opType = "Replace";
-            else if (lower.StartsWith("r&i") || lower.Contains("r & i") || lower.Contains("remove and install"))
-                opType = "R&I";
-            else if (lower.StartsWith("refinish") || lower.Contains("rfn") || lower.StartsWith("paint"))
-                opType = "Refinish";
-            else if (lower.StartsWith("blend"))
-                opType = "Blend";
-            else if (lower.StartsWith("repair") || lower.Contains("rpr"))
-                opType = "Repair";
-            else if (lower.Contains("sublet") || lower.Contains("scan") || lower.Contains("calibrat"))
-                opType = "Sublet";
-
-            // Extract part name (remove operation keywords)
-            var partName = line
-                .Replace("Replace", "", StringComparison.OrdinalIgnoreCase)
-                .Replace("Repair", "", StringComparison.OrdinalIgnoreCase)
-                .Replace("R&I", "", StringComparison.OrdinalIgnoreCase)
-                .Replace("Refinish", "", StringComparison.OrdinalIgnoreCase)
-                .Replace("Blend", "", StringComparison.OrdinalIgnoreCase)
-                .Replace("Sublet", "", StringComparison.OrdinalIgnoreCase)
-                .Trim()
-                .Trim('-', ':', ' ');
-
-            if (string.IsNullOrEmpty(partName))
-                partName = line;
-
-            return new GhostOperation
-            {
-                OperationType = opType,
-                PartName = partName.ToLower(),
-                Description = line,
-                Category = opType == "Refinish" || opType == "Blend" ? "Refinish Operations" : "Part Operations"
-            };
-        }
-
-        private void DisplayUserOperations(List<GhostOperation> operations)
-        {
-            _userOperationsPanel?.Children.Clear();
-
-            if (!operations.Any())
-            {
-                _userOperationsPanel?.Children.Add(new TextBlock
-                {
-                    Text = "No operations parsed",
-                    FontSize = 12,
-                    FontStyle = Windows.UI.Text.FontStyle.Italic,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 155, 160))
-                });
-                return;
-            }
-
-            _userOperationsPanel?.Children.Add(new TextBlock
-            {
-                Text = $"Parsed {operations.Count} operations:",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 155, 160)),
-                Margin = new Thickness(0, 0, 0, 4)
-            });
-
-            foreach (var op in operations)
-            {
-                var row = CreateOperationRow(op, false);
-                _userOperationsPanel?.Children.Add(row);
-            }
-        }
-
-        private void DisplayComparisonResults(GhostComparisonResult result)
-        {
-            // Show results section
-            var resultsSection = (_comparisonResultsPanel?.Parent as StackPanel)?.Parent as Border;
-            if (resultsSection != null)
-                resultsSection.Visibility = Visibility.Visible;
-
-            // Summary
-            if (_summaryText != null)
-                _summaryText.Text = result.Summary;
-
-            _comparisonResultsPanel?.Children.Clear();
-
-            // Add visual score card at top
-            var scoreCard = CreateScoreCard(result);
-            _comparisonResultsPanel?.Children.Add(scoreCard);
-
-            // AI found missing
-            if (result.GhostFoundMissing.Any())
-            {
-                var missingSection = new StackPanel { Spacing = 4, Margin = new Thickness(0, 8, 0, 0) };
-                var missingHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                missingHeader.Children.Add(new FontIcon
-                {
-                    Glyph = "\uE7BA",
-                    FontSize = 16,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 180, 100))
-                });
-                missingHeader.Children.Add(new TextBlock
-                {
-                    Text = $"AI Found {result.GhostFoundMissing.Count} Operations You Might Have Missed:",
-                    FontSize = 13,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 180, 100))
-                });
-                missingSection.Children.Add(missingHeader);
-
-                foreach (var missing in result.GhostFoundMissing)
-                {
-                    var row = CreateMissingOperationRow(missing);
-                    missingSection.Children.Add(row);
-                }
-
-                _comparisonResultsPanel?.Children.Add(missingSection);
-            }
-
-            // User found extra
-            if (result.UserFoundExtra.Any())
-            {
-                var extraSection = new StackPanel { Spacing = 4, Margin = new Thickness(0, 12, 0, 0) };
-                var extraHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                extraHeader.Children.Add(new FontIcon
-                {
-                    Glyph = "\uE8FB",
-                    FontSize = 16,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 100))
-                });
-                extraHeader.Children.Add(new TextBlock
-                {
-                    Text = $"You Caught {result.UserFoundExtra.Count} Things AI Didn't:",
-                    FontSize = 13,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 100))
-                });
-                extraSection.Children.Add(extraHeader);
-
-                foreach (var extra in result.UserFoundExtra)
-                {
-                    var row = CreateExtraOperationRow(extra);
-                    extraSection.Children.Add(row);
-                }
-
-                _comparisonResultsPanel?.Children.Add(extraSection);
-            }
-
-            // Both have
-            if (result.BothHave.Any())
-            {
-                var matchSection = new StackPanel { Spacing = 4, Margin = new Thickness(0, 12, 0, 0) };
-                var matchHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                matchHeader.Children.Add(new FontIcon
-                {
-                    Glyph = "\uE73E",
-                    FontSize = 16,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
-                });
-                matchHeader.Children.Add(new TextBlock
-                {
-                    Text = $"{result.BothHave.Count} Operations Match ({result.MatchPercentage:F0}% Agreement)",
-                    FontSize = 13,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
-                });
-                matchSection.Children.Add(matchHeader);
-
-                _comparisonResultsPanel?.Children.Add(matchSection);
-            }
-
-            // Action buttons
-            var actionsPanel = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Margin = new Thickness(0, 16, 0, 0)
-            };
-
-            if (result.GhostFoundMissing.Any())
-            {
-                var acceptAllBtn = new Button
-                {
-                    Content = "Accept All AI Suggestions",
-                    Padding = new Thickness(12, 8, 12, 8),
-                    Background = new SolidColorBrush(Color.FromArgb(255, 60, 130, 200)),
-                    Foreground = new SolidColorBrush(Colors.White),
-                    CornerRadius = new CornerRadius(4)
-                };
-                acceptAllBtn.Click += (s, e) => AcceptAllSuggestions();
-                actionsPanel.Children.Add(acceptAllBtn);
-            }
-
-            if (result.UserFoundExtra.Any())
-            {
-                var teachAIBtn = new Button
-                {
-                    Content = "Teach AI Your Patterns",
-                    Padding = new Thickness(12, 8, 12, 8),
-                    Background = new SolidColorBrush(Color.FromArgb(255, 60, 160, 60)),
-                    Foreground = new SolidColorBrush(Colors.White),
-                    CornerRadius = new CornerRadius(4)
-                };
-                teachAIBtn.Click += (s, e) => TeachAIUserPatterns();
-                actionsPanel.Children.Add(teachAIBtn);
-            }
-
-            _comparisonResultsPanel?.Children.Add(actionsPanel);
-        }
-
-        private Border CreateScoreCard(GhostComparisonResult result)
-        {
-            // Calculate scores
-            int totalGhostOps = result.BothHave.Count + result.GhostFoundMissing.Count;
-            int totalUserOps = result.BothHave.Count + result.UserFoundExtra.Count;
-            int matched = result.BothHave.Count;
-
-            double userAccuracy = totalGhostOps > 0 ? (matched * 100.0 / totalGhostOps) : 0;
-            double aiMissRate = totalUserOps > 0 ? (result.UserFoundExtra.Count * 100.0 / totalUserOps) : 0;
-
-            var scoreCard = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 40, 50)),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(16),
-                Margin = new Thickness(0, 0, 0, 12)
-            };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            // Your Accuracy Score
-            var accuracyPanel = CreateScoreItem(
-                "📊 Your Accuracy",
-                $"{userAccuracy:F0}%",
-                userAccuracy >= 80 ? Color.FromArgb(255, 100, 220, 100) :
-                userAccuracy >= 60 ? Color.FromArgb(255, 255, 200, 100) :
-                Color.FromArgb(255, 255, 130, 100),
-                $"You matched {matched} of {totalGhostOps} AI operations"
-            );
-            Grid.SetColumn(accuracyPanel, 0);
-            grid.Children.Add(accuracyPanel);
-
-            // Things You Caught
-            var extraPanel = CreateScoreItem(
-                "🎯 Extras Found",
-                $"{result.UserFoundExtra.Count}",
-                Color.FromArgb(255, 100, 180, 255),
-                "Operations you found that AI missed"
-            );
-            Grid.SetColumn(extraPanel, 1);
-            grid.Children.Add(extraPanel);
-
-            // Things to Review
-            var reviewPanel = CreateScoreItem(
-                "⚠️ To Review",
-                $"{result.GhostFoundMissing.Count}",
-                result.GhostFoundMissing.Count == 0 ? Color.FromArgb(255, 100, 220, 100) :
-                Color.FromArgb(255, 255, 180, 100),
-                "AI suggestions to consider adding"
-            );
-            Grid.SetColumn(reviewPanel, 2);
-            grid.Children.Add(reviewPanel);
-
-            scoreCard.Child = grid;
-            return scoreCard;
-        }
-
-        private StackPanel CreateScoreItem(string title, string value, Color color, string subtitle)
-        {
-            var panel = new StackPanel
-            {
-                Spacing = 4,
+                Spacing = 2,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
-            panel.Children.Add(new TextBlock
+            stack.Children.Add(new TextBlock
             {
-                Text = title,
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 145, 150)),
+                Text = label,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
 
-            panel.Children.Add(new TextBlock
+            stack.Children.Add(new TextBlock
             {
                 Text = value,
-                FontSize = 28,
+                FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(color),
                 HorizontalAlignment = HorizontalAlignment.Center
-            });
-
-            panel.Children.Add(new TextBlock
-            {
-                Text = subtitle,
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 105, 110)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Center,
-                MaxWidth = 140
-            });
-
-            return panel;
-        }
-
-        private Border CreateMissingOperationRow(MissingOperation missing)
-        {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 50, 40)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(10, 8, 10, 8),
-                Margin = new Thickness(0, 2, 0, 2)
-            };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var stack = new StackPanel();
-            stack.Children.Add(new TextBlock
-            {
-                Text = missing.Operation.Description,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
-            stack.Children.Add(new TextBlock
-            {
-                Text = $"Reason: {missing.Reason} ({missing.Confidence:P0} confidence)",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 180, 120))
-            });
-
-            Grid.SetColumn(stack, 0);
-            grid.Children.Add(stack);
-
-            var acceptBtn = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE710", FontSize = 12 },
-                Padding = new Thickness(8, 4, 8, 4),
-                Background = new SolidColorBrush(Colors.Transparent)
-            };
-            ToolTipService.SetToolTip(acceptBtn, "Accept this suggestion");
-            acceptBtn.Click += (s, e) => AcceptSuggestion(missing.Operation);
-            Grid.SetColumn(acceptBtn, 1);
-            grid.Children.Add(acceptBtn);
-
-            border.Child = grid;
-            return border;
-        }
-
-        private Border CreateExtraOperationRow(ExtraOperation extra)
-        {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 40, 60, 40)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(10, 8, 10, 8),
-                Margin = new Thickness(0, 2, 0, 2)
-            };
-
-            var stack = new StackPanel();
-            stack.Children.Add(new TextBlock
-            {
-                Text = extra.Operation.Description,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
-            stack.Children.Add(new TextBlock
-            {
-                Text = "AI will learn from this",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 200, 120))
             });
 
             border.Child = stack;
             return border;
         }
 
-        private void AcceptSuggestion(GhostOperation op)
+        private void BuildWarningsAndTips(GuidanceEstimateResult result)
         {
-            OnOperationAccepted?.Invoke(this, op);
-            ShowMessage($"Added: {op.Description}");
-        }
+            if (!result.Warnings.Any() && !result.ProTips.Any()) return;
 
-        private void AcceptAllSuggestions()
-        {
-            if (_comparisonResult == null) return;
+            var infoPanel = new StackPanel { Spacing = 4 };
 
-            foreach (var missing in _comparisonResult.GhostFoundMissing)
+            foreach (var warning in result.Warnings)
             {
-                OnOperationAccepted?.Invoke(this, missing.Operation);
+                var warningBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 60, 50, 30)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+                warningBorder.Child = new TextBlock
+                {
+                    Text = $"Warning: {warning}",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                    TextWrapping = TextWrapping.Wrap
+                };
+                infoPanel.Children.Add(warningBorder);
             }
 
-            ShowMessage($"Added {_comparisonResult.GhostFoundMissing.Count} operations to your estimate");
+            foreach (var tip in result.ProTips)
+            {
+                var tipBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 30, 50, 50)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+                tipBorder.Child = new TextBlock
+                {
+                    Text = $"Tip: {tip}",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 180)),
+                    TextWrapping = TextWrapping.Wrap
+                };
+                infoPanel.Children.Add(tipBorder);
+            }
+
+            _resultsPanel?.Children.Add(infoPanel);
         }
 
-        private void TeachAIUserPatterns()
+        private Border CreateCategorySection(string category, List<GuidanceOperation> operations)
         {
-            if (_comparisonResult == null) return;
+            var catColor = CategoryColors.GetValueOrDefault(category, Color.FromArgb(255, 150, 155, 160));
+            var isCollapsed = _collapsedCategories.GetValueOrDefault(category, false);
 
-            _ghostService.LearnFromComparison(
-                _comparisonResult,
-                new List<GhostOperation>(), // No suggestions were accepted in this case
-                new List<GhostOperation>()  // No rejections
-            );
+            var sectionBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 42)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(0),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 55, 65)),
+                BorderThickness = new Thickness(1)
+            };
 
-            ShowMessage($"AI is learning from your {_comparisonResult.UserFoundExtra.Count} additional operations");
+            var sectionStack = new StackPanel();
+
+            // Category header (clickable to collapse)
+            var headerButton = new Button
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Padding = new Thickness(12, 8, 12, 8),
+                Background = new SolidColorBrush(Color.FromArgb(255, 38, 43, 52)),
+                CornerRadius = new CornerRadius(8, 8, isCollapsed ? 8 : 0, isCollapsed ? 8 : 0),
+                BorderThickness = new Thickness(0)
+            };
+
+            var headerContent = new Grid();
+            headerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            headerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var chevron = new FontIcon
+            {
+                Glyph = isCollapsed ? "\uE76C" : "\uE76D",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(catColor),
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            Grid.SetColumn(chevron, 0);
+            headerContent.Children.Add(chevron);
+
+            var catTitle = new TextBlock
+            {
+                Text = $"{category.ToUpper()} ({operations.Count})",
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(catColor),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(catTitle, 1);
+            headerContent.Children.Add(catTitle);
+
+            var catHours = operations.Sum(o => o.LaborHours + o.RefinishHours);
+            var hoursText = new TextBlock
+            {
+                Text = catHours > 0 ? $"{catHours:F1}h" : "",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(hoursText, 2);
+            headerContent.Children.Add(hoursText);
+
+            headerButton.Content = headerContent;
+
+            // Toggle collapse
+            var opsPanel = new StackPanel { Spacing = 2, Padding = new Thickness(8, 4, 8, 8) };
+            opsPanel.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+
+            headerButton.Click += (s, e) =>
+            {
+                var collapsed = opsPanel.Visibility == Visibility.Visible;
+                opsPanel.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
+                chevron.Glyph = collapsed ? "\uE76C" : "\uE76D";
+                _collapsedCategories[category] = collapsed;
+            };
+
+            sectionStack.Children.Add(headerButton);
+
+            // Operation rows
+            foreach (var op in operations)
+            {
+                var opRow = CreateGuidanceOperationRow(op);
+                opsPanel.Children.Add(opRow);
+            }
+
+            sectionStack.Children.Add(opsPanel);
+            sectionBorder.Child = sectionStack;
+            return sectionBorder;
         }
+
+        private Border CreateGuidanceOperationRow(GuidanceOperation op)
+        {
+            var border = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 42, 47, 56)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(8, 6, 8, 6),
+                Margin = new Thickness(0, 1, 0, 1)
+            };
+
+            var mainStack = new StackPanel { Spacing = 2 };
+
+            // Top row: checkbox + description + hours + badges
+            var topRow = new Grid();
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Checkbox
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Hours
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Confidence badge
+            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Source tag
+
+            // Checkbox
+            var checkbox = new CheckBox
+            {
+                MinWidth = 0,
+                Padding = new Thickness(0),
+                Margin = new Thickness(0, 0, 6, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _operationCheckboxes[op] = checkbox;
+            Grid.SetColumn(checkbox, 0);
+            topRow.Children.Add(checkbox);
+
+            // Description
+            var descText = new TextBlock
+            {
+                Text = op.Description,
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(descText, 1);
+            topRow.Children.Add(descText);
+
+            // Hours
+            var hoursInfo = "";
+            if (op.LaborHours > 0) hoursInfo += $"{op.LaborHours:F1}h";
+            if (op.RefinishHours > 0) hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + $"{op.RefinishHours:F1}h rfn";
+            if (op.Price > 0) hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + $"${op.Price:F2}";
+
+            if (!string.IsNullOrEmpty(hoursInfo))
+            {
+                var hoursText = new TextBlock
+                {
+                    Text = hoursInfo,
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 165, 170)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 8, 0)
+                };
+                Grid.SetColumn(hoursText, 2);
+                topRow.Children.Add(hoursText);
+            }
+
+            // Confidence badge
+            var (confColor, confText) = op.ConfidenceLabel switch
+            {
+                "High" => (Color.FromArgb(255, 80, 190, 80), "HIGH"),
+                "Medium" => (Color.FromArgb(255, 220, 180, 60), "MED"),
+                "Low" => (Color.FromArgb(255, 220, 130, 60), "LOW"),
+                _ => (Color.FromArgb(255, 150, 155, 160), "?")
+            };
+
+            var confBadge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(40, confColor.R, confColor.G, confColor.B)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(6, 2, 6, 2),
+                Margin = new Thickness(4, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            confBadge.Child = new TextBlock
+            {
+                Text = confText,
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(confColor)
+            };
+            Grid.SetColumn(confBadge, 3);
+            topRow.Children.Add(confBadge);
+
+            // Source tag
+            var (srcColor, srcLabel) = op.DataSource switch
+            {
+                "Database" => (Color.FromArgb(255, 100, 180, 255), "DB"),
+                "Knowledge Base" => (Color.FromArgb(255, 180, 130, 255), "KB"),
+                "Learned" => (Color.FromArgb(255, 100, 220, 180), "LRN"),
+                _ => (Color.FromArgb(255, 150, 155, 160), "?")
+            };
+
+            var srcBadge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(40, srcColor.R, srcColor.G, srcColor.B)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(6, 2, 6, 2),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            srcBadge.Child = new TextBlock
+            {
+                Text = srcLabel,
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(srcColor)
+            };
+            ToolTipService.SetToolTip(srcBadge, op.DataSource);
+            Grid.SetColumn(srcBadge, 4);
+            topRow.Children.Add(srcBadge);
+
+            mainStack.Children.Add(topRow);
+
+            // Justification row (expandable) - show if justification or references exist
+            var hasJustification = !string.IsNullOrEmpty(op.Justification) ||
+                                   !string.IsNullOrEmpty(op.PPageReference) ||
+                                   !string.IsNullOrEmpty(op.DEGReference) ||
+                                   !string.IsNullOrEmpty(op.Source);
+
+            if (hasJustification)
+            {
+                var justPanel = new StackPanel
+                {
+                    Spacing = 1,
+                    Margin = new Thickness(28, 2, 0, 0),
+                    Visibility = Visibility.Collapsed
+                };
+
+                if (!string.IsNullOrEmpty(op.Source))
+                {
+                    justPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"Source: {op.Source}",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(op.Justification) && op.Justification != op.Source)
+                {
+                    justPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"Why: {op.Justification}",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 160, 180)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(op.PPageReference))
+                {
+                    justPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"P-Page: {op.PPageReference}",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 160, 130)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(op.DEGReference))
+                {
+                    justPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"DEG: {op.DEGReference}",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 160, 130)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                if (op.LearnedFrequency > 0)
+                {
+                    justPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"Seen in {op.LearnedFrequency} uploaded estimate(s)",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 160)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                mainStack.Children.Add(justPanel);
+
+                // Make the row clickable to expand/collapse justification
+                border.PointerPressed += (s, e) =>
+                {
+                    justPanel.Visibility = justPanel.Visibility == Visibility.Visible
+                        ? Visibility.Collapsed
+                        : Visibility.Visible;
+                };
+                ToolTipService.SetToolTip(border, "Click to show/hide details");
+            }
+
+            border.Child = mainStack;
+            return border;
+        }
+
+        #endregion
+
+        #region Filtering
+
+        private List<GuidanceOperation> GetFilteredOperations(List<GuidanceOperation> allOps)
+        {
+            var ops = allOps.AsEnumerable();
+
+            // Category filter
+            var catIndex = _categoryFilter?.SelectedIndex ?? 0;
+            if (catIndex > 0)
+            {
+                ops = catIndex switch
+                {
+                    1 => ops.Where(o => o.Category == "Part Operations"),
+                    2 => ops.Where(o => o.Category == "Body Operations"),
+                    3 => ops.Where(o => o.Category == "Refinish Operations"),
+                    4 => ops.Where(o => o.Category == "Scanning" || o.Category == "Calibration"),
+                    5 => ops.Where(o => o.Category == "Structural" || o.Category == "Frame Operations"),
+                    _ => ops
+                };
+            }
+
+            // Confidence filter
+            var confIndex = _confidenceFilter?.SelectedIndex ?? 0;
+            if (confIndex > 0)
+            {
+                ops = confIndex switch
+                {
+                    1 => ops.Where(o => o.ConfidenceLabel == "High"),
+                    2 => ops.Where(o => o.ConfidenceLabel == "High" || o.ConfidenceLabel == "Medium"),
+                    _ => ops
+                };
+            }
+
+            return ops.ToList();
+        }
+
+        #endregion
+
+        #region Copy/Export
+
+        private void CopyOperationsToClipboard(List<GuidanceOperation> operations, bool includeDetails = false)
+        {
+            var sb = new StringBuilder();
+
+            var grouped = operations
+                .GroupBy(o => o.Category)
+                .OrderBy(g => Array.IndexOf(CategoryOrder, g.Key) is int idx && idx >= 0 ? idx : 99);
+
+            foreach (var group in grouped)
+            {
+                sb.AppendLine($"=== {group.Key.ToUpper()} ===");
+
+                foreach (var op in group)
+                {
+                    var hours = "";
+                    if (op.LaborHours > 0) hours += $"{op.LaborHours:F1}h";
+                    if (op.RefinishHours > 0) hours += (hours.Length > 0 ? "\t" : "") + $"{op.RefinishHours:F1}h rfn";
+                    if (op.Price > 0) hours += (hours.Length > 0 ? "\t" : "") + $"${op.Price:F2}";
+
+                    sb.AppendLine($"{op.Description}\t{hours}");
+
+                    if (includeDetails)
+                    {
+                        if (!string.IsNullOrEmpty(op.Source))
+                            sb.AppendLine($"  Source: {op.Source}");
+                        if (!string.IsNullOrEmpty(op.Justification) && op.Justification != op.Source)
+                            sb.AppendLine($"  Why: {op.Justification}");
+                        if (!string.IsNullOrEmpty(op.PPageReference))
+                            sb.AppendLine($"  P-Page: {op.PPageReference}");
+                        if (!string.IsNullOrEmpty(op.DEGReference))
+                            sb.AppendLine($"  DEG: {op.DEGReference}");
+                    }
+                }
+
+                sb.AppendLine();
+            }
+
+            var dataPackage = new DataPackage();
+            dataPackage.SetText(sb.ToString());
+            Clipboard.SetContent(dataPackage);
+        }
+
+        #endregion
 
         private void ShowMessage(string message)
         {
-            // Simple feedback - could be enhanced with a proper notification system
-            System.Diagnostics.Debug.WriteLine($"[Ghost] {message}");
+            if (_statusText != null)
+                _statusText.Text = message;
+            System.Diagnostics.Debug.WriteLine($"[Guidance] {message}");
         }
     }
 }
