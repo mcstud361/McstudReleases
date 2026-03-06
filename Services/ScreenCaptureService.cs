@@ -19,10 +19,14 @@ namespace McstudDesktop.Services
         public static ScreenCaptureService Instance => _instance ??= new ScreenCaptureService();
 
         // Window title patterns for estimating apps (matches CCCAutomationService)
+        // Includes browser-based variants (Chrome, Edge) for CCC ONE web
         private static readonly string[] ESTIMATING_TITLES = new[]
         {
             "CCC ONE", "CCC Estimating", "CCCONE", "CCC Desktop",
-            "Mitchell", "Audatex", "Estimate"
+            "caborneone", "caborneone.com",  // CCC ONE web URL
+            "Mitchell", "Mitchell Cloud", "Mitchell International",
+            "Audatex", "AudaExplore",
+            "Estimate"
         };
 
         // P/Invoke declarations

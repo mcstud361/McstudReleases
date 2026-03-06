@@ -35,7 +35,7 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(new TextBlock
             {
-                Text = "Here's what you can do with McStud Tool:",
+                Text = "Here's what you can do with McStud Tool. Look for the ? button on each tab for detailed help anytime.",
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
                 Margin = new Thickness(0, 0, 0, 8),

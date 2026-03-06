@@ -92,7 +92,45 @@ namespace McStudDesktop.Services
 
         private LearnedPatternDatabase LoadDatabase()
         {
+            return LoadDatabaseForMode(LearningModeService.Instance.CurrentMode);
+        }
+
+        private LearnedPatternDatabase LoadDatabaseForMode(LearningMode mode)
+        {
             var db = new LearnedPatternDatabase();
+
+            if (mode == LearningMode.Personal)
+            {
+                // Personal mode: Load ONLY user's learned_patterns.json, skip baseline
+                try
+                {
+                    if (File.Exists(_userKnowledgePath))
+                    {
+                        var json = File.ReadAllText(_userKnowledgePath);
+                        if (!string.IsNullOrWhiteSpace(json) && json.Trim() != "null")
+                        {
+                            var userDb = JsonSerializer.Deserialize<LearnedPatternDatabase>(json);
+                            if (userDb != null)
+                            {
+                                db = userDb;
+                                System.Diagnostics.Debug.WriteLine($"[Learning] PERSONAL mode: Loaded {db.Patterns.Count} user patterns");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("[Learning] PERSONAL mode: No user data file — starting empty");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Learning] Error loading user knowledge in Personal mode: {ex.Message}");
+                }
+
+                return MigrateToSmartLearning(db);
+            }
+
+            // Shop mode: Load base knowledge + merge user data on top (original behavior)
 
             // 1. Load base knowledge (distributed with app) - this is the baseline
             try
@@ -411,8 +449,25 @@ namespace McStudDesktop.Services
             }
         }
 
+        /// <summary>
+        /// Reload the database for a specific learning mode (swaps _database in-place).
+        /// Called when the user switches between Shop and Personal modes.
+        /// </summary>
+        public void ReloadForMode(LearningMode mode)
+        {
+            _database = LoadDatabaseForMode(mode);
+            System.Diagnostics.Debug.WriteLine($"[Learning] Reloaded database for {mode} mode: {_database.Patterns.Count} patterns");
+        }
+
         public void SaveDatabase()
         {
+            // Skip saving in Shop mode — baseline data is read-only
+            if (LearningModeService.Instance.CurrentMode == LearningMode.Shop)
+            {
+                System.Diagnostics.Debug.WriteLine("[Learning] SHOP mode — skipping save (baseline is read-only)");
+                return;
+            }
+
             try
             {
                 // SAFEGUARD: Never save null or effectively empty database
@@ -561,6 +616,13 @@ namespace McStudDesktop.Services
             if (!CanTrain)
             {
                 System.Diagnostics.Debug.WriteLine($"[Learning] BLOCKED - Client license cannot train. Tier: {_currentTier}");
+                return false;
+            }
+
+            // Block learning in Shop mode — baseline is read-only
+            if (LearningModeService.Instance.CurrentMode == LearningMode.Shop)
+            {
+                System.Diagnostics.Debug.WriteLine("[Learning] BLOCKED - Shop mode does not allow training (baseline is read-only)");
                 return false;
             }
 
@@ -1727,6 +1789,13 @@ namespace McStudDesktop.Services
             if (!CanTrain)
             {
                 System.Diagnostics.Debug.WriteLine($"[Learning] BLOCKED - Client license cannot train manual patterns. Tier: {_currentTier}");
+                return false;
+            }
+
+            // Block learning in Shop mode — baseline is read-only
+            if (LearningModeService.Instance.CurrentMode == LearningMode.Shop)
+            {
+                System.Diagnostics.Debug.WriteLine("[Learning] BLOCKED - Shop mode does not allow manual pattern training");
                 return false;
             }
 

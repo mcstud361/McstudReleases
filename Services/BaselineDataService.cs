@@ -43,6 +43,13 @@ namespace McStudDesktop.Services
         /// </summary>
         public void ApplyBaselineIfNeeded()
         {
+            // Skip all baseline merges in Personal mode
+            if (LearningModeService.Instance.CurrentMode == LearningMode.Personal)
+            {
+                System.Diagnostics.Debug.WriteLine("[Baseline] PERSONAL mode — skipping all baseline merges");
+                return;
+            }
+
             try
             {
                 var shippedVersion = ReadShippedVersion();

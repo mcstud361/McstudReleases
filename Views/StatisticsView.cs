@@ -802,6 +802,9 @@ namespace McStudDesktop.Views
             // Shop Documents & Invoices section
             stack.Children.Add(CreateShopDocsStatsSection(period));
 
+            // Learning mode stats section
+            stack.Children.Add(CreateLearningModeStatsSection());
+
             // Version footer
             stack.Children.Add(new TextBlock
             {
@@ -903,6 +906,181 @@ namespace McStudDesktop.Views
                     mainStack.Children.Add(CreateShopDocUsageBar(doc.Name, doc.UsageCount, maxUsage));
                 }
             }
+
+            border.Child = mainStack;
+            return border;
+        }
+
+        private Border CreateLearningModeStatsSection()
+        {
+            var currentMode = LearningModeService.Instance.CurrentMode;
+            var activePatterns = EstimateLearningService.Instance.CurrentDatabase.Patterns.Count;
+            var activeExamples = EstimateLearningService.Instance.CurrentDatabase.TrainingExamples.Count;
+
+            var border = new Border
+            {
+                Background = new SolidColorBrush(CardBg),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var mainStack = new StackPanel { Spacing = 12 };
+
+            // Header
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            header.Children.Add(new FontIcon
+            {
+                Glyph = "\uE7BE",
+                FontSize = 14,
+                Foreground = new SolidColorBrush(AccentCyan)
+            });
+            header.Children.Add(new TextBlock
+            {
+                Text = "Learning Mode",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+
+            // Active mode badge
+            var modeBadge = new Border
+            {
+                Background = new SolidColorBrush(currentMode == LearningMode.Shop
+                    ? Color.FromArgb(255, 0, 100, 180)
+                    : Color.FromArgb(255, 140, 80, 200)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(8, 2, 8, 2)
+            };
+            modeBadge.Child = new TextBlock
+            {
+                Text = currentMode == LearningMode.Shop ? "Standard" : "Personal",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.White)
+            };
+            header.Children.Add(modeBadge);
+            mainStack.Children.Add(header);
+
+            // Stats row
+            var statsRow = new Grid();
+            statsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            statsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // Standard stats
+            var standardStack = new StackPanel { Spacing = 4 };
+            var standardLabel = new TextBlock
+            {
+                Text = "STANDARD",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            };
+            standardStack.Children.Add(standardLabel);
+
+            int standardPatterns = 0;
+            int standardExamples = 0;
+            try
+            {
+                var baseKnowledgePath = EstimateLearningService.Instance.BaseKnowledgePath;
+                if (System.IO.File.Exists(baseKnowledgePath))
+                {
+                    var json = System.IO.File.ReadAllText(baseKnowledgePath);
+                    var baseDb = System.Text.Json.JsonSerializer.Deserialize<LearnedPatternDatabase>(json);
+                    if (baseDb != null)
+                    {
+                        standardPatterns = baseDb.Patterns.Count;
+                        standardExamples = baseDb.TrainingExamples.Count;
+                    }
+                }
+            }
+            catch { }
+
+            standardStack.Children.Add(new TextBlock
+            {
+                Text = standardPatterns.ToString(),
+                FontSize = 20,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(currentMode == LearningMode.Shop ? AccentBlue : Color.FromArgb(255, 100, 100, 100))
+            });
+            standardStack.Children.Add(new TextBlock
+            {
+                Text = $"patterns • {standardExamples} examples",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120))
+            });
+            if (currentMode == LearningMode.Shop)
+            {
+                standardStack.Children.Add(new TextBlock
+                {
+                    Text = "Active",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(AccentGreen),
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+                });
+            }
+            Grid.SetColumn(standardStack, 0);
+            statsRow.Children.Add(standardStack);
+
+            // Personal stats
+            var personalStack = new StackPanel { Spacing = 4 };
+            personalStack.Children.Add(new TextBlock
+            {
+                Text = "PERSONAL",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+
+            int personalPatterns = 0;
+            int personalExamples = 0;
+            try
+            {
+                var userKnowledgePath = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "McStudDesktop", "learned_patterns.json");
+                if (System.IO.File.Exists(userKnowledgePath))
+                {
+                    var json = System.IO.File.ReadAllText(userKnowledgePath);
+                    if (!string.IsNullOrWhiteSpace(json) && json.Trim() != "null")
+                    {
+                        var userDb = System.Text.Json.JsonSerializer.Deserialize<LearnedPatternDatabase>(json);
+                        if (userDb != null)
+                        {
+                            personalPatterns = userDb.Patterns.Count;
+                            personalExamples = userDb.TrainingExamples.Count;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            personalStack.Children.Add(new TextBlock
+            {
+                Text = personalPatterns.ToString(),
+                FontSize = 20,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(currentMode == LearningMode.Personal ? Color.FromArgb(255, 180, 120, 255) : Color.FromArgb(255, 100, 100, 100))
+            });
+            personalStack.Children.Add(new TextBlock
+            {
+                Text = $"patterns • {personalExamples} examples",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120))
+            });
+            if (currentMode == LearningMode.Personal)
+            {
+                personalStack.Children.Add(new TextBlock
+                {
+                    Text = "Active",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(AccentGreen),
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+                });
+            }
+            Grid.SetColumn(personalStack, 1);
+            statsRow.Children.Add(personalStack);
+
+            mainStack.Children.Add(statsRow);
 
             border.Child = mainStack;
             return border;

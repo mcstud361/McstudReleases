@@ -31,6 +31,8 @@ namespace McStudDesktop.Services
         private readonly PatternIntelligenceService _patternIntelligence;
         private readonly OperationKnowledgeService _knowledgeService;
         private readonly SmartSuggestionService _suggestionService;
+        private readonly LearnedKnowledgeBase _knowledgeBase;
+        private readonly EstimateHistoryDatabase _historyDb;
 
         // Loaded knowledge from real estimates
         private GhostIncludedNotIncludedData? _operationsData;
@@ -69,6 +71,8 @@ namespace McStudDesktop.Services
             _patternIntelligence = PatternIntelligenceService.Instance;
             _knowledgeService = OperationKnowledgeService.Instance;
             _suggestionService = SmartSuggestionService.Instance;
+            _knowledgeBase = LearnedKnowledgeBase.Instance;
+            _historyDb = EstimateHistoryDatabase.Instance;
             LoadRealEstimateData();
         }
 
@@ -160,16 +164,22 @@ namespace McStudDesktop.Services
                 result.Operations.AddRange(operations);
             }
 
-            // Step 3: Add related operations (ADAS, calibrations, etc.)
+            // Step 3: Add co-occurrence operations from real uploaded estimates
+            AddLearnedCoOccurrenceOperations(result, affectedPanels, vehicleType);
+
+            // Step 4: Mine similar real estimates for operations we may have missed
+            AddOperationsFromSimilarEstimates(result, affectedPanels, vehicleType);
+
+            // Step 5: Add related operations (ADAS, calibrations, etc.)
             AddRelatedOperations(result, input);
 
-            // Step 4: Add refinish operations
+            // Step 6: Add refinish operations
             AddRefinishOperations(result);
 
-            // Step 5: Calculate totals
+            // Step 7: Calculate totals
             CalculateTotals(result);
 
-            // Step 6: Add confidence notes
+            // Step 8: Add confidence notes
             AddConfidenceNotes(result);
 
             return result;
@@ -741,6 +751,11 @@ namespace McStudDesktop.Services
             // Get learned labor times or use defaults
             var bodyHours = GetLearnedLaborTime(panel.Name, primaryOp, vehicleType) * severityMultiplier;
 
+            // Determine source label based on whether we got learned data
+            var sourceLabel = IsFromLearnedData(panel.Name, primaryOp, vehicleType)
+                ? $"Learned from {_knowledgeBase.GetOperationStats(_knowledgeBase.ResolveAlias(panel.Name.ToLower()) ?? panel.Name.ToLower(), primaryOp.ToLower())?.SampleCount ?? 0} uploaded estimates"
+                : "CCC/MOTOR database";
+
             // Primary operation - format like real CCC estimate line
             operations.Add(new GhostOperation
             {
@@ -749,8 +764,8 @@ namespace McStudDesktop.Services
                 Description = $"{sideCode}{ToTitleCase(panel.Name)} {opCode}",
                 Category = DetermineCategory(panel.Name),
                 LaborHours = bodyHours,
-                Confidence = 0.95,
-                Source = "CCC/MOTOR database",
+                Confidence = sourceLabel.StartsWith("Learned") ? 0.98 : 0.95,
+                Source = sourceLabel,
                 Side = panel.Side
             });
 
@@ -776,6 +791,186 @@ namespace McStudDesktop.Services
             }
 
             return operations;
+        }
+
+        /// <summary>
+        /// Find real estimates with similar damage zones and pull operations we haven't added yet.
+        /// This catches operations that the hardcoded logic and co-occurrence patterns miss.
+        /// </summary>
+        private void AddOperationsFromSimilarEstimates(GhostEstimateResult result, List<AffectedPanel> panels, string vehicleType)
+        {
+            var allEstimates = _historyDb.GetAllEstimates();
+            if (allEstimates.Count < 3) return; // Need enough data to be meaningful
+
+            var affectedPartNames = panels.Select(p => p.Name.ToLower()).ToHashSet();
+
+            var existingOps = new HashSet<string>(
+                result.Operations.Select(o => $"{o.PartName?.ToLower()}|{o.OperationType?.ToLower()}"),
+                StringComparer.OrdinalIgnoreCase);
+
+            // Find estimates that share at least 2 affected panels with our damage
+            var similarEstimates = allEstimates
+                .Where(e => e.LineItems != null && e.LineItems.Count > 0)
+                .Select(e => new
+                {
+                    Estimate = e,
+                    MatchingPanels = e.LineItems
+                        .Where(li => !string.IsNullOrEmpty(li.PartName))
+                        .Select(li => li.PartName.ToLower())
+                        .Distinct()
+                        .Count(p => affectedPartNames.Any(ap => p.Contains(ap) || ap.Contains(p)))
+                })
+                .Where(x => x.MatchingPanels >= 2)
+                .OrderByDescending(x => x.MatchingPanels)
+                .Take(10)
+                .ToList();
+
+            if (similarEstimates.Count == 0) return;
+
+            // Count how often each operation appears across similar estimates
+            var opCounts = new Dictionary<string, (string PartName, string OpType, decimal AvgLabor, decimal AvgRefinish, decimal AvgPrice, int Count)>();
+
+            foreach (var sim in similarEstimates)
+            {
+                foreach (var li in sim.Estimate.LineItems)
+                {
+                    if (string.IsNullOrEmpty(li.PartName) || string.IsNullOrEmpty(li.OperationType))
+                        continue;
+
+                    var opKey = $"{li.PartName.ToLower()}|{li.OperationType.ToLower()}";
+                    if (existingOps.Contains(opKey))
+                        continue; // Already in our estimate
+
+                    if (opCounts.TryGetValue(opKey, out var existing))
+                    {
+                        var newCount = existing.Count + 1;
+                        opCounts[opKey] = (
+                            li.PartName,
+                            li.OperationType,
+                            (existing.AvgLabor * existing.Count + li.LaborHours) / newCount,
+                            (existing.AvgRefinish * existing.Count + li.RefinishHours) / newCount,
+                            (existing.AvgPrice * existing.Count + li.Price) / newCount,
+                            newCount
+                        );
+                    }
+                    else
+                    {
+                        opCounts[opKey] = (li.PartName, li.OperationType, li.LaborHours, li.RefinishHours, li.Price, 1);
+                    }
+                }
+            }
+
+            // Add operations that appear in >= 50% of similar estimates
+            var threshold = Math.Max(2, similarEstimates.Count / 2);
+            var addedCount = 0;
+
+            foreach (var (opKey, data) in opCounts.Where(kv => kv.Value.Count >= threshold).OrderByDescending(kv => kv.Value.Count))
+            {
+                var confidence = (double)data.Count / similarEstimates.Count;
+
+                result.Operations.Add(new GhostOperation
+                {
+                    OperationType = data.OpType,
+                    PartName = data.PartName,
+                    Description = $"{ToTitleCase(data.PartName)} {data.OpType}",
+                    Category = DetermineCategory(data.PartName),
+                    LaborHours = data.AvgLabor,
+                    RefinishHours = data.AvgRefinish,
+                    Price = data.AvgPrice,
+                    Confidence = Math.Min(0.90, confidence),
+                    Source = $"Found in {data.Count}/{similarEstimates.Count} similar real estimates"
+                });
+
+                existingOps.Add(opKey);
+                addedCount++;
+
+                if (addedCount >= 15) break; // Cap additions from similar estimates
+            }
+
+            if (addedCount > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Added {addedCount} operations from {similarEstimates.Count} similar real estimates");
+            }
+        }
+
+        /// <summary>
+        /// Add operations that commonly co-occur with the affected panels, learned from real uploaded estimates.
+        /// E.g., if "front bumper cover Replace" appears with "bumper absorber R&I" in 80% of real estimates, add it.
+        /// </summary>
+        private void AddLearnedCoOccurrenceOperations(GhostEstimateResult result, List<AffectedPanel> panels, string vehicleType)
+        {
+            var existingOps = new HashSet<string>(
+                result.Operations.Select(o => $"{o.PartName?.ToLower()}|{o.OperationType?.ToLower()}"),
+                StringComparer.OrdinalIgnoreCase);
+
+            var addedOps = new List<GhostOperation>();
+
+            foreach (var panel in panels)
+            {
+                var canonicalName = _knowledgeBase.ResolveAlias(panel.Name.ToLower()) ?? panel.Name.ToLower();
+
+                // Get all co-occurring operations with >= 40% co-occurrence rate
+                var coOccurrences = _knowledgeBase.GetCoOccurrences(canonicalName, 0.4);
+
+                foreach (var assoc in coOccurrences)
+                {
+                    var opKey = $"{assoc.AssociatedPart}|{assoc.AssociatedOperation}";
+                    if (existingOps.Contains(opKey))
+                        continue; // Already in the estimate
+
+                    // Skip R&I parts — those are handled by GetRAndIParts
+                    if (assoc.AssociatedOperation.Equals("r&i", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Get learned labor time for this co-occurring operation
+                    var laborHours = GetLearnedLaborTime(assoc.AssociatedPart, assoc.AssociatedOperation, vehicleType);
+                    var refinishHours = 0m;
+                    if (assoc.AssociatedOperation.Equals("refinish", StringComparison.OrdinalIgnoreCase) ||
+                        assoc.AssociatedOperation.Equals("rfn", StringComparison.OrdinalIgnoreCase) ||
+                        assoc.AssociatedOperation.Equals("blend", StringComparison.OrdinalIgnoreCase))
+                    {
+                        refinishHours = GetLearnedRefinishTime(assoc.AssociatedPart);
+                        laborHours = 0m;
+                    }
+
+                    var sideCode = panel.Side switch
+                    {
+                        "Left" => "LT ",
+                        "Right" => "RT ",
+                        _ => ""
+                    };
+
+                    var opCodeShort = assoc.AssociatedOperation.ToLower() switch
+                    {
+                        "replace" => "Repl",
+                        "repair" => "Rpr",
+                        "refinish" or "rfn" => "Rfn",
+                        "blend" => "Blend",
+                        _ => assoc.AssociatedOperation
+                    };
+
+                    addedOps.Add(new GhostOperation
+                    {
+                        OperationType = opCodeShort,
+                        PartName = assoc.AssociatedPart,
+                        Description = $"{sideCode}{ToTitleCase(assoc.AssociatedPart)} {opCodeShort}",
+                        Category = DetermineCategory(assoc.AssociatedPart),
+                        LaborHours = laborHours,
+                        RefinishHours = refinishHours,
+                        Confidence = Math.Min(0.95, assoc.CoOccurrenceRate),
+                        Source = $"Learned co-occurrence ({assoc.CoOccurrenceRate:P0} of estimates with {panel.Name})",
+                        Side = panel.Side
+                    });
+
+                    existingOps.Add(opKey);
+                }
+            }
+
+            if (addedOps.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Added {addedOps.Count} operations from learned co-occurrence patterns");
+                result.Operations.AddRange(addedOps);
+            }
         }
 
         private void AddRelatedOperations(GhostEstimateResult result, GhostEstimateInput input)
@@ -804,44 +999,47 @@ namespace McStudDesktop.Services
                 o.PartName.Contains("valance") ||
                 o.PartName.Contains("spoiler"));
 
-            // Add scan operations - ACTUAL PRICING from real estimates
+            // Add scan operations — use learned pricing if available
             if (result.Operations.Count > 0)
             {
+                var preScanHours = GetLearnedSubletOrLaborTime("pre-repair scan", "Mech", 0.5m);
                 result.Operations.Add(new GhostOperation
                 {
                     OperationType = "Mech",
                     PartName = "pre-repair scan",
                     Description = "Pre-Repair Diagnostic Scan",
                     Category = "Scanning",
-                    LaborHours = 0.5m,  // Per IncludedNotIncluded.json
+                    LaborHours = preScanHours,
                     Confidence = 0.95,
-                    Source = "CCC/MOTOR - scan tool diagnostics NOT INCLUDED"
+                    Source = preScanHours != 0.5m ? "Learned from uploaded estimates" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED"
                 });
 
+                var postScanHours = GetLearnedSubletOrLaborTime("post-repair scan", "Mech", 0.5m);
                 result.Operations.Add(new GhostOperation
                 {
                     OperationType = "Mech",
                     PartName = "post-repair scan",
                     Description = "Post-Repair Diagnostic Scan",
                     Category = "Scanning",
-                    LaborHours = 0.5m,  // Per IncludedNotIncluded.json
+                    LaborHours = postScanHours,
                     Confidence = 0.95,
-                    Source = "CCC/MOTOR - scan tool diagnostics NOT INCLUDED"
+                    Source = postScanHours != 0.5m ? "Learned from uploaded estimates" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED"
                 });
             }
 
-            // Add ADAS calibrations if needed - ACTUAL PRICING
+            // Add ADAS calibrations if needed — use learned pricing if available
             if (hasADASComponents)
             {
+                var adasPrice = GetLearnedSubletPrice("adas calibration", 350.00m);
                 result.Operations.Add(new GhostOperation
                 {
                     OperationType = "Sublet",
                     PartName = "adas calibration",
                     Description = "ADAS Calibration - Forward Camera/Radar",
                     Category = "Calibration",
-                    Price = 350.00m,  // Typical shop rate
+                    Price = adasPrice,
                     Confidence = 0.80,
-                    Source = "CCC/MOTOR G33 - ADAS calibration triggers"
+                    Source = adasPrice != 350.00m ? $"Learned from uploaded estimates (avg ${adasPrice:F2})" : "CCC/MOTOR G33 - ADAS calibration triggers"
                 });
             }
 
@@ -1140,18 +1338,36 @@ namespace McStudDesktop.Services
         private void AddConfidenceNotes(GhostEstimateResult result)
         {
             var stats = _smartEngine.GetStats();
+            var kbStats = _knowledgeBase.GetStatistics();
+            var historyCount = _historyDb.GetAllEstimates().Count;
 
-            if (stats.TotalEstimatesLearned < 10)
+            // Show real learning stats
+            var totalDataSources = stats.TotalEstimatesLearned + historyCount;
+
+            if (totalDataSources < 10)
             {
-                result.Notes.Add("Low training data - estimates based primarily on base knowledge. Upload more estimates to improve accuracy.");
+                result.Notes.Add($"Low training data ({totalDataSources} estimates, {kbStats.TotalPartsLearned} parts learned). Upload more estimates to improve accuracy.");
             }
-            else if (stats.TotalEstimatesLearned < 50)
+            else if (totalDataSources < 50)
             {
-                result.Notes.Add($"Moderate training ({stats.TotalEstimatesLearned} estimates learned). Accuracy improves with more data.");
+                result.Notes.Add($"Moderate training ({totalDataSources} estimates, {kbStats.TotalPartsLearned} parts, {kbStats.TotalCoOccurrencePatterns} patterns). Accuracy improves with more data.");
             }
             else
             {
-                result.Notes.Add($"Well-trained model ({stats.TotalEstimatesLearned} estimates). High confidence in suggestions.");
+                result.Notes.Add($"Well-trained ({totalDataSources} estimates, {kbStats.TotalPartsLearned} parts, {kbStats.TotalCoOccurrencePatterns} patterns). High confidence in labor times.");
+            }
+
+            // Count how many operations used real learned data vs fallback
+            var learnedCount = result.Operations.Count(o => o.Source != null && (o.Source.StartsWith("Learned") || o.Source.Contains("uploaded estimates")));
+            var fallbackCount = result.Operations.Count(o => o.Source != null && o.Source.Contains("CCC/MOTOR"));
+
+            if (learnedCount > 0)
+            {
+                result.Notes.Add($"{learnedCount} operations used real learned labor times from your uploaded estimates.");
+            }
+            if (fallbackCount > 0 && totalDataSources > 0)
+            {
+                result.Notes.Add($"{fallbackCount} operations used default times — upload more estimates with these parts to improve.");
             }
 
             // Add notes for low-confidence operations
@@ -1164,29 +1380,97 @@ namespace McStudDesktop.Services
 
         private decimal GetLearnedLaborTime(string partName, string operationType, string vehicleType)
         {
-            // Try to get from loaded operations data (real MET times)
+            var partLower = partName.ToLower();
+
+            // PRIORITY 1: Real learned data from uploaded estimates (LearnedKnowledgeBase)
+            // Try exact match first, then resolve aliases
+            var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
+            var learnedStats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
+
+            if (learnedStats != null && learnedStats.SampleCount >= 2 && learnedStats.MeanLaborHours > 0)
+            {
+                // Use median for robustness against outliers, fall back to mean
+                var hours = learnedStats.MedianLaborHours > 0 ? learnedStats.MedianLaborHours : learnedStats.MeanLaborHours;
+                System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED data for {partName} {operationType}: {hours}h (from {learnedStats.SampleCount} estimates)");
+                return hours;
+            }
+
+            // PRIORITY 2: Vehicle-specific learned data (truck vs SUV vs car)
+            if (!string.IsNullOrEmpty(vehicleType))
+            {
+                var vehSpecific = _knowledgeBase.GetVehicleSpecificLaborTime(vehicleType, canonicalName, operationType);
+                if (vehSpecific.HasValue && vehSpecific.Value > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] Vehicle-specific data for {vehicleType} {partName} {operationType}: {vehSpecific.Value}h");
+                    return vehSpecific.Value;
+                }
+            }
+
+            // PRIORITY 3: Learned patterns from EstimateLearningService
+            var patterns = _learningService.SearchPatterns(partName, 5);
+            var matchingPattern = patterns.FirstOrDefault(p =>
+                p.PartName.Equals(partName, StringComparison.OrdinalIgnoreCase) &&
+                p.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase));
+
+            if (matchingPattern != null && matchingPattern.ExampleCount >= 2)
+            {
+                // Pull labor hours from the pattern's training examples
+                var patternOps = matchingPattern.Operations?
+                    .Where(o => o.LaborHours > 0)
+                    .ToList();
+                if (patternOps != null && patternOps.Any())
+                {
+                    var avgHours = patternOps.Average(o => o.LaborHours);
+                    if (avgHours > 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Ghost] Pattern data for {partName} {operationType}: {avgHours}h (from {matchingPattern.ExampleCount} examples)");
+                        return avgHours;
+                    }
+                }
+            }
+
+            // PRIORITY 4: Estimate history database — average across all stored estimates
+            var historyEstimates = _historyDb.GetAllEstimates();
+            if (historyEstimates.Count > 0)
+            {
+                var matchingLines = historyEstimates
+                    .SelectMany(e => e.LineItems)
+                    .Where(li => li.LaborHours > 0 &&
+                                 !string.IsNullOrEmpty(li.PartName) &&
+                                 li.PartName.ToLower().Contains(partLower) &&
+                                 li.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (matchingLines.Count >= 2)
+                {
+                    var avgHours = matchingLines.Average(li => li.LaborHours);
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] History DB for {partName} {operationType}: {avgHours:F2}h (from {matchingLines.Count} line items)");
+                    return avgHours;
+                }
+            }
+
+            // PRIORITY 5: MET data from IncludedNotIncluded.json
             if (_operationsData?.Operations != null)
             {
                 var matchingOp = _operationsData.Operations.FirstOrDefault(op =>
-                    op.Aliases?.Any(a => partName.ToLower().Contains(a.ToLower())) == true ||
-                    partName.ToLower().Contains(op.PartName?.ToLower() ?? ""));
+                    op.Aliases?.Any(a => partLower.Contains(a.ToLower())) == true ||
+                    partLower.Contains(op.PartName?.ToLower() ?? ""));
 
                 if (matchingOp?.MetOperations != null)
                 {
                     var totalHours = matchingOp.MetOperations.Sum(m => m.Hours);
                     if (totalHours > 0)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[Ghost] Using MET data for {partName}: {totalHours}h total");
+                        System.Diagnostics.Debug.WriteLine($"[Ghost] MET data for {partName}: {totalHours}h total");
                         return (decimal)totalHours;
                     }
                 }
             }
 
-            // Fall back to database-representative defaults from REAL ESTIMATES
-            // These are typical CCC/MOTOR database times
+            // PRIORITY 6: Hardcoded fallback (last resort — used only when no real data exists)
+            System.Diagnostics.Debug.WriteLine($"[Ghost] FALLBACK for {partName} {operationType} — no learned data available");
             return (partName, operationType) switch
             {
-                // REPLACE operations - typical database times
                 (var p, "Replace") when p.Contains("bumper cover") || p.Contains("fascia") => 1.5m,
                 (var p, "Replace") when p.Contains("front bumper") => 1.5m,
                 (var p, "Replace") when p.Contains("rear bumper") => 1.2m,
@@ -1194,20 +1478,16 @@ namespace McStudDesktop.Services
                 (var p, "Replace") when p.Contains("hood") => 1.0m,
                 (var p, "Replace") when p.Contains("front door") => 3.5m,
                 (var p, "Replace") when p.Contains("rear door") => 3.2m,
-                (var p, "Replace") when p.Contains("quarter") => 8.0m,  // Welded - high labor
-                (var p, "Replace") when p.Contains("rocker") => 6.0m,   // Welded structural
-                (var p, "Replace") when p.Contains("roof") => 10.0m,    // Major structural
+                (var p, "Replace") when p.Contains("quarter") => 8.0m,
+                (var p, "Replace") when p.Contains("rocker") => 6.0m,
+                (var p, "Replace") when p.Contains("roof") => 10.0m,
                 (var p, "Replace") when p.Contains("trunk") || p.Contains("decklid") => 1.5m,
                 (var p, "Replace") when p.Contains("liftgate") || p.Contains("tailgate") => 2.0m,
-
-                // REPAIR operations - typical database times
                 (var p, "Repair") when p.Contains("bumper") => 2.0m,
                 (var p, "Repair") when p.Contains("fender") => 3.0m,
                 (var p, "Repair") when p.Contains("door") => 2.5m,
                 (var p, "Repair") when p.Contains("hood") => 2.5m,
                 (var p, "Repair") when p.Contains("quarter") => 4.0m,
-
-                // R&I operations - from MET database
                 (var p, "R&I") when p.Contains("headlight") || p.Contains("head light") => 0.5m,
                 (var p, "R&I") when p.Contains("tail light") || p.Contains("taillight") => 0.4m,
                 (var p, "R&I") when p.Contains("fog light") || p.Contains("fog lamp") => 0.3m,
@@ -1219,37 +1499,171 @@ namespace McStudDesktop.Services
                 (var p, "R&I") when p.Contains("emblem") || p.Contains("nameplate") => 0.1m,
                 (var p, "R&I") when p.Contains("sensor") || p.Contains("park sensor") => 0.15m,
                 (var p, "R&I") when p.Contains("reinforcement") || p.Contains("rebar") => 0.3m,
-
                 _ => 1.0m
             };
         }
 
         private decimal GetLearnedRefinishTime(string partName)
         {
-            // ACTUAL refinish times from real estimates (CCC database typical)
+            var partLower = partName.ToLower();
+
+            // PRIORITY 1: Real learned refinish data from uploaded estimates
+            var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
+
+            // Check multiple operation types that carry refinish hours
+            foreach (var opType in new[] { "refinish", "rfn", "replace", "repair" })
+            {
+                var stats = _knowledgeBase.GetOperationStats(canonicalName, opType);
+                if (stats != null && stats.RefinishHoursValues.Count >= 2 && stats.MeanRefinishHours > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED refinish for {partName}: {stats.MeanRefinishHours}h (from {stats.RefinishHoursValues.Count} samples)");
+                    return stats.MeanRefinishHours;
+                }
+            }
+
+            // PRIORITY 2: Estimate history database — average refinish hours
+            var historyEstimates = _historyDb.GetAllEstimates();
+            if (historyEstimates.Count > 0)
+            {
+                var matchingLines = historyEstimates
+                    .SelectMany(e => e.LineItems)
+                    .Where(li => li.RefinishHours > 0 &&
+                                 !string.IsNullOrEmpty(li.PartName) &&
+                                 li.PartName.ToLower().Contains(partLower))
+                    .ToList();
+
+                if (matchingLines.Count >= 2)
+                {
+                    var avgHours = matchingLines.Average(li => li.RefinishHours);
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] History DB refinish for {partName}: {avgHours:F2}h (from {matchingLines.Count} lines)");
+                    return avgHours;
+                }
+            }
+
+            // PRIORITY 3: Hardcoded fallback
+            System.Diagnostics.Debug.WriteLine($"[Ghost] FALLBACK refinish for {partName} — no learned data");
             return partName switch
             {
-                // Large panels - typically higher refinish time
                 var p when p.Contains("hood") => 3.5m,
                 var p when p.Contains("roof") => 4.0m,
                 var p when p.Contains("trunk") || p.Contains("decklid") => 3.0m,
-
-                // Standard panels
                 var p when p.Contains("fender") => 3.0m,
                 var p when p.Contains("door") => 3.0m,
                 var p when p.Contains("quarter") => 4.0m,
-
-                // Bumpers - plastic, includes flex additive consideration
                 var p when p.Contains("bumper") || p.Contains("fascia") => 2.5m,
                 var p when p.Contains("valance") => 1.5m,
                 var p when p.Contains("spoiler") => 2.0m,
-
-                // Smaller parts
                 var p when p.Contains("mirror") => 0.8m,
                 var p when p.Contains("molding") => 0.5m,
-
                 _ => 2.5m
             };
+        }
+
+        /// <summary>
+        /// Check if the labor time for this part+operation came from real learned data (not hardcoded fallback)
+        /// </summary>
+        private bool IsFromLearnedData(string partName, string operationType, string vehicleType)
+        {
+            var partLower = partName.ToLower();
+            var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
+
+            // Check learned knowledge base
+            var stats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
+            if (stats != null && stats.SampleCount >= 2 && stats.MeanLaborHours > 0)
+                return true;
+
+            // Check vehicle-specific
+            if (!string.IsNullOrEmpty(vehicleType))
+            {
+                var vehSpecific = _knowledgeBase.GetVehicleSpecificLaborTime(vehicleType, canonicalName, operationType);
+                if (vehSpecific.HasValue && vehSpecific.Value > 0)
+                    return true;
+            }
+
+            // Check learned patterns
+            var patterns = _learningService.SearchPatterns(partName, 5);
+            var match = patterns.FirstOrDefault(p =>
+                p.PartName.Equals(partName, StringComparison.OrdinalIgnoreCase) &&
+                p.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase));
+            if (match != null && match.ExampleCount >= 2)
+                return true;
+
+            // Check history DB
+            var historyEstimates = _historyDb.GetAllEstimates();
+            if (historyEstimates.Count > 0)
+            {
+                var matchCount = historyEstimates
+                    .SelectMany(e => e.LineItems)
+                    .Count(li => li.LaborHours > 0 &&
+                                 !string.IsNullOrEmpty(li.PartName) &&
+                                 li.PartName.ToLower().Contains(partLower) &&
+                                 li.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase));
+                if (matchCount >= 2)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Get learned labor/sublet time for miscellaneous operations (scans, calibrations, etc.)
+        /// </summary>
+        private decimal GetLearnedSubletOrLaborTime(string partName, string operationType, decimal fallback)
+        {
+            var canonicalName = _knowledgeBase.ResolveAlias(partName.ToLower()) ?? partName.ToLower();
+            var stats = _knowledgeBase.GetOperationStats(canonicalName, operationType.ToLower());
+            if (stats != null && stats.SampleCount >= 2 && stats.MeanLaborHours > 0)
+                return stats.MeanLaborHours;
+
+            // Check history DB
+            var historyEstimates = _historyDb.GetAllEstimates();
+            if (historyEstimates.Count > 0)
+            {
+                var matchingLines = historyEstimates
+                    .SelectMany(e => e.LineItems)
+                    .Where(li => li.LaborHours > 0 &&
+                                 !string.IsNullOrEmpty(li.Description) &&
+                                 li.Description.ToLower().Contains(partName.ToLower()))
+                    .ToList();
+
+                if (matchingLines.Count >= 2)
+                    return matchingLines.Average(li => li.LaborHours);
+            }
+
+            return fallback;
+        }
+
+        /// <summary>
+        /// Get learned sublet price from real estimates
+        /// </summary>
+        private decimal GetLearnedSubletPrice(string partName, decimal fallback)
+        {
+            var canonicalName = _knowledgeBase.ResolveAlias(partName.ToLower()) ?? partName.ToLower();
+
+            // Check for price data in knowledge base
+            foreach (var opType in new[] { "sublet", "calibration", "mech" })
+            {
+                var stats = _knowledgeBase.GetOperationStats(canonicalName, opType);
+                if (stats != null && stats.PriceValues.Count >= 2 && stats.MeanPrice > 0)
+                    return stats.MeanPrice;
+            }
+
+            // Check history DB for sublet lines matching this description
+            var historyEstimates = _historyDb.GetAllEstimates();
+            if (historyEstimates.Count > 0)
+            {
+                var matchingLines = historyEstimates
+                    .SelectMany(e => e.LineItems)
+                    .Where(li => li.Price > 0 &&
+                                 !string.IsNullOrEmpty(li.Description) &&
+                                 li.Description.ToLower().Contains(partName.ToLower()))
+                    .ToList();
+
+                if (matchingLines.Count >= 2)
+                    return matchingLines.Average(li => li.Price);
+            }
+
+            return fallback;
         }
 
         private bool RequiresRAndI(string panelName, string operation)
@@ -1267,6 +1681,24 @@ namespace McStudDesktop.Services
 
         private string[] GetRAndIParts(string panelName)
         {
+            // PRIORITY 1: Learn R&I parts from real estimates using co-occurrence data
+            var canonicalName = _knowledgeBase.ResolveAlias(panelName.ToLower()) ?? panelName.ToLower();
+            var coOccurrences = _knowledgeBase.GetCoOccurrences(canonicalName, 0.3);
+
+            // Filter to R&I operations that commonly appear with this panel
+            var learnedRiParts = coOccurrences
+                .Where(c => c.AssociatedOperation.Equals("r&i", StringComparison.OrdinalIgnoreCase) ||
+                            c.AssociatedOperation.Equals("R&I", StringComparison.OrdinalIgnoreCase))
+                .Select(c => c.AssociatedPart)
+                .ToArray();
+
+            if (learnedRiParts.Length >= 1)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED R&I parts for {panelName}: {string.Join(", ", learnedRiParts)}");
+                return learnedRiParts;
+            }
+
+            // PRIORITY 2: Hardcoded fallback
             return panelName switch
             {
                 var p when p.Contains("front bumper") => new[] { "grille", "fog light", "headlight", "front bumper reinforcement" },
@@ -1282,6 +1714,16 @@ namespace McStudDesktop.Services
 
         private string[] GetAdjacentPanels(string panelName)
         {
+            // PRIORITY 1: Learned adjacent panels from real uploaded estimates
+            var canonicalName = _knowledgeBase.ResolveAlias(panelName.ToLower()) ?? panelName.ToLower();
+            var learnedAdjacent = _knowledgeBase.GetAdjacentPanels(canonicalName);
+            if (learnedAdjacent.Count >= 1)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED adjacent for {panelName}: {string.Join(", ", learnedAdjacent)}");
+                return learnedAdjacent.ToArray();
+            }
+
+            // PRIORITY 2: Hardcoded fallback
             return panelName switch
             {
                 var p when p.Contains("front bumper") => new[] { "hood", "fender" },

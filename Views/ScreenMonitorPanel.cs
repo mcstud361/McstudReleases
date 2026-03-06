@@ -692,8 +692,22 @@ namespace McStudDesktop.Views
 
             try
             {
-                // Set context from detected operations
-                var opTypes = result.DetectedOperations.Select(o => o.OperationType).ToList();
+                // Clear previous session and set fresh context from detected operations
+                _advisorService.ClearSession();
+
+                // Set vehicle info if we can detect it from OCR text
+                var rawText = result.RawText?.ToLower() ?? "";
+                // Try to extract vehicle info from OCR text (e.g., "2019 Honda Accord")
+                var vehicleMatch = System.Text.RegularExpressions.Regex.Match(
+                    result.RawText ?? "",
+                    @"(20\d{2})\s+(\w+)\s+(\w+)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                if (vehicleMatch.Success)
+                {
+                    _advisorService.SetSessionContext(vehicleMatch.Value, null);
+                }
+
+                // Track each detected operation so the advisor knows what's on screen
                 foreach (var op in result.DetectedOperations)
                 {
                     _advisorService.TrackEnteredOperation(op.PartName, op.OperationType, op.LaborHours);
@@ -850,15 +864,31 @@ namespace McStudDesktop.Views
 
             if (result.DetectedOperations.Count == 0)
             {
+                var noOpsMessage = "No text recognized in the captured image.";
+                if (result.LineCount > 0)
+                {
+                    noOpsMessage = result.SourceWindow == "Full Screen"
+                        ? $"Read {result.LineCount} lines but no estimate operations found. Make sure your estimating software (CCC ONE, Mitchell) is open and showing line items."
+                        : $"Read {result.LineCount} lines from \"{result.SourceWindow}\" but no estimate operations detected. Navigate to the estimate line items / operations page.";
+                }
+
                 _operationsPanel?.Children.Add(new TextBlock
                 {
-                    Text = result.LineCount > 0
-                        ? $"No operations detected in {result.LineCount} OCR lines. Text may not contain estimate data."
-                        : "No text recognized in the captured image.",
+                    Text = noOpsMessage,
                     FontSize = 12,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 140, 100)),
                     FontStyle = Windows.UI.Text.FontStyle.Italic,
                     TextWrapping = TextWrapping.Wrap
+                });
+
+                // Show tips for getting it working
+                _operationsPanel?.Children.Add(new TextBlock
+                {
+                    Text = "Tips: Open CCC ONE or Mitchell to the estimate line items page. Make sure the window is not minimized. If using a browser, the window title must contain \"CCC\" or \"Mitchell\".",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 8, 0, 0)
                 });
             }
             else

@@ -237,14 +237,14 @@ namespace McStudDesktop.Views
         {
             var steps = new System.Collections.Generic.List<TourStep>
             {
-                new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Your virtual clipboard. Copy lines from Excel and McStud reads them automatically. Hit the CCC or Mitchell button and it types everything into the estimating platform for you.", TabIndex = 0 },
+                new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Your virtual clipboard. Copy lines from Excel and McStud reads them automatically. Hit the CCC or Mitchell button and it types everything into the estimating platform for you.\n\nTip: Look for the ? button in the top-right corner for detailed help on any tab.", TabIndex = 0 },
                 new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Ask the AI assistant any estimating questions. Get help with procedures, guidelines, and best practices.", TabIndex = 1 },
-                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDF estimates for analysis. The tool will parse operations, identify references, and help you review the estimate.", TabIndex = 2 },
-                new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Track your export statistics — see how many operations you've exported, which platforms you use most, and your activity over time.", TabIndex = 3 },
-                new TourStep { Target = _referenceTabButton!, Icon = "\uE82D", Title = "Reference", Description = "Access Definitions, DEG Inquiries, P-Pages, and Procedures all in one place. Search and queue references for PDF export.", TabIndex = 4 },
+                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDF estimates for analysis. The tool will parse operations, identify references, and help you review the estimate. Hit the ? for more details.", TabIndex = 2 },
+                new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Track your export statistics — see how many operations you've exported, which platforms you use most, and your activity over time. Hit the ? for more details.", TabIndex = 3 },
+                new TourStep { Target = _referenceTabButton!, Icon = "\uE82D", Title = "Reference", Description = "Access Definitions, DEG Inquiries, P-Pages, and Procedures all in one place. Search and queue references for PDF export. Hit the ? for more details.", TabIndex = 4 },
                 new TourStep { Target = _settingsTabButton!, Icon = "\uE713", Title = "Settings", Description = "Manage app settings, check for updates, view version info, and configure text-to-speech voice.", TabIndex = 5 },
-                new TourStep { Target = _guideTabButton!, Icon = "\uE82D", Title = "Guide", Description = "Step-by-step MET guides to help you through common estimating tasks and procedures.", TabIndex = 6 },
-                new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Access checklists, invoices, and shop documents. Create custom checklists and export them to PDF.", TabIndex = 7 }
+                new TourStep { Target = _guideTabButton!, Icon = "\uE82D", Title = "Guide", Description = "Step-by-step MET guides to help you through common estimating tasks and procedures. Hit the ? for more details.", TabIndex = 6 },
+                new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Access checklists, invoices, and shop documents. Create custom checklists and export them to PDF. Hit the ? for more details.", TabIndex = 7 }
             };
 
             var overlay = new SpotlightTourOverlay(steps, SelectTab);
@@ -1461,6 +1461,158 @@ namespace McStudDesktop.Views
 
             shopNameCard.Child = shopNameStack;
             mainStack.Children.Add(shopNameCard);
+
+            // === LEARNING MODE SECTION ===
+            var learningModeCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(20),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var learningModeStack = new StackPanel { Spacing = 10 };
+            learningModeStack.Children.Add(new TextBlock
+            {
+                Text = "Learning Mode",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+            learningModeStack.Children.Add(new TextBlock
+            {
+                Text = "Choose whether to use the standard pre-trained knowledge base or build your own from scratch.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var currentMode = LearningModeService.Instance.CurrentMode;
+
+            // Standard radio with ? tooltip
+            var standardContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            standardContent.Children.Add(new TextBlock { Text = "Standard (Recommended)", VerticalAlignment = VerticalAlignment.Center });
+            var standardHelp = new FontIcon { Glyph = "\uE897", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), VerticalAlignment = VerticalAlignment.Center };
+            ToolTipService.SetToolTip(standardHelp, "Uses the pre-trained AI data that ships with the app.\nBest for consistent results across the team.\nUploaded estimates use this data but do not modify it.");
+            standardContent.Children.Add(standardHelp);
+
+            var shopRadio = new RadioButton
+            {
+                Content = standardContent,
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Colors.White),
+                IsChecked = currentMode == LearningMode.Shop,
+                GroupName = "LearningMode",
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+
+            var shopDescription = new TextBlock
+            {
+                Text = "Uses the pre-trained AI data. Best for consistent results across the team. Uploaded estimates use the standard knowledge base but do not modify it.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(32, 0, 0, 4)
+            };
+
+            // Personal radio with ? tooltip
+            var personalContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            personalContent.Children.Add(new TextBlock { Text = "Personal", VerticalAlignment = VerticalAlignment.Center });
+            var personalHelp = new FontIcon { Glyph = "\uE897", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), VerticalAlignment = VerticalAlignment.Center };
+            ToolTipService.SetToolTip(personalHelp, "Start fresh with no baseline data.\nYour learning builds entirely from your own trained estimates.\nUploaded estimates are saved to your personal data file.");
+            personalContent.Children.Add(personalHelp);
+
+            var personalRadio = new RadioButton
+            {
+                Content = personalContent,
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Colors.White),
+                IsChecked = currentMode == LearningMode.Personal,
+                GroupName = "LearningMode",
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+
+            var personalDescription = new TextBlock
+            {
+                Text = "Start fresh with no baseline data. Uploaded estimates are saved to your personal data file and build your own knowledge base.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(32, 0, 0, 4)
+            };
+
+            var warningText = new TextBlock
+            {
+                Text = "Note: Personal mode starts with an empty knowledge base if you haven't trained any estimates yet.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 160, 60)),
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = currentMode == LearningMode.Personal ? Visibility.Visible : Visibility.Collapsed,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+
+            shopRadio.Checked += async (s, e) =>
+            {
+                if (LearningModeService.Instance.CurrentMode == LearningMode.Shop) return;
+
+                var dialog = new ContentDialog
+                {
+                    Title = "Switch to Standard?",
+                    Content = "This will load the standard pre-trained knowledge base. Your personal data will remain saved on disk.",
+                    PrimaryButtonText = "Switch",
+                    CloseButtonText = "Cancel",
+                    XamlRoot = this.XamlRoot,
+                    DefaultButton = ContentDialogButton.Primary
+                };
+
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    LearningModeService.Instance.SetMode(LearningMode.Shop);
+                    EstimateLearningService.Instance.ReloadForMode(LearningMode.Shop);
+                    warningText.Visibility = Visibility.Collapsed;
+                }
+                else
+                {
+                    personalRadio.IsChecked = true;
+                }
+            };
+
+            personalRadio.Checked += async (s, e) =>
+            {
+                if (LearningModeService.Instance.CurrentMode == LearningMode.Personal) return;
+
+                var dialog = new ContentDialog
+                {
+                    Title = "Switch to Personal?",
+                    Content = "This will unload the standard baseline data. You'll start with only your own previously trained estimates (if any). No data will be deleted.",
+                    PrimaryButtonText = "Switch",
+                    CloseButtonText = "Cancel",
+                    XamlRoot = this.XamlRoot,
+                    DefaultButton = ContentDialogButton.Close
+                };
+
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    LearningModeService.Instance.SetMode(LearningMode.Personal);
+                    EstimateLearningService.Instance.ReloadForMode(LearningMode.Personal);
+                    warningText.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    shopRadio.IsChecked = true;
+                }
+            };
+
+            learningModeStack.Children.Add(shopRadio);
+            learningModeStack.Children.Add(shopDescription);
+            learningModeStack.Children.Add(personalRadio);
+            learningModeStack.Children.Add(personalDescription);
+            learningModeStack.Children.Add(warningText);
+
+            learningModeCard.Child = learningModeStack;
+            mainStack.Children.Add(learningModeCard);
 
             // === APP TOUR SECTION ===
             var tourCard = new Border

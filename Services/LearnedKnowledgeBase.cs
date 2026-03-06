@@ -467,6 +467,13 @@ namespace McStudDesktop.Services
 
         public void Save()
         {
+            // Skip saving in Shop mode — baseline data is read-only
+            if (LearningModeService.Instance.CurrentMode == LearningMode.Shop)
+            {
+                System.Diagnostics.Debug.WriteLine("[Knowledge] SHOP mode — skipping save (baseline is read-only)");
+                return;
+            }
+
             try
             {
                 // Backup existing

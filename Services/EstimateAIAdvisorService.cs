@@ -134,53 +134,85 @@ public class EstimateAIAdvisorService
         var part = ExtractPartFromInput(input);
         var operation = ExtractOperationFromInput(input);
 
-        // Section 1: Learned pattern suggestions
+        // If no specific part in the query, use ALL parts from the session context
+        // This is what happens when the screen monitor calls "what am I missing"
+        var partsToCheck = new List<string>();
         if (!string.IsNullOrEmpty(part))
         {
-            var suggestions = _suggestionService.GetSuggestionsForPart(part, operation ?? "Replace", _session.VehicleInfo);
-            if (suggestions.ManualOperations.Any())
-            {
-                var section = new AdvisorSection
-                {
-                    Title = "LEARNED PATTERNS",
-                    Icon = "\U0001f9e0",
-                    Items = suggestions.ManualOperations
-                        .Where(op => op.Confidence >= 0.5 && op.TimesUsed >= 2)
-                        .OrderByDescending(op => op.TimesUsed)
-                        .Take(8)
-                        .Select(op => new AdvisorItem
-                        {
-                            Description = op.Description,
-                            Detail = $"{op.Source} | used {op.TimesUsed}x",
-                            Hours = op.LaborHours + op.RefinishHours,
-                            Source = "patterns",
-                            Confidence = op.Confidence
-                        }).ToList()
-                };
-                if (section.Items.Any())
-                    response.Sections.Add(section);
-            }
+            partsToCheck.Add(part);
+        }
+        else if (_session.EnteredOperations.Any())
+        {
+            // Pull all unique part names from what's on screen
+            partsToCheck = _session.EnteredOperations
+                .Select(op => op.Part)
+                .Where(p => !string.IsNullOrEmpty(p))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
-        // Section 2: History frequency - what's commonly found in similar estimates
-        if (!string.IsNullOrEmpty(part))
+        // Section 1: Learned pattern suggestions for each detected part
+        var allPatternItems = new List<AdvisorItem>();
+        foreach (var checkPart in partsToCheck)
         {
-            var commonOps = FindCommonlyIncludedOperations(part, operation);
-            if (commonOps.Any())
+            var enteredOp = _session.EnteredOperations.FirstOrDefault(o =>
+                o.Part.Equals(checkPart, StringComparison.OrdinalIgnoreCase));
+            var opType = enteredOp?.Operation ?? operation ?? "Replace";
+
+            var suggestions = _suggestionService.GetSuggestionsForPart(checkPart, opType, _session.VehicleInfo);
+            if (suggestions.ManualOperations.Any())
             {
-                var section = new AdvisorSection
-                {
-                    Title = "COMMONLY INCLUDED (from history)",
-                    Icon = "\U0001f4ca",
-                    Items = commonOps.Take(6).Select(kv => new AdvisorItem
+                // Filter out operations the estimator already has on screen
+                var existingOps = _session.EnteredOperations
+                    .Select(o => $"{o.Part}|{o.Operation}".ToLower())
+                    .ToHashSet();
+
+                var newSuggestions = suggestions.ManualOperations
+                    .Where(op => op.Confidence >= 0.5 && op.TimesUsed >= 2)
+                    .Where(op => !existingOps.Contains($"{op.Description}|{opType}".ToLower()))
+                    .OrderByDescending(op => op.TimesUsed)
+                    .Take(5)
+                    .Select(op => new AdvisorItem
                     {
-                        Description = kv.Key,
-                        Detail = $"Found in {kv.Value} estimates",
-                        Source = "history"
-                    }).ToList()
-                };
-                response.Sections.Add(section);
+                        Description = op.Description,
+                        Detail = $"With {checkPart} | {op.Source} | used {op.TimesUsed}x",
+                        Hours = op.LaborHours + op.RefinishHours,
+                        Source = "patterns",
+                        Confidence = op.Confidence
+                    });
+                allPatternItems.AddRange(newSuggestions);
             }
+        }
+        if (allPatternItems.Any())
+        {
+            response.Sections.Add(new AdvisorSection
+            {
+                Title = "LEARNED PATTERNS — operations you may be missing",
+                Icon = "\U0001f9e0",
+                Items = allPatternItems.Take(12).ToList()
+            });
+        }
+
+        // Section 2: History frequency — commonly included with these parts
+        var allHistoryItems = new List<AdvisorItem>();
+        foreach (var checkPart in partsToCheck)
+        {
+            var commonOps = FindCommonlyIncludedOperations(checkPart, operation);
+            allHistoryItems.AddRange(commonOps.Take(4).Select(kv => new AdvisorItem
+            {
+                Description = kv.Key,
+                Detail = $"With {checkPart} | found in {kv.Value} estimates",
+                Source = "history"
+            }));
+        }
+        if (allHistoryItems.Any())
+        {
+            response.Sections.Add(new AdvisorSection
+            {
+                Title = "COMMONLY INCLUDED (from prior estimates)",
+                Icon = "\U0001f4ca",
+                Items = allHistoryItems.DistinctBy(i => i.Description).Take(10).ToList()
+            });
         }
 
         // Section 3: Accuracy warnings
