@@ -728,7 +728,9 @@ namespace McStudDesktop.Views
                 }
 
                 var currentVersion = mgr.CurrentVersion?.ToString() ?? "1.0.0";
+                Debug.WriteLine($"[Update] Velopack installed version: {currentVersion}, AppId: {mgr.AppId}");
                 var newVersion = await mgr.CheckForUpdatesAsync();
+                Debug.WriteLine($"[Update] CheckForUpdatesAsync result: {(newVersion != null ? $"v{newVersion.TargetFullRelease.Version}" : "null (up to date)")}");
                 checkingDialog.Hide();
 
                 // Show result dialog
