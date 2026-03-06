@@ -228,21 +228,62 @@ namespace McstudDesktop.Services
             { "Additional Cost", "Cost" }
         };
 
+        // Known body panel / part names for fuzzy OCR detection
+        private static readonly (string Pattern, string CanonicalName)[] _knownParts = new[]
+        {
+            ("front bumper", "front bumper cover"), ("rear bumper", "rear bumper cover"),
+            ("bumper cover", "bumper cover"), ("bumper fascia", "bumper cover"),
+            ("fender", "fender"), ("front fender", "fender"),
+            ("hood", "hood"), ("hood panel", "hood"),
+            ("front door", "front door"), ("rear door", "rear door"),
+            ("door shell", "door"), ("door skin", "door"),
+            ("quarter panel", "quarter panel"), ("qtr panel", "quarter panel"),
+            ("rocker panel", "rocker panel"), ("rocker", "rocker panel"),
+            ("roof panel", "roof"), ("roof", "roof"),
+            ("trunk lid", "trunk lid"), ("decklid", "trunk lid"),
+            ("liftgate", "liftgate"), ("tailgate", "tailgate"),
+            ("headlamp", "headlight"), ("headlight", "headlight"), ("head lamp", "headlight"),
+            ("tail lamp", "tail light"), ("taillight", "tail light"), ("tail light", "tail light"),
+            ("fog lamp", "fog light"), ("fog light", "fog light"),
+            ("grille", "grille"), ("grill", "grille"),
+            ("fender liner", "fender liner"), ("inner fender", "fender liner"),
+            ("mirror", "mirror"), ("side mirror", "mirror"), ("outside mirror", "mirror"),
+            ("windshield", "windshield"), ("back glass", "rear glass"),
+            ("bumper reinforcement", "bumper reinforcement"), ("rebar", "bumper reinforcement"),
+            ("bumper absorber", "bumper absorber"), ("energy absorber", "bumper absorber"),
+            ("radiator support", "radiator support"), ("rad support", "radiator support"),
+            ("a pillar", "a-pillar"), ("b pillar", "b-pillar"), ("c pillar", "c-pillar"),
+            ("splash shield", "splash shield"), ("wheel opening", "wheel opening molding"),
+            ("door handle", "door handle"), ("door trim", "door trim panel"),
+            ("emblem", "emblem"), ("nameplate", "nameplate"),
+            ("molding", "molding"), ("moulding", "molding"),
+            ("spoiler", "spoiler"), ("valance", "valance"),
+            ("running board", "running board"), ("step bar", "running board"),
+            ("bed side", "bed side"), ("truck bed", "truck bed"),
+            ("condenser", "condenser"), ("radiator", "radiator"),
+            ("parking sensor", "parking sensor"), ("park sensor", "parking sensor"),
+            ("camera", "camera"), ("backup camera", "backup camera"),
+            ("wheel", "wheel"), ("tire", "tire"),
+            ("suspension", "suspension"), ("strut", "strut"), ("control arm", "control arm"),
+            ("calibration", "calibration"), ("adas", "adas calibration"),
+            ("diagnostic", "diagnostic scan"), ("scan", "diagnostic scan")
+        };
+
         /// <summary>
         /// Parses OCR text lines into structured estimate operations.
-        /// Uses source-aware parsing: token-based for CCC/Mitchell, enhanced regex for unknown.
+        /// Uses source-aware parsing first, then falls back to fuzzy part-name detection.
         /// </summary>
         private List<OcrDetectedOperation> ParseOperations(List<OcrTextLine> lines, OcrEstimateSource source)
         {
             var operations = new List<OcrDetectedOperation>();
 
+            // Pass 1: Try structured parsing (existing logic)
             foreach (var line in lines)
             {
                 var text = line.Text.Trim();
                 if (string.IsNullOrWhiteSpace(text) || text.Length < 5)
                     continue;
 
-                // Skip known section headers
                 if (_cccSectionHeaders.Contains(text))
                     continue;
 
@@ -255,6 +296,62 @@ namespace McstudDesktop.Services
 
                 if (operation != null)
                     operations.Add(operation);
+            }
+
+            // Pass 2: If structured parsing found very little, do fuzzy part-name scan
+            // This catches CCC ONE web UI, browser-rendered estimates, etc.
+            if (operations.Count < 3)
+            {
+                var fullText = string.Join(" ", lines.Select(l => l.Text)).ToLowerInvariant();
+                var foundParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var existingParts = new HashSet<string>(
+                    operations.Select(o => o.PartName?.ToLower() ?? ""),
+                    StringComparer.OrdinalIgnoreCase);
+
+                foreach (var (pattern, canonical) in _knownParts)
+                {
+                    if (fullText.Contains(pattern) && !foundParts.Contains(canonical) && !existingParts.Contains(canonical))
+                    {
+                        foundParts.Add(canonical);
+
+                        // Try to detect operation type from nearby context
+                        var opType = "";
+                        var patternIdx = fullText.IndexOf(pattern);
+                        if (patternIdx >= 0)
+                        {
+                            // Look at ~60 chars around the mention for operation clues
+                            var start = Math.Max(0, patternIdx - 30);
+                            var end = Math.Min(fullText.Length, patternIdx + pattern.Length + 30);
+                            var context = fullText.Substring(start, end - start);
+
+                            if (context.Contains("repl") || context.Contains("new") || context.Contains("r/r"))
+                                opType = "Replace";
+                            else if (context.Contains("r&i") || context.Contains("r+i") || context.Contains("remove"))
+                                opType = "R&I";
+                            else if (context.Contains("rpr") || context.Contains("repair"))
+                                opType = "Repair";
+                            else if (context.Contains("refn") || context.Contains("refinish") || context.Contains("paint"))
+                                opType = "Refinish";
+                            else if (context.Contains("blend") || context.Contains("blnd"))
+                                opType = "Blend";
+                        }
+
+                        operations.Add(new OcrDetectedOperation
+                        {
+                            Description = canonical,
+                            PartName = canonical,
+                            OperationType = opType,
+                            RawLine = $"[detected from screen: {canonical}]",
+                            LaborHours = 0,
+                            Price = 0
+                        });
+                    }
+                }
+
+                if (foundParts.Count > 0)
+                {
+                    Debug.WriteLine($"[ScreenOCR] Fuzzy scan found {foundParts.Count} parts: {string.Join(", ", foundParts)}");
+                }
             }
 
             return operations;
