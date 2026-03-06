@@ -483,9 +483,17 @@ namespace McStudDesktop.Services
 
         private void CheckDiagnosticScans(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
-            // Check if estimate is over threshold or has structural work
+            // Any body panel work should have pre/post scans per OEM position statements
             bool needsScans = result.EstimateTotal > 2500 ||
+                lines.Count >= 2 ||
                 lines.Any(l =>
+                    l.PartName?.ToLowerInvariant().Contains("bumper") == true ||
+                    l.PartName?.ToLowerInvariant().Contains("fender") == true ||
+                    l.PartName?.ToLowerInvariant().Contains("hood") == true ||
+                    l.PartName?.ToLowerInvariant().Contains("door") == true ||
+                    l.PartName?.ToLowerInvariant().Contains("quarter") == true ||
+                    l.PartName?.ToLowerInvariant().Contains("roof") == true ||
+                    l.PartName?.ToLowerInvariant().Contains("windshield") == true ||
                     l.PartName?.ToLowerInvariant().Contains("frame") == true ||
                     l.PartName?.ToLowerInvariant().Contains("rail") == true ||
                     l.PartName?.ToLowerInvariant().Contains("strut tower") == true ||
