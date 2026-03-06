@@ -645,18 +645,19 @@ namespace McStudDesktop.Views
                 _latestResult = result;
                 UpdateResultDisplay(result);
                 UpdateStatusDisplay();
+
+                // Always run advisor analysis when we have OCR text — even with 0 detected ops
+                // the fuzzy scanner + scoring engine can find useful suggestions
+                if (result.HasChanges && !string.IsNullOrEmpty(result.RawText))
+                {
+                    RunAdvisorAnalysis(result);
+                }
             });
 
             // Auto-match against reference data when changes detected
             if (result.HasChanges && result.DetectedOperations.Count > 0)
             {
                 _ = RunReferenceMatchingAsync(result);
-            }
-
-            // Auto-compare against learned patterns
-            if (result.DetectedOperations.Count > 0)
-            {
-                DispatcherQueue?.TryEnqueue(() => RunAdvisorAnalysis(result));
             }
         }
 
@@ -685,6 +686,39 @@ namespace McStudDesktop.Views
             }
         }
 
+        // Known parts to scan for in raw OCR text — same list as ScreenOcrService
+        private static readonly (string Pattern, string CanonicalName)[] _scanParts = new[]
+        {
+            ("front bumper", "Front Bumper Cover"), ("rear bumper", "Rear Bumper Cover"),
+            ("bumper cover", "Bumper Cover"), ("bumper fascia", "Bumper Cover"),
+            ("fender", "Fender"), ("front fender", "Fender"),
+            ("hood", "Hood"), ("front door", "Front Door"), ("rear door", "Rear Door"),
+            ("quarter panel", "Quarter Panel"), ("qtr panel", "Quarter Panel"),
+            ("rocker panel", "Rocker Panel"), ("rocker", "Rocker Panel"),
+            ("roof panel", "Roof"), ("trunk lid", "Trunk Lid"), ("decklid", "Trunk Lid"),
+            ("liftgate", "Liftgate"), ("tailgate", "Tailgate"),
+            ("headlamp", "Headlight"), ("headlight", "Headlight"),
+            ("tail lamp", "Tail Light"), ("taillight", "Tail Light"),
+            ("fog lamp", "Fog Light"), ("fog light", "Fog Light"),
+            ("grille", "Grille"), ("grill", "Grille"),
+            ("fender liner", "Fender Liner"), ("inner fender", "Fender Liner"),
+            ("mirror", "Mirror"), ("side mirror", "Mirror"),
+            ("windshield", "Windshield"), ("back glass", "Rear Glass"),
+            ("bumper reinforcement", "Bumper Reinforcement"), ("rebar", "Bumper Reinforcement"),
+            ("bumper absorber", "Bumper Absorber"), ("energy absorber", "Bumper Absorber"),
+            ("radiator support", "Radiator Support"), ("rad support", "Radiator Support"),
+            ("a pillar", "A-Pillar"), ("b pillar", "B-Pillar"), ("c pillar", "C-Pillar"),
+            ("splash shield", "Splash Shield"), ("door handle", "Door Handle"),
+            ("door trim", "Door Trim Panel"), ("molding", "Molding"),
+            ("spoiler", "Spoiler"), ("valance", "Valance"),
+            ("condenser", "Condenser"), ("radiator", "Radiator"),
+            ("parking sensor", "Parking Sensor"), ("camera", "Camera"),
+            ("wheel", "Wheel"), ("tire", "Tire"),
+            ("suspension", "Suspension"), ("strut", "Strut"), ("control arm", "Control Arm"),
+            ("calibration", "Calibration"), ("adas", "ADAS Calibration"),
+            ("diagnostic", "Diagnostic Scan"), ("pre scan", "Pre-Repair Scan"), ("post scan", "Post-Repair Scan")
+        };
+
         private void RunAdvisorAnalysis(ScreenOcrResult result)
         {
             if (_aiAnalysisPanel == null) return;
@@ -692,12 +726,59 @@ namespace McStudDesktop.Views
 
             try
             {
-                // Clear previous session and set fresh context from detected operations
+                var rawText = result.RawText?.ToLowerInvariant() ?? "";
+                if (string.IsNullOrWhiteSpace(rawText))
+                {
+                    _aiAnalysisPanel.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                // Step 1: Scan the raw OCR text directly for any part names we recognize
+                var detectedParts = new List<string>();
+                var seenParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (pattern, canonical) in _scanParts)
+                {
+                    if (rawText.Contains(pattern) && seenParts.Add(canonical))
+                    {
+                        detectedParts.Add(canonical);
+                    }
+                }
+
+                // Also include any parts from the structured parser
+                foreach (var op in result.DetectedOperations)
+                {
+                    if (!string.IsNullOrEmpty(op.PartName) && seenParts.Add(op.PartName))
+                        detectedParts.Add(op.PartName);
+                }
+
+                if (detectedParts.Count == 0)
+                {
+                    _aiAnalysisPanel.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                // Step 2: Show what parts we detected on screen
+                var headerBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 30, 50, 65)),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 0, 0, 4)
+                };
+                headerBorder.Child = new TextBlock
+                {
+                    Text = $"Detected on screen: {string.Join(", ", detectedParts.Take(8))}{(detectedParts.Count > 8 ? $" +{detectedParts.Count - 8} more" : "")}",
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)),
+                    TextWrapping = TextWrapping.Wrap
+                };
+                _aiAnalysisPanel.Children.Add(headerBorder);
+
+                // Step 3: Set up advisor session with detected parts
                 _advisorService.ClearSession();
 
-                // Set vehicle info if we can detect it from OCR text
-                var rawText = result.RawText?.ToLower() ?? "";
-                // Try to extract vehicle info from OCR text (e.g., "2019 Honda Accord")
+                // Try to extract vehicle info from OCR text
                 var vehicleMatch = System.Text.RegularExpressions.Regex.Match(
                     result.RawText ?? "",
                     @"(20\d{2})\s+(\w+)\s+(\w+)",
@@ -707,92 +788,132 @@ namespace McStudDesktop.Views
                     _advisorService.SetSessionContext(vehicleMatch.Value, null);
                 }
 
-                // Track each detected operation so the advisor knows what's on screen
+                // Track all detected parts
+                foreach (var part in detectedParts)
+                {
+                    _advisorService.TrackEnteredOperation(part, "", 0);
+                }
+                // Also track structured ops with their operation types
                 foreach (var op in result.DetectedOperations)
                 {
-                    _advisorService.TrackEnteredOperation(op.PartName, op.OperationType, op.LaborHours);
+                    if (!string.IsNullOrEmpty(op.OperationType))
+                        _advisorService.TrackEnteredOperation(op.PartName, op.OperationType, op.LaborHours);
                 }
 
+                // Step 4: Run advisor + scoring
                 var response = _advisorService.ProcessAdvisorQuery("what am I missing");
-                if (response == null || response.Sections.Count == 0)
+
+                // Collect all suggestion items
+                var allItems = new List<(string Title, string Detail, string Source, double Confidence, decimal Hours)>();
+
+                if (response?.Sections != null)
                 {
-                    _aiAnalysisPanel.Visibility = Visibility.Collapsed;
+                    foreach (var section in response.Sections)
+                    {
+                        foreach (var item in section.Items)
+                        {
+                            // Don't suggest parts already on screen
+                            if (!seenParts.Any(p => item.Description?.Contains(p, StringComparison.OrdinalIgnoreCase) == true))
+                            {
+                                allItems.Add((item.Description, item.Detail ?? section.Title, item.Source, item.Confidence, item.Hours));
+                            }
+                        }
+                    }
+                }
+
+                // Step 5: Always run scoring engine directly for hardcoded suggestions
+                var scoringService = Services.EstimateScoringService.Instance;
+                var parsedLines = detectedParts.Select(p => new Services.ParsedEstimateLine
+                {
+                    PartName = p,
+                    OperationType = "Replace",
+                    LaborHours = 1.0m,
+                    Price = 500m // Give a reasonable price so scan checks trigger
+                }).ToList();
+
+                var scoreResult = scoringService.ScoreEstimate(parsedLines, vehicleMatch.Success ? vehicleMatch.Value : null);
+                foreach (var issue in scoreResult.Issues)
+                {
+                    // Don't duplicate items already from advisor
+                    if (!allItems.Any(a => a.Title.Equals(issue.Title, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var severity = issue.Severity == Services.IssueSeverity.Critical ? 0.9
+                            : issue.Severity == Services.IssueSeverity.High ? 0.7
+                            : 0.5;
+                        var detail = !string.IsNullOrEmpty(issue.WhyNeeded) ? issue.WhyNeeded
+                            : !string.IsNullOrEmpty(issue.TriggeredBy) ? $"Triggered by: {issue.TriggeredBy}"
+                            : issue.Description;
+                        allItems.Add((issue.Title, detail, "scoring", severity, issue.SuggestedFix?.LaborHours ?? 0));
+                    }
+                }
+
+                if (allItems.Count == 0)
+                {
+                    _aiAnalysisPanel.Children.Add(new TextBlock
+                    {
+                        Text = "No additional suggestions. Upload more estimates to improve recommendations.",
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                        FontStyle = Windows.UI.Text.FontStyle.Italic,
+                        Margin = new Thickness(0, 4, 0, 0)
+                    });
+                    _aiAnalysisPanel.Visibility = Visibility.Visible;
                     return;
                 }
 
-                // Filter out items already in the OCR result
-                var existingDescs = result.DetectedOperations
-                    .Select(o => o.Description?.ToLowerInvariant() ?? "")
-                    .ToHashSet();
-
-                var missingItems = response.Sections
-                    .SelectMany(s => s.Items)
-                    .Where(item => !existingDescs.Any(d => d.Contains(item.Description?.ToLowerInvariant() ?? "~")))
-                    .ToList();
-
-                if (missingItems.Count == 0)
-                {
-                    _aiAnalysisPanel.Visibility = Visibility.Collapsed;
-                    return;
-                }
-
-                // Header
-                var headerBorder = new Border
+                // Step 6: Suggestions header
+                var suggestHeader = new Border
                 {
                     Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)),
                     CornerRadius = new CornerRadius(6),
                     Padding = new Thickness(10, 6, 10, 6),
-                    Margin = new Thickness(0, 0, 0, 4)
+                    Margin = new Thickness(0, 6, 0, 4)
                 };
-                headerBorder.Child = new TextBlock
+                suggestHeader.Child = new TextBlock
                 {
-                    Text = $"\uD83E\uDDE0 AI Analysis: {missingItems.Count} potentially missing operations",
+                    Text = $"Suggestions: {allItems.Count} potentially missing operations",
                     FontSize = 12,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 140))
                 };
-                _aiAnalysisPanel.Children.Add(headerBorder);
+                _aiAnalysisPanel.Children.Add(suggestHeader);
 
-                // Missing items
-                foreach (var item in missingItems.Take(10))
+                // Step 7: Render each suggestion
+                foreach (var (title, detail, source, confidence, hours) in allItems.Take(15))
                 {
-                    var confColor = item.Confidence >= 0.7
+                    var confColor = confidence >= 0.7
                         ? Color.FromArgb(255, 80, 190, 80)
-                        : item.Confidence >= 0.4
+                        : confidence >= 0.4
                             ? Color.FromArgb(255, 220, 180, 60)
                             : Color.FromArgb(255, 220, 130, 60);
-                    var confText = item.Confidence >= 0.7 ? "HIGH" : item.Confidence >= 0.4 ? "MED" : "LOW";
+                    var confText = confidence >= 0.7 ? "HIGH" : confidence >= 0.4 ? "MED" : "LOW";
 
                     var row = new Border
                     {
                         Background = new SolidColorBrush(Color.FromArgb(255, 42, 47, 56)),
                         CornerRadius = new CornerRadius(4),
-                        Padding = new Thickness(8, 4, 8, 4),
+                        Padding = new Thickness(8, 5, 8, 5),
                         Margin = new Thickness(0, 1, 0, 1)
                     };
 
-                    var grid = new Grid();
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    var rowStack = new StackPanel { Spacing = 2 };
 
-                    var desc = new TextBlock
+                    // Title row with badge
+                    var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    titleRow.Children.Add(new TextBlock
                     {
-                        Text = item.Description,
-                        FontSize = 11,
+                        Text = title,
+                        FontSize = 12,
                         Foreground = new SolidColorBrush(Colors.White),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        TextTrimming = TextTrimming.CharacterEllipsis
-                    };
-                    Grid.SetColumn(desc, 0);
-                    grid.Children.Add(desc);
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
 
                     var badge = new Border
                     {
                         Background = new SolidColorBrush(Color.FromArgb(40, confColor.R, confColor.G, confColor.B)),
                         CornerRadius = new CornerRadius(3),
                         Padding = new Thickness(5, 1, 5, 1),
-                        Margin = new Thickness(6, 0, 0, 0),
                         VerticalAlignment = VerticalAlignment.Center
                     };
                     badge.Child = new TextBlock
@@ -802,44 +923,41 @@ namespace McStudDesktop.Views
                         FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                         Foreground = new SolidColorBrush(confColor)
                     };
-                    Grid.SetColumn(badge, 1);
-                    grid.Children.Add(badge);
+                    titleRow.Children.Add(badge);
 
-                    if (item.Hours > 0)
+                    if (hours > 0)
                     {
-                        var hours = new TextBlock
+                        titleRow.Children.Add(new TextBlock
                         {
-                            Text = $"{item.Hours:F1}h",
+                            Text = $"{hours:F1}h",
                             FontSize = 10,
                             Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Margin = new Thickness(6, 0, 0, 0)
-                        };
-                        Grid.SetColumn(hours, 2);
-                        grid.Children.Add(hours);
+                            VerticalAlignment = VerticalAlignment.Center
+                        });
+                    }
+                    rowStack.Children.Add(titleRow);
+
+                    // Detail line
+                    if (!string.IsNullOrEmpty(detail))
+                    {
+                        rowStack.Children.Add(new TextBlock
+                        {
+                            Text = detail,
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 150)),
+                            TextTrimming = TextTrimming.CharacterEllipsis
+                        });
                     }
 
-                    row.Child = grid;
+                    row.Child = rowStack;
                     _aiAnalysisPanel.Children.Add(row);
-                }
-
-                // Summary
-                if (!string.IsNullOrWhiteSpace(response.Summary))
-                {
-                    _aiAnalysisPanel.Children.Add(new TextBlock
-                    {
-                        Text = response.Summary,
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
-                        TextWrapping = TextWrapping.Wrap,
-                        Margin = new Thickness(0, 4, 0, 0)
-                    });
                 }
 
                 _aiAnalysisPanel.Visibility = Visibility.Visible;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Advisor error: {ex.Message}");
                 _aiAnalysisPanel.Visibility = Visibility.Collapsed;
             }
         }
