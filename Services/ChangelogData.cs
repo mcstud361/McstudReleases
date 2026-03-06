@@ -11,6 +11,15 @@ namespace McStudDesktop.Services
         {
             return new List<VersionEntry>
             {
+                new VersionEntry("v1.0.6", "March 2026", new[]
+                {
+                    "Welcome walkthrough for new users on first launch",
+                    "Spotlight tour highlights each tab with descriptions",
+                    "What's New dialog when app updates to a new version",
+                    "Replay Tour button in Settings tab",
+                    "Login auth, text-to-speech, and price catalog features",
+                    "Learned patterns and template form improvements"
+                }),
                 new VersionEntry("v1.0.5", "March 2026", new[]
                 {
                     "Auto-matched references now go to a staging panel for review before adding to PDF queue",
