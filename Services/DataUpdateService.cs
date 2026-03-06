@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -113,16 +114,19 @@ namespace McStudDesktop.Services
                         var url = DataBaseUrl + file.Name;
                         var content = await _httpClient.GetStringAsync(url);
 
-                        // Validate JSON
-                        try
+                        // Validate JSON (skip for non-JSON files like .txt)
+                        if (file.Name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
                         {
-                            JsonDocument.Parse(content);
-                        }
-                        catch
-                        {
-                            result.FailedFiles.Add(file.Name);
-                            result.Errors.Add($"{file.Name}: Invalid JSON format");
-                            continue;
+                            try
+                            {
+                                JsonDocument.Parse(content);
+                            }
+                            catch
+                            {
+                                result.FailedFiles.Add(file.Name);
+                                result.Errors.Add($"{file.Name}: Invalid JSON format");
+                                continue;
+                            }
                         }
 
                         // Save to local Data folder
@@ -143,6 +147,15 @@ namespace McStudDesktop.Services
                 if (result.UpdatedFiles.Count > 0)
                 {
                     await UpdateLocalManifestAsync(filesToUpdate);
+                }
+
+                // If any baseline files were updated, trigger immediate merge
+                var baselineFiles = new[] { "BaselineEstimateHistory.json", "BaselineFeedback.json", "BaselineAccuracy.json", "LearnedPatterns.json", "baseline_version.txt" };
+                if (result.UpdatedFiles.Any(f => baselineFiles.Contains(f)))
+                {
+                    StatusChanged?.Invoke("Applying new baseline knowledge...");
+                    BaselineDataService.Instance.ApplyBaselineIfNeeded();
+                    System.Diagnostics.Debug.WriteLine("[DataUpdate] Baseline merge triggered after downloading new baseline files");
                 }
 
                 result.Success = result.FailedFiles.Count == 0;
@@ -268,7 +281,12 @@ namespace McStudDesktop.Services
                     new DataFileInfo { Name = "PPages.json", Version = 1, Description = "CCC/MOTOR P-Pages" },
                     new DataFileInfo { Name = "DEGInquiries.json", Version = 1, Description = "DEG Inquiries" },
                     new DataFileInfo { Name = "Definitions.json", Version = 1, Description = "Estimating Definitions" },
-                    new DataFileInfo { Name = "Procedures.json", Version = 1, Description = "OEM Procedures" }
+                    new DataFileInfo { Name = "Procedures.json", Version = 1, Description = "OEM Procedures" },
+                    new DataFileInfo { Name = "BaselineEstimateHistory.json", Version = 1, Description = "Baseline estimate history" },
+                    new DataFileInfo { Name = "BaselineFeedback.json", Version = 1, Description = "Baseline feedback metrics" },
+                    new DataFileInfo { Name = "BaselineAccuracy.json", Version = 1, Description = "Baseline accuracy records" },
+                    new DataFileInfo { Name = "LearnedPatterns.json", Version = 1, Description = "Published learned patterns" },
+                    new DataFileInfo { Name = "baseline_version.txt", Version = 1, Description = "Baseline version number" }
                 }
             };
         }

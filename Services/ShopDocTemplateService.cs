@@ -694,6 +694,13 @@ public enum ShopDocType
     LaborRates
 }
 
+public enum SectionLayoutHint
+{
+    Auto,
+    FullWidth,
+    HalfWidth
+}
+
 public enum FieldType
 {
     Text,
@@ -740,6 +747,7 @@ public class TemplateSection
     public bool IsChargeSection { get; set; }
     public bool IsCheckboxSection { get; set; } // Items are selectable checkboxes
     public bool AllowAddItems { get; set; } // User can add custom items
+    public SectionLayoutHint LayoutHint { get; set; } = SectionLayoutHint.Auto;
 
     public List<TemplateField> Fields { get; set; } = new();
     public List<TemplateChargeItem> ChargeItems { get; set; } = new();
@@ -771,6 +779,10 @@ public class TemplateChargeItem
     public bool ShowQuantity { get; set; }
     public string? QuantityLabel { get; set; }
     public int Order { get; set; }
+    public decimal DefaultCostPrice { get; set; }
+    public decimal DefaultListPrice { get; set; }
+    public string? PartNumber { get; set; }
+    public string? CatalogItemId { get; set; }
 }
 
 public class TemplateSettings

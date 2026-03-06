@@ -33,6 +33,10 @@ namespace McStudDesktop.Views
 
         // Services
         private readonly EstimateLearningService _learningService;
+        private readonly EstimateAIAdvisorService _advisorService;
+
+        // AI advisor suggestions
+        private StackPanel? _advisorSuggestionsPanel;
 
         // Event for ChatbotView integration
         public event EventHandler<List<GeneratedOperation>>? OnOperationsGenerated;
@@ -40,6 +44,7 @@ namespace McStudDesktop.Views
         public ExcelEstimateBuilder()
         {
             _learningService = EstimateLearningService.Instance;
+            _advisorService = EstimateAIAdvisorService.Instance;
             BuildUI();
         }
 
@@ -55,6 +60,7 @@ namespace McStudDesktop.Views
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Search
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Content
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Related ops
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // AI suggestions
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Footer
 
             // Header with help button
@@ -95,9 +101,19 @@ namespace McStudDesktop.Views
             Grid.SetRow(_relatedOpsPanel, 3);
             root.Children.Add(_relatedOpsPanel);
 
+            // AI advisor suggestions (collapsed by default)
+            _advisorSuggestionsPanel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            Grid.SetRow(_advisorSuggestionsPanel, 4);
+            root.Children.Add(_advisorSuggestionsPanel);
+
             // Footer: Totals + Export
             var footer = CreateFooter();
-            Grid.SetRow(footer, 4);
+            Grid.SetRow(footer, 5);
             root.Children.Add(footer);
 
             Content = root;
@@ -624,6 +640,7 @@ namespace McStudDesktop.Views
             _estimateLines.Add(line);
             UpdateEstimateDisplay();
             ShowRelatedOperations(suggestion.PartName, suggestion.OperationType);
+            ShowAdvisorSuggestions(suggestion.PartName, suggestion.OperationType);
         }
 
         private void ShowRelatedOperations(string partName, string operationType)
@@ -724,6 +741,135 @@ namespace McStudDesktop.Views
             };
 
             return chip;
+        }
+
+        private void ShowAdvisorSuggestions(string partName, string operationType)
+        {
+            if (_advisorSuggestionsPanel == null) return;
+            _advisorSuggestionsPanel.Children.Clear();
+
+            try
+            {
+                // Track all entered operations for context
+                var enteredTypes = _estimateLines.Select(l => l.OperationType).ToList();
+                var suggestion = _advisorService.GetProactiveSuggestions(partName, operationType, enteredTypes, null);
+                if (suggestion == null || suggestion.PatternSuggestions.Count == 0)
+                {
+                    _advisorSuggestionsPanel.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                // Filter out ops already on the estimate
+                var existingKeys = _estimateLines
+                    .Select(l => $"{l.PartName}|{l.OperationType}".ToLowerInvariant())
+                    .ToHashSet();
+                var newSuggestions = suggestion.PatternSuggestions
+                    .Where(s => !existingKeys.Contains($"{s.Description}|{s.OperationType}".ToLowerInvariant()))
+                    .ToList();
+
+                if (newSuggestions.Count == 0)
+                {
+                    _advisorSuggestionsPanel.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                // Header
+                _advisorSuggestionsPanel.Children.Add(new TextBlock
+                {
+                    Text = $"\uD83E\uDDE0 Others who did {partName} {operationType} also added:",
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 140)),
+                    Margin = new Thickness(0, 0, 0, 4)
+                });
+
+                // Suggestion chips
+                var wrapPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                foreach (var sug in newSuggestions.Take(6))
+                {
+                    var confText = sug.Confidence >= 0.7 ? "HIGH" : sug.Confidence >= 0.4 ? "MED" : "LOW";
+                    var hoursText = sug.Hours > 0 ? $" {sug.Hours:F1}h" : "";
+                    var timesText = sug.TimesUsed > 0 ? $" x{sug.TimesUsed}" : "";
+
+                    var chip = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)),
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 120, 70)),
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(12),
+                        Padding = new Thickness(10, 4, 10, 4),
+                        Child = new TextBlock
+                        {
+                            Text = $"{sug.Description} ({confText}{hoursText}{timesText})",
+                            FontSize = 11,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 220, 200))
+                        }
+                    };
+
+                    var captured = sug;
+                    chip.PointerEntered += (s, e) =>
+                    {
+                        chip.Background = new SolidColorBrush(Color.FromArgb(255, 45, 70, 50));
+                        chip.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 190, 80));
+                    };
+                    chip.PointerExited += (s, e) =>
+                    {
+                        chip.Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40));
+                        chip.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 120, 70));
+                    };
+                    chip.Tapped += (s, e) =>
+                    {
+                        AddToEstimate(new PatternSuggestion
+                        {
+                            PartName = captured.Description.Split(' ').FirstOrDefault() ?? captured.Description,
+                            OperationType = captured.OperationType,
+                            LaborHours = captured.Hours,
+                            Confidence = captured.Confidence
+                        });
+                    };
+
+                    wrapPanel.Children.Add(chip);
+                }
+
+                _advisorSuggestionsPanel.Children.Add(new ScrollViewer
+                {
+                    Content = wrapPanel,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    MaxHeight = 50
+                });
+
+                // Accuracy warning
+                if (!string.IsNullOrWhiteSpace(suggestion.AccuracyWarning))
+                {
+                    _advisorSuggestionsPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"\u26A0 {suggestion.AccuracyWarning}",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                        Margin = new Thickness(0, 4, 0, 0),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                // Insurer note
+                if (!string.IsNullOrWhiteSpace(suggestion.InsurerNote))
+                {
+                    _advisorSuggestionsPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"\uD83C\uDFE2 {suggestion.InsurerNote}",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 180, 210)),
+                        Margin = new Thickness(0, 2, 0, 0),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                _advisorSuggestionsPanel.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                _advisorSuggestionsPanel.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void RemoveLine_Click(object sender, RoutedEventArgs e)

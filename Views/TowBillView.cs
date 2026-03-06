@@ -179,8 +179,8 @@ public class TowBillView : UserControl
                 Notes = GetStringValue(data, "notes")
             };
 
-            // Add charges from template
-            if (data.ContainsKey("charges") && data["charges"] is List<(string Name, decimal Amount)> charges)
+            // Add charges from template (supports new ChargeExportItem format)
+            if (data.ContainsKey("charges") && data["charges"] is List<ChargeExportItem> charges)
             {
                 foreach (var charge in charges)
                 {

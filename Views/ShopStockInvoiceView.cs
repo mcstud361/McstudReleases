@@ -152,20 +152,33 @@ public class ShopStockInvoiceView : UserControl
                 Vehicle = GetStringValue(data, "vehicleYMM")
             };
 
-            // Add charges as invoice items
-            if (data.ContainsKey("charges") && data["charges"] is List<(string Name, decimal Amount)> charges)
+            // Add charges as invoice items (supports new ChargeExportItem format)
+            var showCost = data.ContainsKey("showCostColumn") && (bool)data["showCostColumn"];
+            var showList = data.ContainsKey("showListPriceColumn") && (bool)data["showListPriceColumn"];
+            pdfData.ShowCostColumn = showCost;
+            pdfData.ShowListPriceColumn = showList;
+
+            if (data.ContainsKey("charges") && data["charges"] is List<ChargeExportItem> charges)
             {
                 foreach (var charge in charges)
                 {
                     pdfData.Items.Add(new ShopStockInvoicePdfItem
                     {
                         Description = charge.Name,
-                        UnitPrice = charge.Amount,
-                        Quantity = 1,
-                        LineTotal = charge.Amount
+                        UnitPrice = charge.UnitAmount,
+                        Quantity = (int)charge.Quantity,
+                        LineTotal = charge.Amount,
+                        CostPrice = charge.UnitCostPrice,
+                        ListPrice = charge.UnitListPrice,
+                        PartNumber = charge.PartNumber
                     });
                 }
             }
+
+            if (data.ContainsKey("costSubtotal"))
+                pdfData.CostSubtotal = Convert.ToDecimal(data["costSubtotal"]);
+            if (data.ContainsKey("listSubtotal"))
+                pdfData.ListSubtotal = Convert.ToDecimal(data["listSubtotal"]);
 
             pdfData.Total = data.ContainsKey("total") ? Convert.ToDecimal(data["total"]) : 0;
             pdfData.Subtotal = pdfData.Total;

@@ -23,6 +23,10 @@ namespace McStudDesktop.Views
     {
         private readonly ScreenMonitorService _monitorService;
         private readonly EstimateReferenceMatcherService _referenceMatcher;
+        private readonly EstimateAIAdvisorService _advisorService;
+
+        // AI analysis
+        private StackPanel? _aiAnalysisPanel;
 
         // Controls
         private ToggleSwitch? _monitorToggle;
@@ -58,6 +62,7 @@ namespace McStudDesktop.Views
         {
             _monitorService = ScreenMonitorService.Instance;
             _referenceMatcher = EstimateReferenceMatcherService.Instance;
+            _advisorService = EstimateAIAdvisorService.Instance;
             _monitorService.OcrResultReady += MonitorService_OcrResultReady;
             _monitorService.StatusChanged += MonitorService_StatusChanged;
 
@@ -402,6 +407,15 @@ namespace McStudDesktop.Views
             };
             stack.Children.Add(_refMatchStatusText);
 
+            // AI pattern analysis panel (populated after OCR)
+            _aiAnalysisPanel = new StackPanel
+            {
+                Spacing = 4,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            stack.Children.Add(_aiAnalysisPanel);
+
             border.Child = stack;
             return border;
         }
@@ -638,6 +652,12 @@ namespace McStudDesktop.Views
             {
                 _ = RunReferenceMatchingAsync(result);
             }
+
+            // Auto-compare against learned patterns
+            if (result.DetectedOperations.Count > 0)
+            {
+                DispatcherQueue?.TryEnqueue(() => RunAdvisorAnalysis(result));
+            }
         }
 
         private async Task RunReferenceMatchingAsync(ScreenOcrResult result)
@@ -662,6 +682,151 @@ namespace McStudDesktop.Views
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Reference matching error: {ex.Message}");
+            }
+        }
+
+        private void RunAdvisorAnalysis(ScreenOcrResult result)
+        {
+            if (_aiAnalysisPanel == null) return;
+            _aiAnalysisPanel.Children.Clear();
+
+            try
+            {
+                // Set context from detected operations
+                var opTypes = result.DetectedOperations.Select(o => o.OperationType).ToList();
+                foreach (var op in result.DetectedOperations)
+                {
+                    _advisorService.TrackEnteredOperation(op.PartName, op.OperationType, op.LaborHours);
+                }
+
+                var response = _advisorService.ProcessAdvisorQuery("what am I missing");
+                if (response == null || response.Sections.Count == 0)
+                {
+                    _aiAnalysisPanel.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                // Filter out items already in the OCR result
+                var existingDescs = result.DetectedOperations
+                    .Select(o => o.Description?.ToLowerInvariant() ?? "")
+                    .ToHashSet();
+
+                var missingItems = response.Sections
+                    .SelectMany(s => s.Items)
+                    .Where(item => !existingDescs.Any(d => d.Contains(item.Description?.ToLowerInvariant() ?? "~")))
+                    .ToList();
+
+                if (missingItems.Count == 0)
+                {
+                    _aiAnalysisPanel.Visibility = Visibility.Collapsed;
+                    return;
+                }
+
+                // Header
+                var headerBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 0, 0, 4)
+                };
+                headerBorder.Child = new TextBlock
+                {
+                    Text = $"\uD83E\uDDE0 AI Analysis: {missingItems.Count} potentially missing operations",
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 140))
+                };
+                _aiAnalysisPanel.Children.Add(headerBorder);
+
+                // Missing items
+                foreach (var item in missingItems.Take(10))
+                {
+                    var confColor = item.Confidence >= 0.7
+                        ? Color.FromArgb(255, 80, 190, 80)
+                        : item.Confidence >= 0.4
+                            ? Color.FromArgb(255, 220, 180, 60)
+                            : Color.FromArgb(255, 220, 130, 60);
+                    var confText = item.Confidence >= 0.7 ? "HIGH" : item.Confidence >= 0.4 ? "MED" : "LOW";
+
+                    var row = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 42, 47, 56)),
+                        CornerRadius = new CornerRadius(4),
+                        Padding = new Thickness(8, 4, 8, 4),
+                        Margin = new Thickness(0, 1, 0, 1)
+                    };
+
+                    var grid = new Grid();
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var desc = new TextBlock
+                    {
+                        Text = item.Description,
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Colors.White),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    Grid.SetColumn(desc, 0);
+                    grid.Children.Add(desc);
+
+                    var badge = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(40, confColor.R, confColor.G, confColor.B)),
+                        CornerRadius = new CornerRadius(3),
+                        Padding = new Thickness(5, 1, 5, 1),
+                        Margin = new Thickness(6, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    badge.Child = new TextBlock
+                    {
+                        Text = confText,
+                        FontSize = 9,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(confColor)
+                    };
+                    Grid.SetColumn(badge, 1);
+                    grid.Children.Add(badge);
+
+                    if (item.Hours > 0)
+                    {
+                        var hours = new TextBlock
+                        {
+                            Text = $"{item.Hours:F1}h",
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = new Thickness(6, 0, 0, 0)
+                        };
+                        Grid.SetColumn(hours, 2);
+                        grid.Children.Add(hours);
+                    }
+
+                    row.Child = grid;
+                    _aiAnalysisPanel.Children.Add(row);
+                }
+
+                // Summary
+                if (!string.IsNullOrWhiteSpace(response.Summary))
+                {
+                    _aiAnalysisPanel.Children.Add(new TextBlock
+                    {
+                        Text = response.Summary,
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(0, 4, 0, 0)
+                    });
+                }
+
+                _aiAnalysisPanel.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                _aiAnalysisPanel.Visibility = Visibility.Collapsed;
             }
         }
 

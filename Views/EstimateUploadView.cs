@@ -76,6 +76,9 @@ namespace McStudDesktop.Views
         private readonly EstimateReferenceMatcherService _referenceMatcher;
         private TextBlock? _refMatchStatusText;
 
+        // Events
+        public event EventHandler<TrainingCompletedEventArgs>? OnTrainingCompleted;
+
         // Parsed data
         private List<ParsedEstimateLine> _parsedLines = new();
 
@@ -144,10 +147,10 @@ namespace McStudDesktop.Views
                 _publishButton.Visibility = canTrain ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            // Show/hide export baseline button (Admin only)
+            // Show/hide publish knowledge button (Shop/Admin)
             if (_exportBaselineButton != null)
             {
-                _exportBaselineButton.Visibility = _learningService.CurrentTier == LicenseTier.Admin
+                _exportBaselineButton.Visibility = _learningService.CurrentTier != LicenseTier.Client
                     ? Visibility.Visible : Visibility.Collapsed;
             }
         }
@@ -231,7 +234,7 @@ namespace McStudDesktop.Views
             ToolTipService.SetToolTip(_publishButton, "Bake learned knowledge into app for distribution. Other users will get your learning when they receive the app.");
             statsSection.Children.Add(_publishButton);
 
-            // Export Baseline button (Admin only) - Exports sanitized data for all services
+            // Publish Knowledge button (Shop/Admin only) - Exports sanitized data for distribution to all users
             _exportBaselineButton = new Button
             {
                 Content = new StackPanel
@@ -240,18 +243,18 @@ namespace McStudDesktop.Views
                     Spacing = 6,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uEDE1", FontSize = 12 }, // Database icon
-                        new TextBlock { Text = "Export Baseline", FontSize = 11 }
+                        new FontIcon { Glyph = "\uE72D", FontSize = 12 }, // Upload/cloud icon
+                        new TextBlock { Text = "Publish Knowledge to Users", FontSize = 11 }
                     }
                 },
-                Background = new SolidColorBrush(Color.FromArgb(255, 140, 80, 80)),
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 120, 80)),
                 Foreground = new SolidColorBrush(Colors.White),
                 Padding = new Thickness(12, 6, 12, 6),
                 CornerRadius = new CornerRadius(4),
-                Visibility = _learningService.CurrentTier == LicenseTier.Admin ? Visibility.Visible : Visibility.Collapsed
+                Visibility = _learningService.CurrentTier != LicenseTier.Client ? Visibility.Visible : Visibility.Collapsed
             };
             _exportBaselineButton.Click += ExportBaselineButton_Click;
-            ToolTipService.SetToolTip(_exportBaselineButton, "Export and sanitize ALL learning data (history, feedback, accuracy) for distribution as baseline. Admin only.");
+            ToolTipService.SetToolTip(_exportBaselineButton, "Sanitize and export all learning data, bump version, then push to GitHub so all users receive your knowledge.");
             statsSection.Children.Add(_exportBaselineButton);
 
             Grid.SetColumn(statsSection, 1);
@@ -1637,6 +1640,18 @@ namespace McStudDesktop.Views
 
                 ShowStatus($"Learned from estimate (${estimateTotal:N0}): {parts} parts, {manual} operations{qualityNote}", isSuccess: true);
 
+                // Notify listeners about training completion
+                OnTrainingCompleted?.Invoke(this, new TrainingCompletedEventArgs
+                {
+                    PartsCount = parts,
+                    OperationsCount = manual,
+                    EstimateTotal = estimateTotal,
+                    QualityScore = _currentQualityRecord?.QualityScore ?? 0
+                });
+
+                // Post AI summary to chat feed
+                PostTrainingSummaryToChat(parts, manual, estimateTotal);
+
                 // Clear for next batch
                 _parsedLines.Clear();
                 _parsedItemsList!.Items.Clear();
@@ -1914,15 +1929,15 @@ namespace McStudDesktop.Views
 
         private async void ExportBaselineButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_learningService.CurrentTier != LicenseTier.Admin)
+            if (_learningService.CurrentTier == LicenseTier.Client)
             {
-                ShowStatus("Baseline export is only available for Admin users.", isError: true);
+                ShowStatus("Publishing knowledge is only available for Shop/Admin users.", isError: true);
                 return;
             }
 
             var dialog = new ContentDialog
             {
-                Title = "Export Baseline Data",
+                Title = "Publish Knowledge to Users",
                 Content = new StackPanel
                 {
                     Spacing = 12,
@@ -1930,7 +1945,7 @@ namespace McStudDesktop.Views
                     {
                         new TextBlock
                         {
-                            Text = "This will export and sanitize ALL your learning data for distribution as baseline.",
+                            Text = "This will sanitize and export your learning data so all users receive your knowledge on their next update check.",
                             TextWrapping = TextWrapping.Wrap
                         },
                         new TextBlock
@@ -1940,14 +1955,14 @@ namespace McStudDesktop.Views
                         },
                         new TextBlock
                         {
-                            Text = "After export, bump Data/baseline_version.txt and build to ship the update.",
+                            Text = "Version will auto-increment. After export, push the Data/ files to GitHub.",
                             TextWrapping = TextWrapping.Wrap,
                             FontStyle = Windows.UI.Text.FontStyle.Italic,
                             Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180))
                         }
                     }
                 },
-                PrimaryButtonText = "Export",
+                PrimaryButtonText = "Publish",
                 CloseButtonText = "Cancel",
                 XamlRoot = this.XamlRoot,
                 DefaultButton = ContentDialogButton.Primary
@@ -1956,17 +1971,17 @@ namespace McStudDesktop.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                ShowStatus("Exporting baseline data...");
+                ShowStatus("Publishing knowledge...");
 
                 var exportResult = BaselineExportTool.ExportAndSanitize();
 
                 if (exportResult.Success)
                 {
-                    ShowStatus("Baseline exported successfully!", isSuccess: true);
+                    ShowStatus($"Knowledge published as v{exportResult.NewVersion}!", isSuccess: true);
 
                     var successDialog = new ContentDialog
                     {
-                        Title = "Baseline Exported",
+                        Title = $"Knowledge Published (v{exportResult.NewVersion})",
                         Content = new StackPanel
                         {
                             Spacing = 8,
@@ -1987,7 +2002,8 @@ namespace McStudDesktop.Views
                                 },
                                 new TextBlock
                                 {
-                                    Text = "\nNext: Bump baseline_version.txt and rebuild.",
+                                    Text = "\nNext: Push the Data/ folder to GitHub (mcstud/mcstud-data).\nUsers will receive this knowledge on their next update check.",
+                                    TextWrapping = TextWrapping.Wrap,
                                     FontStyle = Windows.UI.Text.FontStyle.Italic,
                                     Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150))
                                 }
@@ -2000,7 +2016,7 @@ namespace McStudDesktop.Views
                 }
                 else
                 {
-                    ShowStatus($"Export failed: {exportResult.Message}", isError: true);
+                    ShowStatus($"Publish failed: {exportResult.Message}", isError: true);
                 }
             }
         }
@@ -2013,6 +2029,37 @@ namespace McStudDesktop.Views
                 isSuccess ? Color.FromArgb(255, 100, 220, 150) :
                 Color.FromArgb(255, 180, 180, 180)
             );
+        }
+
+        private void PostTrainingSummaryToChat(int parts, int manual, decimal estimateTotal)
+        {
+            try
+            {
+                var learning = EstimateLearningService.Instance;
+                var history = EstimateHistoryDatabase.Instance;
+                var stats = learning.GetStatistics();
+
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"\u2705 Learned from estimate (${estimateTotal:N0})");
+                sb.AppendLine($"   {parts} parts, {manual} operations absorbed");
+                sb.AppendLine($"   AI now trained on {stats.TotalEstimatesTrained} estimates | {stats.TotalPatterns} patterns");
+
+                var insurers = history.KnownInsurers;
+                if (insurers?.Count > 0)
+                {
+                    sb.AppendLine($"   Insurer playbooks: {string.Join(", ", insurers.Take(5))}{(insurers.Count > 5 ? $" +{insurers.Count - 5} more" : "")}");
+                }
+
+                var followUps = new List<string>
+                {
+                    "What am I missing?",
+                    "Show my accuracy stats",
+                    "Review learned patterns"
+                };
+
+                ChatbotView.Instance?.PostAISummary(sb.ToString(), followUps);
+            }
+            catch { }
         }
 
         private void ShowProgress(bool show)
@@ -2535,5 +2582,13 @@ namespace McStudDesktop.Views
         }
 
         #endregion
+    }
+
+    public class TrainingCompletedEventArgs : EventArgs
+    {
+        public int PartsCount { get; set; }
+        public int OperationsCount { get; set; }
+        public decimal EstimateTotal { get; set; }
+        public int QualityScore { get; set; }
     }
 }

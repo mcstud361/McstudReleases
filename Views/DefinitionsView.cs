@@ -1508,6 +1508,18 @@ namespace McStudDesktop.Views
             copyBtn.Click += (s, e) => CopyDefinitionToClipboard(def);
             buttonRow.Children.Add(copyBtn);
 
+            var readAloudBtn = Services.TextToSpeechService.CreateReadAloudButton(() =>
+            {
+                var sb = new System.Text.StringBuilder();
+                if (!string.IsNullOrEmpty(def.Term)) sb.AppendLine(def.Term);
+                if (!string.IsNullOrEmpty(def.Definition)) sb.AppendLine(def.Definition);
+                if (!string.IsNullOrEmpty(def.Details)) sb.AppendLine(def.Details);
+                if (!string.IsNullOrEmpty(def.DegInquiry)) sb.AppendLine("DEG Inquiry: " + def.DegInquiry);
+                if (!string.IsNullOrEmpty(def.DegResponse)) sb.AppendLine("DEG Response: " + def.DegResponse);
+                return sb.ToString();
+            });
+            buttonRow.Children.Add(readAloudBtn);
+
             contentStack.Children.Add(buttonRow);
 
             expander.Content = contentStack;

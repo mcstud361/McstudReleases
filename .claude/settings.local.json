@@ -190,7 +190,10 @@
       "WebFetch(domain:www.collisionrepairmag.com)",
       "WebFetch(domain:www.nvidia.com)",
       "WebFetch(domain:www.mitchell.com)",
-      "Bash(\"C:/Users/mcnee/AppData/Local/Programs/Python/Python313/python.exe\":*)"
+      "Bash(\"C:/Users/mcnee/AppData/Local/Programs/Python/Python313/python.exe\":*)",
+      "Bash(explorer.exe:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

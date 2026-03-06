@@ -50,10 +50,11 @@ public class ShopDocsPdfService
                         column.Item().Element(c => ComposeCustomerInfo(c, data.BillTo, data.JobNumber, data.Vehicle));
 
                         // Items table
-                        column.Item().Element(c => ComposeColorTintItemsTable(c, data.Items));
+                        column.Item().Element(c => ComposeColorTintItemsTable(c, data.Items, data.ShowCostColumn, data.ShowListPriceColumn));
 
                         // Totals
-                        column.Item().Element(c => ComposeInvoiceTotals(c, data.Subtotal, data.TaxRate, data.Tax, data.Total));
+                        column.Item().Element(c => ComposeInvoiceTotalsWithPricing(c, data.Subtotal, data.TaxRate, data.Tax, data.Total,
+                            data.ShowCostColumn, data.CostSubtotal, data.ShowListPriceColumn, data.ListSubtotal));
                     });
                 });
 
@@ -64,7 +65,8 @@ public class ShopDocsPdfService
         return outputPath;
     }
 
-    private void ComposeColorTintItemsTable(IContainer container, List<ColorTintInvoicePdfItem> items)
+    private void ComposeColorTintItemsTable(IContainer container, List<ColorTintInvoicePdfItem> items,
+        bool showCost = false, bool showList = false)
     {
         container.Table(table =>
         {
@@ -73,7 +75,9 @@ public class ShopDocsPdfService
                 columns.ConstantColumn(40);  // Qty
                 columns.ConstantColumn(100); // Part #
                 columns.RelativeColumn(2);   // Description
+                if (showCost) columns.ConstantColumn(70); // Cost
                 columns.ConstantColumn(70);  // Unit Price
+                if (showList) columns.ConstantColumn(70); // List
                 columns.ConstantColumn(70);  // Total
             });
 
@@ -83,7 +87,11 @@ public class ShopDocsPdfService
                 header.Cell().Background(Colors.Grey.Darken3).Padding(6).Text("Qty").FontColor(Colors.White).Bold();
                 header.Cell().Background(Colors.Grey.Darken3).Padding(6).Text("Part #").FontColor(Colors.White).Bold();
                 header.Cell().Background(Colors.Grey.Darken3).Padding(6).Text("Description").FontColor(Colors.White).Bold();
-                header.Cell().Background(Colors.Grey.Darken3).Padding(6).AlignRight().Text("Unit Price").FontColor(Colors.White).Bold();
+                if (showCost)
+                    header.Cell().Background(Colors.Grey.Darken3).Padding(6).AlignRight().Text("Cost").FontColor(Colors.White).Bold();
+                header.Cell().Background(Colors.Grey.Darken3).Padding(6).AlignRight().Text("Bill Price").FontColor(Colors.White).Bold();
+                if (showList)
+                    header.Cell().Background(Colors.Grey.Darken3).Padding(6).AlignRight().Text("List Price").FontColor(Colors.White).Bold();
                 header.Cell().Background(Colors.Grey.Darken3).Padding(6).AlignRight().Text("Total").FontColor(Colors.White).Bold();
             });
 
@@ -95,7 +103,11 @@ public class ShopDocsPdfService
                 table.Cell().Background(bgColor).Padding(5).Text(item.Quantity.ToString());
                 table.Cell().Background(bgColor).Padding(5).Text(item.PartNumber ?? "");
                 table.Cell().Background(bgColor).Padding(5).Text(item.Description ?? "");
+                if (showCost)
+                    table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.CostPrice:F2}");
                 table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.UnitPrice:F2}");
+                if (showList)
+                    table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.ListPrice:F2}");
                 table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.LineTotal:F2}");
             }
         });
@@ -129,10 +141,11 @@ public class ShopDocsPdfService
                         column.Item().Element(c => ComposeCustomerInfo(c, data.CustomerName, data.JobNumber, data.Vehicle));
 
                         // Items table
-                        column.Item().Element(c => ComposeShopStockItemsTable(c, data.Items));
+                        column.Item().Element(c => ComposeShopStockItemsTable(c, data.Items, data.ShowCostColumn, data.ShowListPriceColumn));
 
                         // Totals
-                        column.Item().Element(c => ComposeInvoiceTotals(c, data.Subtotal, data.TaxRate, data.Tax, data.Total));
+                        column.Item().Element(c => ComposeInvoiceTotalsWithPricing(c, data.Subtotal, data.TaxRate, data.Tax, data.Total,
+                            data.ShowCostColumn, data.CostSubtotal, data.ShowListPriceColumn, data.ListSubtotal));
                     });
                 });
 
@@ -189,7 +202,8 @@ public class ShopDocsPdfService
         });
     }
 
-    private void ComposeShopStockItemsTable(IContainer container, List<ShopStockInvoicePdfItem> items)
+    private void ComposeShopStockItemsTable(IContainer container, List<ShopStockInvoicePdfItem> items,
+        bool showCost = false, bool showList = false)
     {
         container.Table(table =>
         {
@@ -198,7 +212,9 @@ public class ShopDocsPdfService
                 columns.ConstantColumn(40);  // Qty
                 columns.ConstantColumn(90);  // Part #
                 columns.RelativeColumn(2);   // Description
+                if (showCost) columns.ConstantColumn(70); // Cost
                 columns.ConstantColumn(70);  // Unit Price
+                if (showList) columns.ConstantColumn(70); // List
                 columns.ConstantColumn(70);  // Total
             });
 
@@ -208,7 +224,11 @@ public class ShopDocsPdfService
                 header.Cell().Background(Colors.Blue.Darken3).Padding(6).Text("Qty").FontColor(Colors.White).Bold();
                 header.Cell().Background(Colors.Blue.Darken3).Padding(6).Text("Part #").FontColor(Colors.White).Bold();
                 header.Cell().Background(Colors.Blue.Darken3).Padding(6).Text("Description").FontColor(Colors.White).Bold();
-                header.Cell().Background(Colors.Blue.Darken3).Padding(6).AlignRight().Text("Unit Price").FontColor(Colors.White).Bold();
+                if (showCost)
+                    header.Cell().Background(Colors.Blue.Darken3).Padding(6).AlignRight().Text("Cost").FontColor(Colors.White).Bold();
+                header.Cell().Background(Colors.Blue.Darken3).Padding(6).AlignRight().Text("Bill Price").FontColor(Colors.White).Bold();
+                if (showList)
+                    header.Cell().Background(Colors.Blue.Darken3).Padding(6).AlignRight().Text("List Price").FontColor(Colors.White).Bold();
                 header.Cell().Background(Colors.Blue.Darken3).Padding(6).AlignRight().Text("Total").FontColor(Colors.White).Bold();
             });
 
@@ -220,7 +240,11 @@ public class ShopDocsPdfService
                 table.Cell().Background(bgColor).Padding(5).Text(item.Quantity.ToString());
                 table.Cell().Background(bgColor).Padding(5).Text(item.PartNumber ?? "");
                 table.Cell().Background(bgColor).Padding(5).Text(item.Description ?? "");
+                if (showCost)
+                    table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.CostPrice:F2}");
                 table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.UnitPrice:F2}");
+                if (showList)
+                    table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.ListPrice:F2}");
                 table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${item.LineTotal:F2}");
             }
         });
@@ -517,6 +541,65 @@ public class ShopDocsPdfService
         });
     }
 
+    private void ComposeInvoiceTotalsWithPricing(IContainer container, decimal subtotal, decimal taxRate, decimal tax, decimal total,
+        bool showCost, decimal costSubtotal, bool showList, decimal listSubtotal)
+    {
+        container.AlignRight().Width(showCost || showList ? 300 : 200).Column(column =>
+        {
+            column.Item().Background(Colors.Grey.Lighten3).Padding(10).Column(col =>
+            {
+                col.Item().Row(row =>
+                {
+                    row.RelativeItem().Text("Subtotal:");
+                    row.AutoItem().Text($"${subtotal:F2}");
+                });
+
+                if (showCost)
+                {
+                    col.Item().PaddingTop(3).Row(row =>
+                    {
+                        row.RelativeItem().Text("Cost Total:").FontSize(9).FontColor(Colors.Grey.Darken1);
+                        row.AutoItem().Text($"${costSubtotal:F2}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                    });
+
+                    // Profit margin when cost is visible
+                    var margin = subtotal > 0 && costSubtotal > 0 ? ((subtotal - costSubtotal) / subtotal * 100) : 0;
+                    col.Item().Row(row =>
+                    {
+                        row.RelativeItem().Text("Margin:").FontSize(9).FontColor(Colors.Green.Darken2);
+                        row.AutoItem().Text($"{margin:F1}%").FontSize(9).FontColor(Colors.Green.Darken2);
+                    });
+                }
+
+                if (showList)
+                {
+                    col.Item().PaddingTop(3).Row(row =>
+                    {
+                        row.RelativeItem().Text("List Total:").FontSize(9).FontColor(Colors.Grey.Darken1);
+                        row.AutoItem().Text($"${listSubtotal:F2}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                    });
+                }
+
+                if (taxRate > 0)
+                {
+                    col.Item().PaddingTop(5).Row(row =>
+                    {
+                        row.RelativeItem().Text($"Tax ({taxRate}%):");
+                        row.AutoItem().Text($"${tax:F2}");
+                    });
+                }
+
+                col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
+
+                col.Item().PaddingTop(8).Row(row =>
+                {
+                    row.RelativeItem().Text("TOTAL:").Bold().FontSize(14);
+                    row.AutoItem().Text($"${total:F2}").Bold().FontSize(14);
+                });
+            });
+        });
+    }
+
     private void ComposeFooter(IContainer container, string docType)
     {
         container.AlignCenter().Text(text =>
@@ -555,6 +638,10 @@ public class ColorTintInvoicePdfData
     public decimal TaxRate { get; set; }
     public decimal Tax { get; set; }
     public decimal Total { get; set; }
+    public bool ShowCostColumn { get; set; }
+    public bool ShowListPriceColumn { get; set; }
+    public decimal CostSubtotal { get; set; }
+    public decimal ListSubtotal { get; set; }
 }
 
 public class ColorTintInvoicePdfItem
@@ -564,6 +651,8 @@ public class ColorTintInvoicePdfItem
     public string? Description { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal CostPrice { get; set; }
+    public decimal ListPrice { get; set; }
 }
 
 public class ShopStockInvoicePdfData
@@ -582,6 +671,10 @@ public class ShopStockInvoicePdfData
     public decimal TaxRate { get; set; }
     public decimal Tax { get; set; }
     public decimal Total { get; set; }
+    public bool ShowCostColumn { get; set; }
+    public bool ShowListPriceColumn { get; set; }
+    public decimal CostSubtotal { get; set; }
+    public decimal ListSubtotal { get; set; }
 }
 
 public class ShopStockInvoicePdfItem
@@ -591,6 +684,8 @@ public class ShopStockInvoicePdfItem
     public string? Description { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal CostPrice { get; set; }
+    public decimal ListPrice { get; set; }
 }
 
 public class VehicleProtectionPdfData

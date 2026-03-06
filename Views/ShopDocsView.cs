@@ -63,6 +63,9 @@ namespace McStudDesktop.Views
         // PPF Pricing
         private PPFPricingView? _ppfPricingView;
 
+        // Price Catalogs
+        private PriceCatalogManagementView? _priceCatalogView;
+
         // Colors
         private static readonly Color DarkBg = Color.FromArgb(255, 18, 18, 18);
         private static readonly Color CardBg = Color.FromArgb(255, 28, 28, 28);
@@ -109,6 +112,7 @@ namespace McStudDesktop.Views
             BuildTowBillContent();
             BuildInvoicesContent();
             BuildPPFContent();
+            BuildPriceCatalogsContent();
             BuildMyDocsContent();
 
             Grid.SetRow(_subTabContent, 1);
@@ -189,6 +193,7 @@ namespace McStudDesktop.Views
                 ("Tow Bill", "\uE804", "Create & print tow bills"),
                 ("Invoices", "\uE9F9", "Color tint & shop stock invoices"),
                 ("Vehicle Protection", "\uE8B9", "PPF, ceramic coat & vinyl wrap quotes"),
+                ("Price Catalogs", "\uE8B5", "Supplier price sheets for auto-fill"),
                 ("My Docs", "\uE8B7", "Your custom documents folder")
             };
 
@@ -273,7 +278,7 @@ namespace McStudDesktop.Views
             }
 
             // Refresh My Docs list when switching to that tab
-            if (index == 5)
+            if (index == 6)
             {
                 RefreshMyDocsList();
             }
@@ -438,11 +443,25 @@ namespace McStudDesktop.Views
             _subTabContent?.Children.Add(container);
         }
 
+        private void BuildPriceCatalogsContent()
+        {
+            var container = new Grid
+            {
+                Tag = 5,
+                Visibility = Visibility.Collapsed
+            };
+
+            _priceCatalogView = new PriceCatalogManagementView();
+            container.Children.Add(_priceCatalogView);
+
+            _subTabContent?.Children.Add(container);
+        }
+
         private void BuildMyDocsContent()
         {
             var scrollViewer = new ScrollViewer
             {
-                Tag = 5,
+                Tag = 6,
                 Visibility = Visibility.Collapsed,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
@@ -1288,11 +1307,15 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Colors.White)
             });
 
-            if (!string.IsNullOrEmpty(checklist.ShopName))
+            // Show shop name from settings (user-editable), fall back to checklist's shopName
+            var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+            if (string.IsNullOrEmpty(shopName))
+                shopName = checklist.ShopName;
+            if (!string.IsNullOrEmpty(shopName))
             {
                 titleStack.Children.Add(new TextBlock
                 {
-                    Text = checklist.ShopName,
+                    Text = shopName,
                     FontSize = 11,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 210, 255)),
                     Margin = new Thickness(0, 2, 0, 0)

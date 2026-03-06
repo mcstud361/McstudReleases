@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using WinRT.Interop;
 using Windows.UI;
 using McStudDesktop.Views;
+using McStudDesktop.Services;
 using System.Runtime.InteropServices;
 
 namespace McstudDesktop;
@@ -106,9 +107,14 @@ public sealed class MainWindow : Window
         {
             ShowAdminTool();
         }
+        else if (LoginAuthService.IsSessionValid())
+        {
+            // Auto-login: session exists, skip login page
+            ShowUserTool();
+        }
         else
         {
-            ShowUserTool();
+            ShowLoginPage();
         }
     }
 
@@ -129,11 +135,77 @@ public sealed class MainWindow : Window
         }
     }
 
+    private void ShowLoginPage()
+    {
+        if (_contentGrid == null) return;
+
+        Title = "McStud - Login";
+
+        // Resize for login (centered, larger)
+        var hWnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+
+        // Remove always on top for login
+        var presenter = appWindow.Presenter as OverlappedPresenter;
+        if (presenter != null)
+        {
+            presenter.IsAlwaysOnTop = false;
+        }
+
+        int width = 500;
+        int height = 650;
+
+        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        var workArea = displayArea.WorkArea;
+
+        int x = (workArea.Width - width) / 2 + workArea.X;
+        int y = (workArea.Height - height) / 2 + workArea.Y;
+
+        appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+
+        _contentGrid.Children.Clear();
+
+        var loginView = new LoginView();
+        loginView.LoginSuccessful += (s, e) =>
+        {
+            ShowUserTool();
+        };
+        _contentGrid.Children.Add(loginView);
+
+        System.Diagnostics.Debug.WriteLine("[MainWindow] Showing Login Page");
+    }
+
     private void ShowUserTool()
     {
         if (_contentGrid == null) return;
 
         Title = "McStud Tool";
+
+        // Resize back to compact tool window in bottom-right
+        var hWnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+
+        int width = 380;
+        int height = 600;
+
+        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        var workArea = displayArea.WorkArea;
+
+        int x = workArea.Width - width - 20 + workArea.X;
+        int y = workArea.Height - height - 60 + workArea.Y;
+
+        appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+
+        // Re-enable always on top for tool mode
+        var presenter = appWindow.Presenter as OverlappedPresenter;
+        if (presenter != null)
+        {
+            presenter.IsAlwaysOnTop = true;
+        }
+        SetWindowAlwaysOnTop(hWnd);
+
         _contentGrid.Children.Clear();
 
         var toolView = new McStudToolView();

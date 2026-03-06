@@ -617,6 +617,17 @@ namespace McStudDesktop.Views
             addPdfBtn.Click += (s, e) => AddToPdfQueue(inquiry, addPdfBtn);
             buttonRow.Children.Add(addPdfBtn);
 
+            var readAloudBtn = Services.TextToSpeechService.CreateReadAloudButton(() =>
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"DEG Inquiry {inquiry.InquiryNumber}: {inquiry.Title}");
+                if (!string.IsNullOrEmpty(inquiry.Question)) sb.AppendLine("Question: " + inquiry.Question);
+                if (!string.IsNullOrEmpty(inquiry.Response)) sb.AppendLine("Response: " + inquiry.Response);
+                if (inquiry.KeyPoints?.Count > 0) { sb.AppendLine("Key Points:"); foreach (var kp in inquiry.KeyPoints) sb.AppendLine(kp); }
+                return sb.ToString();
+            });
+            buttonRow.Children.Add(readAloudBtn);
+
             contentStack.Children.Add(buttonRow);
 
             expander.Content = contentStack;

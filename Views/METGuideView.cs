@@ -541,6 +541,21 @@ namespace McStudDesktop.Views
                 }
             }
 
+            // Read Aloud button
+            var readAloudRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
+            var readAloudBtn = Services.TextToSpeechService.CreateReadAloudButton(() =>
+            {
+                var sb = new System.Text.StringBuilder();
+                if (!string.IsNullOrEmpty(topic.Title)) sb.AppendLine(topic.Title);
+                if (!string.IsNullOrEmpty(topic.Summary)) sb.AppendLine(topic.Summary);
+                if (topic.Content?.Count > 0) { foreach (var line in topic.Content) sb.AppendLine(line); }
+                if (topic.Tips?.Count > 0) { sb.AppendLine("Tips:"); foreach (var tip in topic.Tips) sb.AppendLine(tip); }
+                if (topic.Warnings?.Count > 0) { sb.AppendLine("Warnings:"); foreach (var w in topic.Warnings) sb.AppendLine(w); }
+                return sb.ToString();
+            });
+            readAloudRow.Children.Add(readAloudBtn);
+            headerStack.Children.Add(readAloudRow);
+
             headerBorder.Child = headerStack;
             panel.Children.Add(headerBorder);
 

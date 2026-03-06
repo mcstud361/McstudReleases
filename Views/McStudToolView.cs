@@ -196,6 +196,66 @@ namespace McStudDesktop.Views
             StartClipboardMonitoring();
             StartWindowTracking();
             CheckForUpdatesAsync();
+
+            this.Loaded += OnFirstLoaded;
+        }
+
+        private async void OnFirstLoaded(object sender, RoutedEventArgs e)
+        {
+            this.Loaded -= OnFirstLoaded;
+
+            // Small delay to let UI finish rendering
+            await Task.Delay(500);
+
+            try
+            {
+                var onboarding = Services.OnboardingStateService.Instance;
+
+                if (onboarding.IsFirstLaunch)
+                {
+                    var result = await WelcomeDialog.ShowAsync(this.XamlRoot);
+                    if (result == ContentDialogResult.Primary)
+                    {
+                        StartSpotlightTour();
+                    }
+                    onboarding.MarkFirstLaunchComplete();
+                    onboarding.MarkVersionSeen();
+                }
+                else if (onboarding.HasNewVersionSinceLastSeen())
+                {
+                    await WhatsNewDialog.ShowAsync(this.XamlRoot, onboarding.GetLastSeenVersion());
+                    onboarding.MarkVersionSeen();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Onboarding] Error: {ex.Message}");
+            }
+        }
+
+        public void StartSpotlightTour()
+        {
+            var steps = new System.Collections.Generic.List<TourStep>
+            {
+                new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Your virtual clipboard. Copy lines from Excel and McStud reads them automatically. Hit the CCC or Mitchell button and it types everything into the estimating platform for you.", TabIndex = 0 },
+                new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Ask the AI assistant any estimating questions. Get help with procedures, guidelines, and best practices.", TabIndex = 1 },
+                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDF estimates for analysis. The tool will parse operations, identify references, and help you review the estimate.", TabIndex = 2 },
+                new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Track your export statistics — see how many operations you've exported, which platforms you use most, and your activity over time.", TabIndex = 3 },
+                new TourStep { Target = _referenceTabButton!, Icon = "\uE82D", Title = "Reference", Description = "Access Definitions, DEG Inquiries, P-Pages, and Procedures all in one place. Search and queue references for PDF export.", TabIndex = 4 },
+                new TourStep { Target = _settingsTabButton!, Icon = "\uE713", Title = "Settings", Description = "Manage app settings, check for updates, view version info, and configure text-to-speech voice.", TabIndex = 5 },
+                new TourStep { Target = _guideTabButton!, Icon = "\uE82D", Title = "Guide", Description = "Step-by-step MET guides to help you through common estimating tasks and procedures.", TabIndex = 6 },
+                new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Access checklists, invoices, and shop documents. Create custom checklists and export them to PDF.", TabIndex = 7 }
+            };
+
+            var overlay = new SpotlightTourOverlay(steps, SelectTab);
+            overlay.TourCompleted += (s, e) => System.Diagnostics.Debug.WriteLine("[Tour] Completed");
+            overlay.TourSkipped += (s, e) => System.Diagnostics.Debug.WriteLine("[Tour] Skipped");
+
+            var rootGrid = McstudDesktop.App.MainWindow?.Content as Grid;
+            if (rootGrid != null)
+            {
+                rootGrid.Children.Add(overlay);
+            }
         }
 
         private async void CheckForUpdatesAsync()
@@ -796,7 +856,7 @@ namespace McStudDesktop.Views
             }
         }
 
-        private void SelectTab(int tabIndex)
+        internal void SelectTab(int tabIndex)
         {
             _selectedTabIndex = tabIndex;
 
@@ -1358,6 +1418,92 @@ namespace McStudDesktop.Views
             versionCard.Child = versionStack;
             mainStack.Children.Add(versionCard);
 
+            // === SHOP NAME SECTION ===
+            var shopNameCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(20),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var shopNameStack = new StackPanel { Spacing = 10 };
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Shop Info",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Your shop name appears on checklists and shop documents",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
+            });
+
+            var shopDocsSettings = ShopDocsSettingsService.Instance.GetSettings();
+            var shopNameBox = new TextBox
+            {
+                PlaceholderText = "Enter your body shop name",
+                Text = shopDocsSettings.ShopName ?? "",
+                FontSize = 13,
+                Width = 350,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            shopNameBox.LostFocus += (s, e) =>
+            {
+                var settings = ShopDocsSettingsService.Instance.GetSettings();
+                settings.ShopName = shopNameBox.Text?.Trim() ?? "";
+                ShopDocsSettingsService.Instance.SaveSettings(settings);
+            };
+            shopNameStack.Children.Add(shopNameBox);
+
+            shopNameCard.Child = shopNameStack;
+            mainStack.Children.Add(shopNameCard);
+
+            // === APP TOUR SECTION ===
+            var tourCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(20),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var tourStack = new StackPanel { Spacing = 12 };
+            tourStack.Children.Add(new TextBlock
+            {
+                Text = "App Tour",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+            tourStack.Children.Add(new TextBlock
+            {
+                Text = "Take a guided tour of all the tabs and features in McStud Tool.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var replayTourButton = new Button
+            {
+                Padding = new Thickness(20, 10, 20, 10),
+                Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 200)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(4)
+            };
+            var replayContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            replayContent.Children.Add(new FontIcon { Glyph = "\uE8B0", FontSize = 16 });
+            replayContent.Children.Add(new TextBlock { Text = "Replay Tour" });
+            replayTourButton.Content = replayContent;
+            replayTourButton.Click += (s, e) => StartSpotlightTour();
+            tourStack.Children.Add(replayTourButton);
+
+            tourCard.Child = tourStack;
+            mainStack.Children.Add(tourCard);
+
             // === WHAT'S NEW SECTION ===
             var whatsNewCard = new Border
             {
@@ -1368,59 +1514,100 @@ namespace McStudDesktop.Views
             };
 
             var whatsNewStack = new StackPanel { Spacing = 12 };
-            whatsNewStack.Children.Add(new TextBlock
+
+            var changelog = Services.ChangelogData.GetChangelog();
+            var latest = changelog.FirstOrDefault();
+
+            // Header row: "What's New" + current version + date
+            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+            headerRow.Children.Add(new TextBlock
             {
                 Text = "What's New",
                 FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White)
             });
-
-            // Version history - newest at top. Add new versions here when releasing updates.
-            var changesList = new StackPanel { Spacing = 20 };
-
-            // v1.0.5 - Current
-            changesList.Children.Add(CreateVersionEntry("v1.0.5", "March 2026", new[]
+            if (latest != null)
             {
-                "Auto-matched references now go to a staging panel for review before adding to PDF queue",
-                "Checkbox list grouped by source type (Definitions, P-Pages, DEG, Procedures, Incl/Not Incl)",
-                "Add Selected, Add All, and Clear actions for staged reference matches",
-                "OCR and estimate upload matches merge into staging without duplicates"
-            }));
+                headerRow.Children.Add(new TextBlock
+                {
+                    Text = latest.Version,
+                    FontSize = 14,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 150, 255)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                headerRow.Children.Add(new TextBlock
+                {
+                    Text = $"— {latest.Date}",
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+            whatsNewStack.Children.Add(headerRow);
 
-            // v1.0.4
-            changesList.Children.Add(CreateVersionEntry("v1.0.4", "February 2026", new[]
+            // Version history as collapsible expanders
+            foreach (var entry in changelog)
             {
-                "Consolidated Shop Docs tab - Invoices and PPF now under Shop Docs",
-                "Custom checklists - duplicate, edit, create your own checklists",
-                "Checklist editor with add/remove sections and items",
-                "Material suggestions - consumables needed per repair operation",
-                "PDF export for Color Tint, Shop Stock, and PPF invoices",
-                "Consistent 'Export to PDF' wording across all documents",
-                "Driveable vehicle assessment checklist"
-            }));
+                var expander = new Expander
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    IsExpanded = entry == latest,
+                    Padding = new Thickness(0)
+                };
 
-            // v1.0.3
-            changesList.Children.Add(CreateVersionEntry("v1.0.3", "February 2026", new[]
-            {
-                "Added What's New section in Settings",
-                "Removed redundant help button from tab bar"
-            }));
+                // Expander header: version + date
+                var expanderHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+                expanderHeader.Children.Add(new TextBlock
+                {
+                    Text = entry.Version,
+                    FontSize = 14,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 150, 255))
+                });
+                expanderHeader.Children.Add(new TextBlock
+                {
+                    Text = entry.Date,
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                expanderHeader.Children.Add(new TextBlock
+                {
+                    Text = $"({entry.Changes.Length} changes)",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 90, 90, 90)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                expander.Header = expanderHeader;
 
-            // v1.0.0 - Initial Release
-            changesList.Children.Add(CreateVersionEntry("v1.0.0", "February 2026", new[]
-            {
-                "Export to CCC Desktop and Mitchell",
-                "Smart Paste with auto-detection",
-                "Clipboard monitoring",
-                "Chat assistant",
-                "PDF estimate import",
-                "Export statistics",
-                "Reference library (Definitions, DEG, P-Pages, Procedures)",
-                "Auto-update"
-            }));
+                // Expander content: bullet list of changes
+                var changeStack = new StackPanel { Spacing = 4, Margin = new Thickness(4, 4, 0, 4) };
+                foreach (var change in entry.Changes)
+                {
+                    var changeRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                    changeRow.Children.Add(new TextBlock
+                    {
+                        Text = "•",
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100))
+                    });
+                    changeRow.Children.Add(new TextBlock
+                    {
+                        Text = change,
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                    changeStack.Children.Add(changeRow);
+                }
+                expander.Content = changeStack;
 
-            whatsNewStack.Children.Add(changesList);
+                whatsNewStack.Children.Add(expander);
+            }
+
             whatsNewCard.Child = whatsNewStack;
             mainStack.Children.Add(whatsNewCard);
 
@@ -1457,6 +1644,81 @@ namespace McStudDesktop.Views
 
             supportCard.Child = supportStack;
             mainStack.Children.Add(supportCard);
+
+            // === TEXT-TO-SPEECH SECTION ===
+            var ttsCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(20),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var ttsStack = new StackPanel { Spacing = 12 };
+            ttsStack.Children.Add(new TextBlock
+            {
+                Text = "Text-to-Speech",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+            ttsStack.Children.Add(new TextBlock
+            {
+                Text = "Choose the voice used for Read Aloud buttons throughout the app.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var voiceCombo = new ComboBox
+            {
+                MinWidth = 280,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50))
+            };
+
+            var tts = Services.TextToSpeechService.Instance;
+            var voices = Services.TextToSpeechService.GetAvailableVoices();
+            int selectedIndex = 0;
+            for (int i = 0; i < voices.Count; i++)
+            {
+                var v = voices[i];
+                voiceCombo.Items.Add(new ComboBoxItem
+                {
+                    Content = $"{v.DisplayName} ({v.Language})",
+                    Tag = v.DisplayName
+                });
+                if (v.DisplayName == tts.CurrentVoiceName)
+                    selectedIndex = i;
+            }
+            voiceCombo.SelectedIndex = selectedIndex;
+
+            voiceCombo.SelectionChanged += (s, e) =>
+            {
+                if (voiceCombo.SelectedItem is ComboBoxItem item && item.Tag is string name)
+                    tts.SetVoice(name);
+            };
+
+            ttsStack.Children.Add(voiceCombo);
+
+            // Preview button
+            var previewBtn = new Button
+            {
+                Padding = new Thickness(16, 8, 16, 8),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+                CornerRadius = new CornerRadius(4)
+            };
+            var previewContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            previewContent.Children.Add(new FontIcon { Glyph = "\uE767", FontSize = 14 });
+            previewContent.Children.Add(new TextBlock { Text = "Preview Voice" });
+            previewBtn.Content = previewContent;
+            previewBtn.Click += (s, e) =>
+            {
+                tts.SpeakAsync("This is a preview of the selected text-to-speech voice.");
+            };
+            ttsStack.Children.Add(previewBtn);
+
+            ttsCard.Child = ttsStack;
+            mainStack.Children.Add(ttsCard);
 
             // === ABOUT SECTION ===
             var aboutCard = new Border

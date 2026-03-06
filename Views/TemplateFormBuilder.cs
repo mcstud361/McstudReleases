@@ -13,13 +13,27 @@ using McStudDesktop.Services;
 namespace McStudDesktop.Views;
 
 /// <summary>
+/// State for a single charge item — replaces the old tuple.
+/// </summary>
+public class ChargeItemState
+{
+    public bool Selected { get; set; }
+    public decimal Amount { get; set; }
+    public decimal CostPrice { get; set; }
+    public decimal ListPrice { get; set; }
+    public decimal Quantity { get; set; } = 1;
+}
+
+/// <summary>
 /// Dynamic form builder that renders ShopDocTemplates as interactive UI.
 /// Supports:
 /// - Template selection (Original vs My Templates)
 /// - Make a Copy functionality
 /// - Edit mode for user templates (add/remove/modify fields)
 /// - Fill-out mode for all templates
-/// - PDF export
+/// - Side-by-side compact layout for small info sections
+/// - Dual pricing (cost / list price) with show/hide toggles
+/// - Catalog picker integration
 /// </summary>
 public class TemplateFormBuilder : UserControl
 {
@@ -50,8 +64,12 @@ public class TemplateFormBuilder : UserControl
     private Dictionary<string, object> _fieldValues = new();
     private Dictionary<string, UIElement> _fieldControls = new();
 
-    // Charge items state (itemId -> (isSelected, amount, quantity))
-    private Dictionary<string, (bool Selected, decimal Amount, decimal Quantity)> _chargeStates = new();
+    // Charge items state (itemId -> ChargeItemState)
+    private Dictionary<string, ChargeItemState> _chargeStates = new();
+
+    // Dual pricing toggle state
+    private bool _showCostColumn;
+    private bool _showListPriceColumn;
 
     // Events
     public event EventHandler<ShopDocTemplate>? TemplateChanged;
@@ -67,7 +85,9 @@ public class TemplateFormBuilder : UserControl
 
     public ShopDocTemplate? CurrentTemplate => _currentTemplate;
     public Dictionary<string, object> FieldValues => _fieldValues;
-    public Dictionary<string, (bool Selected, decimal Amount, decimal Quantity)> ChargeStates => _chargeStates;
+    public Dictionary<string, ChargeItemState> ChargeStates => _chargeStates;
+    public bool ShowCostColumn => _showCostColumn;
+    public bool ShowListPriceColumn => _showListPriceColumn;
 
     private void BuildUI()
     {
@@ -321,6 +341,26 @@ public class TemplateFormBuilder : UserControl
         TemplateChanged?.Invoke(this, template);
     }
 
+    #region Side-by-Side Layout Helpers
+
+    /// <summary>
+    /// Determines if a section is eligible for side-by-side (half-width) layout.
+    /// Criteria: not a charge section, not notes/multiline, <=6 fields, no explicit FullWidth hint.
+    /// </summary>
+    private bool CanPairSection(TemplateSection section)
+    {
+        if (section.IsChargeSection) return false;
+        if (section.LayoutHint == SectionLayoutHint.FullWidth) return false;
+        if (section.LayoutHint == SectionLayoutHint.HalfWidth) return true;
+
+        // Auto: pair if <=6 fields and no multiline fields
+        if (section.Fields.Count > 6) return false;
+        if (section.Fields.Any(f => f.FieldType == FieldType.MultilineText)) return false;
+        return true;
+    }
+
+    #endregion
+
     private void RenderForm()
     {
         if (_formContent == null || _currentTemplate == null) return;
@@ -372,12 +412,110 @@ public class TemplateFormBuilder : UserControl
         infoCard.Child = infoStack;
         _formContent.Children.Add(infoCard);
 
-        // Render each section
-        foreach (var section in _currentTemplate.Sections.OrderBy(s => s.Order))
+        // Render sections with side-by-side pairing
+        var sections = _currentTemplate.Sections.OrderBy(s => s.Order).ToList();
+        bool hasChargeSection = sections.Any(s => s.IsChargeSection);
+        bool toggleBarAdded = false;
+
+        int i = 0;
+        while (i < sections.Count)
         {
-            var sectionUI = RenderSection(section);
-            _formContent.Children.Add(sectionUI);
+            var section = sections[i];
+
+            // Add toggle bar before the first charge section
+            if (!toggleBarAdded && section.IsChargeSection && hasChargeSection)
+            {
+                _formContent.Children.Add(BuildPricingToggleBar());
+                toggleBarAdded = true;
+            }
+
+            // Try to pair two small info sections side-by-side
+            if (CanPairSection(section) && i + 1 < sections.Count && CanPairSection(sections[i + 1]))
+            {
+                var pairGrid = new Grid
+                {
+                    ColumnDefinitions =
+                    {
+                        new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                        new ColumnDefinition { Width = new GridLength(8) }, // gap
+                        new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+                    },
+                    Margin = new Thickness(0, 0, 0, 4)
+                };
+
+                var leftUI = (FrameworkElement)RenderSection(section);
+                Grid.SetColumn(leftUI, 0);
+                pairGrid.Children.Add(leftUI);
+
+                var rightUI = (FrameworkElement)RenderSection(sections[i + 1]);
+                Grid.SetColumn(rightUI, 2);
+                pairGrid.Children.Add(rightUI);
+
+                _formContent.Children.Add(pairGrid);
+                i += 2;
+            }
+            else
+            {
+                var sectionUI = RenderSection(section);
+                _formContent.Children.Add(sectionUI);
+                i++;
+            }
         }
+    }
+
+    private UIElement BuildPricingToggleBar()
+    {
+        var bar = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(16, 8, 16, 8),
+            Margin = new Thickness(0, 4, 0, 4)
+        };
+
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24 };
+
+        row.Children.Add(new TextBlock
+        {
+            Text = "Pricing Columns:",
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(TextGray),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var costToggle = new ToggleSwitch
+        {
+            Header = "Show Cost",
+            IsOn = _showCostColumn,
+            OnContent = "On",
+            OffContent = "Off",
+            MinWidth = 0
+        };
+        costToggle.Toggled += (s, e) =>
+        {
+            _showCostColumn = costToggle.IsOn;
+            RenderForm();
+        };
+        row.Children.Add(costToggle);
+
+        var listToggle = new ToggleSwitch
+        {
+            Header = "Show List Price",
+            IsOn = _showListPriceColumn,
+            OnContent = "On",
+            OffContent = "Off",
+            MinWidth = 0
+        };
+        listToggle.Toggled += (s, e) =>
+        {
+            _showListPriceColumn = listToggle.IsOn;
+            RenderForm();
+        };
+        row.Children.Add(listToggle);
+
+        bar.Child = row;
+        return bar;
     }
 
     private Border CreateBadge(string text, Color bgColor)
@@ -470,16 +608,36 @@ public class TemplateFormBuilder : UserControl
                 content.Children.Add(chargeRow);
             }
 
+            // Add Item buttons row
             if (section.AllowAddItems || _isEditMode)
             {
+                var addRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
+
                 var addChargeBtn = new Button
                 {
                     Content = "+ Add Item",
-                    Margin = new Thickness(0, 8, 0, 0),
                     Padding = new Thickness(12, 6, 12, 6)
                 };
                 addChargeBtn.Click += (s, e) => AddChargeItem(section);
-                content.Children.Add(addChargeBtn);
+                addRow.Children.Add(addChargeBtn);
+
+                // "Pick from Catalog" button (only when catalogs exist)
+                if (PriceCatalogService.Instance.GetAllCatalogs().Any())
+                {
+                    var pickBtn = new Button
+                    {
+                        Padding = new Thickness(12, 6, 12, 6),
+                        Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60))
+                    };
+                    var pickContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    pickContent.Children.Add(new FontIcon { Glyph = "\uE8B7", FontSize = 12 });
+                    pickContent.Children.Add(new TextBlock { Text = "Pick from Catalog", VerticalAlignment = VerticalAlignment.Center });
+                    pickBtn.Content = pickContent;
+                    pickBtn.Click += async (s, e) => await PickFromCatalog(section);
+                    addRow.Children.Add(pickBtn);
+                }
+
+                content.Children.Add(addRow);
             }
         }
         else
@@ -639,8 +797,17 @@ public class TemplateFormBuilder : UserControl
         // Initialize state
         if (!_chargeStates.ContainsKey(item.Id))
         {
-            _chargeStates[item.Id] = (item.IsEnabled, item.DefaultAmount, 1);
+            _chargeStates[item.Id] = new ChargeItemState
+            {
+                Selected = item.IsEnabled,
+                Amount = item.DefaultAmount,
+                CostPrice = item.DefaultCostPrice,
+                ListPrice = item.DefaultListPrice,
+                Quantity = 1
+            };
         }
+
+        var state = _chargeStates[item.Id];
 
         var row = new Grid
         {
@@ -650,34 +817,48 @@ public class TemplateFormBuilder : UserControl
             Margin = new Thickness(0, 2, 0, 2)
         };
 
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) }); // Checkbox
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Name
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) }); // Amount
+        // Dynamic columns: Checkbox | Name | [Cost] | Bill $ | [List $] | [Qty] | [Delete]
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });  // 0: Checkbox
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 1: Name
+
+        int colIdx = 2;
+        int costCol = -1, amountCol, listCol = -1, qtyCol = -1, deleteCol = -1;
+
+        if (_showCostColumn)
+        {
+            costCol = colIdx++;
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) }); // Cost
+        }
+
+        amountCol = colIdx++;
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) }); // Bill Price
+
+        if (_showListPriceColumn)
+        {
+            listCol = colIdx++;
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) }); // List Price
+        }
+
         if (item.ShowQuantity || item.IsPerMile || item.IsPerDay)
         {
+            qtyCol = colIdx++;
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) }); // Quantity
         }
+
         if (_isEditMode)
         {
+            deleteCol = colIdx++;
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) }); // Delete
         }
 
         // Checkbox for selection
         var checkbox = new CheckBox
         {
-            IsChecked = _chargeStates[item.Id].Selected,
+            IsChecked = state.Selected,
             VerticalAlignment = VerticalAlignment.Center
         };
-        checkbox.Checked += (s, e) =>
-        {
-            var state = _chargeStates[item.Id];
-            _chargeStates[item.Id] = (true, state.Amount, state.Quantity);
-        };
-        checkbox.Unchecked += (s, e) =>
-        {
-            var state = _chargeStates[item.Id];
-            _chargeStates[item.Id] = (false, state.Amount, state.Quantity);
-        };
+        checkbox.Checked += (s, e) => _chargeStates[item.Id].Selected = true;
+        checkbox.Unchecked += (s, e) => _chargeStates[item.Id].Selected = false;
         Grid.SetColumn(checkbox, 0);
         row.Children.Add(checkbox);
 
@@ -711,47 +892,81 @@ public class TemplateFormBuilder : UserControl
         Grid.SetColumn(nameControl, 1);
         row.Children.Add(nameControl);
 
-        // Amount
+        // Cost Price (optional column)
+        if (_showCostColumn && costCol >= 0)
+        {
+            var costBox = new NumberBox
+            {
+                Value = (double)state.CostPrice,
+                Minimum = 0,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                Header = "Cost $"
+            };
+            costBox.ValueChanged += (s, e) =>
+            {
+                _chargeStates[item.Id].CostPrice = (decimal)costBox.Value;
+                if (_isEditMode) item.DefaultCostPrice = (decimal)costBox.Value;
+            };
+            Grid.SetColumn(costBox, costCol);
+            row.Children.Add(costBox);
+        }
+
+        // Bill Price (Amount - always shown)
         var amountBox = new NumberBox
         {
-            Value = (double)_chargeStates[item.Id].Amount,
+            Value = (double)state.Amount,
             Minimum = 0,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
-            Header = _isEditMode ? "Default $" : "$"
+            Header = _isEditMode ? "Default $" : "Bill $"
         };
         amountBox.ValueChanged += (s, e) =>
         {
-            var state = _chargeStates[item.Id];
-            _chargeStates[item.Id] = (state.Selected, (decimal)amountBox.Value, state.Quantity);
+            _chargeStates[item.Id].Amount = (decimal)amountBox.Value;
             if (_isEditMode) item.DefaultAmount = (decimal)amountBox.Value;
         };
-        Grid.SetColumn(amountBox, 2);
+        Grid.SetColumn(amountBox, amountCol);
         row.Children.Add(amountBox);
 
+        // List Price (optional column)
+        if (_showListPriceColumn && listCol >= 0)
+        {
+            var listBox = new NumberBox
+            {
+                Value = (double)state.ListPrice,
+                Minimum = 0,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                Header = "List $"
+            };
+            listBox.ValueChanged += (s, e) =>
+            {
+                _chargeStates[item.Id].ListPrice = (decimal)listBox.Value;
+                if (_isEditMode) item.DefaultListPrice = (decimal)listBox.Value;
+            };
+            Grid.SetColumn(listBox, listCol);
+            row.Children.Add(listBox);
+        }
+
         // Quantity (if needed)
-        int colIndex = 3;
-        if (item.ShowQuantity || item.IsPerMile || item.IsPerDay)
+        if (qtyCol >= 0)
         {
             var qtyLabel = item.QuantityLabel ?? (item.IsPerMile ? "Miles" : item.IsPerDay ? "Days" : "Qty");
             var qtyBox = new NumberBox
             {
-                Value = (double)_chargeStates[item.Id].Quantity,
+                Value = (double)state.Quantity,
                 Minimum = 0,
                 SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
                 Header = qtyLabel
             };
             qtyBox.ValueChanged += (s, e) =>
             {
-                var state = _chargeStates[item.Id];
-                _chargeStates[item.Id] = (state.Selected, state.Amount, (decimal)qtyBox.Value);
+                _chargeStates[item.Id].Quantity = (decimal)qtyBox.Value;
             };
-            Grid.SetColumn(qtyBox, colIndex);
+            Grid.SetColumn(qtyBox, qtyCol);
             row.Children.Add(qtyBox);
-            colIndex++;
         }
 
         // Delete button in edit mode
-        if (_isEditMode)
+        if (_isEditMode && deleteCol >= 0)
         {
             var deleteBtn = new Button
             {
@@ -761,12 +976,55 @@ public class TemplateFormBuilder : UserControl
                 VerticalAlignment = VerticalAlignment.Center
             };
             deleteBtn.Click += (s, e) => RemoveChargeItem(item);
-            Grid.SetColumn(deleteBtn, colIndex);
+            Grid.SetColumn(deleteBtn, deleteCol);
             row.Children.Add(deleteBtn);
         }
 
         return row;
     }
+
+    #region Catalog Picker
+
+    private async System.Threading.Tasks.Task PickFromCatalog(TemplateSection section)
+    {
+        if (this.XamlRoot == null) return;
+
+        var picker = new CatalogPickerDialog();
+        var result = await picker.ShowAsync(this.XamlRoot);
+
+        if (result != null)
+        {
+            var newItem = new TemplateChargeItem
+            {
+                Id = $"cat_{DateTime.Now.Ticks}",
+                Name = result.Description ?? result.PartNumber ?? "Catalog Item",
+                DefaultAmount = result.ListPrice > 0 ? result.ListPrice : result.CostPrice,
+                DefaultCostPrice = result.CostPrice,
+                DefaultListPrice = result.ListPrice,
+                PartNumber = result.PartNumber,
+                CatalogItemId = result.Id,
+                IsEnabled = true,
+                ShowQuantity = true,
+                QuantityLabel = result.Unit ?? "Each",
+                Order = section.ChargeItems.Count
+            };
+            section.ChargeItems.Add(newItem);
+
+            // Pre-fill state
+            _chargeStates[newItem.Id] = new ChargeItemState
+            {
+                Selected = true,
+                Amount = newItem.DefaultAmount,
+                CostPrice = newItem.DefaultCostPrice,
+                ListPrice = newItem.DefaultListPrice,
+                Quantity = 1
+            };
+
+            RenderForm();
+        }
+    }
+
+    #endregion
 
     #region Edit Mode Actions
 
@@ -936,15 +1194,17 @@ public class TemplateFormBuilder : UserControl
     public void ClearForm()
     {
         _fieldValues.Clear();
-        foreach (var (itemId, _) in _chargeStates.ToList())
+        foreach (var (itemId, st) in _chargeStates.ToList())
         {
-            _chargeStates[itemId] = (false, _chargeStates[itemId].Amount, 0);
+            st.Selected = false;
+            st.Quantity = 0;
         }
         RenderForm();
     }
 
     /// <summary>
-    /// Get all data for export
+    /// Get all data for export.
+    /// Returns expanded charge data with cost/list prices and toggle flags.
     /// </summary>
     public Dictionary<string, object> GetAllData()
     {
@@ -952,29 +1212,52 @@ public class TemplateFormBuilder : UserControl
 
         // Add charge totals
         decimal subtotal = 0;
-        var charges = new List<(string Name, decimal Amount)>();
+        decimal costSubtotal = 0;
+        decimal listSubtotal = 0;
+        var charges = new List<ChargeExportItem>();
 
         foreach (var (itemId, state) in _chargeStates)
         {
             if (state.Selected)
             {
-                var amount = state.Amount * state.Quantity;
-                subtotal += amount;
+                var lineAmount = state.Amount * state.Quantity;
+                subtotal += lineAmount;
 
-                // Find the item name
+                var lineCost = state.CostPrice * state.Quantity;
+                costSubtotal += lineCost;
+
+                var lineList = state.ListPrice * state.Quantity;
+                listSubtotal += lineList;
+
+                // Find the item definition
                 var item = _currentTemplate?.Sections
                     .SelectMany(s => s.ChargeItems)
                     .FirstOrDefault(i => i.Id == itemId);
 
                 if (item != null)
                 {
-                    charges.Add((item.Name, amount));
+                    charges.Add(new ChargeExportItem
+                    {
+                        Name = item.Name,
+                        Amount = lineAmount,
+                        CostPrice = lineCost,
+                        ListPrice = lineList,
+                        Quantity = state.Quantity,
+                        UnitAmount = state.Amount,
+                        UnitCostPrice = state.CostPrice,
+                        UnitListPrice = state.ListPrice,
+                        PartNumber = item.PartNumber
+                    });
                 }
             }
         }
 
         data["charges"] = charges;
         data["subtotal"] = subtotal;
+        data["costSubtotal"] = costSubtotal;
+        data["listSubtotal"] = listSubtotal;
+        data["showCostColumn"] = _showCostColumn;
+        data["showListPriceColumn"] = _showListPriceColumn;
 
         if (_currentTemplate?.Settings.IncludeTax == true)
         {
@@ -999,4 +1282,20 @@ public class TemplateFormBuilder : UserControl
     }
 
     #endregion
+}
+
+/// <summary>
+/// Export data for a single charge line item — rich data with cost/list pricing.
+/// </summary>
+public class ChargeExportItem
+{
+    public string Name { get; set; } = "";
+    public decimal Amount { get; set; }
+    public decimal CostPrice { get; set; }
+    public decimal ListPrice { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal UnitAmount { get; set; }
+    public decimal UnitCostPrice { get; set; }
+    public decimal UnitListPrice { get; set; }
+    public string? PartNumber { get; set; }
 }

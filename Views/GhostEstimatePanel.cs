@@ -23,6 +23,7 @@ namespace McStudDesktop.Views
     public sealed class GhostEstimatePanel : UserControl
     {
         private readonly GhostEstimateService _ghostService;
+        private readonly EstimateAIAdvisorService _advisorService;
         private readonly VehicleDiagramControl _vehicleDiagram;
 
         // Input fields
@@ -74,6 +75,7 @@ namespace McStudDesktop.Views
         public GhostEstimatePanel()
         {
             _ghostService = GhostEstimateService.Instance;
+            _advisorService = EstimateAIAdvisorService.Instance;
             _vehicleDiagram = new VehicleDiagramControl();
             _vehicleDiagram.PanelSelectionChanged += VehicleDiagram_SelectionChanged;
 
@@ -584,6 +586,208 @@ namespace McStudDesktop.Views
                 }
                 _resultsPanel?.Children.Add(notesPanel);
             }
+
+            // AI Advisor: Suggested Additions
+            AppendAdvisorSuggestions(result);
+        }
+
+        private void AppendAdvisorSuggestions(GuidanceEstimateResult result)
+        {
+            try
+            {
+                var vehicleInfo = _vehicleInfoBox?.Text?.Trim();
+                _advisorService.SetSessionContext(vehicleInfo, null);
+
+                // Track what's already in the guide so advisor can find gaps
+                foreach (var op in result.GuidanceOperations)
+                {
+                    _advisorService.TrackEnteredOperation(op.PartName, op.OperationType, op.LaborHours);
+                }
+
+                var response = _advisorService.ProcessAdvisorQuery("what am I missing");
+                if (response == null || response.Sections.Count == 0) return;
+
+                // Filter out items already in the guide
+                var existingKeys = result.GuidanceOperations
+                    .Select(o => o.Description?.ToLowerInvariant() ?? "")
+                    .ToHashSet();
+
+                var newItems = response.Sections
+                    .SelectMany(s => s.Items)
+                    .Where(item => !existingKeys.Contains(item.Description?.ToLowerInvariant() ?? ""))
+                    .ToList();
+
+                if (newItems.Count == 0) return;
+
+                // Build the section
+                var sectionBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 42)),
+                    CornerRadius = new CornerRadius(8),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 130, 80)),
+                    BorderThickness = new Thickness(1),
+                    Margin = new Thickness(0, 4, 0, 0)
+                };
+
+                var stack = new StackPanel();
+
+                // Header
+                var headerBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)),
+                    CornerRadius = new CornerRadius(8, 8, 0, 0),
+                    Padding = new Thickness(12, 8, 12, 8)
+                };
+                var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                headerRow.Children.Add(new TextBlock
+                {
+                    Text = "\uD83E\uDDE0 AI Suggested Additions",
+                    FontSize = 13,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 140)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                headerRow.Children.Add(new TextBlock
+                {
+                    Text = $"({newItems.Count} from learned patterns)",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                headerBorder.Child = headerRow;
+                stack.Children.Add(headerBorder);
+
+                // Items
+                var itemsPanel = new StackPanel { Spacing = 2, Padding = new Thickness(4) };
+                foreach (var item in newItems.Take(15))
+                {
+                    itemsPanel.Children.Add(CreateAdvisorSuggestionRow(item));
+                }
+                stack.Children.Add(itemsPanel);
+
+                // Summary
+                if (!string.IsNullOrWhiteSpace(response.Summary))
+                {
+                    var summaryBorder = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 30, 50, 50)),
+                        Padding = new Thickness(10, 6, 10, 6),
+                        Margin = new Thickness(4, 0, 4, 4),
+                        CornerRadius = new CornerRadius(4)
+                    };
+                    summaryBorder.Child = new TextBlock
+                    {
+                        Text = response.Summary,
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 180)),
+                        TextWrapping = TextWrapping.Wrap
+                    };
+                    stack.Children.Add(summaryBorder);
+                }
+
+                sectionBorder.Child = stack;
+                _resultsPanel?.Children.Add(sectionBorder);
+            }
+            catch { }
+        }
+
+        private Border CreateAdvisorSuggestionRow(AdvisorItem item)
+        {
+            var border = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 42, 47, 56)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(10, 5, 10, 5),
+                Margin = new Thickness(0, 1, 0, 1)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // Description
+            var desc = new TextBlock
+            {
+                Text = item.Description,
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(desc, 0);
+            grid.Children.Add(desc);
+
+            // Confidence badge
+            var (confColor, confText) = item.Confidence switch
+            {
+                >= 0.7 => (Color.FromArgb(255, 80, 190, 80), "HIGH"),
+                >= 0.4 => (Color.FromArgb(255, 220, 180, 60), "MED"),
+                _ => (Color.FromArgb(255, 220, 130, 60), "LOW")
+            };
+            var confBadge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(40, confColor.R, confColor.G, confColor.B)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 1, 5, 1),
+                Margin = new Thickness(6, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            confBadge.Child = new TextBlock
+            {
+                Text = confText,
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(confColor)
+            };
+            Grid.SetColumn(confBadge, 1);
+            grid.Children.Add(confBadge);
+
+            // Source badge
+            var srcNorm = (item.Source ?? "").ToLowerInvariant();
+            var (srcColor, srcLabel) = srcNorm switch
+            {
+                var s when s.Contains("learn") => (Color.FromArgb(255, 180, 130, 255), "LRN"),
+                var s when s.Contains("database") || s.Contains("history") => (Color.FromArgb(255, 100, 180, 255), "DB"),
+                var s when s.Contains("knowledge") => (Color.FromArgb(255, 100, 220, 180), "KB"),
+                _ => (Color.FromArgb(255, 150, 155, 160), "AI")
+            };
+            var srcBadge = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(40, srcColor.R, srcColor.G, srcColor.B)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 1, 5, 1),
+                Margin = new Thickness(4, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            srcBadge.Child = new TextBlock
+            {
+                Text = srcLabel,
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(srcColor)
+            };
+            Grid.SetColumn(srcBadge, 2);
+            grid.Children.Add(srcBadge);
+
+            // Hours
+            if (item.Hours > 0)
+            {
+                var hours = new TextBlock
+                {
+                    Text = $"{item.Hours:F1}h",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 0, 0)
+                };
+                Grid.SetColumn(hours, 3);
+                grid.Children.Add(hours);
+            }
+
+            border.Child = grid;
+            return border;
         }
 
         private void BuildSummaryCards(GuidanceEstimateResult result, List<GuidanceOperation> filteredOps)

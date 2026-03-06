@@ -63,9 +63,20 @@ namespace McStudDesktop.Services
                     result.PatternsExist = true;
                 }
 
+                // Auto-bump baseline version
+                var versionPath = Path.Combine(outputPath, "baseline_version.txt");
+                int currentVersion = 0;
+                if (File.Exists(versionPath))
+                {
+                    int.TryParse(File.ReadAllText(versionPath).Trim(), out currentVersion);
+                }
+                int newVersion = currentVersion + 1;
+                File.WriteAllText(versionPath, newVersion.ToString());
+                result.NewVersion = newVersion;
+
                 result.Success = true;
                 result.OutputPath = outputPath;
-                result.Message = $"Baseline exported: {result.EstimateHistoryCount} estimates, " +
+                result.Message = $"Baseline v{newVersion} exported: {result.EstimateHistoryCount} estimates, " +
                                  $"{result.FeedbackCount} feedback entries, " +
                                  $"{result.AccuracyCount} accuracy records";
 
@@ -302,6 +313,8 @@ namespace McStudDesktop.Services
 
         public bool PatternsExist { get; set; }
         public long PatternsSize { get; set; }
+
+        public int NewVersion { get; set; }
 
         public string FormattedSummary => $"Estimates: {EstimateHistoryCount} ({FormatSize(EstimateHistorySize)})\n" +
                                           $"Feedback: {FeedbackCount} ({FormatSize(FeedbackSize)})\n" +

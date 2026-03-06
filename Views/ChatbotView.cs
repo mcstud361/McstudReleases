@@ -83,8 +83,12 @@ public class ChatbotView : UserControl
     // Event to navigate to Export tab with operations loaded
     public event EventHandler? OnNavigateToExport;
 
+    // Static instance for cross-view messaging
+    public static ChatbotView? Instance { get; private set; }
+
     public ChatbotView()
     {
+        Instance = this;
         _chatbotService = new ChatbotService();
         _supplementService = SupplementDetectorService.Instance;
         _adasService = ADASMatrixService.Instance;
@@ -3422,6 +3426,17 @@ public class ChatbotView : UserControl
         ScrollToBottom();
     }
 
+    /// <summary>
+    /// Public method for other views to post AI intelligence summaries to the chat feed.
+    /// </summary>
+    public void PostAISummary(string message, List<string>? followUps = null)
+    {
+        DispatcherQueue?.TryEnqueue(() =>
+        {
+            AddBotMessage(message, followUps);
+        });
+    }
+
     private void AddBotMessage(string message, List<string>? relatedTopics = null)
     {
         var timestamp = DateTime.Now;
@@ -3534,6 +3549,14 @@ public class ChatbotView : UserControl
             Margin = new Thickness(4, 2, 4, 0)
         };
         container.Children.Add(timeText);
+
+        if (!isUser)
+        {
+            var readAloudBtn = Services.TextToSpeechService.CreateSmallReadAloudButton(() => message);
+            readAloudBtn.HorizontalAlignment = HorizontalAlignment.Left;
+            readAloudBtn.Margin = new Thickness(4, 2, 0, 0);
+            container.Children.Add(readAloudBtn);
+        }
 
         return container;
     }

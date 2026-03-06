@@ -509,6 +509,18 @@ public class ProceduresView : UserControl
         addToPdfButton.Click += (s, e) => AddToPdf(proc, addToPdfButton);
         buttonPanel.Children.Add(addToPdfButton);
 
+        var readAloudBtn = Services.TextToSpeechService.CreateReadAloudButton(() =>
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(proc.Name);
+            if (!string.IsNullOrEmpty(proc.Description)) sb.AppendLine(proc.Description);
+            if (proc.Steps?.Count > 0) { sb.AppendLine("Steps:"); foreach (var step in proc.Steps) sb.AppendLine(step); }
+            if (proc.Equipment?.Count > 0) { sb.AppendLine("Equipment:"); foreach (var eq in proc.Equipment) sb.AppendLine(eq); }
+            if (!string.IsNullOrEmpty(proc.Notes)) sb.AppendLine("Notes: " + proc.Notes);
+            return sb.ToString();
+        });
+        buttonPanel.Children.Add(readAloudBtn);
+
         contentPanel.Children.Add(buttonPanel);
         expander.Content = contentPanel;
 

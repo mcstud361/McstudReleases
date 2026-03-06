@@ -412,11 +412,12 @@ namespace McStudDesktop.Services
             // Step 3: Query Smart Suggestion Service for learned patterns
             foreach (var panel in affectedPanels)
             {
-                var primaryOp = panel.Severity.ToLower() switch
-                {
-                    "severe" or "heavy" => "Replace",
-                    _ => "Repair"
-                };
+                var primaryOp = panel.RefinishOnly ? (panel.ExplicitOperation ?? "Refinish") :
+                    panel.ExplicitOperation ?? (panel.Severity.ToLower() switch
+                    {
+                        "severe" or "heavy" => "Replace",
+                        _ => "Repair"
+                    });
 
                 var suggestions = _suggestionService.GetSuggestionsForPart(
                     panel.Name, primaryOp, input.VehicleInfo);
@@ -479,9 +480,22 @@ namespace McStudDesktop.Services
 
         private string NormalizeOperationKey(string partName, string operationName)
         {
-            return $"{partName.ToLower().Trim()}|{operationName.ToLower().Trim()}"
-                .Replace("  ", " ")
-                .Replace("-", " ");
+            var part = partName.ToLower().Trim().Replace("-", " ").Replace("  ", " ");
+            var op = operationName.ToLower().Trim().Replace("-", " ").Replace("  ", " ");
+
+            // Normalize scan variants to canonical keys
+            if (part.Contains("pre") && (part.Contains("scan") || op.Contains("scan")))
+                return "pre scan|scan";
+            if (part.Contains("post") && (part.Contains("scan") || op.Contains("scan")))
+                return "post scan|scan";
+            if ((part.Contains("diagnostic scan") || op.Contains("diagnostic scan")) && !part.Contains("post"))
+                return "pre scan|scan";
+
+            // Normalize ADAS calibration variants
+            if (part.Contains("adas") || part.Contains("calibrat") || op.Contains("calibrat"))
+                return "adas calibration|calibration";
+
+            return $"{part}|{op}";
         }
 
         #region Private Methods
@@ -572,17 +586,49 @@ namespace McStudDesktop.Services
                 "liftgate", "tailgate", "grille", "headlight", "tail light", "mirror"
             };
 
+            // Refinish-only keywords that indicate no body repair needed
+            var refinishOnlyKeywords = new[] { "blend", "refinish", "paint", "clear coat", "clearcoat", "color match", "base coat", "basecoat" };
+            var replaceKeywords = new[] { "replace", "new", "order" };
+
             foreach (var panel in directPanels)
             {
                 if (description.Contains(panel) && !panels.Any(p => p.Name.Contains(panel)))
                 {
                     var fullName = GetFullPanelName(panel, description);
+
+                    // Check context around this panel mention to determine operation type
+                    var isRefinishOnly = false;
+                    string? explicitOp = null;
+
+                    // Look for operation keywords near the panel name
+                    // e.g. "fender blend", "hood paint", "door replace"
+                    foreach (var rk in refinishOnlyKeywords)
+                    {
+                        if (description.Contains($"{panel} {rk}") || description.Contains($"{rk} {panel}"))
+                        {
+                            isRefinishOnly = true;
+                            explicitOp = rk == "blend" ? "Blend" : "Refinish";
+                            break;
+                        }
+                    }
+
+                    foreach (var rk in replaceKeywords)
+                    {
+                        if (description.Contains($"{panel} {rk}") || description.Contains($"{rk} {panel}"))
+                        {
+                            explicitOp = "Replace";
+                            break;
+                        }
+                    }
+
                     panels.Add(new AffectedPanel
                     {
                         Name = fullName,
                         ImpactZone = "direct mention",
-                        Severity = DetectSeverityFromDescription(description),
-                        Side = DetectSideFromDescription(description)
+                        Severity = explicitOp == "Replace" ? "heavy" : DetectSeverityFromDescription(description),
+                        Side = DetectSideFromDescription(description),
+                        RefinishOnly = isRefinishOnly,
+                        ExplicitOperation = explicitOp
                     });
                 }
             }
@@ -639,19 +685,6 @@ namespace McStudDesktop.Services
         private List<GhostOperation> GenerateOperationsForPanel(AffectedPanel panel, string severity, string vehicleType)
         {
             var operations = new List<GhostOperation>();
-            var severityMultiplier = SeverityMultipliers.GetValueOrDefault(severity.ToLower(), 1.0m);
-
-            // Determine primary operation based on severity - use CCC terminology
-            var (primaryOp, opCode) = severity.ToLower() switch
-            {
-                "severe" or "heavy" => ("Replace", "Repl"),   // CCC: Repl = Replace
-                "moderate" => ("Repair", "Rpr"),              // CCC: Rpr = Repair
-                "light" => ("Repair", "Rpr"),
-                _ => ("Repair", "Rpr")
-            };
-
-            // Get learned labor times or use defaults
-            var bodyHours = GetLearnedLaborTime(panel.Name, primaryOp, vehicleType) * severityMultiplier;
 
             // Build position prefix using CCC side designation
             var sideCode = panel.Side switch
@@ -661,12 +694,59 @@ namespace McStudDesktop.Services
                 _ => ""
             };
 
+            // If panel is refinish-only (e.g. "fender blend"), skip body repair operations
+            if (panel.RefinishOnly)
+            {
+                var blendOp = panel.ExplicitOperation == "Blend" ? "Blend" : "Rfn";
+                var blendLabel = panel.ExplicitOperation == "Blend" ? "Blend" : "Refinish";
+                var refinishHours = GetLearnedRefinishTime(panel.Name);
+                if (blendOp == "Blend")
+                    refinishHours = Math.Max(refinishHours * 0.5m, 1.0m); // Blend is ~50% of full refinish
+
+                operations.Add(new GhostOperation
+                {
+                    OperationType = blendOp,
+                    PartName = panel.Name,
+                    Description = $"{sideCode}{ToTitleCase(panel.Name)} {blendLabel}",
+                    Category = "Refinish Operations",
+                    RefinishHours = refinishHours,
+                    Confidence = 0.90,
+                    Source = "User-specified refinish operation",
+                    Side = panel.Side
+                });
+
+                return operations;
+            }
+
+            var severityMultiplier = SeverityMultipliers.GetValueOrDefault(severity.ToLower(), 1.0m);
+
+            // Determine primary operation based on severity or explicit user input
+            string primaryOp, opCode;
+            if (panel.ExplicitOperation == "Replace")
+            {
+                primaryOp = "Replace";
+                opCode = "Repl";
+            }
+            else
+            {
+                (primaryOp, opCode) = severity.ToLower() switch
+                {
+                    "severe" or "heavy" => ("Replace", "Repl"),
+                    "moderate" => ("Repair", "Rpr"),
+                    "light" => ("Repair", "Rpr"),
+                    _ => ("Repair", "Rpr")
+                };
+            }
+
+            // Get learned labor times or use defaults
+            var bodyHours = GetLearnedLaborTime(panel.Name, primaryOp, vehicleType) * severityMultiplier;
+
             // Primary operation - format like real CCC estimate line
             operations.Add(new GhostOperation
             {
                 OperationType = opCode,
                 PartName = panel.Name,
-                Description = $"{sideCode}{ToTitleCase(panel.Name)} {opCode}",  // e.g., "LT Fender Repl"
+                Description = $"{sideCode}{ToTitleCase(panel.Name)} {opCode}",
                 Category = DetermineCategory(panel.Name),
                 LaborHours = bodyHours,
                 Confidence = 0.95,
@@ -685,7 +765,7 @@ namespace McStudDesktop.Services
                     {
                         OperationType = "R&I",
                         PartName = riPart,
-                        Description = $"{sideCode}{ToTitleCase(riPart)} R&I",  // e.g., "LT Headlight R&I"
+                        Description = $"{sideCode}{ToTitleCase(riPart)} R&I",
                         Category = "Part Operations",
                         LaborHours = riHours,
                         Confidence = 0.85,
@@ -1340,6 +1420,8 @@ namespace McStudDesktop.Services
         public string ImpactZone { get; set; } = "";
         public string Severity { get; set; } = "moderate";
         public string Side { get; set; } = "";
+        public bool RefinishOnly { get; set; }
+        public string? ExplicitOperation { get; set; }
     }
 
     public class GhostComparisonResult

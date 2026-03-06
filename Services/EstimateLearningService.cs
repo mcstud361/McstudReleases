@@ -2083,10 +2083,11 @@ namespace McStudDesktop.Services
             {
                 foreach (var manualLine in pattern.ManualLines)
                 {
-                    var descLower = manualLine.Description?.ToLowerInvariant() ?? "";
                     var typeLower = manualLine.ManualLineType?.ToLowerInvariant() ?? "";
 
-                    if (descLower.Contains(lower) || typeLower.Contains(lower))
+                    // Only match on ManualLineType (operation name like "Block Sand", "Scan", "Weld")
+                    // NOT on Description which often contains the parent part name
+                    if (typeLower.Contains(lower))
                     {
                         results.Add(new OperationSearchResult
                         {
