@@ -6,6 +6,20 @@
   "shopName": "Ultimate Collision",
   "sections": [
     {
+      "id": "repair-info",
+      "title": "Repair Info",
+      "icon": "Document",
+      "items": [
+        { "id": "info-1", "text": "Insurance Company", "required": true },
+        { "id": "info-2", "text": "DFR Date", "required": true },
+        { "id": "info-3", "text": "Blueprinter", "required": true },
+        { "id": "info-4", "text": "Supplement Date", "required": false },
+        { "id": "info-5", "text": "Parts Ordered", "required": true },
+        { "id": "info-6", "text": "Parts Ordered Date", "required": true },
+        { "id": "info-7", "text": "Technician Assigned", "required": true }
+      ]
+    },
+    {
       "id": "body-structural",
       "title": "Body/Structural",
       "icon": "Box",
