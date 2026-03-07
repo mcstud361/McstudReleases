@@ -2558,17 +2558,17 @@ namespace McStudDesktop.Views
                 // Accurate totals from Excel or app pages
                 if (_clipboardPriceText != null)
                 {
-                    _clipboardPriceText.Text = totalPrice > 0 ? $"${totalPrice:F2}" : "$0";
+                    _clipboardPriceText.Text = totalPrice > 0 ? $"${totalPrice:F2}" : "-";
                     _clipboardPriceText.Foreground = new SolidColorBrush(Color.FromArgb(255, 78, 201, 176));
                 }
                 if (_clipboardLaborText != null)
                 {
-                    _clipboardLaborText.Text = totalLabor > 0 ? totalLabor.ToString("F1") : "0";
+                    _clipboardLaborText.Text = totalLabor > 0 ? totalLabor.ToString("F1") : "-";
                     _clipboardLaborText.Foreground = new SolidColorBrush(Color.FromArgb(255, 156, 220, 254));
                 }
                 if (_clipboardRefinishText != null)
                 {
-                    _clipboardRefinishText.Text = totalRefinish > 0 ? totalRefinish.ToString("F1") : "0";
+                    _clipboardRefinishText.Text = totalRefinish > 0 ? totalRefinish.ToString("F1") : "-";
                     _clipboardRefinishText.Foreground = new SolidColorBrush(Color.FromArgb(255, 206, 145, 120));
                 }
             }

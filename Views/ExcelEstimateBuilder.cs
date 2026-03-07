@@ -553,9 +553,9 @@ namespace McStudDesktop.Views
             var totalRefinish = _estimateLines.Sum(l => l.RefinishHours);
             var totalPrice = _estimateLines.Sum(l => l.Price);
 
-            _totalLabor!.Text = $"Labor: {totalLabor:F1}";
-            _totalRefinish!.Text = $"Refinish: {totalRefinish:F1}";
-            _totalPrice!.Text = $"${totalPrice:F0}";
+            _totalLabor!.Text = totalLabor > 0 ? $"Labor: {totalLabor:F1}" : "Labor: -";
+            _totalRefinish!.Text = totalRefinish > 0 ? $"Refinish: {totalRefinish:F1}" : "Refinish: -";
+            _totalPrice!.Text = totalPrice > 0 ? $"${totalPrice:F0}" : "-";
             _lineCount!.Text = $"{_estimateLines.Count} line{(_estimateLines.Count == 1 ? "" : "s")}";
         }
 

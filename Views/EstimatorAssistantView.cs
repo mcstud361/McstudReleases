@@ -898,9 +898,13 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(12, 8, 12, 8),
                 Margin = new Thickness(0, 0, 0, 8)
             };
+            var summaryParts = new List<string> { $"{result.Operations.Count} Operations" };
+            if (result.TotalLaborHours > 0) summaryParts.Add($"Labor: {result.TotalLaborHours:F1} hr");
+            if (result.TotalRefinishHours > 0) summaryParts.Add($"Refinish: {result.TotalRefinishHours:F1} hr");
+            if (result.TotalPrice > 0) summaryParts.Add($"${result.TotalPrice:N0}");
             var summaryText = new TextBlock
             {
-                Text = $"{result.Operations.Count} Operations | Labor: {result.TotalLaborHours:F1} hr | Refinish: {result.TotalRefinishHours:F1} hr | ${result.TotalPrice:N0}",
+                Text = string.Join(" | ", summaryParts),
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 220, 150))
             };

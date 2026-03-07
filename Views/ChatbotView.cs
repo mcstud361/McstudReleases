@@ -348,12 +348,6 @@ public class ChatbotView : UserControl
                 "DEG seam sealer",
                 "DEG scan inquiry",
                 "DEG corrosion protection"
-            }),
-            new("💰", "What's Everyone Charging?", "Anonymous industry benchmarks from shops", new[]
-            {
-                "What's everyone charging?",
-                "Average labor rates",
-                "How many shops add corrosion protection?"
             })
         };
 

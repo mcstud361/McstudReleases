@@ -229,44 +229,59 @@ namespace McstudDesktop.Services
         };
 
         // Known body panel / part names for fuzzy OCR detection
+        // Known part names for fuzzy OCR detection.
+        // Longer/more-specific patterns first so they match before shorter generic ones.
+        // Avoid single generic words that cause false positives.
         private static readonly (string Pattern, string CanonicalName)[] _knownParts = new[]
         {
+            // Bumper — specific before generic
             ("front bumper", "front bumper cover"), ("rear bumper", "rear bumper cover"),
+            ("bumper reinforcement", "bumper reinforcement"), ("bumper absorber", "bumper absorber"),
             ("bumper cover", "bumper cover"), ("bumper fascia", "bumper cover"),
-            ("fender", "fender"), ("front fender", "fender"),
-            ("hood", "hood"), ("hood panel", "hood"),
+            ("energy absorber", "bumper absorber"),
+            // Fender — liner before fender
+            ("fender liner", "fender liner"), ("inner fender", "fender liner"),
+            ("front fender", "fender"), ("fender", "fender"),
+            // Hood
+            ("hood panel", "hood"), ("hood", "hood"),
+            // Doors — specific before generic
             ("front door", "front door"), ("rear door", "rear door"),
             ("door shell", "door"), ("door skin", "door"),
+            ("door handle", "door handle"), ("door trim", "door trim panel"),
+            // Panels
             ("quarter panel", "quarter panel"), ("qtr panel", "quarter panel"),
-            ("rocker panel", "rocker panel"), ("rocker", "rocker panel"),
-            ("roof panel", "roof"), ("roof", "roof"),
+            ("rocker panel", "rocker panel"),
+            ("roof panel", "roof"),
+            // Trunk / liftgate
             ("trunk lid", "trunk lid"), ("decklid", "trunk lid"),
             ("liftgate", "liftgate"), ("tailgate", "tailgate"),
+            // Lights — multi-word only
             ("headlamp", "headlight"), ("headlight", "headlight"), ("head lamp", "headlight"),
             ("tail lamp", "tail light"), ("taillight", "tail light"), ("tail light", "tail light"),
             ("fog lamp", "fog light"), ("fog light", "fog light"),
-            ("grille", "grille"), ("grill", "grille"),
-            ("fender liner", "fender liner"), ("inner fender", "fender liner"),
-            ("mirror", "mirror"), ("side mirror", "mirror"), ("outside mirror", "mirror"),
-            ("windshield", "windshield"), ("back glass", "rear glass"),
-            ("bumper reinforcement", "bumper reinforcement"), ("rebar", "bumper reinforcement"),
-            ("bumper absorber", "bumper absorber"), ("energy absorber", "bumper absorber"),
+            // Front end
+            ("grille", "grille"),
             ("radiator support", "radiator support"), ("rad support", "radiator support"),
-            ("a pillar", "a-pillar"), ("b pillar", "b-pillar"), ("c pillar", "c-pillar"),
+            // Glass
+            ("windshield", "windshield"), ("back glass", "rear glass"),
+            // Exterior
+            ("side mirror", "mirror"), ("outside mirror", "mirror"),
+            ("parking sensor", "parking sensor"), ("park sensor", "parking sensor"),
+            ("backup camera", "backup camera"),
             ("splash shield", "splash shield"), ("wheel opening", "wheel opening molding"),
-            ("door handle", "door handle"), ("door trim", "door trim panel"),
-            ("emblem", "emblem"), ("nameplate", "nameplate"),
             ("molding", "molding"), ("moulding", "molding"),
             ("spoiler", "spoiler"), ("valance", "valance"),
+            // Pillars
+            ("a pillar", "a-pillar"), ("b pillar", "b-pillar"), ("c pillar", "c-pillar"),
+            // Truck
             ("running board", "running board"), ("step bar", "running board"),
             ("bed side", "bed side"), ("truck bed", "truck bed"),
-            ("condenser", "condenser"), ("radiator", "radiator"),
-            ("parking sensor", "parking sensor"), ("park sensor", "parking sensor"),
-            ("camera", "camera"), ("backup camera", "backup camera"),
-            ("wheel", "wheel"), ("tire", "tire"),
-            ("suspension", "suspension"), ("strut", "strut"), ("control arm", "control arm"),
-            ("calibration", "calibration"), ("adas", "adas calibration"),
-            ("diagnostic", "diagnostic scan"), ("scan", "diagnostic scan")
+            // Mechanical — multi-word only
+            ("radiator", "radiator"), ("condenser", "condenser"),
+            ("control arm", "control arm"),
+            // Diagnostics — multi-word only
+            ("adas calibration", "adas calibration"), ("diagnostic scan", "diagnostic scan"),
+            ("pre scan", "diagnostic scan"), ("post scan", "diagnostic scan")
         };
 
         /// <summary>
@@ -308,15 +323,26 @@ namespace McstudDesktop.Services
                     operations.Select(o => o.PartName?.ToLower() ?? ""),
                     StringComparer.OrdinalIgnoreCase);
 
+                var matchedPatterns = new HashSet<string>();
                 foreach (var (pattern, canonical) in _knownParts)
                 {
-                    if (fullText.Contains(pattern) && !foundParts.Contains(canonical) && !existingParts.Contains(canonical))
-                    {
-                        foundParts.Add(canonical);
+                    if (foundParts.Contains(canonical) || existingParts.Contains(canonical)) continue;
+                    // Skip if a longer pattern already covered this text
+                    if (matchedPatterns.Any(mp => mp.Contains(pattern))) continue;
 
+                    var patternIdx = fullText.IndexOf(pattern);
+                    if (patternIdx < 0) continue;
+
+                    // Word boundary check — avoid "waterproof" matching "roof" etc.
+                    if (patternIdx > 0 && char.IsLetter(fullText[patternIdx - 1])) continue;
+                    var endIdx = patternIdx + pattern.Length;
+                    if (endIdx < fullText.Length && char.IsLetter(fullText[endIdx])) continue;
+
+                    foundParts.Add(canonical);
+                    matchedPatterns.Add(pattern);
+                    {
                         // Try to detect operation type from nearby context
                         var opType = "";
-                        var patternIdx = fullText.IndexOf(pattern);
                         if (patternIdx >= 0)
                         {
                             // Look at ~60 chars around the mention for operation clues

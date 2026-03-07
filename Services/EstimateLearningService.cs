@@ -2201,7 +2201,10 @@ namespace McStudDesktop.Services
             if (string.IsNullOrWhiteSpace(keyword)) return results;
 
             var lower = keyword.ToLowerInvariant();
+            // Track keys we've already added to avoid duplicates
+            var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+            // 1. Search existing learned patterns (highest priority)
             foreach (var pattern in _database.Patterns.Values)
             {
                 var partNameLower = pattern.PartName?.ToLowerInvariant() ?? "";
@@ -2210,7 +2213,136 @@ namespace McStudDesktop.Services
                 if (partNameLower.Contains(lower) || keyLower.Contains(lower))
                 {
                     results.Add(pattern);
+                    seenKeys.Add($"{pattern.PartName}|{pattern.OperationType}".ToLowerInvariant());
                 }
+            }
+
+            // 2. Search training examples for parts not already in patterns
+            foreach (var example in _database.TrainingExamples)
+            {
+                var partLower = example.PartName?.ToLowerInvariant() ?? "";
+                var lineLower = example.EstimateLine?.ToLowerInvariant() ?? "";
+                var dedupeKey = $"{example.PartName}|{example.OperationType}".ToLowerInvariant();
+
+                if ((partLower.Contains(lower) || lineLower.Contains(lower)) &&
+                    !string.IsNullOrEmpty(example.PartName) && !seenKeys.Contains(dedupeKey))
+                {
+                    seenKeys.Add(dedupeKey);
+                    results.Add(new LearnedPattern
+                    {
+                        PatternKey = dedupeKey,
+                        PartName = example.PartName,
+                        OperationType = example.OperationType ?? "",
+                        ExampleCount = 1,
+                        Confidence = 0.5,
+                        DateCreated = example.DateAdded,
+                        LastUpdated = example.DateAdded,
+                        Operations = example.GeneratedOperations?.Count > 0
+                            ? example.GeneratedOperations
+                            : new List<GeneratedOperation>
+                            {
+                                new GeneratedOperation
+                                {
+                                    Description = example.PartName,
+                                    OperationType = example.OperationType ?? "",
+                                    LaborHours = example.RepairHours,
+                                    RefinishHours = example.RefinishHours,
+                                    Price = example.Price
+                                }
+                            }
+                    });
+                }
+            }
+
+            // 3. Search manual line patterns
+            foreach (var kvp in _database.ManualLinePatterns)
+            {
+                var parentLower = kvp.Value.ParentPartName?.ToLowerInvariant() ?? "";
+                var dedupeKey = $"{kvp.Value.ParentPartName}|{kvp.Value.ParentOperationType}".ToLowerInvariant();
+
+                if (parentLower.Contains(lower) && !seenKeys.Contains(dedupeKey))
+                {
+                    seenKeys.Add(dedupeKey);
+                    var ops = new List<GeneratedOperation>
+                    {
+                        new GeneratedOperation
+                        {
+                            Description = kvp.Value.ParentPartName,
+                            OperationType = kvp.Value.ParentOperationType
+                        }
+                    };
+                    foreach (var ml in kvp.Value.ManualLines)
+                    {
+                        ops.Add(new GeneratedOperation
+                        {
+                            Description = ml.Description ?? "",
+                            OperationType = ml.ManualLineType ?? "",
+                            LaborHours = ml.LaborUnits,
+                            RefinishHours = ml.RefinishUnits,
+                            Price = ml.Price
+                        });
+                    }
+                    results.Add(new LearnedPattern
+                    {
+                        PatternKey = dedupeKey,
+                        PartName = kvp.Value.ParentPartName,
+                        OperationType = kvp.Value.ParentOperationType,
+                        ExampleCount = kvp.Value.ExampleCount,
+                        Confidence = kvp.Value.Confidence,
+                        DateCreated = kvp.Value.DateCreated,
+                        LastUpdated = kvp.Value.LastUpdated,
+                        Operations = ops
+                    });
+                }
+            }
+
+            // 4. Search estimate history (uploaded PDFs/estimates)
+            try
+            {
+                var historyDb = EstimateHistoryDatabase.Instance;
+                if (historyDb.IsLoaded)
+                {
+                    foreach (var estimate in historyDb.GetAllEstimates())
+                    {
+                        foreach (var line in estimate.LineItems)
+                        {
+                            var partLower = line.PartName?.ToLowerInvariant() ?? "";
+                            var descLower = line.Description?.ToLowerInvariant() ?? "";
+                            if (string.IsNullOrEmpty(line.PartName)) continue;
+
+                            var dedupeKey = $"{line.PartName}|{line.OperationType}".ToLowerInvariant();
+                            if ((partLower.Contains(lower) || descLower.Contains(lower)) && !seenKeys.Contains(dedupeKey))
+                            {
+                                seenKeys.Add(dedupeKey);
+                                results.Add(new LearnedPattern
+                                {
+                                    PatternKey = dedupeKey,
+                                    PartName = line.PartName,
+                                    OperationType = line.OperationType ?? "",
+                                    ExampleCount = 1,
+                                    Confidence = 0.4,
+                                    DateCreated = estimate.ImportedDate,
+                                    LastUpdated = estimate.ImportedDate,
+                                    Operations = new List<GeneratedOperation>
+                                    {
+                                        new GeneratedOperation
+                                        {
+                                            Description = line.PartName,
+                                            OperationType = line.OperationType ?? "",
+                                            LaborHours = line.LaborHours,
+                                            RefinishHours = line.RefinishHours,
+                                            Price = line.Price
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Learning] Error searching estimate history: {ex.Message}");
             }
 
             return results

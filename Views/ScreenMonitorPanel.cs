@@ -686,37 +686,56 @@ namespace McStudDesktop.Views
             }
         }
 
-        // Known parts to scan for in raw OCR text — same list as ScreenOcrService
+        // Known parts to scan for in raw OCR text.
+        // IMPORTANT: Longer/more-specific patterns MUST come before shorter ones
+        // so "front bumper" matches before "bumper", "fender liner" before "fender", etc.
         private static readonly (string Pattern, string CanonicalName)[] _scanParts = new[]
         {
-            ("front bumper", "Front Bumper Cover"), ("rear bumper", "Rear Bumper Cover"),
-            ("bumper cover", "Bumper Cover"), ("bumper fascia", "Bumper Cover"),
-            ("fender", "Fender"), ("front fender", "Fender"),
-            ("hood", "Hood"), ("front door", "Front Door"), ("rear door", "Rear Door"),
-            ("quarter panel", "Quarter Panel"), ("qtr panel", "Quarter Panel"),
-            ("rocker panel", "Rocker Panel"), ("rocker", "Rocker Panel"),
-            ("roof panel", "Roof"), ("trunk lid", "Trunk Lid"), ("decklid", "Trunk Lid"),
-            ("liftgate", "Liftgate"), ("tailgate", "Tailgate"),
-            ("headlamp", "Headlight"), ("headlight", "Headlight"),
-            ("tail lamp", "Tail Light"), ("taillight", "Tail Light"),
-            ("fog lamp", "Fog Light"), ("fog light", "Fog Light"),
-            ("grille", "Grille"), ("grill", "Grille"),
+            // Bumper — specific first, then generic
+            ("front bumper", "Front Bumper"), ("rear bumper", "Rear Bumper"),
+            ("bumper reinforcement", "Bumper Reinforcement"), ("bumper absorber", "Bumper Absorber"),
+            ("bumper fascia", "Bumper Cover"), ("bumper cover", "Bumper Cover"),
+            // Fender — liner before fender
             ("fender liner", "Fender Liner"), ("inner fender", "Fender Liner"),
-            ("mirror", "Mirror"), ("side mirror", "Mirror"),
-            ("windshield", "Windshield"), ("back glass", "Rear Glass"),
-            ("bumper reinforcement", "Bumper Reinforcement"), ("rebar", "Bumper Reinforcement"),
-            ("bumper absorber", "Bumper Absorber"), ("energy absorber", "Bumper Absorber"),
+            ("front fender", "Fender"), ("fender", "Fender"),
+            // Doors
+            ("front door", "Front Door"), ("rear door", "Rear Door"),
+            ("door handle", "Door Handle"), ("door trim", "Door Trim Panel"),
+            // Panels
+            ("quarter panel", "Quarter Panel"), ("qtr panel", "Quarter Panel"),
+            ("rocker panel", "Rocker Panel"),
+            ("side panel", "Side Panel"),
+            // Roof / trunk / liftgate
+            ("roof panel", "Roof"),
+            ("trunk lid", "Trunk Lid"), ("decklid", "Trunk Lid"),
+            ("liftgate", "Liftgate"), ("tailgate", "Tailgate"),
+            // Hood
+            ("hood", "Hood"),
+            // Lights
+            ("headlamp", "Headlight"), ("headlight", "Headlight"), ("head lamp", "Headlight"),
+            ("tail lamp", "Tail Light"), ("taillight", "Tail Light"), ("tail light", "Tail Light"),
+            ("fog lamp", "Fog Light"), ("fog light", "Fog Light"),
+            // Front end
+            ("grille", "Grille"), ("grill", "Grille"),
             ("radiator support", "Radiator Support"), ("rad support", "Radiator Support"),
+            ("energy absorber", "Bumper Absorber"),
+            // Glass
+            ("windshield", "Windshield"), ("back glass", "Rear Glass"),
+            // Exterior trim / parts
+            ("side mirror", "Mirror"), ("outside mirror", "Mirror"),
+            ("parking sensor", "Parking Sensor"), ("backup camera", "Backup Camera"),
+            ("splash shield", "Splash Shield"), ("wheel opening", "Wheel Opening Molding"),
+            ("molding", "Molding"), ("spoiler", "Spoiler"), ("valance", "Valance"),
+            // Pillars
             ("a pillar", "A-Pillar"), ("b pillar", "B-Pillar"), ("c pillar", "C-Pillar"),
-            ("splash shield", "Splash Shield"), ("door handle", "Door Handle"),
-            ("door trim", "Door Trim Panel"), ("molding", "Molding"),
-            ("spoiler", "Spoiler"), ("valance", "Valance"),
-            ("condenser", "Condenser"), ("radiator", "Radiator"),
-            ("parking sensor", "Parking Sensor"), ("camera", "Camera"),
+            // Mechanical
+            ("radiator", "Radiator"), ("condenser", "Condenser"),
+            ("control arm", "Control Arm"), ("strut", "Strut"), ("suspension", "Suspension"),
             ("wheel", "Wheel"), ("tire", "Tire"),
-            ("suspension", "Suspension"), ("strut", "Strut"), ("control arm", "Control Arm"),
-            ("calibration", "Calibration"), ("adas", "ADAS Calibration"),
-            ("diagnostic", "Diagnostic Scan"), ("pre scan", "Pre-Repair Scan"), ("post scan", "Post-Repair Scan")
+            // Diagnostics / ADAS
+            ("adas", "ADAS Calibration"), ("calibration", "Calibration"),
+            ("pre scan", "Pre-Repair Scan"), ("post scan", "Post-Repair Scan"),
+            ("diagnostic", "Diagnostic Scan")
         };
 
         private void RunAdvisorAnalysis(ScreenOcrResult result)
@@ -734,14 +753,31 @@ namespace McStudDesktop.Views
                 }
 
                 // Step 1: Scan the raw OCR text directly for any part names we recognize
+                // Use word-boundary-aware matching to avoid false positives like "waterproof" matching "roof"
                 var detectedParts = new List<string>();
                 var seenParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var matchedPatterns = new HashSet<string>(); // Track which text regions already matched
+
                 foreach (var (pattern, canonical) in _scanParts)
                 {
-                    if (rawText.Contains(pattern) && seenParts.Add(canonical))
-                    {
-                        detectedParts.Add(canonical);
-                    }
+                    if (seenParts.Contains(canonical)) continue;
+
+                    // Check if a longer pattern already covered this one
+                    // e.g., if "front bumper" matched, skip "bumper"
+                    if (matchedPatterns.Any(mp => mp.Contains(pattern))) continue;
+
+                    var idx = rawText.IndexOf(pattern);
+                    if (idx < 0) continue;
+
+                    // Word boundary check — make sure we're not matching mid-word
+                    // e.g., "waterproof" should not match "roof"
+                    if (idx > 0 && char.IsLetter(rawText[idx - 1])) continue;
+                    var endIdx = idx + pattern.Length;
+                    if (endIdx < rawText.Length && char.IsLetter(rawText[endIdx])) continue;
+
+                    seenParts.Add(canonical);
+                    detectedParts.Add(canonical);
+                    matchedPatterns.Add(pattern);
                 }
 
                 // Also include any parts from the structured parser
@@ -806,14 +842,17 @@ namespace McStudDesktop.Views
                 // Collect all suggestion items
                 var allItems = new List<(string Title, string Detail, string Source, double Confidence, decimal Hours)>();
 
+                var seenSuggestions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 if (response?.Sections != null)
                 {
                     foreach (var section in response.Sections)
                     {
                         foreach (var item in section.Items)
                         {
-                            // Don't suggest parts already on screen
-                            if (!seenParts.Any(p => item.Description?.Contains(p, StringComparison.OrdinalIgnoreCase) == true))
+                            if (string.IsNullOrEmpty(item.Description)) continue;
+                            // Don't suggest parts already on screen, and dedup by title
+                            if (!seenParts.Any(p => item.Description.Contains(p, StringComparison.OrdinalIgnoreCase))
+                                && seenSuggestions.Add(item.Description))
                             {
                                 allItems.Add((item.Description, item.Detail ?? section.Title, item.Source, item.Confidence, item.Hours));
                             }
@@ -834,8 +873,8 @@ namespace McStudDesktop.Views
                 var scoreResult = scoringService.ScoreEstimate(parsedLines, vehicleMatch.Success ? vehicleMatch.Value : null);
                 foreach (var issue in scoreResult.Issues)
                 {
-                    // Don't duplicate items already from advisor
-                    if (!allItems.Any(a => a.Title.Equals(issue.Title, StringComparison.OrdinalIgnoreCase)))
+                    // Don't duplicate items already from advisor or other scoring issues
+                    if (seenSuggestions.Add(issue.Title))
                     {
                         var severity = issue.Severity == Services.IssueSeverity.Critical ? 0.9
                             : issue.Severity == Services.IssueSeverity.High ? 0.7

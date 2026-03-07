@@ -406,7 +406,7 @@ namespace McStudDesktop.Views
             // Price
             var priceText = new TextBlock
             {
-                Text = op.Price > 0 ? $"{op.Price:F0}" : "0",
+                Text = op.Price > 0 ? $"{op.Price:F0}" : "-",
                 Foreground = new SolidColorBrush(Colors.White),
                 FontSize = 11,
                 Padding = new Thickness(4, 2, 4, 2),
@@ -418,7 +418,7 @@ namespace McStudDesktop.Views
             // Labor
             var laborText = new TextBlock
             {
-                Text = op.LaborHours > 0 ? $"{op.LaborHours:F1}" : "0",
+                Text = op.LaborHours > 0 ? $"{op.LaborHours:F1}" : "-",
                 Foreground = new SolidColorBrush(Colors.White),
                 FontSize = 11,
                 Padding = new Thickness(4, 2, 4, 2),
@@ -430,7 +430,7 @@ namespace McStudDesktop.Views
             // Category
             var categoryText = new TextBlock
             {
-                Text = op.Category ?? "0",
+                Text = op.Category ?? "-",
                 Foreground = new SolidColorBrush(Colors.White),
                 FontSize = 11,
                 Padding = new Thickness(4, 2, 4, 2),
@@ -442,7 +442,7 @@ namespace McStudDesktop.Views
             // Refinish
             var refinishText = new TextBlock
             {
-                Text = op.RefinishHours > 0 ? $"{op.RefinishHours:F1}" : "0",
+                Text = op.RefinishHours > 0 ? $"{op.RefinishHours:F1}" : "-",
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 180, 100)),
                 FontSize = 11,
                 Padding = new Thickness(4, 2, 4, 2),

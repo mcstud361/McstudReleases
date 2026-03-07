@@ -520,10 +520,10 @@ namespace McStudDesktop.Views
             AddTextToGrid(grid, 0, opTypeStr, Colors.White);
             AddTextToGrid(grid, 1, op.Description, Colors.White, TextTrimming.CharacterEllipsis);
             AddTextToGrid(grid, 2, op.Quantity.ToString(), Color.FromArgb(255, 204, 204, 204));
-            AddTextToGrid(grid, 3, op.Price > 0 ? $"{op.Price:F0}" : "0", Color.FromArgb(255, 78, 201, 176));
-            AddTextToGrid(grid, 4, op.LaborHours > 0 ? $"{op.LaborHours:F1}" : "0", Color.FromArgb(255, 156, 220, 254));
-            AddTextToGrid(grid, 5, op.Category ?? "0", Color.FromArgb(255, 204, 204, 204));
-            AddTextToGrid(grid, 6, op.RefinishHours > 0 ? $"{op.RefinishHours:F1}" : "0", Color.FromArgb(255, 206, 145, 120));
+            AddTextToGrid(grid, 3, op.Price > 0 ? $"{op.Price:F0}" : "-", Color.FromArgb(255, 78, 201, 176));
+            AddTextToGrid(grid, 4, op.LaborHours > 0 ? $"{op.LaborHours:F1}" : "-", Color.FromArgb(255, 156, 220, 254));
+            AddTextToGrid(grid, 5, op.Category ?? "-", Color.FromArgb(255, 204, 204, 204));
+            AddTextToGrid(grid, 6, op.RefinishHours > 0 ? $"{op.RefinishHours:F1}" : "-", Color.FromArgb(255, 206, 145, 120));
 
             return new Border
             {
