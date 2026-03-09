@@ -69,6 +69,7 @@ namespace McStudDesktop.Views
         // Events
         public event EventHandler<ScreenOcrResult>? OnFeedToChat;
         public event EventHandler<ScreenOcrResult>? OnLoadToBuilder;
+        public event EventHandler? OnNavigateToExport;
 
         public ScreenMonitorPanel()
         {
@@ -962,6 +963,32 @@ namespace McStudDesktop.Views
 
             if (!isConfirmed)
             {
+                // "Add to CCC" button
+                var addBtn = new Button
+                {
+                    Content = new TextBlock
+                    {
+                        Text = "+ CCC",
+                        FontSize = 9,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+                    },
+                    Background = new SolidColorBrush(Color.FromArgb(255, 0, 100, 180)),
+                    Foreground = new SolidColorBrush(Colors.White),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    MinWidth = 0,
+                    MinHeight = 24,
+                    CornerRadius = new CornerRadius(3)
+                };
+                var suggestionForAdd = suggestion;
+                addBtn.Click += (s, e) =>
+                {
+                    AddSuggestionToCCC(suggestionForAdd);
+                    ((TextBlock)addBtn.Content).Text = "\u2713 Added";
+                    addBtn.IsEnabled = false;
+                };
+                rightStack.Children.Add(addBtn);
+
+                // Dismiss button
                 var dismissBtn = new Button
                 {
                     Content = new FontIcon { Glyph = "\uE711", FontSize = 10 },
@@ -985,6 +1012,61 @@ namespace McStudDesktop.Views
 
             card.Child = cardGrid;
             return card;
+        }
+
+        /// <summary>
+        /// Adds a coaching suggestion to the virtual clipboard and navigates to the Export tab.
+        /// </summary>
+        private void AddSuggestionToCCC(McstudDesktop.Models.CoachingSuggestion suggestion)
+        {
+            var op = MapSuggestionToVirtualClipboardOp(suggestion);
+            VirtualClipboardService.Instance.AddOperation(op, "Live Coach");
+            OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Converts a CoachingSuggestion into a VirtualClipboardOp for the Export tab.
+        /// </summary>
+        private static VirtualClipboardOp MapSuggestionToVirtualClipboardOp(McstudDesktop.Models.CoachingSuggestion suggestion)
+        {
+            var category = suggestion.Category.ToLowerInvariant();
+            var title = suggestion.Title.ToLowerInvariant();
+
+            // Map category to CCC operation type
+            string operationType;
+            if (category.Contains("refinish") || category.Contains("paint") || category.Contains("blend") || title.Contains("blend"))
+                operationType = "Refinish";
+            else if (category.Contains("replace") || title.Contains("flex") || title.Contains("additive") || title.Contains("corrosion"))
+                operationType = "Replace";
+            else if (category.Contains("repair"))
+                operationType = "Rpr";
+            else if (title.Contains("r&i") || title.Contains("remove"))
+                operationType = "R&I";
+            else
+                operationType = "Add";
+
+            // Build description: include the triggering part if available
+            var description = suggestion.Title;
+            if (!string.IsNullOrEmpty(suggestion.TriggeredBy) && !description.Contains(suggestion.TriggeredBy, StringComparison.OrdinalIgnoreCase))
+                description = $"{suggestion.TriggeredBy} {description}";
+
+            // Determine if labor hours go to Labor or Refinish
+            bool isRefinish = operationType == "Refinish" ||
+                              title.Contains("blend") ||
+                              title.Contains("refinish") ||
+                              title.Contains("paint") ||
+                              title.Contains("flex additive");
+
+            return new VirtualClipboardOp
+            {
+                OperationType = operationType,
+                Description = description,
+                Quantity = 1,
+                Price = suggestion.EstimatedCost,
+                LaborHours = isRefinish ? 0 : suggestion.LaborHours,
+                RefinishHours = isRefinish ? suggestion.LaborHours : 0,
+                Category = suggestion.Category
+            };
         }
 
         private static Color GetGradeColor(string? grade)

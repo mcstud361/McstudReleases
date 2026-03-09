@@ -170,6 +170,7 @@ public class ChatbotView : UserControl
         _screenMonitorPanel = new ScreenMonitorPanel { Visibility = Visibility.Collapsed };
         _screenMonitorPanel.OnFeedToChat += ScreenMonitorPanel_OnFeedToChat;
         _screenMonitorPanel.OnLoadToBuilder += ScreenMonitorPanel_OnLoadToBuilder;
+        _screenMonitorPanel.OnNavigateToExport += (s, e) => OnNavigateToExport?.Invoke(this, EventArgs.Empty);
         _chatContent.Children.Add(_screenMonitorPanel);
 
         // Floating help button for sub-tabs

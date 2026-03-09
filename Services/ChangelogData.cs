@@ -11,7 +11,7 @@ namespace McStudDesktop.Services
         {
             return new List<VersionEntry>
             {
-                new VersionEntry("v2.2.0", "March 2026", new[]
+                new VersionEntry("v1.0.6", "March 2026", new[]
                 {
                     "Welcome walkthrough for new users on first launch",
                     "Spotlight tour highlights each tab with descriptions",
