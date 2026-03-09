@@ -31,6 +31,14 @@ namespace McstudDesktop.Services
         private readonly object _lock = new();
         private bool _isRunning;
 
+        // Accumulated view of the entire estimate across scrolling
+        private readonly Dictionary<string, ParsedEstimateLine> _accumulatedOps = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _accumulatedParts = new(StringComparer.OrdinalIgnoreCase);
+        private readonly StringBuilder _accumulatedRawText = new();
+        private string _lastSourceWindow = "";
+        private string? _vehicleInfo;
+        private string? _customerName;
+
         private const int DebounceMs = 500;
 
         public event EventHandler<CoachingSnapshot>? SuggestionsUpdated;
@@ -71,6 +79,12 @@ namespace McstudDesktop.Services
             _debounceCts = null;
             _isRunning = false;
             _lastContentHash = "";
+            _accumulatedOps.Clear();
+            _accumulatedParts.Clear();
+            _accumulatedRawText.Clear();
+            _lastSourceWindow = "";
+            _vehicleInfo = null;
+            _customerName = null;
             CoachingStateChanged?.Invoke(this, false);
             Debug.WriteLine("[LiveCoaching] Stopped");
         }
@@ -122,14 +136,30 @@ namespace McstudDesktop.Services
 
         private void ProcessOcrResult(ScreenOcrResult result)
         {
-            // Build parsed lines from structured operations
-            var parsedLines = new List<ParsedEstimateLine>();
+            // If the source window changed, reset accumulated state (different estimate)
+            var sourceWindow = result.SourceWindow ?? "";
+            if (!string.IsNullOrEmpty(sourceWindow) && !sourceWindow.Equals(_lastSourceWindow, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrEmpty(_lastSourceWindow))
+                {
+                    Debug.WriteLine($"[LiveCoaching] Window changed from \"{_lastSourceWindow}\" to \"{sourceWindow}\" — resetting accumulated data");
+                    _accumulatedOps.Clear();
+                    _accumulatedParts.Clear();
+                    _accumulatedRawText.Clear();
+                    _vehicleInfo = null;
+                    _customerName = null;
+                }
+                _lastSourceWindow = sourceWindow;
+            }
 
+            // Accumulate structured operations from this capture
             if (result.DetectedOperations != null)
             {
                 foreach (var op in result.DetectedOperations)
                 {
-                    parsedLines.Add(new ParsedEstimateLine
+                    // Key by description+partName+opType to avoid duplicates
+                    var key = $"{op.Description}|{op.PartName}|{op.OperationType}".ToLowerInvariant();
+                    _accumulatedOps[key] = new ParsedEstimateLine
                     {
                         RawLine = op.RawLine,
                         Description = op.Description,
@@ -139,35 +169,55 @@ namespace McstudDesktop.Services
                         RefinishHours = op.RefinishHours,
                         Price = op.Price,
                         Quantity = op.Quantity
-                    });
+                    };
                 }
             }
 
-            // If no structured ops but we have raw text, build synthetic lines
-            // from part name scanning (same approach as ScreenMonitorPanel.DetectParts)
-            if (parsedLines.Count == 0 && !string.IsNullOrWhiteSpace(result.RawText))
+            // Accumulate raw text and part names
+            if (!string.IsNullOrWhiteSpace(result.RawText))
             {
+                _accumulatedRawText.AppendLine(result.RawText);
+
                 var detectedParts = ScanPartsFromText(result.RawText);
                 foreach (var partName in detectedParts)
+                    _accumulatedParts.Add(partName);
+
+                // Extract vehicle and customer info if not found yet
+                if (_vehicleInfo == null)
+                    _vehicleInfo = ExtractVehicleInfo(result.RawText);
+                if (_customerName == null)
+                    _customerName = ExtractCustomerName(result.RawText);
+            }
+
+            // Build the full picture from accumulated data
+            var parsedLines = new List<ParsedEstimateLine>(_accumulatedOps.Values);
+
+            // Add synthetic lines for parts found in text that aren't in structured ops
+            var structuredPartNames = new HashSet<string>(
+                parsedLines.Select(p => p.PartName),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var partName in _accumulatedParts)
+            {
+                if (structuredPartNames.Contains(partName)) continue;
+                parsedLines.Add(new ParsedEstimateLine
                 {
-                    parsedLines.Add(new ParsedEstimateLine
-                    {
-                        Description = partName,
-                        PartName = partName,
-                        OperationType = "Replace",
-                        RawLine = partName
-                    });
-                }
-                Debug.WriteLine($"[LiveCoaching] Built {parsedLines.Count} synthetic lines from raw text");
+                    Description = partName,
+                    PartName = partName,
+                    OperationType = "Replace",
+                    RawLine = partName
+                });
             }
 
             if (parsedLines.Count == 0)
             {
-                Debug.WriteLine("[LiveCoaching] No operations or parts found in OCR result");
+                Debug.WriteLine("[LiveCoaching] No operations or parts accumulated yet");
                 return;
             }
 
-            // Run both scoring engines
+            Debug.WriteLine($"[LiveCoaching] Scoring with {parsedLines.Count} accumulated lines ({_accumulatedOps.Count} structured + {_accumulatedParts.Count} text-scanned parts)");
+
+            // Run both scoring engines against the FULL accumulated picture
             var scoringResult = _scoringService.ScoreEstimate(parsedLines);
             var analysisResult = _analyzerService.AnalyzeEstimate(parsedLines);
 
@@ -227,6 +277,14 @@ namespace McstudDesktop.Services
                 });
             }
 
+            // Cross-check suggestions against accumulated raw text —
+            // if the suggestion title/keywords are found in what we've already seen, it's confirmed on the estimate
+            var allSeenText = _accumulatedRawText.ToString().ToLowerInvariant();
+            foreach (var s in suggestions)
+            {
+                s.IsConfirmedOnEstimate = IsSuggestionOnEstimate(s, allSeenText);
+            }
+
             // Apply dismissals
             lock (_lock)
             {
@@ -237,14 +295,17 @@ namespace McstudDesktop.Services
                 }
             }
 
-            var opCount = result.DetectedOperations?.Count ?? 0;
+            var confirmedCount = suggestions.Count(s => s.IsConfirmedOnEstimate);
             var snapshot = new CoachingSnapshot
             {
                 Suggestions = suggestions,
-                TotalOperationsDetected = opCount > 0 ? opCount : parsedLines.Count,
+                TotalOperationsDetected = parsedLines.Count,
+                ConfirmedCount = confirmedCount,
                 Score = scoringResult.OverallScore,
                 Grade = scoringResult.Grade,
                 PotentialRecovery = scoringResult.PotentialCostRecovery + scoringResult.PotentialLaborRecovery,
+                VehicleInfo = _vehicleInfo,
+                CustomerName = _customerName,
                 Timestamp = DateTime.Now
             };
 
@@ -278,6 +339,126 @@ namespace McstudDesktop.Services
             }
 
             return parts;
+        }
+
+        /// <summary>
+        /// Checks if a suggestion's operation is already present in the accumulated OCR text.
+        /// Uses the suggestion title and common keywords/aliases to search.
+        /// </summary>
+        private static bool IsSuggestionOnEstimate(CoachingSuggestion suggestion, string allSeenTextLower)
+        {
+            // Build a set of keywords to search for from the suggestion
+            var title = suggestion.Title.ToLowerInvariant();
+
+            // Direct title match
+            if (allSeenTextLower.Contains(title)) return true;
+
+            // Check common aliases/keywords for known suggestion types
+            var keywords = GetSuggestionKeywords(title, suggestion.Category.ToLowerInvariant());
+            foreach (var keyword in keywords)
+            {
+                if (allSeenTextLower.Contains(keyword)) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Returns search keywords/aliases for a suggestion so we can find it in OCR text
+        /// even if it's worded slightly differently.
+        /// </summary>
+        private static List<string> GetSuggestionKeywords(string titleLower, string categoryLower)
+        {
+            var keywords = new List<string>();
+
+            // Scan-related
+            if (titleLower.Contains("pre") && (titleLower.Contains("scan") || titleLower.Contains("repair")))
+                keywords.AddRange(new[] { "pre-scan", "pre scan", "pre-repair scan", "prescan", "pre repair scan" });
+            if (titleLower.Contains("post") && (titleLower.Contains("scan") || titleLower.Contains("repair")))
+                keywords.AddRange(new[] { "post-scan", "post scan", "post-repair scan", "postscan", "post repair scan" });
+
+            // Calibration
+            if (titleLower.Contains("calibrat") || categoryLower == "calibration")
+                keywords.AddRange(new[] { "calibration", "calibrate", "adas calibration", "adas calib" });
+            if (titleLower.Contains("static calibration"))
+                keywords.Add("static calibration");
+            if (titleLower.Contains("dynamic calibration"))
+                keywords.Add("dynamic calibration");
+
+            // Blend
+            if (titleLower.Contains("blend"))
+                keywords.AddRange(new[] { "blend", "blending" });
+
+            // Corrosion
+            if (titleLower.Contains("corrosion"))
+                keywords.AddRange(new[] { "corrosion", "anti-corrosion", "corrosion protection", "cavity wax", "weld-thru primer", "weld thru primer" });
+
+            // Flex additive
+            if (titleLower.Contains("flex"))
+                keywords.AddRange(new[] { "flex additive", "flex add", "flexible additive" });
+
+            // Battery
+            if (titleLower.Contains("battery") || titleLower.Contains("disconnect"))
+                keywords.AddRange(new[] { "disconnect battery", "reconnect battery", "d/c battery", "battery disconnect" });
+
+            // R&I
+            if (titleLower.Contains("r&i") || titleLower.Contains("remove") || titleLower.Contains("reinstall"))
+                keywords.AddRange(new[] { "r&i", "r & i", "remove & install", "remove and install", "remove/install" });
+
+            // Diagnostic / scan tool
+            if (titleLower.Contains("diagnostic") || titleLower.Contains("scan tool"))
+                keywords.AddRange(new[] { "diagnostic", "scan tool", "diagnostic scan" });
+
+            // Drive cycle
+            if (titleLower.Contains("drive cycle"))
+                keywords.AddRange(new[] { "drive cycle", "test drive" });
+
+            // OEM
+            if (titleLower.Contains("oem"))
+                keywords.AddRange(new[] { "oem research", "oem procedure", "oem position" });
+
+            // Clean for delivery
+            if (titleLower.Contains("clean") && titleLower.Contains("delivery"))
+                keywords.AddRange(new[] { "clean for delivery", "final clean" });
+
+            // Hazardous waste
+            if (titleLower.Contains("hazardous") || titleLower.Contains("hazmat"))
+                keywords.AddRange(new[] { "hazardous waste", "haz waste", "hazmat" });
+
+            // Memory saver
+            if (titleLower.Contains("memory saver") || titleLower.Contains("ks-100"))
+                keywords.AddRange(new[] { "memory saver", "ks-100", "battery support" });
+
+            return keywords;
+        }
+
+        private static string? ExtractVehicleInfo(string rawText)
+        {
+            // Match patterns like "2024 Toyota Camry" or "2023 Honda Civic"
+            var match = System.Text.RegularExpressions.Regex.Match(
+                rawText,
+                @"(20\d{2})\s+([A-Za-z]{3,})\s+([A-Za-z]{2,})",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return match.Success ? match.Value.Trim() : null;
+        }
+
+        private static string? ExtractCustomerName(string rawText)
+        {
+            // Look for common CCC/Mitchell patterns:
+            // "Owner: John Smith", "Customer: Jane Doe", "Insured: Bob Jones"
+            var patterns = new[]
+            {
+                @"(?:Owner|Customer|Insured|Claimant)\s*[:\-]\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)",
+                @"(?:OWNER|CUSTOMER|INSURED|CLAIMANT)\s*[:\-]\s*([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)+)"
+            };
+
+            foreach (var pattern in patterns)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(rawText, pattern);
+                if (match.Success && match.Groups.Count > 1)
+                    return match.Groups[1].Value.Trim();
+            }
+            return null;
         }
 
         // Same part patterns as ScreenMonitorPanel — longer/more-specific first

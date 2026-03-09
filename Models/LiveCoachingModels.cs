@@ -26,6 +26,7 @@ namespace McstudDesktop.Models
         public decimal LaborHours { get; set; }
         public string Source { get; set; } = "";
         public bool IsDismissed { get; set; }
+        public bool IsConfirmedOnEstimate { get; set; }
         public DateTime FirstSeen { get; set; } = DateTime.Now;
     }
 
@@ -33,9 +34,12 @@ namespace McstudDesktop.Models
     {
         public List<CoachingSuggestion> Suggestions { get; set; } = new();
         public int TotalOperationsDetected { get; set; }
+        public int ConfirmedCount { get; set; }
         public int Score { get; set; }
         public string Grade { get; set; } = "";
         public decimal PotentialRecovery { get; set; }
+        public string? VehicleInfo { get; set; }
+        public string? CustomerName { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }
 }

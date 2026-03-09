@@ -728,18 +728,38 @@ namespace McStudDesktop.Views
             // Update suggestions list
             _coachingSuggestionsStack.Children.Clear();
 
+            // Show vehicle/customer info if detected
+            if (!string.IsNullOrEmpty(snapshot.VehicleInfo) || !string.IsNullOrEmpty(snapshot.CustomerName))
+            {
+                var infoText = "";
+                if (!string.IsNullOrEmpty(snapshot.VehicleInfo))
+                    infoText += snapshot.VehicleInfo;
+                if (!string.IsNullOrEmpty(snapshot.CustomerName))
+                    infoText += (infoText.Length > 0 ? "  |  " : "") + snapshot.CustomerName;
+
+                _coachingSuggestionsStack.Children.Add(new TextBlock
+                {
+                    Text = infoText,
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 180, 220)),
+                    Margin = new Thickness(0, 0, 0, 4)
+                });
+            }
+
             var activeSuggestions = snapshot.Suggestions
                 .Where(s => !s.IsDismissed)
-                .OrderByDescending(s => s.Severity)
+                // Show missing items first, confirmed items at the bottom
+                .OrderBy(s => s.IsConfirmedOnEstimate ? 1 : 0)
+                .ThenByDescending(s => s.Severity)
                 .ThenByDescending(s => s.EstimatedCost)
-                .Take(15)
+                .Take(20)
                 .ToList();
 
             if (activeSuggestions.Count == 0)
             {
                 _coachingSuggestionsStack.Children.Add(new TextBlock
                 {
-                    Text = "No missing operations detected — estimate looks complete!",
+                    Text = "No suggestions — estimate looks complete!",
                     FontSize = 12,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120)),
                     FontStyle = Windows.UI.Text.FontStyle.Italic
@@ -748,24 +768,41 @@ namespace McStudDesktop.Views
             }
 
             // Summary line
-            var critical = activeSuggestions.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.Critical);
-            var high = activeSuggestions.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.High);
-            var summaryParts = new List<string>();
-            if (critical > 0) summaryParts.Add($"{critical} critical");
-            if (high > 0) summaryParts.Add($"{high} high priority");
-            var other = activeSuggestions.Count - critical - high;
-            if (other > 0) summaryParts.Add($"{other} other");
+            var missing = activeSuggestions.Where(s => !s.IsConfirmedOnEstimate).ToList();
+            var confirmed = activeSuggestions.Where(s => s.IsConfirmedOnEstimate).ToList();
 
-            _coachingSuggestionsStack.Children.Add(new TextBlock
+            if (missing.Count > 0)
             {
-                Text = $"Missing operations: {string.Join(", ", summaryParts)}",
-                FontSize = 12,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 190, 80)),
-                Margin = new Thickness(0, 0, 0, 4)
-            });
+                var critical = missing.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.Critical);
+                var high = missing.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.High);
+                var summaryParts = new List<string>();
+                if (critical > 0) summaryParts.Add($"{critical} critical");
+                if (high > 0) summaryParts.Add($"{high} high priority");
+                var other = missing.Count - critical - high;
+                if (other > 0) summaryParts.Add($"{other} other");
 
-            // Suggestion cards
+                _coachingSuggestionsStack.Children.Add(new TextBlock
+                {
+                    Text = $"Missing: {string.Join(", ", summaryParts)}    |    On estimate: {confirmed.Count}",
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 190, 80)),
+                    Margin = new Thickness(0, 0, 0, 4)
+                });
+            }
+            else
+            {
+                _coachingSuggestionsStack.Children.Add(new TextBlock
+                {
+                    Text = $"All {confirmed.Count} suggested operations found on estimate!",
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120)),
+                    Margin = new Thickness(0, 0, 0, 4)
+                });
+            }
+
+            // Suggestion cards — missing first, then confirmed (crossed off)
             foreach (var suggestion in activeSuggestions)
             {
                 _coachingSuggestionsStack.Children.Add(BuildCoachingSuggestionCard(suggestion));
@@ -801,57 +838,87 @@ namespace McStudDesktop.Views
 
         private Border BuildCoachingSuggestionCard(McstudDesktop.Models.CoachingSuggestion suggestion)
         {
+            var isConfirmed = suggestion.IsConfirmedOnEstimate;
+
             var card = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 38, 42, 52)),
+                Background = new SolidColorBrush(isConfirmed
+                    ? Color.FromArgb(255, 30, 40, 32)   // Greenish tint for confirmed
+                    : Color.FromArgb(255, 38, 42, 52)),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(10, 8, 10, 8),
-                Margin = new Thickness(0, 1, 0, 1)
+                Margin = new Thickness(0, 1, 0, 1),
+                Opacity = isConfirmed ? 0.7 : 1.0
             };
 
             var cardGrid = new Grid();
             cardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             cardGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Left: severity badge + title + triggered by
+            // Left: severity badge / checkmark + title + triggered by
             var leftStack = new StackPanel { Spacing = 2 };
 
             var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
 
-            var severityColor = suggestion.Severity switch
+            if (isConfirmed)
             {
-                McstudDesktop.Models.CoachingSeverity.Critical => Color.FromArgb(255, 220, 50, 50),
-                McstudDesktop.Models.CoachingSeverity.High => Color.FromArgb(255, 230, 140, 30),
-                McstudDesktop.Models.CoachingSeverity.Medium => Color.FromArgb(255, 60, 130, 220),
-                _ => Color.FromArgb(255, 120, 120, 120)
-            };
+                // Green checkmark badge instead of severity
+                var checkBadge = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 46, 125, 50)),
+                    CornerRadius = new CornerRadius(3),
+                    Padding = new Thickness(5, 1, 5, 1),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                checkBadge.Child = new TextBlock
+                {
+                    Text = "\u2713 ON EST",
+                    FontSize = 9,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Colors.White)
+                };
+                titleRow.Children.Add(checkBadge);
+            }
+            else
+            {
+                var severityColor = suggestion.Severity switch
+                {
+                    McstudDesktop.Models.CoachingSeverity.Critical => Color.FromArgb(255, 220, 50, 50),
+                    McstudDesktop.Models.CoachingSeverity.High => Color.FromArgb(255, 230, 140, 30),
+                    McstudDesktop.Models.CoachingSeverity.Medium => Color.FromArgb(255, 60, 130, 220),
+                    _ => Color.FromArgb(255, 120, 120, 120)
+                };
 
-            var severityBadge = new Border
-            {
-                Background = new SolidColorBrush(severityColor),
-                CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(5, 1, 5, 1),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            severityBadge.Child = new TextBlock
-            {
-                Text = suggestion.Severity.ToString().ToUpper(),
-                FontSize = 9,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
+                var severityBadge = new Border
+                {
+                    Background = new SolidColorBrush(severityColor),
+                    CornerRadius = new CornerRadius(3),
+                    Padding = new Thickness(5, 1, 5, 1),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                severityBadge.Child = new TextBlock
+                {
+                    Text = suggestion.Severity.ToString().ToUpper(),
+                    FontSize = 9,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Colors.White)
+                };
+                titleRow.Children.Add(severityBadge);
+            }
 
             var titleText = new TextBlock
             {
                 Text = suggestion.Title,
                 FontSize = 12,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White),
+                Foreground = new SolidColorBrush(isConfirmed
+                    ? Color.FromArgb(255, 120, 120, 120)
+                    : Color.FromArgb(255, 255, 255, 255)),
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                TextDecorations = isConfirmed ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None
             };
 
-            titleRow.Children.Add(severityBadge);
             titleRow.Children.Add(titleText);
             leftStack.Children.Add(titleRow);
 
@@ -862,7 +929,8 @@ namespace McStudDesktop.Views
                     Text = $"For: {suggestion.TriggeredBy}",
                     FontSize = 10,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
-                    TextTrimming = TextTrimming.CharacterEllipsis
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextDecorations = isConfirmed ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None
                 });
             }
 
@@ -884,27 +952,33 @@ namespace McStudDesktop.Views
                     Text = $"${suggestion.EstimatedCost:F0}",
                     FontSize = 13,
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 214, 0)),
-                    VerticalAlignment = VerticalAlignment.Center
+                    Foreground = new SolidColorBrush(isConfirmed
+                        ? Color.FromArgb(255, 100, 100, 100)
+                        : Color.FromArgb(255, 255, 214, 0)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextDecorations = isConfirmed ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None
                 });
             }
 
-            var dismissBtn = new Button
+            if (!isConfirmed)
             {
-                Content = new FontIcon { Glyph = "\uE711", FontSize = 10 },
-                Background = new SolidColorBrush(Colors.Transparent),
-                Padding = new Thickness(4, 2, 4, 2),
-                MinWidth = 24,
-                MinHeight = 24
-            };
-            var suggestionId = suggestion.Id;
-            dismissBtn.Click += (s, e) =>
-            {
-                LiveCoachingService.Instance.DismissSuggestion(suggestionId);
-                if (card.Parent is Panel parent)
-                    parent.Children.Remove(card);
-            };
-            rightStack.Children.Add(dismissBtn);
+                var dismissBtn = new Button
+                {
+                    Content = new FontIcon { Glyph = "\uE711", FontSize = 10 },
+                    Background = new SolidColorBrush(Colors.Transparent),
+                    Padding = new Thickness(4, 2, 4, 2),
+                    MinWidth = 24,
+                    MinHeight = 24
+                };
+                var suggestionId = suggestion.Id;
+                dismissBtn.Click += (s, e) =>
+                {
+                    LiveCoachingService.Instance.DismissSuggestion(suggestionId);
+                    if (card.Parent is Panel parent)
+                        parent.Children.Remove(card);
+                };
+                rightStack.Children.Add(dismissBtn);
+            }
 
             Grid.SetColumn(rightStack, 1);
             cardGrid.Children.Add(rightStack);
