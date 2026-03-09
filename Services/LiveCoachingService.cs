@@ -136,21 +136,25 @@ namespace McstudDesktop.Services
 
         private void ProcessOcrResult(ScreenOcrResult result)
         {
-            // If the source window changed, reset accumulated state (different estimate)
+            // Only reset accumulated state if the core application changed
+            // (e.g. switched from CCC to Mitchell), not just the window title changing
+            // as the user navigates within the same app.
             var sourceWindow = result.SourceWindow ?? "";
-            if (!string.IsNullOrEmpty(sourceWindow) && !sourceWindow.Equals(_lastSourceWindow, StringComparison.OrdinalIgnoreCase))
+            var currentApp = GetCoreAppName(sourceWindow);
+            var lastApp = GetCoreAppName(_lastSourceWindow);
+            if (!string.IsNullOrEmpty(currentApp) && !currentApp.Equals(lastApp, StringComparison.OrdinalIgnoreCase))
             {
-                if (!string.IsNullOrEmpty(_lastSourceWindow))
+                if (!string.IsNullOrEmpty(lastApp))
                 {
-                    Debug.WriteLine($"[LiveCoaching] Window changed from \"{_lastSourceWindow}\" to \"{sourceWindow}\" — resetting accumulated data");
+                    Debug.WriteLine($"[LiveCoaching] App changed from \"{lastApp}\" to \"{currentApp}\" — resetting accumulated data");
                     _accumulatedOps.Clear();
                     _accumulatedParts.Clear();
                     _accumulatedRawText.Clear();
                     _vehicleInfo = null;
                     _customerName = null;
                 }
-                _lastSourceWindow = sourceWindow;
             }
+            _lastSourceWindow = sourceWindow;
 
             // Accumulate structured operations from this capture
             if (result.DetectedOperations != null)
@@ -495,6 +499,25 @@ namespace McstudDesktop.Services
             ("pre scan", "Pre-Repair Scan"), ("post scan", "Post-Repair Scan"),
             ("diagnostic", "Diagnostic Scan")
         };
+
+        /// <summary>
+        /// Extracts the core application name from a window title so we only reset
+        /// when switching between entirely different apps (CCC → Mitchell), not when
+        /// the title changes within the same app (CCC tab navigation, claim number, etc.)
+        /// </summary>
+        private static string GetCoreAppName(string windowTitle)
+        {
+            if (string.IsNullOrEmpty(windowTitle)) return "";
+
+            var title = windowTitle.ToLowerInvariant();
+            if (title.Contains("ccc") || title.Contains("caborneone")) return "CCC";
+            if (title.Contains("mitchell")) return "Mitchell";
+            if (title.Contains("audatex") || title.Contains("audaexplore")) return "Audatex";
+
+            // For non-estimating apps, use the first word as the app identity
+            var firstWord = windowTitle.Split(new[] { ' ', '-', '–', '—', '|' }, StringSplitOptions.RemoveEmptyEntries);
+            return firstWord.Length > 0 ? firstWord[0] : windowTitle;
+        }
 
         private static string ComputeContentHash(ScreenOcrResult result)
         {
