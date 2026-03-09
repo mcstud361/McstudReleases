@@ -2170,7 +2170,160 @@ public class ChatbotService
                 "**Diagram controls:**\n" +
                 "• Left-click a panel to select/deselect\n" +
                 "• Right-click + drag to pan\n" +
-                "• Scroll wheel to zoom in/out")
+                "• Scroll wheel to zoom in/out"),
+
+            // Screen Monitor
+            ["screen monitor"] = ("Screen Monitor",
+                "📡 **Screen Monitor** - Real-Time Estimate Analysis\n\n" +
+                "Found in the **Screen Monitor** tab.\n\n" +
+                "**What it does:**\n" +
+                "Watches your estimating software (CCC ONE, Mitchell, Audatex) in real time and analyzes what's on screen.\n\n" +
+                "**How to use:**\n" +
+                "1. Open your estimating software to the line items page\n" +
+                "2. Go to the Screen Monitor tab in McStud\n" +
+                "3. Click 'Capture Once' or toggle monitoring on\n" +
+                "4. McStud reads the screen and shows detected parts\n" +
+                "5. Review suggested operations and missing SOP items\n\n" +
+                "**Features:**\n" +
+                "• Auto-detects parts and operations from your estimate\n" +
+                "• Suggests commonly paired operations based on your uploaded estimates\n" +
+                "• Checks for missing SOP operations (Electrical, Diagnostics, Misc)\n" +
+                "• Feed results to Chat or load directly to Builder\n" +
+                "• Adjustable capture interval (1-10 seconds)\n\n" +
+                "**Tips:**\n" +
+                "• Make sure your estimating software is showing line items, not a summary page\n" +
+                "• The more estimates you upload, the better the suggestions get\n" +
+                "• Works best with CCC ONE and Mitchell"),
+
+            // SOP Operations
+            ["sop operations"] = ("SOP Operations",
+                "📋 **SOP Operations** - Standard Operating Procedures\n\n" +
+                "SOP operations are standard procedures that should be on every collision estimate. " +
+                "The Screen Monitor automatically checks for these.\n\n" +
+                "**Electrical:**\n" +
+                "• Disconnect/Reconnect Battery (0.3-0.4 hrs)\n" +
+                "• Test Battery Condition (0.2 hrs)\n" +
+                "• Battery Support/Memory Saver ($15, 0.2 hrs)\n" +
+                "• EV/Hybrid High Voltage System Safe (0.5 hrs)\n\n" +
+                "**Vehicle Diagnostics:**\n" +
+                "• Pre-Repair Scan ($150 or 1.0 hr)\n" +
+                "• Post-Repair Scan ($150 or 1.0 hr)\n" +
+                "• In-Process Scan ($150 or 1.0 hr)\n" +
+                "• Setup Scan Tool (0.2 hrs)\n" +
+                "• Dynamic Systems Verification (1.0 hr)\n" +
+                "• OEM Research ($50, 1.0 hr)\n" +
+                "• ADAS Diagnostic Report ($25)\n" +
+                "• Gateway Unlock (0.1 hrs)\n" +
+                "• Drive Cycle (0.7 hrs)\n\n" +
+                "**Misc:**\n" +
+                "• Clean for Delivery (1.0 hr)\n" +
+                "• Mask and Protect ($10, 0.5 hr)\n" +
+                "• Parts Disposal ($25)\n" +
+                "• Hazardous Waste ($7.50)\n" +
+                "• Misc Hardware ($15)\n" +
+                "• Pre Wash and Degrease ($10, 0.5 hr)\n" +
+                "• Collision Wrap ($25, 0.3 hr)\n\n" +
+                "These are flagged automatically in the Screen Monitor when missing from your estimate."),
+
+            // Part Suggestions
+            ["part suggestions"] = ("Part Suggestions",
+                "💡 **Part Suggestions** - Learned from Your Estimates\n\n" +
+                "When the Screen Monitor detects a part on your estimate, it checks your uploaded estimates " +
+                "to find operations that commonly go with that part.\n\n" +
+                "**How it works:**\n" +
+                "1. Upload estimates via the Import tab (the more the better)\n" +
+                "2. Open the Screen Monitor while writing an estimate\n" +
+                "3. For each detected part, you'll see operations that appeared on similar past repairs\n" +
+                "4. Each suggestion shows how often it appeared (e.g., 8/15 means 8 out of 15 estimates had it)\n\n" +
+                "**What you'll see:**\n" +
+                "• Operation description\n" +
+                "• Frequency badge showing how common it is\n" +
+                "• Labor hours and price when available\n\n" +
+                "The more estimates you upload, the smarter the suggestions get. " +
+                "Vehicle-specific matching means a 2024 Honda Civic repair will pull from similar Honda estimates first."),
+
+            // Ghost Estimate
+            ["ghost estimate"] = ("Ghost Estimate",
+                "👻 **Ghost Estimate** - Auto-Generated Starting Point\n\n" +
+                "The Ghost Estimate creates a preliminary estimate based on detected damage, " +
+                "giving you a head start before you begin writing.\n\n" +
+                "**How to use:**\n" +
+                "1. Use the Screen Monitor or Damage Estimator to identify damaged parts\n" +
+                "2. The Ghost Estimate generates suggested operations automatically\n" +
+                "3. Review and accept the operations you agree with\n" +
+                "4. Load accepted items to the Builder\n\n" +
+                "**What it generates:**\n" +
+                "• Primary operations (Replace, Repair, R&I) for each damaged part\n" +
+                "• Related operations (blend, R&I for access, refinish)\n" +
+                "• Suggested labor times based on learned data\n\n" +
+                "Think of it as a first draft — review everything before submitting."),
+
+            // Learning / Uploaded Estimates
+            ["learning"] = ("Learning System",
+                "🧠 **Learning System** - Gets Smarter with Every Estimate\n\n" +
+                "McStud learns from the estimates you upload to give better suggestions over time.\n\n" +
+                "**What it learns:**\n" +
+                "• Which operations commonly go together (e.g., bumper replace + flex additive)\n" +
+                "• Labor times and prices for your market\n" +
+                "• Insurance payment patterns (who pays for what)\n" +
+                "• Vehicle-specific repair patterns\n\n" +
+                "**How to feed it:**\n" +
+                "• Upload estimate PDFs in the Import tab (CCC ONE, Mitchell, Audatex formats)\n" +
+                "• The more estimates, the better — aim for 50+ for solid suggestions\n" +
+                "• Mix of insurance companies gives the best payment data\n\n" +
+                "**Where learning shows up:**\n" +
+                "• Screen Monitor suggestions (frequency badges)\n" +
+                "• AI Advisor responses ('what am I missing?')\n" +
+                "• Estimate DNA / insurance payment queries\n" +
+                "• Accuracy heatmap and supplement detection"),
+
+            // Shop Stock Invoice
+            ["shop stock invoice"] = ("Shop Stock Invoice",
+                "🧾 **Shop Stock Invoice** - Track Shop Supplies\n\n" +
+                "Found in: **Shop Docs > Shop Stock Invoice**\n\n" +
+                "Generate invoices for shop stock and supply items used during repairs.\n\n" +
+                "**Features:**\n" +
+                "• Add line items with description, quantity, and price\n" +
+                "• Auto-calculates totals\n" +
+                "• Export as PDF for documentation\n" +
+                "• Keeps a record of materials used per job"),
+
+            // Color Tint Invoice
+            ["color tint invoice"] = ("Color Tint Invoice",
+                "🎨 **Color Tint Invoice** - Window Tint Pricing\n\n" +
+                "Found in: **Shop Docs > Color Tint Invoice**\n\n" +
+                "Create quotes and invoices for window tinting services.\n\n" +
+                "**Features:**\n" +
+                "• Select vehicle windows to tint\n" +
+                "• Set tint shade and pricing per window\n" +
+                "• Auto-calculates total job cost\n" +
+                "• Export as PDF quote for customers"),
+
+            // Custom Checklists
+            ["custom checklist"] = ("Custom Checklists",
+                "✅ **Custom Checklists** - Teardown & Inspection\n\n" +
+                "Create and use checklists for teardown inspections on specific parts.\n\n" +
+                "**Built-in checklists for:**\n" +
+                "• Bumper, Door, Fender, Hood, Trunk, Roof, Quarter Panel, and more\n" +
+                "• Each has part-specific items to check during teardown\n\n" +
+                "**How to use:**\n" +
+                "• Ask in chat: 'bumper teardown checklist' or 'door inspection checklist'\n" +
+                "• Check off items as you inspect\n" +
+                "• Helps ensure nothing gets missed during disassembly"),
+
+            // Supplement Detection
+            ["supplement detection"] = ("Supplement Detection",
+                "🔍 **Supplement Detection** - Find Missed Items\n\n" +
+                "McStud can identify operations that are commonly supplemented — " +
+                "things that often get missed on the initial estimate.\n\n" +
+                "**How it helps:**\n" +
+                "• Flags operations that similar repairs frequently supplement\n" +
+                "• Shows your personal supplement patterns from accuracy tracking\n" +
+                "• Highlights categories where you tend to leave money on the table\n\n" +
+                "**To see your patterns:**\n" +
+                "• Ask: 'Where am I off?' or 'Where am I leaving money?'\n" +
+                "• Check the Accuracy Heatmap in your stats\n" +
+                "• Upload both initial and supplement estimates for best results")
         };
 
         // Check for navigation keywords
@@ -2200,7 +2353,19 @@ public class ChatbotService
                          inputLower.Contains("ceramic coat") ||
                          inputLower.Contains("paint protection") ||
                          inputLower.Contains("vehicle protection") ||
-                         inputLower.Contains("shop doc");
+                         inputLower.Contains("shop doc") ||
+                         inputLower.Contains("screen monitor") ||
+                         inputLower.Contains("ocr") ||
+                         inputLower.Contains("sop") ||
+                         inputLower.Contains("suggestion") ||
+                         inputLower.Contains("ghost") ||
+                         inputLower.Contains("learn") ||
+                         inputLower.Contains("shop stock") ||
+                         inputLower.Contains("tint") ||
+                         inputLower.Contains("checklist") ||
+                         inputLower.Contains("supplement") ||
+                         inputLower.Contains("missing operations") ||
+                         inputLower.Contains("color tint");
 
         if (!isNavQuery)
             return null;
@@ -2254,6 +2419,25 @@ public class ChatbotService
                  inputLower.Contains("vehicle protection") || inputLower.Contains("shop doc")) &&
                 key.Contains("vehicle protection"))
                 score += 10;
+            if ((inputLower.Contains("screen monitor") || inputLower.Contains("ocr") ||
+                 inputLower.Contains("screen capture")) && key.Contains("screen monitor"))
+                score += 10;
+            if (inputLower.Contains("sop") && key.Contains("sop"))
+                score += 10;
+            if (inputLower.Contains("suggestion") && key.Contains("suggestion"))
+                score += 5;
+            if (inputLower.Contains("ghost") && key.Contains("ghost"))
+                score += 10;
+            if ((inputLower.Contains("learn") || inputLower.Contains("upload")) && key.Contains("learning"))
+                score += 5;
+            if (inputLower.Contains("shop stock") && key.Contains("shop stock"))
+                score += 10;
+            if ((inputLower.Contains("tint") || inputLower.Contains("color tint")) && key.Contains("color tint"))
+                score += 10;
+            if (inputLower.Contains("checklist") && key.Contains("checklist"))
+                score += 10;
+            if ((inputLower.Contains("supplement") || inputLower.Contains("missing")) && key.Contains("supplement"))
+                score += 5;
 
             if (score > bestScore)
             {
@@ -2283,14 +2467,16 @@ public class ChatbotService
                          "• **Export** - Send Excel data to CCC/Mitchell\n" +
                          "• **Chat** - Help assistant (you're here!)\n" +
                          "• **Import** - Upload estimate PDFs\n" +
+                         "• **Screen Monitor** - Real-time estimate analysis with SOP check\n" +
                          "• **Damage Est** - Interview-based estimation\n" +
                          "• **Stats** - View export/import history\n" +
                          "• **Defs** - Definitions & OEM statements\n\n" +
                          "**Quick Tips:**\n" +
                          "• Ctrl+Alt+V = Quick export to CCC\n" +
                          "• Copy from Excel, click in CCC, press button\n" +
+                         "• Upload estimates to unlock part suggestions & learning\n" +
                          "• Use Defs tab for P-page lookups\n\n" +
-                         "Ask about any specific tab for more details!",
+                         "Ask about any specific feature for more details!",
                 Confidence = 0.7,
                 Category = "navigation"
             };
@@ -3652,6 +3838,15 @@ public class ChatbotService
                          "• 'How much is PPF for a hood on a sedan?'\n" +
                          "• 'PPF vs ceramic coating?'\n" +
                          "• 'What's the volume discount?'\n\n" +
+                         "📡 **Screen Monitor & SOP Check**\n" +
+                         "• Real-time estimate analysis from CCC/Mitchell\n" +
+                         "• Part suggestions based on your uploaded estimates\n" +
+                         "• Missing SOP operations flagged automatically\n" +
+                         "• Ask: 'How does the screen monitor work?' or 'What are SOP operations?'\n\n" +
+                         "🧠 **Learning & Suggestions**\n" +
+                         "• McStud learns from every estimate you upload\n" +
+                         "• Ghost Estimates, supplement detection, custom checklists\n" +
+                         "• Ask: 'How does learning work?' or 'What's a ghost estimate?'\n\n" +
                          "What would you like to know?",
                 Confidence = 1.0,
                 Category = "greeting"

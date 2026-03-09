@@ -84,35 +84,17 @@ namespace McStudDesktop.Views
                 Background = new SolidColorBrush(Color.FromArgb(255, 25, 25, 25)),
                 Padding = new Thickness(0)
             };
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(50) }); // Header
-            mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(45) }); // Tabs
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Tabs
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Content
 
-            // Header
-            var header = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
-                Padding = new Thickness(15, 10, 15, 10)
-            };
-            var headerText = new TextBlock
-            {
-                Text = "Estimator Assistant",
-                FontSize = 18,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 130))
-            };
-            header.Child = headerText;
-            Grid.SetRow(header, 0);
-            mainGrid.Children.Add(header);
-
-            // Tab bar
+            // Tab bar (no separate header - the tab already says "Assistant")
             var tabBar = CreateTabBar();
-            Grid.SetRow(tabBar, 1);
+            Grid.SetRow(tabBar, 0);
             mainGrid.Children.Add(tabBar);
 
             // Content area - will switch based on tab
             var contentArea = new Grid();
-            Grid.SetRow(contentArea, 2);
+            Grid.SetRow(contentArea, 1);
             mainGrid.Children.Add(contentArea);
 
             // Create all tab contents
@@ -140,8 +122,8 @@ namespace McStudDesktop.Views
             var tabPanel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Spacing = 5,
-                Padding = new Thickness(10, 5, 10, 5)
+                Spacing = 4,
+                Padding = new Thickness(8, 6, 8, 6)
             };
 
             _buildTabBtn = CreateTabButton("Build Ops", 0, true);
@@ -167,7 +149,8 @@ namespace McStudDesktop.Views
             {
                 Content = text,
                 Tag = tabIndex,
-                Padding = new Thickness(15, 8, 15, 8),
+                FontSize = 13,
+                Padding = new Thickness(14, 6, 14, 6),
                 Background = isActive
                     ? new SolidColorBrush(Color.FromArgb(255, 60, 120, 80))
                     : new SolidColorBrush(Colors.Transparent),
@@ -203,7 +186,7 @@ namespace McStudDesktop.Views
             }
 
             // Update content visibility
-            var contentGrid = (this.Content as Grid)?.Children[2] as Grid;
+            var contentGrid = (this.Content as Grid)?.Children[1] as Grid;
             if (contentGrid != null)
             {
                 for (int i = 0; i < contentGrid.Children.Count; i++)
@@ -400,7 +383,7 @@ namespace McStudDesktop.Views
                 UpdateCategoryOptions(selection);
 
                 // Find the part panel and labor panel
-                var contentGrid = (this.Content as Grid)?.Children[2] as Grid;
+                var contentGrid = (this.Content as Grid)?.Children[1] as Grid;
                 if (contentGrid?.Children[0] is Grid buildGrid)
                 {
                     // Show/hide part-specific controls based on selection
@@ -1401,7 +1384,7 @@ namespace McStudDesktop.Views
 
         private Border CreateSearchResultCard(SearchResultItem item, string type)
         {
-            var panel = new StackPanel { Spacing = 3 };
+            var panel = new StackPanel { Spacing = 4 };
 
             var titleRow = new Grid();
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1411,7 +1394,8 @@ namespace McStudDesktop.Views
             {
                 Text = item.Title,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
+                Foreground = new SolidColorBrush(Colors.White),
+                TextWrapping = TextWrapping.Wrap
             };
             Grid.SetColumn(title, 0);
             titleRow.Children.Add(title);

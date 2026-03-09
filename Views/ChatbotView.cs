@@ -41,20 +41,16 @@ public class ChatbotView : UserControl
 
     // Tab navigation
     private Grid _chatContent = null!;
-    private LearnedPatternsPanel? _learnedPatternsPanel;
-    private EstimatorAssistantView? _assistantView;
-    private DamageZoneSelectorPanel? _damageZonePanel;
-    private ExcelEstimateBuilder? _excelEstimateBuilder;
+    private EstimateBuilderPanel? _estimateBuilderPanel;
     private GhostEstimatePanel? _ghostEstimatePanel;
     private ScreenMonitorPanel? _screenMonitorPanel;
     private Border? _chatTabButton;
-    private Border? _learnedPatternsTabButton;
-    private Border? _assistantTabButton;
-    private Border? _damageZoneTabButton;
+    private Border? _estimateBuilderTabButton;
     private Border? _ghostTabButton;
     private Border? _screenMonitorTabButton;
     private int _selectedTab = 0;
     private Button? _subtabHelpButton;
+    private Border? _chatHeaderBorder;
 
     // Track operations mentioned in conversation for context
     private List<EstimateOperation> _mentionedOperations = new();
@@ -133,9 +129,9 @@ public class ChatbotView : UserControl
         mainGrid.Children.Add(tabPanel);
 
         // Header
-        var header = CreateHeader();
-        Grid.SetRow(header, 1);
-        mainGrid.Children.Add(header);
+        _chatHeaderBorder = CreateHeader();
+        Grid.SetRow(_chatHeaderBorder, 1);
+        mainGrid.Children.Add(_chatHeaderBorder);
 
         // Collapsible categories bar
         _categoriesBar = CreateCollapsibleCategoriesBar();
@@ -160,23 +156,10 @@ public class ChatbotView : UserControl
         };
         _chatContent.Children.Add(_scrollViewer);
 
-        // Learned Patterns Panel (hidden initially)
-        _learnedPatternsPanel = new LearnedPatternsPanel { Visibility = Visibility.Collapsed };
-        _chatContent.Children.Add(_learnedPatternsPanel);
-
-        // Estimator Assistant (hidden initially)
-        _assistantView = new EstimatorAssistantView { Visibility = Visibility.Collapsed };
-        _chatContent.Children.Add(_assistantView);
-
-        // Damage Zone Selector (hidden initially) - legacy visual builder
-        _damageZonePanel = new DamageZoneSelectorPanel { Visibility = Visibility.Collapsed };
-        _damageZonePanel.OnGenerateEstimate += DamageZonePanel_OnGenerateEstimate;
-        _chatContent.Children.Add(_damageZonePanel);
-
-        // Excel-style Estimate Builder (hidden initially) - comprehensive input form
-        _excelEstimateBuilder = new ExcelEstimateBuilder { Visibility = Visibility.Collapsed };
-        _excelEstimateBuilder.OnOperationsGenerated += ExcelEstimateBuilder_OnOperationsGenerated;
-        _chatContent.Children.Add(_excelEstimateBuilder);
+        // Estimate Builder (hidden initially) - merged browse + cart
+        _estimateBuilderPanel = new EstimateBuilderPanel { Visibility = Visibility.Collapsed };
+        _estimateBuilderPanel.OnOperationsGenerated += ExcelEstimateBuilder_OnOperationsGenerated;
+        _chatContent.Children.Add(_estimateBuilderPanel);
 
         // Ghost Estimate Comparison (hidden initially)
         _ghostEstimatePanel = new GhostEstimatePanel { Visibility = Visibility.Collapsed };
@@ -803,18 +786,14 @@ public class ChatbotView : UserControl
             Padding = new Thickness(8, 8, 8, 0)
         };
 
-        // Better tab labels with descriptions
-        _chatTabButton = CreateTabButton("💬 Chat", "Ask questions", 0, true);
-        _learnedPatternsTabButton = CreateTabButton("📚 Learned", "View patterns", 1, false);
-        _assistantTabButton = CreateTabButton("🔧 Assistant", "Build operations", 2, false);
-        _damageZoneTabButton = CreateTabButton("🚗 Build Estimate", "Visual builder", 3, false);
-        _ghostTabButton = CreateTabButton("👻 Ghost Compare", "AI training", 4, false);
-        _screenMonitorTabButton = CreateTabButton("\uD83D\uDDA5 Screen OCR", "Monitor screen", 5, false);
+        // Tab labels
+        _chatTabButton = CreateTabButton("\uD83D\uDCAC Chat", "Ask questions", 0, true);
+        _estimateBuilderTabButton = CreateTabButton("\uD83D\uDCCB Estimate Builder", "Browse & build", 1, false);
+        _ghostTabButton = CreateTabButton("\uD83D\uDC7B Ghost Compare", "AI training", 2, false);
+        _screenMonitorTabButton = CreateTabButton("\uD83D\uDDA5 Screen OCR", "Monitor screen", 3, false);
 
         panel.Children.Add(_chatTabButton);
-        panel.Children.Add(_learnedPatternsTabButton);
-        panel.Children.Add(_assistantTabButton);
-        panel.Children.Add(_damageZoneTabButton);
+        panel.Children.Add(_estimateBuilderTabButton);
         panel.Children.Add(_ghostTabButton);
         panel.Children.Add(_screenMonitorTabButton);
 
@@ -914,21 +893,23 @@ public class ChatbotView : UserControl
 
         // Update tab button styles
         UpdateTabButtonStyle(_chatTabButton, index == 0);
-        UpdateTabButtonStyle(_learnedPatternsTabButton, index == 1);
-        UpdateTabButtonStyle(_assistantTabButton, index == 2);
-        UpdateTabButtonStyle(_damageZoneTabButton, index == 3);
-        UpdateTabButtonStyle(_ghostTabButton, index == 4);
-        UpdateTabButtonStyle(_screenMonitorTabButton, index == 5);
+        UpdateTabButtonStyle(_estimateBuilderTabButton, index == 1);
+        UpdateTabButtonStyle(_ghostTabButton, index == 2);
+        UpdateTabButtonStyle(_screenMonitorTabButton, index == 3);
+
+        // Show/hide header + categories bar (only needed for chat tab)
+        bool isChatTab = index == 0;
+        if (_chatHeaderBorder != null)
+            _chatHeaderBorder.Visibility = isChatTab ? Visibility.Visible : Visibility.Collapsed;
+        if (_categoriesBar != null && !isChatTab)
+            _categoriesBar.Visibility = Visibility.Collapsed;
 
         // Show/hide content
         if (index == 0)
         {
             // Chat tab
             _scrollViewer.Visibility = Visibility.Visible;
-            _learnedPatternsPanel!.Visibility = Visibility.Collapsed;
-            _assistantView!.Visibility = Visibility.Collapsed;
-            _damageZonePanel!.Visibility = Visibility.Collapsed;
-            _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
+            _estimateBuilderPanel!.Visibility = Visibility.Collapsed;
             _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
             _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Visible;
@@ -936,12 +917,9 @@ public class ChatbotView : UserControl
         }
         else if (index == 1)
         {
-            // Learned Patterns tab
+            // Estimate Builder tab
             _scrollViewer.Visibility = Visibility.Collapsed;
-            _learnedPatternsPanel!.Visibility = Visibility.Visible;
-            _assistantView!.Visibility = Visibility.Collapsed;
-            _damageZonePanel!.Visibility = Visibility.Collapsed;
-            _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
+            _estimateBuilderPanel!.Visibility = Visibility.Visible;
             _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
             _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Collapsed;
@@ -949,38 +927,9 @@ public class ChatbotView : UserControl
         }
         else if (index == 2)
         {
-            // Estimator Assistant tab
-            _scrollViewer.Visibility = Visibility.Collapsed;
-            _learnedPatternsPanel!.Visibility = Visibility.Collapsed;
-            _assistantView!.Visibility = Visibility.Visible;
-            _damageZonePanel!.Visibility = Visibility.Collapsed;
-            _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
-            _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
-            _screenMonitorPanel!.Visibility = Visibility.Collapsed;
-            _quickRepliesPanel.Visibility = Visibility.Collapsed;
-            _inputBox.Visibility = Visibility.Collapsed;
-        }
-        else if (index == 3)
-        {
-            // Build Estimate - Excel-style input form
-            _scrollViewer.Visibility = Visibility.Collapsed;
-            _learnedPatternsPanel!.Visibility = Visibility.Collapsed;
-            _assistantView!.Visibility = Visibility.Collapsed;
-            _damageZonePanel!.Visibility = Visibility.Collapsed;
-            _excelEstimateBuilder!.Visibility = Visibility.Visible;
-            _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
-            _screenMonitorPanel!.Visibility = Visibility.Collapsed;
-            _quickRepliesPanel.Visibility = Visibility.Collapsed;
-            _inputBox.Visibility = Visibility.Collapsed;
-        }
-        else if (index == 4)
-        {
             // Ghost Estimate Comparison tab
             _scrollViewer.Visibility = Visibility.Collapsed;
-            _learnedPatternsPanel!.Visibility = Visibility.Collapsed;
-            _assistantView!.Visibility = Visibility.Collapsed;
-            _damageZonePanel!.Visibility = Visibility.Collapsed;
-            _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
+            _estimateBuilderPanel!.Visibility = Visibility.Collapsed;
             _ghostEstimatePanel!.Visibility = Visibility.Visible;
             _screenMonitorPanel!.Visibility = Visibility.Collapsed;
             _quickRepliesPanel.Visibility = Visibility.Collapsed;
@@ -990,10 +939,7 @@ public class ChatbotView : UserControl
         {
             // Screen OCR Monitor tab
             _scrollViewer.Visibility = Visibility.Collapsed;
-            _learnedPatternsPanel!.Visibility = Visibility.Collapsed;
-            _assistantView!.Visibility = Visibility.Collapsed;
-            _damageZonePanel!.Visibility = Visibility.Collapsed;
-            _excelEstimateBuilder!.Visibility = Visibility.Collapsed;
+            _estimateBuilderPanel!.Visibility = Visibility.Collapsed;
             _ghostEstimatePanel!.Visibility = Visibility.Collapsed;
             _screenMonitorPanel!.Visibility = Visibility.Visible;
             _quickRepliesPanel.Visibility = Visibility.Collapsed;
@@ -1006,11 +952,9 @@ public class ChatbotView : UserControl
             var viewId = index switch
             {
                 0 => "chat-subtab",
-                1 => "learned-subtab",
-                2 => "assistant-subtab",
-                3 => "build-estimate-subtab",
-                4 => "ghost-compare-subtab",
-                5 => "screen-ocr-subtab",
+                1 => "estimate-builder-subtab",
+                2 => "ghost-compare-subtab",
+                3 => "screen-ocr-subtab",
                 _ => "chat-subtab"
             };
             var flyout = new Flyout
@@ -1936,83 +1880,6 @@ public class ChatbotView : UserControl
         }
     }
 
-    private void DamageZonePanel_OnGenerateEstimate(object? sender, EstimateGeneratedEventArgs e)
-    {
-        try
-        {
-            // Switch to chat tab to show the results
-            SelectTab(0);
-
-            // Clear previous operation lines and prepare for new ones
-            _lastOperationLines.Clear();
-            _mentionedOperations.Clear();
-
-            // Build a comprehensive message from the generated operations
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine("🚗 ESTIMATE BUILT FROM DAMAGE ZONES");
-            sb.AppendLine("════════════════════════════════════");
-            sb.AppendLine($"Operations Generated: {e.Operations.Count}");
-            sb.AppendLine();
-
-            // Group operations by panel
-            var byPanel = e.Operations.GroupBy(o => o.PanelName ?? "Unknown");
-            foreach (var panelGroup in byPanel)
-            {
-                sb.AppendLine($"▶ {panelGroup.Key.ToUpper()}");
-                sb.AppendLine("─────────────────────────────");
-                foreach (var op in panelGroup)
-                {
-                    var hoursStr = op.LaborHours > 0 ? $" ({op.LaborHours:N1} hr)" : "";
-                    sb.AppendLine($"  • {op.Description ?? "Unknown"}{hoursStr}");
-
-                    // Add to mentioned operations for easy export
-                    _mentionedOperations.Add(new EstimateOperation
-                    {
-                        PartName = op.PanelName ?? "",
-                        OperationType = op.OperationType ?? "",
-                        Description = op.Description ?? "",
-                        LaborHours = op.LaborHours
-                    });
-
-                    // IMPORTANT: Also add to _lastOperationLines so export works
-                    _lastOperationLines.Add(new OperationLine
-                    {
-                        Description = op.Description ?? "",
-                        Hours = op.LaborHours,
-                        Cost = 0,
-                        LineType = op.Category ?? "Body",
-                        Operation = op.OperationType ?? ""
-                    });
-                }
-                sb.AppendLine();
-            }
-
-            // Store as text for copy operations
-            var opsText = new System.Text.StringBuilder();
-            foreach (var op in e.Operations)
-            {
-                opsText.AppendLine($"{op.Description} - {op.LaborHours:N1} hr");
-            }
-            _lastOperationsText = opsText.ToString();
-
-            // Add total labor summary
-            var totalHours = e.Operations.Sum(o => o.LaborHours);
-            sb.AppendLine($"📊 TOTAL ESTIMATED LABOR: {totalHours:N1} hours");
-            sb.AppendLine();
-            sb.AppendLine("💡 Click 'Send to Export' to transfer to CCC Desktop.");
-
-            AddBotMessage(sb.ToString());
-
-            // Add action buttons for the generated operations
-            AddOperationActionButtons();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[BuildEstimate] Error: {ex.Message}");
-            AddBotMessage($"Error generating estimate: {ex.Message}");
-        }
-    }
-
     private void ExcelEstimateBuilder_OnOperationsGenerated(object? sender, List<Services.GeneratedOperation> operations)
     {
         try
@@ -2136,8 +2003,8 @@ public class ChatbotView : UserControl
     {
         var operations = ocrResult.DetectedOperations;
         // Load OCR-detected operations into the estimate builder and switch to that tab
-        _excelEstimateBuilder?.AddOperationsFromOcr(operations);
-        SelectTab(3);
+        _estimateBuilderPanel?.AddOperationsFromOcr(operations);
+        SelectTab(1);
         AddBotMessage($"Loaded {operations.Count} operations from Screen OCR into the estimate builder.");
 
         // Persist OCR data to estimate history

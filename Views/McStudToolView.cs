@@ -622,16 +622,33 @@ namespace McStudDesktop.Views
             }
         }
 
-        private void OpenSupportEmail()
+        private async Task<bool> SendSupportMessageAsync(string name, string subject, string message)
         {
             try
             {
-                var uri = new Uri("mailto:Mcstudestimating@gmail.com?subject=McStud Tool Support Request");
-                _ = Windows.System.Launcher.LaunchUriAsync(uri);
+                using var client = new System.Net.Http.HttpClient();
+                var version = UpdateService.GetVersionString();
+                var fullMessage = $"{message}\n\n---\nApp Version: {version}\nSent from McStud Tool";
+
+                var formData = new Dictionary<string, string>
+                {
+                    { "name", name },
+                    { "_subject", string.IsNullOrEmpty(subject) ? $"McStud Support: {name}" : subject },
+                    { "message", fullMessage },
+                    { "_captcha", "false" },
+                    { "_template", "table" }
+                };
+
+                var content = new System.Net.Http.FormUrlEncodedContent(formData);
+                var response = await client.PostAsync("https://formsubmit.co/ajax/Mcstudestimating@gmail.com", content);
+
+                System.Diagnostics.Debug.WriteLine($"[Support] Form submitted: {response.StatusCode}");
+                return response.IsSuccessStatusCode;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Help] Failed to open email: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[Support] Failed to send: {ex.Message}");
+                return false;
             }
         }
 
@@ -1765,7 +1782,7 @@ namespace McStudDesktop.Views
             whatsNewCard.Child = whatsNewStack;
             mainStack.Children.Add(whatsNewCard);
 
-            // === SUPPORT SECTION ===
+            // === CONTACT SUPPORT SECTION ===
             var supportCard = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
@@ -1777,24 +1794,104 @@ namespace McStudDesktop.Views
             var supportStack = new StackPanel { Spacing = 12 };
             supportStack.Children.Add(new TextBlock
             {
-                Text = "Support",
+                Text = "Contact Support",
                 FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White)
             });
 
-            var emailButton = new Button
+            // Name field
+            var nameBox = new TextBox
             {
-                Padding = new Thickness(16, 10, 16, 10),
-                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                CornerRadius = new CornerRadius(4)
+                PlaceholderText = "Your name",
+                FontSize = 13,
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Colors.White)
             };
-            var emailContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            emailContent.Children.Add(new FontIcon { Glyph = "\uE715", FontSize = 16 });
-            emailContent.Children.Add(new TextBlock { Text = "Email Support: Mcstudestimating@gmail.com" });
-            emailButton.Content = emailContent;
-            emailButton.Click += (s, e) => OpenSupportEmail();
-            supportStack.Children.Add(emailButton);
+            supportStack.Children.Add(nameBox);
+
+            // Subject field
+            var subjectBox = new TextBox
+            {
+                PlaceholderText = "Subject",
+                FontSize = 13,
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Colors.White)
+            };
+            supportStack.Children.Add(subjectBox);
+
+            // Message field
+            var messageBox = new TextBox
+            {
+                PlaceholderText = "Describe your issue or feedback...",
+                FontSize = 13,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                Height = 120,
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Colors.White)
+            };
+            supportStack.Children.Add(messageBox);
+
+            // Status text (hidden until send)
+            var supportStatus = new TextBlock
+            {
+                FontSize = 12,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, -4, 0, 0)
+            };
+            supportStack.Children.Add(supportStatus);
+
+            // Send button
+            var sendButton = new Button
+            {
+                Padding = new Thickness(20, 10, 20, 10),
+                Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 80)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(4),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            var sendContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            sendContent.Children.Add(new FontIcon { Glyph = "\uE724", FontSize = 14 });
+            sendContent.Children.Add(new TextBlock { Text = "Send Message", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            sendButton.Content = sendContent;
+            sendButton.Click += async (s, e) =>
+            {
+                var name = nameBox.Text?.Trim() ?? "";
+                var subject = subjectBox.Text?.Trim() ?? "";
+                var message = messageBox.Text?.Trim() ?? "";
+
+                if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(message))
+                {
+                    supportStatus.Text = "Please fill in your name and message.";
+                    supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 150, 100));
+                    supportStatus.Visibility = Visibility.Visible;
+                    return;
+                }
+
+                sendButton.IsEnabled = false;
+                supportStatus.Text = "Sending...";
+                supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150));
+                supportStatus.Visibility = Visibility.Visible;
+
+                var success = await SendSupportMessageAsync(name, subject, message);
+
+                if (success)
+                {
+                    supportStatus.Text = "Message sent! We'll get back to you.";
+                    supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100));
+                    nameBox.Text = "";
+                    subjectBox.Text = "";
+                    messageBox.Text = "";
+                }
+                else
+                {
+                    supportStatus.Text = "Failed to send. Try emailing Mcstudestimating@gmail.com directly.";
+                    supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
+                }
+                sendButton.IsEnabled = true;
+            };
+            supportStack.Children.Add(sendButton);
 
             supportCard.Child = supportStack;
             mainStack.Children.Add(supportCard);
