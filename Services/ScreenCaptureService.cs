@@ -50,6 +50,14 @@ namespace McstudDesktop.Services
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+        private const uint GW_HWNDNEXT = 2;
+
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT
         {
@@ -61,36 +69,96 @@ namespace McstudDesktop.Services
         public event EventHandler<string>? StatusChanged;
 
         /// <summary>
-        /// Captures a screenshot of the best available estimating window, or full screen as fallback.
-        /// Returns the bitmap and the window title that was captured.
+        /// Captures the foreground window. If McStud is in front, walks the Z-order
+        /// to find the next visible window behind it (the one you were just working in).
         /// </summary>
         public (Bitmap? bitmap, string windowTitle) CaptureEstimatingWindow()
         {
             try
             {
-                // Try to find an estimating app window first
-                var windows = FindEstimatingWindows();
-                if (windows.Count > 0)
+                var hWnd = GetForegroundWindow();
+                if (hWnd == IntPtr.Zero)
                 {
-                    var (hWnd, title) = windows[0];
-                    var bitmap = CaptureWindow(hWnd);
-                    if (bitmap != null)
+                    StatusChanged?.Invoke(this, "No foreground window");
+                    return (null, string.Empty);
+                }
+
+                // If McStud is in front, walk Z-order to find the next real window behind it
+                if (IsOwnProcess(hWnd))
+                {
+                    hWnd = FindNextVisibleWindow(hWnd);
+                    if (hWnd == IntPtr.Zero)
                     {
-                        StatusChanged?.Invoke(this, $"Captured: {title}");
-                        return (bitmap, title);
+                        StatusChanged?.Invoke(this, "No window found behind McStud");
+                        return (null, string.Empty);
                     }
                 }
 
-                // Fallback: capture full primary screen
-                var screenBitmap = CaptureFullScreen();
-                StatusChanged?.Invoke(this, "Captured: Full screen");
-                return (screenBitmap, "Full Screen");
+                var sb = new StringBuilder(256);
+                GetWindowText(hWnd, sb, 256);
+                var title = sb.ToString();
+
+                var bitmap = CaptureWindow(hWnd);
+                if (bitmap != null)
+                {
+                    StatusChanged?.Invoke(this, $"Captured: {title}");
+                    return (bitmap, title);
+                }
+
+                StatusChanged?.Invoke(this, "Capture failed");
+                return (null, string.Empty);
             }
             catch (Exception ex)
             {
                 StatusChanged?.Invoke(this, $"Capture failed: {ex.Message}");
                 return (null, string.Empty);
             }
+        }
+
+        /// <summary>
+        /// Walks Z-order from the given window to find the next visible, titled,
+        /// non-McStud window (i.e. the window the user was working in before switching to McStud).
+        /// </summary>
+        private IntPtr FindNextVisibleWindow(IntPtr startAfter)
+        {
+            var hWnd = GetWindow(startAfter, GW_HWNDNEXT);
+            int checked_ = 0;
+
+            while (hWnd != IntPtr.Zero && checked_ < 50)
+            {
+                checked_++;
+
+                if (!IsWindowVisible(hWnd)) { hWnd = GetWindow(hWnd, GW_HWNDNEXT); continue; }
+
+                var sb = new StringBuilder(256);
+                GetWindowText(hWnd, sb, 256);
+                var title = sb.ToString();
+                if (string.IsNullOrWhiteSpace(title)) { hWnd = GetWindow(hWnd, GW_HWNDNEXT); continue; }
+
+                if (IsOwnProcess(hWnd)) { hWnd = GetWindow(hWnd, GW_HWNDNEXT); continue; }
+
+                // Skip tiny windows (tooltips, overlays, etc.)
+                if (GetWindowRect(hWnd, out var rect) && rect.Width > 200 && rect.Height > 200)
+                {
+                    Debug.WriteLine($"[ScreenCapture] Found window behind McStud: \"{title}\"");
+                    return hWnd;
+                }
+
+                hWnd = GetWindow(hWnd, GW_HWNDNEXT);
+            }
+
+            return IntPtr.Zero;
+        }
+
+        private static bool IsOwnProcess(IntPtr hWnd)
+        {
+            GetWindowThreadProcessId(hWnd, out uint processId);
+            try
+            {
+                var process = Process.GetProcessById((int)processId);
+                return process.ProcessName.Equals("McstudDesktop", StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
         }
 
         /// <summary>

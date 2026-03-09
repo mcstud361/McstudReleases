@@ -14,7 +14,7 @@ namespace McstudDesktop.Services
 {
     /// <summary>
     /// Connects screen monitoring to estimate scoring engines and produces
-    /// real-time coaching suggestions for the overlay window.
+    /// real-time coaching suggestions displayed inline in the Screen Monitor panel.
     /// </summary>
     public class LiveCoachingService
     {
@@ -73,7 +73,6 @@ namespace McstudDesktop.Services
             _lastContentHash = "";
             CoachingStateChanged?.Invoke(this, false);
             Debug.WriteLine("[LiveCoaching] Stopped");
-            // NOTE: Does NOT stop screen monitoring — ScreenMonitorPanel may still use it
         }
 
         public void DismissSuggestion(string id)
@@ -88,11 +87,14 @@ namespace McstudDesktop.Services
 
         private void OnOcrResultReady(object? sender, ScreenOcrResult result)
         {
-            if (result.DetectedOperations == null || result.DetectedOperations.Count == 0)
-                return;
+            // Accept results with either structured operations OR raw text
+            var hasOps = result.DetectedOperations != null && result.DetectedOperations.Count > 0;
+            var hasText = !string.IsNullOrWhiteSpace(result.RawText);
 
-            // Content-hash check — skip if operations unchanged
-            var hash = ComputeContentHash(result.DetectedOperations);
+            if (!hasOps && !hasText) return;
+
+            // Content-hash check — skip if content unchanged
+            var hash = ComputeContentHash(result);
             if (hash == _lastContentHash) return;
             _lastContentHash = hash;
 
@@ -120,18 +122,50 @@ namespace McstudDesktop.Services
 
         private void ProcessOcrResult(ScreenOcrResult result)
         {
-            // Convert OcrDetectedOperation[] → ParsedEstimateLine[]
-            var parsedLines = result.DetectedOperations.Select(op => new ParsedEstimateLine
+            // Build parsed lines from structured operations
+            var parsedLines = new List<ParsedEstimateLine>();
+
+            if (result.DetectedOperations != null)
             {
-                RawLine = op.RawLine,
-                Description = op.Description,
-                PartName = op.PartName,
-                OperationType = op.OperationType,
-                LaborHours = op.LaborHours,
-                RefinishHours = op.RefinishHours,
-                Price = op.Price,
-                Quantity = op.Quantity
-            }).ToList();
+                foreach (var op in result.DetectedOperations)
+                {
+                    parsedLines.Add(new ParsedEstimateLine
+                    {
+                        RawLine = op.RawLine,
+                        Description = op.Description,
+                        PartName = op.PartName,
+                        OperationType = op.OperationType,
+                        LaborHours = op.LaborHours,
+                        RefinishHours = op.RefinishHours,
+                        Price = op.Price,
+                        Quantity = op.Quantity
+                    });
+                }
+            }
+
+            // If no structured ops but we have raw text, build synthetic lines
+            // from part name scanning (same approach as ScreenMonitorPanel.DetectParts)
+            if (parsedLines.Count == 0 && !string.IsNullOrWhiteSpace(result.RawText))
+            {
+                var detectedParts = ScanPartsFromText(result.RawText);
+                foreach (var partName in detectedParts)
+                {
+                    parsedLines.Add(new ParsedEstimateLine
+                    {
+                        Description = partName,
+                        PartName = partName,
+                        OperationType = "Replace",
+                        RawLine = partName
+                    });
+                }
+                Debug.WriteLine($"[LiveCoaching] Built {parsedLines.Count} synthetic lines from raw text");
+            }
+
+            if (parsedLines.Count == 0)
+            {
+                Debug.WriteLine("[LiveCoaching] No operations or parts found in OCR result");
+                return;
+            }
 
             // Run both scoring engines
             var scoringResult = _scoringService.ScoreEstimate(parsedLines);
@@ -169,13 +203,11 @@ namespace McstudDesktop.Services
                 var key = NormalizeKey(suggestion.Category.ToString(), suggestion.Item);
                 if (seenKeys.Contains(key))
                 {
-                    // Already exists from scoring — mark as "Both" for higher confidence
                     var existing = suggestions.FirstOrDefault(s => s.Id == key);
                     if (existing != null) existing.Source = "Both";
                     continue;
                 }
 
-                // Fuzzy check for near-duplicates
                 if (IsFuzzyDuplicate(key, seenKeys)) continue;
 
                 seenKeys.Add(key);
@@ -205,29 +237,105 @@ namespace McstudDesktop.Services
                 }
             }
 
+            var opCount = result.DetectedOperations?.Count ?? 0;
             var snapshot = new CoachingSnapshot
             {
                 Suggestions = suggestions,
-                TotalOperationsDetected = result.DetectedOperations.Count,
+                TotalOperationsDetected = opCount > 0 ? opCount : parsedLines.Count,
                 Score = scoringResult.OverallScore,
                 Grade = scoringResult.Grade,
                 PotentialRecovery = scoringResult.PotentialCostRecovery + scoringResult.PotentialLaborRecovery,
                 Timestamp = DateTime.Now
             };
 
+            Debug.WriteLine($"[LiveCoaching] Snapshot: score={snapshot.Score}, grade={snapshot.Grade}, suggestions={suggestions.Count}");
             SuggestionsUpdated?.Invoke(this, snapshot);
         }
 
-        private static string ComputeContentHash(List<OcrDetectedOperation> operations)
+        /// <summary>
+        /// Scans raw OCR text for known part names (same patterns as ScreenMonitorPanel).
+        /// </summary>
+        private static List<string> ScanPartsFromText(string rawText)
+        {
+            var lowerText = rawText.ToLowerInvariant();
+            var parts = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (pattern, canonical) in _scanParts)
+            {
+                if (seen.Contains(canonical)) continue;
+
+                var idx = lowerText.IndexOf(pattern);
+                if (idx < 0) continue;
+
+                // Word boundary check
+                if (idx > 0 && char.IsLetter(lowerText[idx - 1])) continue;
+                var endIdx = idx + pattern.Length;
+                if (endIdx < lowerText.Length && char.IsLetter(lowerText[endIdx])) continue;
+
+                seen.Add(canonical);
+                parts.Add(canonical);
+            }
+
+            return parts;
+        }
+
+        // Same part patterns as ScreenMonitorPanel — longer/more-specific first
+        private static readonly (string Pattern, string CanonicalName)[] _scanParts = new[]
+        {
+            ("front bumper", "Front Bumper"), ("rear bumper", "Rear Bumper"),
+            ("bumper reinforcement", "Bumper Reinforcement"), ("bumper absorber", "Bumper Absorber"),
+            ("bumper fascia", "Bumper Cover"), ("bumper cover", "Bumper Cover"),
+            ("fender liner", "Fender Liner"), ("inner fender", "Fender Liner"),
+            ("front fender", "Fender"), ("fender", "Fender"),
+            ("front door", "Front Door"), ("rear door", "Rear Door"),
+            ("door handle", "Door Handle"), ("door trim", "Door Trim Panel"),
+            ("quarter panel", "Quarter Panel"), ("qtr panel", "Quarter Panel"),
+            ("rocker panel", "Rocker Panel"), ("side panel", "Side Panel"),
+            ("roof panel", "Roof"), ("trunk lid", "Trunk Lid"), ("decklid", "Trunk Lid"),
+            ("liftgate", "Liftgate"), ("tailgate", "Tailgate"),
+            ("hood", "Hood"),
+            ("headlamp", "Headlight"), ("headlight", "Headlight"), ("head lamp", "Headlight"),
+            ("tail lamp", "Tail Light"), ("taillight", "Tail Light"), ("tail light", "Tail Light"),
+            ("fog lamp", "Fog Light"), ("fog light", "Fog Light"),
+            ("grille", "Grille"), ("grill", "Grille"),
+            ("radiator support", "Radiator Support"), ("rad support", "Radiator Support"),
+            ("energy absorber", "Bumper Absorber"),
+            ("windshield", "Windshield"), ("back glass", "Rear Glass"),
+            ("side mirror", "Mirror"), ("outside mirror", "Mirror"),
+            ("parking sensor", "Parking Sensor"), ("backup camera", "Backup Camera"),
+            ("splash shield", "Splash Shield"), ("wheel opening", "Wheel Opening Molding"),
+            ("molding", "Molding"), ("spoiler", "Spoiler"), ("valance", "Valance"),
+            ("a pillar", "A-Pillar"), ("b pillar", "B-Pillar"), ("c pillar", "C-Pillar"),
+            ("radiator", "Radiator"), ("condenser", "Condenser"),
+            ("control arm", "Control Arm"), ("strut", "Strut"), ("suspension", "Suspension"),
+            ("wheel", "Wheel"), ("tire", "Tire"),
+            ("adas", "ADAS Calibration"), ("calibration", "Calibration"),
+            ("pre scan", "Pre-Repair Scan"), ("post scan", "Post-Repair Scan"),
+            ("diagnostic", "Diagnostic Scan")
+        };
+
+        private static string ComputeContentHash(ScreenOcrResult result)
         {
             var sb = new StringBuilder();
-            foreach (var op in operations.OrderBy(o => o.Description))
+
+            // Hash on structured operations if available
+            if (result.DetectedOperations != null && result.DetectedOperations.Count > 0)
             {
-                sb.Append(op.Description).Append('|')
-                  .Append(op.OperationType).Append('|')
-                  .Append(op.PartName).Append('|')
-                  .Append(op.LaborHours).Append(';');
+                foreach (var op in result.DetectedOperations.OrderBy(o => o.Description))
+                {
+                    sb.Append(op.Description).Append('|')
+                      .Append(op.OperationType).Append('|')
+                      .Append(op.PartName).Append('|')
+                      .Append(op.LaborHours).Append(';');
+                }
             }
+            else
+            {
+                // Fall back to raw text hash
+                sb.Append(result.RawText ?? "");
+            }
+
             using var sha = SHA256.Create();
             var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(sb.ToString()));
             return Convert.ToHexString(bytes);
@@ -244,26 +352,21 @@ namespace McstudDesktop.Services
 
         private static bool IsFuzzyDuplicate(string key, HashSet<string> existingKeys)
         {
-            // Simple fuzzy match: check if any existing key shares 80%+ characters
             foreach (var existing in existingKeys)
             {
                 if (existing.Length == 0 || key.Length == 0) continue;
 
-                // Same category prefix?
                 var keyParts = key.Split('|');
                 var existingParts = existing.Split('|');
                 if (keyParts.Length < 2 || existingParts.Length < 2) continue;
                 if (keyParts[0] != existingParts[0]) continue;
 
-                // Compare title portions
                 var keyTitle = keyParts[1];
                 var existingTitle = existingParts[1];
 
-                // Check if one contains the other (e.g., "prerepairstcan" vs "prescan")
                 if (keyTitle.Contains(existingTitle) || existingTitle.Contains(keyTitle))
                     return true;
 
-                // Levenshtein-like: if titles differ by <= 20% of the longer length
                 var maxLen = Math.Max(keyTitle.Length, existingTitle.Length);
                 if (maxLen <= 3) continue;
                 var commonChars = keyTitle.Intersect(existingTitle).Count();

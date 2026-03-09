@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Controls;
 using WinRT.Interop;
 using Velopack;
 using Velopack.Sources;
-using McStudDesktop.Views;
 using McstudDesktop.Services;
 
 namespace McstudDesktop;
@@ -15,7 +14,6 @@ public partial class App : Application
 {
     public static MainWindow? MainWindow { get; private set; }
     public static Microsoft.UI.Dispatching.DispatcherQueue? MainDispatcherQueue { get; private set; }
-    public static LiveCoachingOverlayWindow? CoachingOverlay { get; private set; }
 
     private const string MutexName = "McstudTool";
     private Mutex? _mutex;
@@ -106,23 +104,11 @@ public partial class App : Application
 
     public static void ToggleLiveCoaching()
     {
-        if (CoachingOverlay != null)
-        {
-            LiveCoachingService.Instance.Stop();
-            CoachingOverlay.Close();
-            CoachingOverlay = null;
-        }
+        var service = LiveCoachingService.Instance;
+        if (service.IsRunning)
+            service.Stop();
         else
-        {
-            CoachingOverlay = new LiveCoachingOverlayWindow();
-            CoachingOverlay.Closed += (s, e) =>
-            {
-                LiveCoachingService.Instance.Stop();
-                CoachingOverlay = null;
-            };
-            CoachingOverlay.Activate();
-            LiveCoachingService.Instance.Start();
-        }
+            service.Start();
     }
 
     private static async Task CheckForUpdatesAsync()
