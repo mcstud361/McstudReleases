@@ -153,6 +153,11 @@ namespace McStudDesktop.Services
                        desc.Contains("fog") || desc.Contains("turn signal");
             });
 
+            // Detect any panel replacement (triggers battery disconnect for sensor-equipped panels)
+            bool hasReplaceOperations = lines.Any(l =>
+                l.OperationType?.Contains("Repl", StringComparison.OrdinalIgnoreCase) == true ||
+                l.OperationType?.Contains("New", StringComparison.OrdinalIgnoreCase) == true);
+
             // Detect mechanical work (suspension, steering, alignment)
             bool hasMechanicalComponents = lines.Any(l =>
             {
@@ -218,7 +223,8 @@ namespace McStudDesktop.Services
                             if (calibRequired == "true" || calibRequired == "True" || calibRequired == "verify" || calibRequired == "if_equipped")
                             {
                                 var itemKey = $"ADAS|{trigger.Operation}";
-                                if (!suggestedItems.Contains(itemKey))
+                                var adasItem = $"{trigger.Operation} - ADAS Calibration";
+                                if (!suggestedItems.Contains(itemKey) && !IsAlreadyOnEstimateFuzzy(lines, adasItem) && !IsAlreadyOnEstimateFuzzy(lines, trigger.Operation))
                                 {
                                     suggestedItems.Add(itemKey);
 
@@ -405,6 +411,31 @@ namespace McStudDesktop.Services
                     }
                 }
 
+                // Any replace operation (battery disconnect for sensor-equipped panels)
+                if (hasReplaceOperations && _commonlyMissed.GlobalChecks.TryGetValue("anyReplace", out var replaceCheck))
+                {
+                    foreach (var item in replaceCheck.Checks ?? new List<SmartMissedItem>())
+                    {
+                        var itemKey = $"Replace|{item.Item}";
+                        if (!suggestedItems.Contains(itemKey) && !IsAlreadyOnEstimateFuzzy(lines, item.Item))
+                        {
+                            suggestedItems.Add(itemKey);
+                            result.Suggestions.Add(new SmartSuggestedOperation
+                            {
+                                Category = SuggestionCategory.Electrical,
+                                SourcePart = "Panel Replacement",
+                                SourceOperation = "",
+                                Item = item.Item,
+                                Description = item.Description,
+                                WhyNeeded = item.WhyNeeded,
+                                LaborHours = item.LaborHours,
+                                Priority = item.Priority ?? "high",
+                                SuggestionType = "GlobalCheck"
+                            });
+                        }
+                    }
+                }
+
                 // Miscellaneous (always applicable)
                 if (_commonlyMissed.GlobalChecks.TryGetValue("miscellaneous", out var miscCheck))
                 {
@@ -507,7 +538,14 @@ namespace McStudDesktop.Services
             { "r&i", new[] { "remove", "install", "r+i", "r/i" } },
             { "transfer", new[] { "xfer" } },
             { "calibration", new[] { "calibrate", "calib" } },
-            { "headlamp", new[] { "headlight", "head lamp", "head light" } }
+            { "headlamp", new[] { "headlight", "head lamp", "head light" } },
+            { "memory saver", new[] { "ks-100", "keep alive", "keep-alive", "battery support" } },
+            { "module programming", new[] { "reprogram", "initialization", "initialize", "relearn", "idle relearn" } },
+            { "drive cycle", new[] { "test drive", "road test" } },
+            { "oem repair procedures", new[] { "oem research", "oem procedure", "repair procedure" } },
+            { "clean for delivery", new[] { "final clean", "detail clean", "wash" } },
+            { "hazardous waste", new[] { "haz waste", "hazmat", "waste disposal" } },
+            { "battery reconnect", new[] { "reconnect battery", "battery initialize", "battery init" } }
         };
 
         /// <summary>
@@ -574,6 +612,7 @@ namespace McStudDesktop.Services
                 "diagnostic" => SuggestionCategory.Diagnostic,
                 "calibration" => SuggestionCategory.Calibration,
                 "mechanical" => SuggestionCategory.Mechanical,
+                "electrical" => SuggestionCategory.Electrical,
                 _ => SuggestionCategory.Other
             };
         }

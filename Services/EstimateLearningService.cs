@@ -262,6 +262,47 @@ namespace McStudDesktop.Services
                 needsSave = true;
             }
 
+            // Clean garbage patterns (header/footer/metadata lines that leaked in)
+            var garbageKeys = db.Patterns.Keys.Where(k =>
+                k.Contains("$") || k.Contains("@") ||
+                k.StartsWith("price", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("rate", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("total", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("workfile", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("federal", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("state_id", StringComparison.OrdinalIgnoreCase) ||
+                k.Length < 3
+            ).ToList();
+            foreach (var key in garbageKeys)
+                db.Patterns.Remove(key);
+
+            var garbageMLKeys = db.ManualLinePatterns.Keys.Where(k =>
+                k.Contains("$") || k.Contains("@") ||
+                k.StartsWith("price", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("rate", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("total", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("workfile", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("federal", StringComparison.OrdinalIgnoreCase) ||
+                k.StartsWith("state_id", StringComparison.OrdinalIgnoreCase) ||
+                k.Length < 3
+            ).ToList();
+            foreach (var key in garbageMLKeys)
+                db.ManualLinePatterns.Remove(key);
+
+            db.TrainingExamples.RemoveAll(e =>
+                !string.IsNullOrEmpty(e.PartName) && (
+                    e.PartName.Contains("$") || e.PartName.Contains("@") ||
+                    e.PartName.StartsWith("Price", StringComparison.OrdinalIgnoreCase) ||
+                    e.PartName.StartsWith("Workfile", StringComparison.OrdinalIgnoreCase) ||
+                    e.PartName.StartsWith("Federal", StringComparison.OrdinalIgnoreCase)
+                ));
+
+            if (garbageKeys.Count > 0 || garbageMLKeys.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Learning] Cleaned {garbageKeys.Count} garbage patterns, {garbageMLKeys.Count} garbage ML patterns");
+                needsSave = true;
+            }
+
             // Migrate patterns to include PatternVersion if not set
             foreach (var pattern in db.Patterns.Values)
             {
@@ -461,13 +502,6 @@ namespace McStudDesktop.Services
 
         public void SaveDatabase()
         {
-            // Skip saving in Shop mode — baseline data is read-only
-            if (LearningModeService.Instance.CurrentMode == LearningMode.Shop)
-            {
-                System.Diagnostics.Debug.WriteLine("[Learning] SHOP mode — skipping save (baseline is read-only)");
-                return;
-            }
-
             try
             {
                 // SAFEGUARD: Never save null or effectively empty database
@@ -616,13 +650,6 @@ namespace McStudDesktop.Services
             if (!CanTrain)
             {
                 System.Diagnostics.Debug.WriteLine($"[Learning] BLOCKED - Client license cannot train. Tier: {_currentTier}");
-                return false;
-            }
-
-            // Block learning in Shop mode — baseline is read-only
-            if (LearningModeService.Instance.CurrentMode == LearningMode.Shop)
-            {
-                System.Diagnostics.Debug.WriteLine("[Learning] BLOCKED - Shop mode does not allow training (baseline is read-only)");
                 return false;
             }
 
@@ -1489,6 +1516,16 @@ namespace McStudDesktop.Services
             var description = string.Join(" ", descriptionParts);
             if (string.IsNullOrWhiteSpace(description)) return null;
 
+            // Skip if description looks like a header/metadata field
+            if (IsHeaderOrFooterLine(description)) return null;
+
+            // Skip if description is just a dollar amount or number
+            if (description.StartsWith("$") || description.StartsWith("Price") || description.StartsWith("Rate"))
+                return null;
+
+            // Skip very short descriptions that are likely noise
+            if (description.Length < 3) return null;
+
             // Determine if this is a MAIN PART line or an ADDITIONAL OPERATION
             // Main parts have: Repl/Blnd + price OR part number
             // Additional operations: DE-NIB, Clear Coat, Backtape, Wet/Dry Sand, etc.
@@ -1560,9 +1597,12 @@ namespace McStudDesktop.Services
             // Common part names
             var partPatterns = new[] {
                 "Front Bumper", "Rear Bumper", "Bumper Cover",
+                "Bumper Reinforcement", "Bumper Absorber",
                 "LT Front Door", "RT Front Door", "LT Rear Door", "RT Rear Door",
                 "Front Door", "Rear Door",
+                "LT Door Shell", "RT Door Shell", "Door Shell",
                 "LT Fender", "RT Fender", "Fender",
+                "LT Fender Liner", "RT Fender Liner", "Fender Liner",
                 "Hood", "Trunk Lid", "Liftgate", "Tailgate",
                 "LT Quarter Panel", "RT Quarter Panel", "Quarter Panel", "Quarter panel",
                 "LT Roof Rail", "RT Roof Rail", "Roof Rail", "Roof",
@@ -1572,7 +1612,12 @@ namespace McStudDesktop.Services
                 "LT Headlamp", "RT Headlamp", "Headlamp",
                 "LT Tail Lamp", "RT Tail Lamp", "Tail Lamp",
                 "Grille", "Radiator Support", "Apron",
-                "Rocker Panel", "A Pillar", "B Pillar", "C Pillar",
+                "LT Rocker Panel", "RT Rocker Panel", "Rocker Panel",
+                "LT A Pillar", "RT A Pillar", "LT B Pillar", "RT B Pillar", "LT C Pillar", "RT C Pillar",
+                "A Pillar", "B Pillar", "C Pillar",
+                "LT Sight Shield", "RT Sight Shield", "Sight Shield",
+                "Radiator", "Condenser", "Fan Assembly",
+                "Cowl", "Header Panel", "Valance",
                 "Fuel Door"
             };
 
@@ -1586,16 +1631,21 @@ namespace McStudDesktop.Services
 
             // If no known part found, return the first 2-3 words (likely the part name)
             var words = description.Split(' ');
-            if (words.Length >= 3 && (words[0] == "LT" || words[0] == "RT"))
-            {
-                return string.Join(" ", words.Take(3));
-            }
-            if (words.Length >= 2)
-            {
-                return string.Join(" ", words.Take(2));
-            }
+            var candidate = words.Length >= 3 && (words[0] == "LT" || words[0] == "RT")
+                ? string.Join(" ", words.Take(3))
+                : words.Length >= 2
+                    ? string.Join(" ", words.Take(2))
+                    : description;
 
-            return description;
+            // Reject candidates that look like metadata/noise
+            if (candidate.Contains("$") || candidate.Contains("#") || candidate.Contains("@") ||
+                candidate.StartsWith("Price", StringComparison.OrdinalIgnoreCase) ||
+                candidate.StartsWith("Rate", StringComparison.OrdinalIgnoreCase) ||
+                candidate.StartsWith("Total", StringComparison.OrdinalIgnoreCase) ||
+                candidate.Length < 3)
+                return description; // Return full description, let caller decide
+
+            return candidate;
         }
 
         /// <summary>
@@ -1789,13 +1839,6 @@ namespace McStudDesktop.Services
             if (!CanTrain)
             {
                 System.Diagnostics.Debug.WriteLine($"[Learning] BLOCKED - Client license cannot train manual patterns. Tier: {_currentTier}");
-                return false;
-            }
-
-            // Block learning in Shop mode — baseline is read-only
-            if (LearningModeService.Instance.CurrentMode == LearningMode.Shop)
-            {
-                System.Diagnostics.Debug.WriteLine("[Learning] BLOCKED - Shop mode does not allow manual pattern training");
                 return false;
             }
 

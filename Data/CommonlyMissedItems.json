@@ -823,6 +823,22 @@
           "whyNeeded": "Systems need reinitialization after disconnect",
           "laborHours": 0.3,
           "priority": "high"
+        },
+        {
+          "item": "Memory Saver / KS-100",
+          "category": "Electrical",
+          "description": "Battery keep-alive device during disconnect",
+          "whyNeeded": "Prevents loss of radio presets, seat memory, learned idle, clock - avoids module reprogramming",
+          "laborHours": 0.2,
+          "priority": "high"
+        },
+        {
+          "item": "Module Programming / Initialization",
+          "category": "Electrical",
+          "description": "Reprogram or initialize modules after battery disconnect",
+          "whyNeeded": "Power windows, sunroof, seat memory, idle relearn may need initialization procedure",
+          "laborHours": 0.5,
+          "priority": "medium"
         }
       ]
     },
@@ -853,6 +869,14 @@
           "description": "Verify ADAS systems operational",
           "whyNeeded": "Safety systems must be verified functional",
           "laborHours": 0.3,
+          "priority": "high"
+        },
+        {
+          "item": "Drive Cycle / Test Drive",
+          "category": "Diagnostic",
+          "description": "Post-repair drive cycle for system relearn and verification",
+          "whyNeeded": "ADAS systems require drive cycle for sensor relearn and calibration verification",
+          "laborHours": 0.5,
           "priority": "high"
         }
       ]
@@ -901,10 +925,41 @@
         }
       ]
     },
+    "anyReplace": {
+      "condition": "hasReplaceOperations",
+      "description": "Any panel replacement triggers battery/electrical considerations",
+      "checks": [
+        {
+          "item": "Battery Disconnect",
+          "category": "Electrical",
+          "description": "Disconnect battery before panel work involving sensors/wiring",
+          "whyNeeded": "Protect SRS, ADAS sensors, and modules during R&I of panels with wiring",
+          "laborHours": 0.3,
+          "priority": "high"
+        },
+        {
+          "item": "Battery Reconnect & Initialize",
+          "category": "Electrical",
+          "description": "Reconnect battery and reinitialize systems",
+          "whyNeeded": "Window relearn, seat memory, idle relearn after reconnect",
+          "laborHours": 0.3,
+          "priority": "high"
+        }
+      ]
+    },
     "miscellaneous": {
       "condition": "always",
       "description": "Common items for all repairs",
       "checks": [
+        {
+          "item": "OEM Repair Procedures Research",
+          "category": "Labor",
+          "description": "Research and print OEM repair procedures",
+          "whyNeeded": "OEM procedures are required for proper repair - most insurers now recognize this charge",
+          "degReference": "DEG inquiries support research time as NOT INCLUDED",
+          "laborHours": 0.5,
+          "priority": "medium"
+        },
         {
           "item": "Cover/Protect Vehicle Interior",
           "category": "Labor",
@@ -914,12 +969,20 @@
           "priority": "low"
         },
         {
-          "item": "Final Detail/Clean",
+          "item": "Clean for Delivery",
           "category": "Labor",
-          "description": "Final cleanup and detail",
-          "whyNeeded": "Professional presentation to customer",
-          "laborHours": 0.3,
-          "priority": "low"
+          "description": "Final cleanup, wash, and detail before delivery",
+          "whyNeeded": "Professional presentation to customer - remove masking residue, overspray, dust",
+          "laborHours": 0.5,
+          "priority": "medium"
+        },
+        {
+          "item": "Hazardous Waste Disposal",
+          "category": "Materials",
+          "description": "Proper disposal of paint, solvent, and repair materials",
+          "whyNeeded": "EPA/OSHA compliance - required for shops generating hazardous waste",
+          "typicalCost": 25.00,
+          "priority": "medium"
         }
       ]
     }

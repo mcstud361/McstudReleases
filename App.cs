@@ -102,15 +102,6 @@ public partial class App : Application
         Environment.Exit(0);
     }
 
-    public static void ToggleLiveCoaching()
-    {
-        var service = LiveCoachingService.Instance;
-        if (service.IsRunning)
-            service.Stop();
-        else
-            service.Start();
-    }
-
     private static async Task CheckForUpdatesAsync()
     {
         try

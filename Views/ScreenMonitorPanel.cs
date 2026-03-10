@@ -51,7 +51,6 @@ namespace McStudDesktop.Views
         private TextBlock? _refMatchStatusText;
 
         // Live Coach
-        private Button? _liveCoachButton;
         private StackPanel? _coachingPanel;
         private TextBlock? _coachingScoreText;
         private TextBlock? _coachingGradeText;
@@ -138,53 +137,6 @@ namespace McStudDesktop.Views
             });
             Grid.SetColumn(titleContent, 0);
             titleRow.Children.Add(titleContent);
-
-            // Live Coach button
-            _liveCoachButton = new Button
-            {
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 4,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE768", FontSize = 12 },
-                        new TextBlock { Text = "Live Coach", FontSize = 11, VerticalAlignment = VerticalAlignment.Center }
-                    }
-                },
-                Background = new SolidColorBrush(Color.FromArgb(255, 46, 125, 50)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(8, 4, 8, 4),
-                CornerRadius = new CornerRadius(4),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _liveCoachButton.Click += (s, e) => McstudDesktop.App.ToggleLiveCoaching();
-            Grid.SetColumn(_liveCoachButton, 1);
-            titleRow.Children.Add(_liveCoachButton);
-
-            McstudDesktop.Services.LiveCoachingService.Instance.CoachingStateChanged += (s, isActive) =>
-            {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    if (_liveCoachButton?.Content is StackPanel sp && sp.Children.Count >= 2)
-                    {
-                        var icon = (FontIcon)sp.Children[0];
-                        var text = (TextBlock)sp.Children[1];
-                        if (isActive)
-                        {
-                            icon.Glyph = "\uE71A"; // Stop icon
-                            text.Text = "Stop Coach";
-                            _liveCoachButton.Background = new SolidColorBrush(Color.FromArgb(255, 180, 50, 50));
-                        }
-                        else
-                        {
-                            icon.Glyph = "\uE768"; // Play icon
-                            text.Text = "Live Coach";
-                            _liveCoachButton.Background = new SolidColorBrush(Color.FromArgb(255, 46, 125, 50));
-                        }
-                    }
-                });
-            };
 
             headerPanel.Children.Add(titleRow);
 
@@ -616,7 +568,7 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(16),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 55, 60, 70)),
                 BorderThickness = new Thickness(1),
-                Visibility = Visibility.Collapsed // Hidden until coaching is active
+                Visibility = Visibility.Collapsed // Hidden until screen monitor is active
             };
 
             _coachingPanel = new StackPanel { Spacing = 10 };
@@ -1158,7 +1110,7 @@ namespace McStudDesktop.Views
             // Step 6: Coaching status
             var coachActive = LiveCoachingService.Instance.IsRunning;
             AddDiagLine(coachActive,
-                coachActive ? "Live coaching is active — scoring results above" : "Live coaching is OFF — click 'Live Coach' to enable");
+                coachActive ? "Live coaching is active — scoring results above" : "Live coaching is OFF — toggle screen monitor on to enable");
 
             // Step 7: HasChanges
             AddDiagLine(result.HasChanges,
@@ -1207,10 +1159,16 @@ namespace McStudDesktop.Views
             if (_monitorToggle!.IsOn)
             {
                 _monitorService.Start();
+                // Auto-start live coaching with screen monitor
+                if (!LiveCoachingService.Instance.IsRunning)
+                    LiveCoachingService.Instance.Start();
             }
             else
             {
                 _monitorService.Stop();
+                // Auto-stop live coaching with screen monitor
+                if (LiveCoachingService.Instance.IsRunning)
+                    LiveCoachingService.Instance.Stop();
             }
         }
 

@@ -485,7 +485,6 @@ namespace McStudDesktop.Services
         {
             // Any body panel work should have pre/post scans per OEM position statements
             bool needsScans = result.EstimateTotal > 2500 ||
-                lines.Count >= 2 ||
                 lines.Any(l =>
                     l.PartName?.ToLowerInvariant().Contains("bumper") == true ||
                     l.PartName?.ToLowerInvariant().Contains("fender") == true ||
@@ -503,20 +502,33 @@ namespace McStudDesktop.Services
 
             if (needsScans)
             {
+                // Check both Description AND PartName — CCC estimates often put scan text in PartName
                 bool hasPreScan = lines.Any(l =>
-                    (l.Description?.ToLowerInvariant().Contains("pre") == true ||
-                     l.Description?.ToLowerInvariant().Contains("before") == true) &&
-                    l.Description?.ToLowerInvariant().Contains("scan") == true);
+                {
+                    var desc = l.Description?.ToLowerInvariant() ?? "";
+                    var part = l.PartName?.ToLowerInvariant() ?? "";
+                    var combined = $"{desc} {part}";
+                    return (combined.Contains("pre") || combined.Contains("before")) &&
+                           combined.Contains("scan");
+                });
 
                 bool hasPostScan = lines.Any(l =>
-                    (l.Description?.ToLowerInvariant().Contains("post") == true ||
-                     l.Description?.ToLowerInvariant().Contains("after") == true) &&
-                    l.Description?.ToLowerInvariant().Contains("scan") == true);
+                {
+                    var desc = l.Description?.ToLowerInvariant() ?? "";
+                    var part = l.PartName?.ToLowerInvariant() ?? "";
+                    var combined = $"{desc} {part}";
+                    return (combined.Contains("post") || combined.Contains("after")) &&
+                           combined.Contains("scan");
+                });
 
                 // Also check for generic scan operations
                 bool hasAnyScan = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("diagnostic") == true ||
-                    l.Description?.ToLowerInvariant().Contains("scan") == true);
+                {
+                    var desc = l.Description?.ToLowerInvariant() ?? "";
+                    var part = l.PartName?.ToLowerInvariant() ?? "";
+                    var combined = $"{desc} {part}";
+                    return combined.Contains("diagnostic") || combined.Contains("scan");
+                });
 
                 if (!hasPreScan && !hasAnyScan)
                 {

@@ -281,12 +281,20 @@ namespace McstudDesktop.Services
                 });
             }
 
-            // Cross-check suggestions against accumulated raw text —
+            // Cross-check suggestions against accumulated raw text AND structured ops —
             // if the suggestion title/keywords are found in what we've already seen, it's confirmed on the estimate
             var allSeenText = _accumulatedRawText.ToString().ToLowerInvariant();
+
+            // Also build searchable text from structured ops (Description + PartName)
+            // Raw OCR can be messy — structured ops are more reliable for detection
+            var structuredOpsText = string.Join(" ", _accumulatedOps.Values
+                .Select(op => $"{op.Description} {op.PartName}"))
+                .ToLowerInvariant();
+            var combinedSeenText = $"{allSeenText} {structuredOpsText}";
+
             foreach (var s in suggestions)
             {
-                s.IsConfirmedOnEstimate = IsSuggestionOnEstimate(s, allSeenText);
+                s.IsConfirmedOnEstimate = IsSuggestionOnEstimate(s, combinedSeenText);
             }
 
             // Apply dismissals
@@ -431,7 +439,19 @@ namespace McstudDesktop.Services
 
             // Memory saver
             if (titleLower.Contains("memory saver") || titleLower.Contains("ks-100"))
-                keywords.AddRange(new[] { "memory saver", "ks-100", "battery support" });
+                keywords.AddRange(new[] { "memory saver", "ks-100", "battery support", "keep alive", "keep-alive" });
+
+            // Module programming
+            if (titleLower.Contains("module") || titleLower.Contains("programming") || titleLower.Contains("initialization"))
+                keywords.AddRange(new[] { "module programming", "reprogram", "initialization", "initialize", "relearn", "idle relearn", "window relearn" });
+
+            // Drive cycle (broader matching for the new item title)
+            if (titleLower.Contains("drive") || titleLower.Contains("test drive"))
+                keywords.AddRange(new[] { "drive cycle", "test drive", "road test" });
+
+            // OEM research (broader matching)
+            if (titleLower.Contains("oem") || titleLower.Contains("repair procedure"))
+                keywords.AddRange(new[] { "oem research", "oem procedure", "oem position", "repair procedure", "oem repair" });
 
             return keywords;
         }
