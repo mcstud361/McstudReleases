@@ -287,37 +287,37 @@ namespace McStudDesktop.Services
             {
                 if (isCompact)
                 {
-                    // Compact single-line header
-                    column.Item().Background(Colors.Grey.Darken3).Padding(6).Row(row =>
+                    // Compact single-line header (white background for pen visibility)
+                    column.Item().Background(Colors.White).BorderBottom(1).BorderColor(Colors.Grey.Medium).Padding(6).Row(row =>
                     {
                         row.RelativeItem().AlignLeft().Text(text =>
                         {
-                            text.Span(checklist.ShopName ?? "Shop").FontSize(11).Bold().FontColor(Colors.White);
-                            text.Span("  |  ").FontSize(9).FontColor(Colors.Grey.Lighten1);
-                            text.Span(checklist.Title ?? "Checklist").FontSize(11).Bold().FontColor(Colors.White);
+                            text.Span(checklist.ShopName ?? "Shop").FontSize(11).Bold().FontColor(Colors.Black);
+                            text.Span("  |  ").FontSize(9).FontColor(Colors.Grey.Medium);
+                            text.Span(checklist.Title ?? "Checklist").FontSize(11).Bold().FontColor(Colors.Black);
                         });
 
                         row.ConstantItem(150).AlignRight().Text(text =>
                         {
-                            text.Span("RO# ").FontSize(9).FontColor(Colors.Grey.Lighten2);
+                            text.Span("RO# ").FontSize(9).FontColor(Colors.Grey.Darken2);
                             text.Span(string.IsNullOrEmpty(roNumber) ? "_________" : roNumber)
-                                .FontSize(9).Bold().FontColor(Colors.White);
+                                .FontSize(9).Bold().FontColor(Colors.Black);
                             text.Span("  ").FontSize(9);
-                            text.Span(DateTime.Now.ToString("MM/dd/yy")).FontSize(8).FontColor(Colors.Grey.Lighten2);
+                            text.Span(DateTime.Now.ToString("MM/dd/yy")).FontSize(8).FontColor(Colors.Grey.Darken2);
                         });
                     });
                     column.Item().PaddingTop(4);
                 }
                 else
                 {
-                    // Top banner with shop name
-                    column.Item().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                    // Top banner with shop name (white background for pen visibility)
+                    column.Item().Background(Colors.White).BorderBottom(1).BorderColor(Colors.Grey.Medium).Padding(12).Row(row =>
                     {
                         row.RelativeItem().AlignLeft().Text(checklist.ShopName ?? "Shop Name")
-                            .FontSize(16).Bold().FontColor(Colors.White);
+                            .FontSize(16).Bold().FontColor(Colors.Black);
 
                         row.RelativeItem().AlignRight().Text(DateTime.Now.ToString("MM/dd/yyyy"))
-                            .FontSize(10).FontColor(Colors.Grey.Lighten2);
+                            .FontSize(10).FontColor(Colors.Grey.Darken2);
                     });
 
                     // Title and RO number
