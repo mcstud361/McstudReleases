@@ -15,7 +15,7 @@ namespace McStudDesktop.Services
     public class UpdateService
     {
         // Current app version - UPDATE THIS WITH EACH RELEASE
-        public static readonly Version CurrentVersion = new Version(2, 5, 3);
+        public static readonly Version CurrentVersion = new Version(2, 5, 4);
 
         // OneDrive sync folder path for update manifest
         // This will check the local OneDrive sync folder first

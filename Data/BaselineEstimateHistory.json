@@ -1,0 +1,76 @@
+{
+  "Estimates": [
+    {
+      "Id": "e251d175-b9ed-467d-98ab-531ec0fe63ab",
+      "ImportedDate": "2026-03-06T19:52:56.370197-05:00",
+      "SourceFile": "ScreenOCR_20260306_195254",
+      "EstimateSource": "CCC",
+      "InsuranceCompany": "GEICO",
+      "RONumber": "TFSI",
+      "ClaimNumber": "",
+      "VehicleInfo": "",
+      "VehicleType": "",
+      "VIN": "",
+      "GrandTotal": 0,
+      "PartsTotal": 0,
+      "LaborTotal": 0,
+      "PaintTotal": 0,
+      "TotalAmount": 0,
+      "LineItems": [
+        {
+          "Description": "roof",
+          "PartName": "roof",
+          "OperationType": "",
+          "Operation": "",
+          "Section": "",
+          "PartNumber": "",
+          "LaborHours": 0,
+          "RefinishHours": 0,
+          "Price": 0,
+          "Quantity": 1,
+          "LaborType": "",
+          "IsManualLine": false,
+          "IsAdditionalOperation": false,
+          "ParentPartName": null,
+          "WasPaid": true,
+          "WasDenied": false,
+          "DenialReason": null
+        }
+      ],
+      "DNA": {
+        "TotalLineCount": 1,
+        "ManualLineCount": 0,
+        "AdditionalOpCount": 0,
+        "ComplexityScore": 2,
+        "ManualLineRatio": 0,
+        "DamageZones": [
+          "Roof"
+        ],
+        "SectionBreakdown": {},
+        "OperationTypes": {},
+        "RiskFlags": [],
+        "Keywords": [
+          "roof"
+        ]
+      },
+      "SupplementCount": 0,
+      "Notes": null
+    }
+  ],
+  "OperationPaymentIndex": {
+    "geico": {
+      "roof": {
+        "OperationDescription": "roof",
+        "NormalizedKey": "roof",
+        "TimesPaid": 1,
+        "TotalHoursPaid": 0,
+        "TotalAmountPaid": 0,
+        "AverageHours": 0,
+        "EstimateIds": [
+          "e251d175-b9ed-467d-98ab-531ec0fe63ab"
+        ]
+      }
+    }
+  },
+  "LastUpdated": "2026-03-06T19:52:23.2295402-05:00"
+}
