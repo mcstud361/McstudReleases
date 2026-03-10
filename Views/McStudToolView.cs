@@ -1061,7 +1061,7 @@ namespace McStudDesktop.Views
             _cccButton = CreateExportButton("CCC Desktop", "\uE8C8", Color.FromArgb(255, 0, 120, 215));
             _cccButton.Click += CCCDesktopButton_Click;
             _cccButton.IsEnabled = false;
-            ToolTipService.SetToolTip(_cccButton, "1. Copy from Excel  2. Click in CCC where you want to paste  3. Click this button\nInput blocked during paste - you can't mess it up!");
+            ToolTipService.SetToolTip(_cccButton, "1. Copy from Excel  2. Select the A column in CCC where you want to paste  3. Click this button\nInput blocked during paste - you can't mess it up!");
 
             _cccWebButton = CreateExportButton("CCC Web", "\uE774", Color.FromArgb(255, 0, 160, 200), comingSoon: true);
             _cccWebButton.Click += CCCWebButton_Click;
@@ -1113,7 +1113,7 @@ namespace McStudDesktop.Views
             // === HINT ===
             var hint = new TextBlock
             {
-                Text = "1. Copy from Excel  2. Click in CCC where you want to paste  3. Click button above",
+                Text = "1. Copy from Excel  2. Select the A column in CCC where you want to paste  3. Click button above",
                 FontSize = 10,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -2747,7 +2747,7 @@ namespace McStudDesktop.Views
                 // Check if we have a target window
                 if (_previousActiveWindow == IntPtr.Zero)
                 {
-                    UpdateStatusError("Click in CCC first where you want to insert lines.");
+                    UpdateStatusError("Select the A column in CCC first, then click here.");
                     _isTyping = false;
                     if (_cccButton != null) _cccButton.IsEnabled = true;
                     if (_cccWebButton != null) _cccWebButton.IsEnabled = true;
@@ -3005,7 +3005,7 @@ namespace McStudDesktop.Views
                 }
                 else if (result.NotCCCWindow)
                 {
-                    UpdateStatusError("Click inside CCC Desktop, not other windows. Try again.");
+                    UpdateStatusError("Select the A column inside CCC Desktop, not other windows. Try again.");
                     _typeItService?.Dispose();
                     _typeItService = null;
                 }
@@ -3048,7 +3048,7 @@ namespace McStudDesktop.Views
             _statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 0, 60, 120));
             _statusBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255));
             _statusIcon.Text = "🎯";
-            _statusText.Text = "Click in CCC to position, press ENTER to paste";
+            _statusText.Text = "Select the A column in CCC, press ENTER to paste";
             _statusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255));
             _countText.Text = "ESC to cancel";
             _countText.Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180));
@@ -3120,7 +3120,7 @@ namespace McStudDesktop.Views
                 // Use the window that was active BEFORE McStud got focus
                 if (_previousActiveWindow == IntPtr.Zero)
                 {
-                    UpdateStatusError("No target window - click in CCC first, then click here");
+                    UpdateStatusError("No target window - select the A column in CCC first, then click here");
                     return;
                 }
 
