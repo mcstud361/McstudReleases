@@ -755,9 +755,41 @@ namespace McStudDesktop.Views
                 });
             }
 
-            // Suggestion cards — missing first, then confirmed (crossed off)
-            foreach (var suggestion in activeSuggestions)
+            // Group suggestions by source for section headers
+            var sourceGroups = new[] { "SOP List", "Learned Patterns", "Scoring", "Analyzer", "Both" };
+            var sourceLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
+                ["SOP List"] = "SOP List Items",
+                ["Learned Patterns"] = "Related Operations",
+                ["Scoring"] = "Additional Checks",
+                ["Analyzer"] = "Additional Checks",
+                ["Both"] = "Additional Checks",
+            };
+
+            var renderedHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Order: missing items first by source group priority, then confirmed at end
+            var orderedSuggestions = activeSuggestions
+                .OrderBy(s => s.IsConfirmedOnEstimate ? 1 : 0)
+                .ThenBy(s => Array.IndexOf(sourceGroups, s.Source) is var idx && idx >= 0 ? idx : 99)
+                .ThenByDescending(s => s.Severity)
+                .ThenByDescending(s => s.EstimatedCost)
+                .ToList();
+
+            foreach (var suggestion in orderedSuggestions)
+            {
+                var label = sourceLabels.GetValueOrDefault(suggestion.Source, "Additional Checks");
+                if (suggestion.IsConfirmedOnEstimate) label = "On Estimate";
+                if (renderedHeaders.Add(label))
+                {
+                    _coachingSuggestionsStack.Children.Add(new TextBlock
+                    {
+                        Text = label,
+                        FontSize = 11,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 140, 170)),
+                        Margin = new Thickness(0, 6, 0, 2)
+                    });
+                }
                 _coachingSuggestionsStack.Children.Add(BuildCoachingSuggestionCard(suggestion));
             }
 

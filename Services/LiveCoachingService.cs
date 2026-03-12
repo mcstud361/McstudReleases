@@ -33,7 +33,6 @@ namespace McstudDesktop.Services
 
         // Accumulated view of the entire estimate across scrolling
         private readonly Dictionary<string, ParsedEstimateLine> _accumulatedOps = new(StringComparer.OrdinalIgnoreCase);
-        private readonly HashSet<string> _accumulatedParts = new(StringComparer.OrdinalIgnoreCase);
         private readonly StringBuilder _accumulatedRawText = new();
         private string _lastSourceWindow = "";
         private string? _vehicleInfo;
@@ -80,7 +79,6 @@ namespace McstudDesktop.Services
             _isRunning = false;
             _lastContentHash = "";
             _accumulatedOps.Clear();
-            _accumulatedParts.Clear();
             _accumulatedRawText.Clear();
             _lastSourceWindow = "";
             _vehicleInfo = null;
@@ -137,8 +135,6 @@ namespace McstudDesktop.Services
         private void ProcessOcrResult(ScreenOcrResult result)
         {
             // Only reset accumulated state if the core application changed
-            // (e.g. switched from CCC to Mitchell), not just the window title changing
-            // as the user navigates within the same app.
             var sourceWindow = result.SourceWindow ?? "";
             var currentApp = GetCoreAppName(sourceWindow);
             var lastApp = GetCoreAppName(_lastSourceWindow);
@@ -148,7 +144,6 @@ namespace McstudDesktop.Services
                 {
                     Debug.WriteLine($"[LiveCoaching] App changed from \"{lastApp}\" to \"{currentApp}\" — resetting accumulated data");
                     _accumulatedOps.Clear();
-                    _accumulatedParts.Clear();
                     _accumulatedRawText.Clear();
                     _vehicleInfo = null;
                     _customerName = null;
@@ -161,7 +156,6 @@ namespace McstudDesktop.Services
             {
                 foreach (var op in result.DetectedOperations)
                 {
-                    // Key by description+partName+opType to avoid duplicates
                     var key = $"{op.Description}|{op.PartName}|{op.OperationType}".ToLowerInvariant();
                     _accumulatedOps[key] = new ParsedEstimateLine
                     {
@@ -177,59 +171,61 @@ namespace McstudDesktop.Services
                 }
             }
 
-            // Accumulate raw text and part names
+            // Accumulate raw text for vehicle/customer info only — no part scanning
             if (!string.IsNullOrWhiteSpace(result.RawText))
             {
                 _accumulatedRawText.AppendLine(result.RawText);
-
-                var detectedParts = ScanPartsFromText(result.RawText);
-                foreach (var partName in detectedParts)
-                    _accumulatedParts.Add(partName);
-
-                // Extract vehicle and customer info if not found yet
                 if (_vehicleInfo == null)
                     _vehicleInfo = ExtractVehicleInfo(result.RawText);
                 if (_customerName == null)
                     _customerName = ExtractCustomerName(result.RawText);
             }
 
-            // Build the full picture from accumulated data
+            // Build parsed lines from ONLY structured operations
             var parsedLines = new List<ParsedEstimateLine>(_accumulatedOps.Values);
 
-            // Add synthetic lines for parts found in text that aren't in structured ops
-            var structuredPartNames = new HashSet<string>(
-                parsedLines.Select(p => p.PartName),
-                StringComparer.OrdinalIgnoreCase);
+            Debug.WriteLine($"[LiveCoaching] Processing {parsedLines.Count} structured operations");
 
-            foreach (var partName in _accumulatedParts)
-            {
-                if (structuredPartNames.Contains(partName)) continue;
-                parsedLines.Add(new ParsedEstimateLine
-                {
-                    Description = partName,
-                    PartName = partName,
-                    OperationType = "Replace",
-                    RawLine = partName
-                });
-            }
+            // --- New suggestion pipeline ---
+            // 1. SOP List baseline suggestions (always present)
+            var sopSuggestions = GetSOPListSuggestions();
 
-            if (parsedLines.Count == 0)
-            {
-                Debug.WriteLine("[LiveCoaching] No operations or parts accumulated yet");
-                return;
-            }
+            // 2. Learned pattern suggestions (from past uploaded estimates)
+            var learnedSuggestions = GetLearnedPatternSuggestions(parsedLines);
 
-            Debug.WriteLine($"[LiveCoaching] Scoring with {parsedLines.Count} accumulated lines ({_accumulatedOps.Count} structured + {_accumulatedParts.Count} text-scanned parts)");
+            // 3. Run scoring/analysis engines on structured ops only
+            var scoringResult = parsedLines.Count > 0
+                ? _scoringService.ScoreEstimate(parsedLines)
+                : new McStudDesktop.Services.EstimateScoringResult { OverallScore = 0, Grade = "--" };
+            var analysisResult = parsedLines.Count > 0
+                ? _analyzerService.AnalyzeEstimate(parsedLines)
+                : new McStudDesktop.Services.AnalysisResult();
 
-            // Run both scoring engines against the FULL accumulated picture
-            var scoringResult = _scoringService.ScoreEstimate(parsedLines);
-            var analysisResult = _analyzerService.AnalyzeEstimate(parsedLines);
-
-            // Merge + deduplicate into CoachingSuggestions
+            // Merge all suggestions: SOP List → Learned → Scoring → Analyzer
             var suggestions = new List<CoachingSuggestion>();
             var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // Process scoring issues
+            // 1. SOP List suggestions (Critical/High — money left on the table)
+            foreach (var sop in sopSuggestions)
+            {
+                var key = NormalizeKey(sop.Category, sop.Title);
+                if (!seenKeys.Add(key)) continue;
+                sop.Id = key;
+                suggestions.Add(sop);
+            }
+
+            // 2. Learned pattern suggestions (High/Medium — from real past estimates)
+            foreach (var learned in learnedSuggestions)
+            {
+                var key = NormalizeKey(learned.Category, learned.Title);
+                if (seenKeys.Contains(key)) continue;
+                if (IsFuzzyDuplicate(key, seenKeys)) continue;
+                seenKeys.Add(key);
+                learned.Id = key;
+                suggestions.Add(learned);
+            }
+
+            // 3. Scoring engine issues
             foreach (var issue in scoringResult.Issues)
             {
                 var key = NormalizeKey(issue.Category.ToString(), issue.Title);
@@ -251,7 +247,7 @@ namespace McstudDesktop.Services
                 });
             }
 
-            // Process smart analyzer suggestions
+            // 4. Smart analyzer suggestions
             foreach (var suggestion in analysisResult.Suggestions)
             {
                 var key = NormalizeKey(suggestion.Category.ToString(), suggestion.Item);
@@ -281,12 +277,8 @@ namespace McstudDesktop.Services
                 });
             }
 
-            // Cross-check suggestions against accumulated raw text AND structured ops —
-            // if the suggestion title/keywords are found in what we've already seen, it's confirmed on the estimate
+            // Cross-check suggestions against accumulated raw text AND structured ops
             var allSeenText = _accumulatedRawText.ToString().ToLowerInvariant();
-
-            // Also build searchable text from structured ops (Description + PartName)
-            // Raw OCR can be messy — structured ops are more reliable for detection
             var structuredOpsText = string.Join(" ", _accumulatedOps.Values
                 .Select(op => $"{op.Description} {op.PartName}"))
                 .ToLowerInvariant();
@@ -321,36 +313,92 @@ namespace McstudDesktop.Services
                 Timestamp = DateTime.Now
             };
 
-            Debug.WriteLine($"[LiveCoaching] Snapshot: score={snapshot.Score}, grade={snapshot.Grade}, suggestions={suggestions.Count}");
+            Debug.WriteLine($"[LiveCoaching] Snapshot: score={snapshot.Score}, grade={snapshot.Grade}, suggestions={suggestions.Count} (SOP={sopSuggestions.Count}, learned={learnedSuggestions.Count})");
             SuggestionsUpdated?.Invoke(this, snapshot);
         }
 
         /// <summary>
-        /// Scans raw OCR text for known part names (same patterns as ScreenMonitorPanel).
+        /// Returns SOP List baseline items that should always be suggested on every estimate.
         /// </summary>
-        private static List<string> ScanPartsFromText(string rawText)
+        private static List<CoachingSuggestion> GetSOPListSuggestions()
         {
-            var lowerText = rawText.ToLowerInvariant();
-            var parts = new List<string>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var (pattern, canonical) in _scanParts)
+            return new List<CoachingSuggestion>
             {
-                if (seen.Contains(canonical)) continue;
+                new() { Title = "Battery Disconnect/Reconnect", Description = "Disconnect and reconnect battery for safe electrical work.", WhyNeeded = "Required for any repair involving electrical components or welding.", Category = "SOP List", Severity = CoachingSeverity.High, Source = "SOP List", EstimatedCost = 18m },
+                new() { Title = "Pre-Repair Scan", Description = "Diagnostic scan before repairs begin.", WhyNeeded = "Documents pre-existing DTCs and establishes baseline for post-scan comparison.", Category = "SOP List", Severity = CoachingSeverity.Critical, Source = "SOP List", EstimatedCost = 40m },
+                new() { Title = "Post-Repair Scan", Description = "Diagnostic scan after all repairs completed.", WhyNeeded = "Verifies all DTCs are cleared and no new codes introduced by repair.", Category = "SOP List", Severity = CoachingSeverity.Critical, Source = "SOP List", EstimatedCost = 40m },
+                new() { Title = "Setup Scan Tool", Description = "Setup and configure diagnostic scan tool.", WhyNeeded = "Scan tool setup time is a billable operation per DEG guidelines.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 25m },
+                new() { Title = "ADAS Diagnostics", Description = "Include ADAS systems in diagnostic scan.", WhyNeeded = "ADAS-equipped vehicles require separate diagnostic procedures.", Category = "SOP List", Severity = CoachingSeverity.High, Source = "SOP List", EstimatedCost = 50m },
+                new() { Title = "Simulate Full Fluids", Description = "Simulate full fluid levels for accurate diagnostics.", WhyNeeded = "Some sensors require proper fluid levels to report correctly during scan.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 15m },
+                new() { Title = "Adjust Tire Pressure", Description = "Adjust tire pressure for diagnostics and ADAS calibration.", WhyNeeded = "Incorrect tire pressure can affect TPMS readings and ADAS calibration accuracy.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 12m },
+                new() { Title = "Drive Cycle", Description = "Perform drive cycle after repairs.", WhyNeeded = "Required to verify repair completion and clear certain adaptive DTCs.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 30m },
+                new() { Title = "Pre-Wash", Description = "Pre-wash vehicle before repair work.", WhyNeeded = "Ensures clean work surface and prevents contamination of repair areas.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 20m },
+                new() { Title = "Clean for Delivery", Description = "Final cleaning of vehicle before customer delivery.", WhyNeeded = "Professional delivery standard — removes dust, overspray, and repair debris.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 25m },
+            };
+        }
 
-                var idx = lowerText.IndexOf(pattern);
-                if (idx < 0) continue;
+        /// <summary>
+        /// Queries learned patterns for operations that commonly co-occur with the
+        /// structured operations detected on the current estimate.
+        /// </summary>
+        private static List<CoachingSuggestion> GetLearnedPatternSuggestions(List<ParsedEstimateLine> structuredOps)
+        {
+            var suggestions = new List<CoachingSuggestion>();
+            if (structuredOps.Count == 0) return suggestions;
 
-                // Word boundary check
-                if (idx > 0 && char.IsLetter(lowerText[idx - 1])) continue;
-                var endIdx = idx + pattern.Length;
-                if (endIdx < lowerText.Length && char.IsLetter(lowerText[endIdx])) continue;
+            var learningService = EstimateLearningService.Instance;
+            var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                seen.Add(canonical);
-                parts.Add(canonical);
+            foreach (var op in structuredOps)
+            {
+                if (string.IsNullOrWhiteSpace(op.PartName)) continue;
+
+                // Query direct operations for this part
+                var queryResult = learningService.QueryOperationsForPart(op.PartName, op.OperationType);
+                foreach (var suggested in queryResult.SuggestedOperations)
+                {
+                    if (suggested.Confidence < 0.4 || suggested.TimesUsed < 2) continue;
+                    var key = $"{suggested.PartName}|{suggested.OperationType}".ToLowerInvariant();
+                    if (!seenKeys.Add(key)) continue;
+
+                    suggestions.Add(new CoachingSuggestion
+                    {
+                        Title = $"{suggested.OperationType} {suggested.PartName}".Trim(),
+                        Description = !string.IsNullOrEmpty(suggested.Description) ? suggested.Description : $"Commonly done with {op.OperationType} {op.PartName}.",
+                        WhyNeeded = $"Found in {suggested.TimesUsed} past estimates ({suggested.Confidence:P0} of the time) when {op.OperationType} {op.PartName} is present.",
+                        Category = !string.IsNullOrEmpty(suggested.Category) ? suggested.Category : "Learned Patterns",
+                        Severity = suggested.Confidence >= 0.7 ? CoachingSeverity.High : CoachingSeverity.Medium,
+                        TriggeredBy = op.PartName,
+                        EstimatedCost = suggested.TypicalPrice,
+                        LaborHours = suggested.TypicalLaborHours,
+                        Source = "Learned Patterns"
+                    });
+                }
+
+                // Query co-occurring operations
+                var related = learningService.GetRelatedOperations(op.PartName, op.OperationType ?? "Replace");
+                foreach (var coOp in related)
+                {
+                    if (coOp.TimesSeenTogether < 2) continue;
+                    var key = $"{coOp.PartName}|{coOp.OperationType}".ToLowerInvariant();
+                    if (!seenKeys.Add(key)) continue;
+
+                    suggestions.Add(new CoachingSuggestion
+                    {
+                        Title = $"{coOp.OperationType} {coOp.PartName}".Trim(),
+                        Description = $"Co-occurs with {op.OperationType} {op.PartName} in past estimates.",
+                        WhyNeeded = $"Seen together {coOp.TimesSeenTogether} times in uploaded estimates.",
+                        Category = "Learned Patterns",
+                        Severity = coOp.CoOccurrenceRate >= 0.7 ? CoachingSeverity.High : CoachingSeverity.Medium,
+                        TriggeredBy = op.PartName,
+                        EstimatedCost = coOp.AvgPrice,
+                        LaborHours = coOp.AvgLaborHours,
+                        Source = "Learned Patterns"
+                    });
+                }
             }
 
-            return parts;
+            return suggestions;
         }
 
         /// <summary>
@@ -485,40 +533,6 @@ namespace McstudDesktop.Services
             return null;
         }
 
-        // Same part patterns as ScreenMonitorPanel — longer/more-specific first
-        private static readonly (string Pattern, string CanonicalName)[] _scanParts = new[]
-        {
-            ("front bumper", "Front Bumper"), ("rear bumper", "Rear Bumper"),
-            ("bumper reinforcement", "Bumper Reinforcement"), ("bumper absorber", "Bumper Absorber"),
-            ("bumper fascia", "Bumper Cover"), ("bumper cover", "Bumper Cover"),
-            ("fender liner", "Fender Liner"), ("inner fender", "Fender Liner"),
-            ("front fender", "Fender"), ("fender", "Fender"),
-            ("front door", "Front Door"), ("rear door", "Rear Door"),
-            ("door handle", "Door Handle"), ("door trim", "Door Trim Panel"),
-            ("quarter panel", "Quarter Panel"), ("qtr panel", "Quarter Panel"),
-            ("rocker panel", "Rocker Panel"), ("side panel", "Side Panel"),
-            ("roof panel", "Roof"), ("trunk lid", "Trunk Lid"), ("decklid", "Trunk Lid"),
-            ("liftgate", "Liftgate"), ("tailgate", "Tailgate"),
-            ("hood", "Hood"),
-            ("headlamp", "Headlight"), ("headlight", "Headlight"), ("head lamp", "Headlight"),
-            ("tail lamp", "Tail Light"), ("taillight", "Tail Light"), ("tail light", "Tail Light"),
-            ("fog lamp", "Fog Light"), ("fog light", "Fog Light"),
-            ("grille", "Grille"), ("grill", "Grille"),
-            ("radiator support", "Radiator Support"), ("rad support", "Radiator Support"),
-            ("energy absorber", "Bumper Absorber"),
-            ("windshield", "Windshield"), ("back glass", "Rear Glass"),
-            ("side mirror", "Mirror"), ("outside mirror", "Mirror"),
-            ("parking sensor", "Parking Sensor"), ("backup camera", "Backup Camera"),
-            ("splash shield", "Splash Shield"), ("wheel opening", "Wheel Opening Molding"),
-            ("molding", "Molding"), ("spoiler", "Spoiler"), ("valance", "Valance"),
-            ("a pillar", "A-Pillar"), ("b pillar", "B-Pillar"), ("c pillar", "C-Pillar"),
-            ("radiator", "Radiator"), ("condenser", "Condenser"),
-            ("control arm", "Control Arm"), ("strut", "Strut"), ("suspension", "Suspension"),
-            ("wheel", "Wheel"), ("tire", "Tire"),
-            ("adas", "ADAS Calibration"), ("calibration", "Calibration"),
-            ("pre scan", "Pre-Repair Scan"), ("post scan", "Post-Repair Scan"),
-            ("diagnostic", "Diagnostic Scan")
-        };
 
         /// <summary>
         /// Extracts the core application name from a window title so we only reset

@@ -622,30 +622,82 @@ namespace McStudDesktop.Views
             }
         }
 
-        private void OpenSupportEmail(string name, string subject, string message)
+        private async void OpenSupportEmail(string name, string subject, string message)
         {
+            var version = UpdateService.GetVersionString();
+            var emailSubject = string.IsNullOrEmpty(subject) ? "McStud Support Request" : subject;
+            var bodyParts = new List<string>();
+            if (!string.IsNullOrEmpty(message)) bodyParts.Add(message);
+            bodyParts.Add("\n---");
+            if (!string.IsNullOrEmpty(name)) bodyParts.Add($"From: {name}");
+            bodyParts.Add($"App Version: {version}");
+            var body = string.Join("\n", bodyParts);
+
+            var encodedSubject = Uri.EscapeDataString(emailSubject);
+            var encodedBody = Uri.EscapeDataString(body);
+
+            // Show picker dialog
+            var dialog = new ContentDialog
+            {
+                Title = "Open with...",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot,
+                DefaultButton = ContentDialogButton.None
+            };
+
+            var options = new StackPanel { Spacing = 6 };
+
+            void AddOption(string label, string icon, Action action)
+            {
+                var btn = new Button
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Left,
+                    Padding = new Thickness(16, 12, 16, 12),
+                    Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 55)),
+                    CornerRadius = new CornerRadius(6)
+                };
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+                row.Children.Add(new FontIcon { Glyph = icon, FontSize = 18, Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)) });
+                row.Children.Add(new TextBlock { Text = label, FontSize = 14, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+                btn.Content = row;
+                btn.Click += (s, e) => { dialog.Hide(); action(); };
+                options.Children.Add(btn);
+            }
+
+            AddOption("Gmail (opens in browser)", "\uE774", () =>
+            {
+                var url = $"https://mail.google.com/mail/?view=cm&to=Mcstudestimating@gmail.com&su={encodedSubject}&body={encodedBody}";
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
+            });
+
+            AddOption("Outlook (opens in browser)", "\uE724", () =>
+            {
+                var url = $"https://outlook.live.com/mail/0/deeplink/compose?to=Mcstudestimating@gmail.com&subject={encodedSubject}&body={encodedBody}";
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
+            });
+
+            AddOption("Yahoo Mail (opens in browser)", "\uE774", () =>
+            {
+                var url = $"https://compose.mail.yahoo.com/?to=Mcstudestimating@gmail.com&subject={encodedSubject}&body={encodedBody}";
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
+            });
+
+            AddOption("Default Email App (Outlook desktop, etc.)", "\uE8A7", () =>
+            {
+                var mailto = $"mailto:Mcstudestimating@gmail.com?subject={encodedSubject}&body={encodedBody}";
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = mailto, UseShellExecute = true });
+            });
+
+            dialog.Content = options;
+
             try
             {
-                var version = UpdateService.GetVersionString();
-                var emailSubject = string.IsNullOrEmpty(subject) ? $"McStud Support: {name}" : subject;
-                var body = $"{message}\n\n---\nFrom: {name}\nApp Version: {version}";
-
-                // URI-encode for mailto link
-                var encodedSubject = Uri.EscapeDataString(emailSubject);
-                var encodedBody = Uri.EscapeDataString(body);
-                var mailto = $"mailto:Mcstudestimating@gmail.com?subject={encodedSubject}&body={encodedBody}";
-
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = mailto,
-                    UseShellExecute = true
-                });
-
-                System.Diagnostics.Debug.WriteLine("[Support] Opened default email client");
+                await dialog.ShowAsync();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Support] Failed to open email client: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[Support] Error: {ex.Message}");
             }
         }
 
@@ -1788,91 +1840,58 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(0, 8, 0, 0)
             };
 
-            var supportStack = new StackPanel { Spacing = 12 };
-            supportStack.Children.Add(new TextBlock
+            var supportStack = new StackPanel { Spacing = 14 };
+
+            // Header row with icon
+            var supportHeaderRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            supportHeaderRow.Children.Add(new FontIcon
+            {
+                Glyph = "\uE715", // Contact icon
+                FontSize = 20,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255))
+            });
+            supportHeaderRow.Children.Add(new TextBlock
             {
                 Text = "Contact Support",
                 FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            supportStack.Children.Add(supportHeaderRow);
+
+            supportStack.Children.Add(new TextBlock
+            {
+                Text = "Have an issue, feedback, or feature request? Send us an email and we'll get back to you.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
+                TextWrapping = TextWrapping.Wrap
             });
 
-            // Name field
-            var nameBox = new TextBox
+            // Email button — opens default mail client
+            var emailButton = new Button
             {
-                PlaceholderText = "Your name",
-                FontSize = 13,
-                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            supportStack.Children.Add(nameBox);
-
-            // Subject field
-            var subjectBox = new TextBox
-            {
-                PlaceholderText = "Subject",
-                FontSize = 13,
-                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            supportStack.Children.Add(subjectBox);
-
-            // Message field
-            var messageBox = new TextBox
-            {
-                PlaceholderText = "Describe your issue or feedback...",
-                FontSize = 13,
-                AcceptsReturn = true,
-                TextWrapping = TextWrapping.Wrap,
-                Height = 120,
-                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            supportStack.Children.Add(messageBox);
-
-            // Status text (hidden until send)
-            var supportStatus = new TextBlock
-            {
-                FontSize = 12,
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, -4, 0, 0)
-            };
-            supportStack.Children.Add(supportStatus);
-
-            // Send button
-            var sendButton = new Button
-            {
-                Padding = new Thickness(20, 10, 20, 10),
+                Padding = new Thickness(24, 12, 24, 12),
                 Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 80)),
                 Foreground = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(4),
+                CornerRadius = new CornerRadius(6),
                 HorizontalAlignment = HorizontalAlignment.Left
             };
-            var sendContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            sendContent.Children.Add(new FontIcon { Glyph = "\uE724", FontSize = 14 });
-            sendContent.Children.Add(new TextBlock { Text = "Open Email", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-            sendButton.Content = sendContent;
-            sendButton.Click += (s, e) =>
+            var emailContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            emailContent.Children.Add(new FontIcon { Glyph = "\uE724", FontSize = 16 }); // Mail icon
+            emailContent.Children.Add(new TextBlock
             {
-                var name = nameBox.Text?.Trim() ?? "";
-                var subject = subjectBox.Text?.Trim() ?? "";
-                var message = messageBox.Text?.Trim() ?? "";
-
-                if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(message))
-                {
-                    supportStatus.Text = "Please fill in your name and message.";
-                    supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 150, 100));
-                    supportStatus.Visibility = Visibility.Visible;
-                    return;
-                }
-
-                OpenSupportEmail(name, subject, message);
-
-                supportStatus.Text = "Email client opened — send from there!";
-                supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100));
-                supportStatus.Visibility = Visibility.Visible;
+                Text = "Email Mcstudestimating@gmail.com",
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            emailButton.Content = emailContent;
+            emailButton.Click += (s, e) =>
+            {
+                OpenSupportEmail("", "McStud Support Request", "");
             };
-            supportStack.Children.Add(sendButton);
+            supportStack.Children.Add(emailButton);
 
             supportCard.Child = supportStack;
             mainStack.Children.Add(supportCard);
