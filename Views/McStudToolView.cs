@@ -622,33 +622,30 @@ namespace McStudDesktop.Views
             }
         }
 
-        private async Task<bool> SendSupportMessageAsync(string name, string subject, string message)
+        private void OpenSupportEmail(string name, string subject, string message)
         {
             try
             {
-                using var client = new System.Net.Http.HttpClient();
                 var version = UpdateService.GetVersionString();
-                var fullMessage = $"{message}\n\n---\nApp Version: {version}\nSent from McStud Tool";
+                var emailSubject = string.IsNullOrEmpty(subject) ? $"McStud Support: {name}" : subject;
+                var body = $"{message}\n\n---\nFrom: {name}\nApp Version: {version}";
 
-                var formData = new Dictionary<string, string>
+                // URI-encode for mailto link
+                var encodedSubject = Uri.EscapeDataString(emailSubject);
+                var encodedBody = Uri.EscapeDataString(body);
+                var mailto = $"mailto:Mcstudestimating@gmail.com?subject={encodedSubject}&body={encodedBody}";
+
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    { "name", name },
-                    { "_subject", string.IsNullOrEmpty(subject) ? $"McStud Support: {name}" : subject },
-                    { "message", fullMessage },
-                    { "_captcha", "false" },
-                    { "_template", "table" }
-                };
+                    FileName = mailto,
+                    UseShellExecute = true
+                });
 
-                var content = new System.Net.Http.FormUrlEncodedContent(formData);
-                var response = await client.PostAsync("https://formsubmit.co/ajax/Mcstudestimating@gmail.com", content);
-
-                System.Diagnostics.Debug.WriteLine($"[Support] Form submitted: {response.StatusCode}");
-                return response.IsSuccessStatusCode;
+                System.Diagnostics.Debug.WriteLine("[Support] Opened default email client");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[Support] Failed to send: {ex.Message}");
-                return false;
+                System.Diagnostics.Debug.WriteLine($"[Support] Failed to open email client: {ex.Message}");
             }
         }
 
@@ -1853,9 +1850,9 @@ namespace McStudDesktop.Views
             };
             var sendContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
             sendContent.Children.Add(new FontIcon { Glyph = "\uE724", FontSize = 14 });
-            sendContent.Children.Add(new TextBlock { Text = "Send Message", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            sendContent.Children.Add(new TextBlock { Text = "Open Email", FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
             sendButton.Content = sendContent;
-            sendButton.Click += async (s, e) =>
+            sendButton.Click += (s, e) =>
             {
                 var name = nameBox.Text?.Trim() ?? "";
                 var subject = subjectBox.Text?.Trim() ?? "";
@@ -1869,27 +1866,11 @@ namespace McStudDesktop.Views
                     return;
                 }
 
-                sendButton.IsEnabled = false;
-                supportStatus.Text = "Sending...";
-                supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150));
+                OpenSupportEmail(name, subject, message);
+
+                supportStatus.Text = "Email client opened — send from there!";
+                supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100));
                 supportStatus.Visibility = Visibility.Visible;
-
-                var success = await SendSupportMessageAsync(name, subject, message);
-
-                if (success)
-                {
-                    supportStatus.Text = "Message sent! We'll get back to you.";
-                    supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100));
-                    nameBox.Text = "";
-                    subjectBox.Text = "";
-                    messageBox.Text = "";
-                }
-                else
-                {
-                    supportStatus.Text = "Failed to send. Try emailing Mcstudestimating@gmail.com directly.";
-                    supportStatus.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
-                }
-                sendButton.IsEnabled = true;
             };
             supportStack.Children.Add(sendButton);
 
