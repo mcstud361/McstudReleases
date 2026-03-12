@@ -35,6 +35,7 @@ namespace McStudDesktop.Views
         private Button? _feedToChatButton;
         private Button? _copyButton;
         private Button? _loadToBuilderButton;
+        private Button? _transcriptButton;
 
         // Status display
         private TextBlock? _statusText;
@@ -64,6 +65,7 @@ namespace McStudDesktop.Views
 
         // State
         private ScreenOcrResult? _latestResult;
+        private CoachingSnapshot? _latestSnapshot;
 
         // Events
         public event EventHandler<ScreenOcrResult>? OnFeedToChat;
@@ -554,6 +556,21 @@ namespace McStudDesktop.Views
             _loadToBuilderButton.Click += LoadToBuilderButton_Click;
             row.Children.Add(_loadToBuilderButton);
 
+            var transcriptButton = new Button
+            {
+                Content = "Copy Transcript",
+                Padding = new Thickness(20, 10, 20, 10),
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Background = new SolidColorBrush(Color.FromArgb(255, 130, 90, 160)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(6),
+                IsEnabled = false
+            };
+            transcriptButton.Click += TranscriptButton_Click;
+            _transcriptButton = transcriptButton;
+            row.Children.Add(transcriptButton);
+
             border.Child = row;
             return border;
         }
@@ -670,6 +687,7 @@ namespace McStudDesktop.Views
 
         private void UpdateCoachingDisplay(McstudDesktop.Models.CoachingSnapshot snapshot)
         {
+            _latestSnapshot = snapshot;
             if (_coachingGradeText == null || _coachingSuggestionsStack == null) return;
 
             // Update score banner
@@ -1292,6 +1310,125 @@ namespace McStudDesktop.Views
             }
         }
 
+        private async void TranscriptButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_latestResult == null) return;
+
+            try
+            {
+                var transcript = GenerateTranscript();
+                var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                dataPackage.SetText(transcript);
+                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
+
+                _transcriptButton!.Content = "Copied!";
+                await Task.Delay(1500);
+                _transcriptButton.Content = "Copy Transcript";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Transcript copy failed: {ex.Message}");
+            }
+        }
+
+        private string GenerateTranscript()
+        {
+            var lines = new List<string>();
+            var result = _latestResult!;
+            var snapshot = _latestSnapshot;
+
+            lines.Add("=== SCREEN READ TRANSCRIPT ===");
+            lines.Add($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            lines.Add($"Source Window: {result.SourceWindow ?? "Unknown"}");
+            lines.Add($"OCR Capture Time: {result.Timestamp:HH:mm:ss}");
+            lines.Add("");
+
+            // Detected operations
+            lines.Add($"--- DETECTED OPERATIONS ({result.DetectedOperations.Count}) ---");
+            if (result.DetectedOperations.Count > 0)
+            {
+                foreach (var op in result.DetectedOperations)
+                {
+                    var parts = new List<string>();
+                    if (!string.IsNullOrEmpty(op.OperationType)) parts.Add(op.OperationType);
+                    parts.Add(op.PartName ?? op.Description);
+                    if (op.LaborHours > 0) parts.Add($"Labor: {op.LaborHours:0.0}h");
+                    if (op.RefinishHours > 0) parts.Add($"Refinish: {op.RefinishHours:0.0}h");
+                    if (op.Price > 0) parts.Add($"${op.Price:N2}");
+                    lines.Add($"  {string.Join(" | ", parts)}");
+                }
+            }
+            else
+            {
+                lines.Add("  (none detected)");
+            }
+            lines.Add("");
+
+            // Parts detected from structured ops
+            var detectedParts = DetectParts(result, "");
+            if (detectedParts.Count > 0)
+            {
+                lines.Add($"--- DETECTED PARTS ({detectedParts.Count}) ---");
+                foreach (var part in detectedParts)
+                    lines.Add($"  - {part}");
+                lines.Add("");
+            }
+
+            // Live coaching
+            if (snapshot != null)
+            {
+                lines.Add("--- LIVE COACHING ---");
+                lines.Add($"Score: {snapshot.Score}/100 (Grade: {snapshot.Grade})");
+                lines.Add($"Potential Recovery: ${snapshot.PotentialRecovery:N2}");
+                if (snapshot.VehicleInfo != null)
+                    lines.Add($"Vehicle: {snapshot.VehicleInfo}");
+                lines.Add($"Total Detected: {snapshot.TotalOperationsDetected} | Confirmed: {snapshot.ConfirmedCount}");
+                lines.Add("");
+
+                var missing = snapshot.Suggestions.Where(s => !s.IsConfirmedOnEstimate && !s.IsDismissed).ToList();
+                var confirmed = snapshot.Suggestions.Where(s => s.IsConfirmedOnEstimate && !s.IsDismissed).ToList();
+                var dismissed = snapshot.Suggestions.Where(s => s.IsDismissed).ToList();
+
+                if (missing.Count > 0)
+                {
+                    lines.Add($"  MISSING ({missing.Count}):");
+                    foreach (var s in missing.OrderByDescending(x => x.Severity))
+                    {
+                        var cost = s.EstimatedCost > 0 ? $" (${s.EstimatedCost:N2})" : "";
+                        var hours = s.LaborHours > 0 ? $" [{s.LaborHours:0.0}h]" : "";
+                        lines.Add($"    [{s.Severity}] {s.Title}{cost}{hours} — {s.Source}");
+                        if (!string.IsNullOrEmpty(s.TriggeredBy))
+                            lines.Add($"           Triggered by: {s.TriggeredBy}");
+                    }
+                    lines.Add("");
+                }
+
+                if (confirmed.Count > 0)
+                {
+                    lines.Add($"  ON ESTIMATE ({confirmed.Count}):");
+                    foreach (var s in confirmed)
+                        lines.Add($"    [OK] {s.Title} — {s.Source}");
+                    lines.Add("");
+                }
+
+                if (dismissed.Count > 0)
+                {
+                    lines.Add($"  DISMISSED ({dismissed.Count}):");
+                    foreach (var s in dismissed)
+                        lines.Add($"    [X] {s.Title}");
+                    lines.Add("");
+                }
+            }
+
+            // Raw OCR text
+            lines.Add("--- RAW OCR TEXT ---");
+            lines.Add(result.RawText ?? "(empty)");
+            lines.Add("");
+            lines.Add("=== END TRANSCRIPT ===");
+
+            return string.Join("\n", lines);
+        }
+
         private void MonitorService_OcrResultReady(object? sender, ScreenOcrResult result)
         {
             // Marshal to UI thread
@@ -1482,8 +1619,8 @@ namespace McStudDesktop.Views
                 if (partSuggestionsSection != null)
                     _aiAnalysisPanel.Children.Add(partSuggestionsSection);
 
-                // Step 4: SOP missing operations check
-                var sopSection = BuildSopMissingSection(rawText);
+                // Step 4: SOP missing operations check (uses structured ops, not raw text)
+                var sopSection = BuildSopMissingSection(rawText, result);
                 if (sopSection != null)
                     _aiAnalysisPanel.Children.Add(sopSection);
 
@@ -1498,34 +1635,30 @@ namespace McStudDesktop.Views
 
         private List<string> DetectParts(ScreenOcrResult result, string rawText)
         {
-            var lowerText = rawText.ToLowerInvariant();
+            // ONLY use structured operations from the parser — NOT raw OCR text.
+            // Raw text includes sidebar navigation (FRONT BUMPER & GRILLE, FENDER, etc.)
+            // which are section headers, not actual estimate lines.
             var detectedParts = new List<string>();
             var seenParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var matchedPatterns = new HashSet<string>();
 
-            foreach (var (pattern, canonical) in _scanParts)
-            {
-                if (seenParts.Contains(canonical)) continue;
-                if (matchedPatterns.Any(mp => mp.Contains(pattern))) continue;
-
-                var idx = lowerText.IndexOf(pattern);
-                if (idx < 0) continue;
-
-                // Word boundary check
-                if (idx > 0 && char.IsLetter(lowerText[idx - 1])) continue;
-                var endIdx = idx + pattern.Length;
-                if (endIdx < lowerText.Length && char.IsLetter(lowerText[endIdx])) continue;
-
-                seenParts.Add(canonical);
-                detectedParts.Add(canonical);
-                matchedPatterns.Add(pattern);
-            }
-
-            // Also include any parts from the structured parser
             foreach (var op in result.DetectedOperations)
             {
-                if (!string.IsNullOrEmpty(op.PartName) && seenParts.Add(op.PartName))
-                    detectedParts.Add(op.PartName);
+                if (string.IsNullOrEmpty(op.PartName)) continue;
+
+                // Map to canonical name if possible
+                var partLower = op.PartName.ToLowerInvariant();
+                string canonical = op.PartName;
+                foreach (var (pattern, canonicalName) in _scanParts)
+                {
+                    if (partLower.Contains(pattern))
+                    {
+                        canonical = canonicalName;
+                        break;
+                    }
+                }
+
+                if (seenParts.Add(canonical))
+                    detectedParts.Add(canonical);
             }
 
             return detectedParts;
@@ -1686,9 +1819,21 @@ namespace McStudDesktop.Views
             return container;
         }
 
-        private UIElement? BuildSopMissingSection(string rawText)
+        private UIElement? BuildSopMissingSection(string rawText, ScreenOcrResult? result = null)
         {
-            var lowerText = rawText.ToLowerInvariant();
+            // Build search text from STRUCTURED operations only — not raw OCR text.
+            // Raw text includes sidebar/diagram navigation that causes false positives.
+            string lowerText;
+            if (result != null && result.DetectedOperations.Count > 0)
+            {
+                lowerText = string.Join(" | ", result.DetectedOperations
+                    .Select(op => $"{op.Description} {op.PartName} {op.OperationType} {op.RawLine}"))
+                    .ToLowerInvariant();
+            }
+            else
+            {
+                lowerText = rawText.ToLowerInvariant();
+            }
 
             var missingElectrical = new List<SopOperation>();
             var missingDiagnostics = new List<SopOperation>();
@@ -1879,6 +2024,7 @@ namespace McStudDesktop.Views
             _feedToChatButton!.IsEnabled = hasContent;
             _copyButton!.IsEnabled = hasContent;
             _loadToBuilderButton!.IsEnabled = hasOps;
+            if (_transcriptButton != null) _transcriptButton.IsEnabled = hasContent;
         }
 
         private Border CreateOperationRow(OcrDetectedOperation op)

@@ -302,8 +302,6 @@ namespace McStudDesktop.Services
                             text.Span("RO# ").FontSize(9).FontColor(Colors.Grey.Darken2);
                             text.Span(string.IsNullOrEmpty(roNumber) ? "_________" : roNumber)
                                 .FontSize(9).Bold().FontColor(Colors.Black);
-                            text.Span("  ").FontSize(9);
-                            text.Span(DateTime.Now.ToString("MM/dd/yy")).FontSize(8).FontColor(Colors.Grey.Darken2);
                         });
                     });
                     column.Item().PaddingTop(4);
@@ -315,9 +313,6 @@ namespace McStudDesktop.Services
                     {
                         row.RelativeItem().AlignLeft().Text(checklist.ShopName ?? "Shop Name")
                             .FontSize(16).Bold().FontColor(Colors.Black);
-
-                        row.RelativeItem().AlignRight().Text(DateTime.Now.ToString("MM/dd/yyyy"))
-                            .FontSize(10).FontColor(Colors.Grey.Darken2);
                     });
 
                     // Title and RO number
@@ -515,26 +510,6 @@ namespace McStudDesktop.Services
 
                     column.Item().Row(row =>
                     {
-                        // Signature
-                        row.RelativeItem().Row(sig =>
-                        {
-                            sig.ConstantItem(80).AlignBottom().BorderBottom(0.5f).BorderColor(Colors.Black);
-                            sig.ConstantItem(3);
-                            sig.ConstantItem(50).AlignBottom().Text("Technician").FontSize(6).FontColor(Colors.Grey.Darken1);
-                        });
-
-                        row.ConstantItem(15);
-
-                        // Date
-                        row.ConstantItem(70).Row(sig =>
-                        {
-                            sig.ConstantItem(40).AlignBottom().BorderBottom(0.5f).BorderColor(Colors.Black);
-                            sig.ConstantItem(3);
-                            sig.ConstantItem(25).AlignBottom().Text("Date").FontSize(6).FontColor(Colors.Grey.Darken1);
-                        });
-
-                        row.ConstantItem(15);
-
                         // Legend
                         row.RelativeItem().AlignRight().Text(text =>
                         {
@@ -561,22 +536,6 @@ namespace McStudDesktop.Services
                     // Signature area
                     column.Item().Row(row =>
                     {
-                        row.RelativeItem().Column(sig =>
-                        {
-                            sig.Item().Height(20).BorderBottom(1).BorderColor(Colors.Black);
-                            sig.Item().PaddingTop(2).Text("Technician Signature").FontSize(8).FontColor(Colors.Grey.Darken1);
-                        });
-
-                        row.ConstantItem(30);
-
-                        row.ConstantItem(100).Column(sig =>
-                        {
-                            sig.Item().Height(20).BorderBottom(1).BorderColor(Colors.Black);
-                            sig.Item().PaddingTop(2).Text("Date").FontSize(8).FontColor(Colors.Grey.Darken1);
-                        });
-
-                        row.ConstantItem(30);
-
                         row.RelativeItem().Column(sig =>
                         {
                             sig.Item().Height(20).BorderBottom(1).BorderColor(Colors.Black);
@@ -622,8 +581,6 @@ namespace McStudDesktop.Services
             }
 
             text += new string('=', 50) + "\n";
-            text += "Technician: ________________  Date: ________\n";
-
             return text;
         }
     }

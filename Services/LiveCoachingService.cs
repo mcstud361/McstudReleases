@@ -277,12 +277,13 @@ namespace McstudDesktop.Services
                 });
             }
 
-            // Cross-check suggestions against accumulated raw text AND structured ops
-            var allSeenText = _accumulatedRawText.ToString().ToLowerInvariant();
-            var structuredOpsText = string.Join(" ", _accumulatedOps.Values
-                .Select(op => $"{op.Description} {op.PartName}"))
+            // Cross-check suggestions against ONLY structured ops — NOT raw OCR text.
+            // Raw text includes sidebar navigation and diagram labels that cause false confirmations,
+            // then items flip back to "missing" when user scrolls and the sidebar text changes.
+            var structuredOpsText = string.Join(" | ", _accumulatedOps.Values
+                .Select(op => $"{op.Description} {op.PartName} {op.OperationType} {op.RawLine}"))
                 .ToLowerInvariant();
-            var combinedSeenText = $"{allSeenText} {structuredOpsText}";
+            var combinedSeenText = structuredOpsText;
 
             foreach (var s in suggestions)
             {

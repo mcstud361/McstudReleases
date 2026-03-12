@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Windows.ApplicationModel.DataTransfer;
+using McStudDesktop.Models;
 using McStudDesktop.Services;
 using McstudDesktop.Services;
 
@@ -20,6 +21,7 @@ namespace McStudDesktop.Views
         private readonly EstimateLearningService _learningService;
         private readonly EstimateAIAdvisorService _advisorService;
         private readonly TypeItService _typeItService;
+        private readonly EstimatePresetService _presetService;
 
         // Browse column UI
         private TextBox? _searchBox;
@@ -28,7 +30,6 @@ namespace McStudDesktop.Views
         private TextBlock? _statusText;
         private TextBlock? _selectionCountText;
         private Button? _insertButton;
-        private Button? _copyButton;
         private ScrollViewer? _resultsScroller;
 
         // Stats card refs
@@ -61,8 +62,8 @@ namespace McStudDesktop.Views
         private TextBlock? _totalRefinish;
         private TextBlock? _totalPrice;
         private TextBlock? _lineCount;
-        private StackPanel? _relatedOpsPanel;
-        private StackPanel? _advisorSuggestionsPanel;
+        private StackPanel? _suggestionsPanel;
+        private StackPanel? _presetsPanel;
 
         // Cart data
         private List<EstimateLine> _estimateLines = new();
@@ -99,11 +100,14 @@ namespace McStudDesktop.Views
             _typeItService = new TypeItService();
             _typeItService.SetSpeedLevel(4);
             _typeItService.BlockUserInput = true;
+            _presetService = EstimatePresetService.Instance;
 
             try
             {
                 BuildUI();
                 RefreshStatsValues();
+                _presetService.GenerateAutoPresets();
+                RefreshPresetChips();
                 ShowCategoryContent(0);
             }
             catch (Exception ex)
@@ -160,7 +164,7 @@ namespace McStudDesktop.Views
             Grid.SetRow(header, 0);
             mainGrid.Children.Add(header);
 
-            var stats = BuildStatsCards();
+            var stats = BuildStatsBar();
             Grid.SetRow(stats, 1);
             mainGrid.Children.Add(stats);
 
@@ -232,60 +236,44 @@ namespace McStudDesktop.Views
         }
 
         // ═══════════════════════════════════════════
-        //  STATS CARDS
+        //  COMPACT STATS BAR
         // ═══════════════════════════════════════════
 
-        private Border BuildStatsCards()
+        private Border BuildStatsBar()
         {
-            var border = new Border { Padding = new Thickness(16, 4, 16, 12) };
-            var grid = new Grid { ColumnSpacing = 10 };
-            for (int i = 0; i < 5; i++)
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var border = new Border
+            {
+                Background = new SolidColorBrush(SurfaceBg),
+                Padding = new Thickness(20, 8, 20, 8),
+                Margin = new Thickness(16, 0, 16, 8),
+                CornerRadius = new CornerRadius(8),
+                BorderBrush = new SolidColorBrush(BorderSubtle),
+                BorderThickness = new Thickness(1)
+            };
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24 };
             var allPatterns = _learningService.GetAllManualLinePatterns().Where(p => p.ManualLines.Count > 0).ToList();
             var estimates = _learningService.EstimatesImported;
             var patterns = _learningService.ManualLinePatternCount;
             var uniqueOps = allPatterns.SelectMany(p => p.ManualLines).Select(m => m.ManualLineType).Distinct().Count();
             var totalHours = allPatterns.SelectMany(p => p.ManualLines).Sum(m => m.LaborUnits + m.RefinishUnits);
             var avgOps = patterns > 0 ? (double)allPatterns.Sum(p => p.ManualLines.Count) / patterns : 0;
-            var c1 = BuildStatCard("\uE8A5", "Estimates", estimates.ToString(), AccentBlue, out _statEstimates);
-            var c2 = BuildStatCard("\uE80A", "Part Patterns", patterns.ToString(), AccentGreen, out _statPatterns);
-            var c3 = BuildStatCard("\uE945", "Unique Ops", uniqueOps.ToString(), AccentPurple, out _statUniqueOps);
-            var c4 = BuildStatCard("\uE823", "Total Hours", $"{totalHours:N1}", AccentOrange, out _statTotalHours);
-            var c5 = BuildStatCard("\uE9D9", "Avg Ops/Part", $"{avgOps:N1}", AccentTeal, out _statAvgOps);
-            Grid.SetColumn(c1, 0); Grid.SetColumn(c2, 1); Grid.SetColumn(c3, 2);
-            Grid.SetColumn(c4, 3); Grid.SetColumn(c5, 4);
-            grid.Children.Add(c1); grid.Children.Add(c2); grid.Children.Add(c3);
-            grid.Children.Add(c4); grid.Children.Add(c5);
-            border.Child = grid;
+            row.Children.Add(BuildStatItem(AccentBlue, estimates.ToString(), "Estimates", out _statEstimates));
+            row.Children.Add(BuildStatItem(AccentGreen, patterns.ToString(), "Patterns", out _statPatterns));
+            row.Children.Add(BuildStatItem(AccentPurple, uniqueOps.ToString(), "Unique Ops", out _statUniqueOps));
+            row.Children.Add(BuildStatItem(AccentOrange, $"{totalHours:N1}", "Total Hours", out _statTotalHours));
+            row.Children.Add(BuildStatItem(AccentTeal, $"{avgOps:N1}", "Avg Ops/Part", out _statAvgOps));
+            border.Child = row;
             return border;
         }
 
-        private Border BuildStatCard(string glyph, string label, string value, Color accent, out TextBlock valueRef)
+        private StackPanel BuildStatItem(Color dotColor, string value, string label, out TextBlock valueRef)
         {
-            var card = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(14, 12, 14, 12),
-                BorderBrush = new SolidColorBrush(BorderSubtle),
-                BorderThickness = new Thickness(1)
-            };
-            var stack = new StackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center };
-            stack.Children.Add(new FontIcon { Glyph = glyph, FontSize = 18, Foreground = new SolidColorBrush(accent) });
-            var valText = new TextBlock
-            {
-                Text = value, FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center
-            };
-            stack.Children.Add(valText);
-            valueRef = valText;
-            stack.Children.Add(new TextBlock
-            {
-                Text = label, FontSize = 10, Foreground = new SolidColorBrush(TextMuted),
-                HorizontalAlignment = HorizontalAlignment.Center
-            });
-            card.Child = stack;
-            return card;
+            var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            item.Children.Add(new Border { Width = 6, Height = 6, CornerRadius = new CornerRadius(3), Background = new SolidColorBrush(dotColor), VerticalAlignment = VerticalAlignment.Center });
+            valueRef = new TextBlock { Text = value, FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(TextPrimary), VerticalAlignment = VerticalAlignment.Center };
+            item.Children.Add(valueRef);
+            item.Children.Add(new TextBlock { Text = label, FontSize = 11, Foreground = new SolidColorBrush(TextMuted), VerticalAlignment = VerticalAlignment.Center });
+            return item;
         }
 
         // ═══════════════════════════════════════════
@@ -303,21 +291,16 @@ namespace McStudDesktop.Views
                 BorderThickness = new Thickness(1)
             };
             var grid = new Grid();
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // filters
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // tabs
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // navigation (tabs + filters merged)
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // search
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // results
 
-            var filters = BuildQuickFilters();
-            Grid.SetRow(filters, 0);
-            grid.Children.Add(filters);
-
-            var tabs = BuildCategoryTabs();
-            Grid.SetRow(tabs, 1);
-            grid.Children.Add(tabs);
+            var nav = BuildNavigationBar();
+            Grid.SetRow(nav, 0);
+            grid.Children.Add(nav);
 
             var search = BuildSearchBar();
-            Grid.SetRow(search, 2);
+            Grid.SetRow(search, 1);
             grid.Children.Add(search);
 
             _resultsScroller = new ScrollViewer
@@ -328,7 +311,7 @@ namespace McStudDesktop.Views
             };
             _resultsPanel = new StackPanel { Spacing = 8 };
             _resultsScroller.Content = _resultsPanel;
-            Grid.SetRow(_resultsScroller, 3);
+            Grid.SetRow(_resultsScroller, 2);
             grid.Children.Add(_resultsScroller);
 
             border.Child = grid;
@@ -350,6 +333,9 @@ namespace McStudDesktop.Views
                 BorderThickness = new Thickness(1)
             };
             var stack = new StackPanel { Spacing = 8 };
+
+            // Presets row
+            stack.Children.Add(BuildPresetsRow());
 
             // Header
             var headerRow = new Grid();
@@ -403,63 +389,67 @@ namespace McStudDesktop.Views
             totalsPanel.Children.Add(_totalPrice);
             stack.Children.Add(totalsPanel);
 
-            // Related ops
-            _relatedOpsPanel = new StackPanel { Orientation = Orientation.Vertical, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 8, 0, 0) };
-            stack.Children.Add(_relatedOpsPanel);
-
-            // AI advisor
-            _advisorSuggestionsPanel = new StackPanel { Orientation = Orientation.Vertical, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 8, 0, 0) };
-            stack.Children.Add(_advisorSuggestionsPanel);
+            // Unified suggestions
+            _suggestionsPanel = new StackPanel { Orientation = Orientation.Vertical, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 8, 0, 0) };
+            stack.Children.Add(_suggestionsPanel);
 
             border.Child = stack;
             return border;
         }
 
         // ═══════════════════════════════════════════
-        //  QUICK FILTERS
+        //  MERGED NAVIGATION BAR (tabs + filter chips)
         // ═══════════════════════════════════════════
 
-        private Border BuildQuickFilters()
+        private Border BuildNavigationBar()
         {
             var border = new Border { Padding = new Thickness(16, 12, 16, 10) };
-            var outer = new StackPanel { Spacing = 6 };
-            outer.Children.Add(new TextBlock
+            var outer = new StackPanel { Spacing = 8 };
+
+            // Tabs segmented control
+            var tabsOuter = new Border
             {
-                Text = "QUICK SEARCH", FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(TextMuted), CharacterSpacing = 60
-            });
-            _quickFiltersPanel = new StackPanel { Spacing = 6 };
-            var quickFilters = new[]
-            {
-                ("Scan", "\uE8B5"), ("Weld", "\uE945"), ("Cavity Wax", "\uE7F6"),
-                ("DE-NIB", "\uE8CB"), ("Seam Seal", "\uE8EE"), ("Corrosion", "\uE72E"),
-                ("Calibrate", "\uE9A1"), ("R&I", "\uE8BB")
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 28, 32)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(4), BorderBrush = new SolidColorBrush(BorderSubtle), BorderThickness = new Thickness(1)
             };
-            var row1 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var row2 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            for (int i = 0; i < quickFilters.Length; i++)
+            var tabsGrid = new Grid { ColumnSpacing = 4 };
+            for (int i = 0; i < 4; i++) tabsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _allTab = CreateCategoryTab("All", 0, true);
+            _byPartTab = CreateCategoryTab("By Part", 1, false);
+            _byOpTab = CreateCategoryTab("By Op", 2, false);
+            _recentTab = CreateCategoryTab("Top Used", 3, false);
+            Grid.SetColumn(_allTab, 0); Grid.SetColumn(_byPartTab, 1); Grid.SetColumn(_byOpTab, 2); Grid.SetColumn(_recentTab, 3);
+            tabsGrid.Children.Add(_allTab); tabsGrid.Children.Add(_byPartTab); tabsGrid.Children.Add(_byOpTab); tabsGrid.Children.Add(_recentTab);
+            tabsOuter.Child = tabsGrid;
+            outer.Children.Add(tabsOuter);
+
+            // Scrollable filter chips
+            _quickFiltersPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            var quickFilters = new[] { "Scan", "Weld", "Cavity Wax", "DE-NIB", "Seam Seal", "Corrosion", "Calibrate", "R&I" };
+            foreach (var name in quickFilters)
+                _quickFiltersPanel.Children.Add(CreateCompactFilterChip(name));
+            var filterScroller = new ScrollViewer
             {
-                var chip = CreateQuickFilterChip(quickFilters[i].Item1, quickFilters[i].Item2);
-                if (i < 4) row1.Children.Add(chip); else row2.Children.Add(chip);
-            }
-            _quickFiltersPanel.Children.Add(row1);
-            _quickFiltersPanel.Children.Add(row2);
-            outer.Children.Add(_quickFiltersPanel);
+                Content = _quickFiltersPanel,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                MaxHeight = 36
+            };
+            outer.Children.Add(filterScroller);
+
             border.Child = outer;
             return border;
         }
 
-        private Border CreateQuickFilterChip(string name, string glyph)
+        private Border CreateCompactFilterChip(string name)
         {
             var chip = new Border
             {
-                Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(16),
-                Padding = new Thickness(14, 7, 14, 7), BorderBrush = new SolidColorBrush(BorderSubtle), BorderThickness = new Thickness(1)
+                Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(12, 5, 12, 5), BorderBrush = new SolidColorBrush(BorderSubtle), BorderThickness = new Thickness(1)
             };
-            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7 };
-            content.Children.Add(new FontIcon { Glyph = glyph, FontSize = 12, Foreground = new SolidColorBrush(AccentBlue) });
-            content.Children.Add(new TextBlock { Text = name, FontSize = 12, Foreground = new SolidColorBrush(TextPrimary), VerticalAlignment = VerticalAlignment.Center });
-            chip.Child = content;
+            chip.Child = new TextBlock { Text = name, FontSize = 12, Foreground = new SolidColorBrush(TextPrimary), VerticalAlignment = VerticalAlignment.Center };
             chip.Tag = name;
             chip.PointerPressed += (s, e) =>
             {
@@ -474,51 +464,19 @@ namespace McStudDesktop.Views
         private void HighlightActiveQuickFilter(string? activeName)
         {
             if (_quickFiltersPanel == null) return;
-            foreach (var rowChild in _quickFiltersPanel.Children)
+            foreach (var child in _quickFiltersPanel.Children)
             {
-                if (rowChild is StackPanel row)
+                if (child is Border chip)
                 {
-                    foreach (var child in row.Children)
+                    var isActive = chip.Tag?.ToString() == activeName;
+                    chip.Background = new SolidColorBrush(isActive ? Color.FromArgb(255, 30, 60, 110) : CardBg);
+                    chip.BorderBrush = new SolidColorBrush(isActive ? AccentBlue : BorderSubtle);
+                    if (chip.Child is TextBlock tb)
                     {
-                        if (child is Border chip)
-                        {
-                            var isActive = chip.Tag?.ToString() == activeName;
-                            chip.Background = new SolidColorBrush(isActive ? Color.FromArgb(255, 30, 60, 110) : CardBg);
-                            chip.BorderBrush = new SolidColorBrush(isActive ? AccentBlue : BorderSubtle);
-                            if (chip.Child is StackPanel sp)
-                            {
-                                var existing = sp.Children.OfType<TextBlock>().FirstOrDefault(t => t.Text == "\u00D7");
-                                if (existing != null) sp.Children.Remove(existing);
-                                if (isActive) sp.Children.Add(new TextBlock { Text = "\u00D7", FontSize = 14, Foreground = new SolidColorBrush(TextSecondary), Margin = new Thickness(4, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
-                            }
-                        }
+                        tb.Foreground = new SolidColorBrush(isActive ? AccentBlue : TextPrimary);
                     }
                 }
             }
-        }
-
-        // ═══════════════════════════════════════════
-        //  CATEGORY TABS
-        // ═══════════════════════════════════════════
-
-        private Border BuildCategoryTabs()
-        {
-            var outer = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 28, 28, 32)),
-                Margin = new Thickness(16, 0, 16, 10), CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(4), BorderBrush = new SolidColorBrush(BorderSubtle), BorderThickness = new Thickness(1)
-            };
-            var grid = new Grid { ColumnSpacing = 4 };
-            for (int i = 0; i < 4; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            _allTab = CreateCategoryTab("All", 0, true);
-            _byPartTab = CreateCategoryTab("By Part", 1, false);
-            _byOpTab = CreateCategoryTab("By Op", 2, false);
-            _recentTab = CreateCategoryTab("Top Used", 3, false);
-            Grid.SetColumn(_allTab, 0); Grid.SetColumn(_byPartTab, 1); Grid.SetColumn(_byOpTab, 2); Grid.SetColumn(_recentTab, 3);
-            grid.Children.Add(_allTab); grid.Children.Add(_byPartTab); grid.Children.Add(_byOpTab); grid.Children.Add(_recentTab);
-            outer.Child = grid;
-            return outer;
         }
 
         private Border CreateCategoryTab(string text, int index, bool isSelected)
@@ -638,36 +596,43 @@ namespace McStudDesktop.Views
             clearBtn.Click += ClearAll_Click;
             btnPanel.Children.Add(clearBtn);
 
-            _copyButton = new Button { Padding = new Thickness(14, 8, 14, 8), Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 60)), Foreground = new SolidColorBrush(TextPrimary), CornerRadius = new CornerRadius(8), IsEnabled = false };
-            var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 14 });
-            copyContent.Children.Add(new TextBlock { Text = "Copy", FontSize = 12 });
-            _copyButton.Content = copyContent;
-            _copyButton.Click += CopyButton_Click;
-            btnPanel.Children.Add(_copyButton);
+            // Export dropdown: primary action = Insert CCC, flyout has the rest
+            var exportFlyout = new MenuFlyout();
+            var copyItem = new MenuFlyoutItem { Text = "Copy to Clipboard" };
+            copyItem.Click += CopyButton_Click;
+            exportFlyout.Items.Add(copyItem);
+            var clipItem = new MenuFlyoutItem { Text = "Clip It" };
+            clipItem.Click += ClipIt_Click;
+            exportFlyout.Items.Add(clipItem);
+            var typeItem = new MenuFlyoutItem { Text = "Type It" };
+            typeItem.Click += TypeIt_Click;
+            exportFlyout.Items.Add(typeItem);
+            exportFlyout.Items.Add(new MenuFlyoutSeparator());
+            var sendItem = new MenuFlyoutItem { Text = "Send to Chat" };
+            sendItem.Click += SendToChat_Click;
+            exportFlyout.Items.Add(sendItem);
 
-            var clipBtn = new Button { Padding = new Thickness(14, 8, 14, 8), Background = new SolidColorBrush(Color.FromArgb(255, 0, 100, 180)), Foreground = new SolidColorBrush(Colors.White), CornerRadius = new CornerRadius(8) };
-            clipBtn.Content = new TextBlock { Text = "Clip It", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold };
-            clipBtn.Click += ClipIt_Click;
-            btnPanel.Children.Add(clipBtn);
-
-            var typeBtn = new Button { Padding = new Thickness(14, 8, 14, 8), Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)), Foreground = new SolidColorBrush(Colors.White), CornerRadius = new CornerRadius(8) };
-            typeBtn.Content = new TextBlock { Text = "Type It", FontSize = 12 };
-            typeBtn.Click += TypeIt_Click;
-            btnPanel.Children.Add(typeBtn);
-
-            _insertButton = new Button { Padding = new Thickness(14, 8, 14, 8), Background = new SolidColorBrush(AccentGreen), Foreground = new SolidColorBrush(Colors.White), CornerRadius = new CornerRadius(8), IsEnabled = false };
-            var insertContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            insertContent.Children.Add(new FontIcon { Glyph = "\uE768", FontSize = 14 });
-            insertContent.Children.Add(new TextBlock { Text = "Insert CCC", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-            _insertButton.Content = insertContent;
+            _insertButton = new DropDownButton
+            {
+                Padding = new Thickness(14, 8, 14, 8),
+                Background = new SolidColorBrush(AccentGreen),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(8),
+                IsEnabled = false,
+                Flyout = exportFlyout,
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE768", FontSize = 14 },
+                        new TextBlock { Text = "Insert CCC", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+                    }
+                }
+            };
             _insertButton.Click += InsertButton_Click;
             btnPanel.Children.Add(_insertButton);
-
-            var sendBtn = new Button { Padding = new Thickness(14, 8, 14, 8), Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), Foreground = new SolidColorBrush(Colors.White), CornerRadius = new CornerRadius(8) };
-            sendBtn.Content = new TextBlock { Text = "Send to Chat", FontSize = 12 };
-            sendBtn.Click += SendToChat_Click;
-            btnPanel.Children.Add(sendBtn);
 
             Grid.SetColumn(btnPanel, 1);
             grid.Children.Add(btnPanel);
@@ -1052,12 +1017,38 @@ namespace McStudDesktop.Views
             if (string.IsNullOrWhiteSpace(query)) { _statusText!.Text = "Search by part name or operation"; _statusText.Foreground = new SolidColorBrush(TextSecondary); _resultsPanel!.Children.Clear(); _currentPattern = null; _currentOpStats = null; UpdateButtonStates(); return; }
             _resultsPanel!.Children.Clear(); _selectedOperations.Clear(); _selectedOpResults.Clear();
             var (partName, opType) = ParseQuery(query);
-            _currentPattern = _learningService.GetManualLinesForPart(partName, opType);
-            if (_currentPattern != null && _currentPattern.ManualLines.Count > 0) { ShowPatternDetails(_currentPattern); return; }
-            var patternMatches = _learningService.SearchPatterns(query, 30);
-            if (patternMatches.Count > 0) { ShowPartSearchResults(query, patternMatches); return; }
-            _currentOpStats = _learningService.GetOperationStats(query);
+            // Use cleaned partName for service calls (raw query has op keywords that pollute substring matching)
+            var searchTerm = string.IsNullOrWhiteSpace(partName) ? query : partName;
+
+            // Only try exact/partial single-pattern match when user specified an operation type
+            // (e.g. "fender replace"). Without an op type, show the browsable list instead.
+            if (opType != null)
+            {
+                _currentPattern = _learningService.GetManualLinesForPart(partName, opType);
+                if (_currentPattern != null && _currentPattern.ManualLines.Count > 0) { ShowPatternDetails(_currentPattern); return; }
+            }
+
+            // Broad pattern search — uses cleaned partName, not raw query
+            var patternMatches = _learningService.SearchPatterns(searchTerm, 30);
+            // Filter: only keep results where search term appears as a whole word in PartName
+            // (eliminates EstimateLine false positives and OCR garbage like "VVeennddoorrss")
+            var searchLower = searchTerm.ToLowerInvariant();
+            patternMatches = patternMatches.Where(p =>
+            {
+                var name = (p.PartName ?? "").ToLowerInvariant();
+                var idx = name.IndexOf(searchLower);
+                if (idx < 0) return false;
+                var beforeOk = idx == 0 || !char.IsLetter(name[idx - 1]);
+                var afterIdx = idx + searchLower.Length;
+                var afterOk = afterIdx >= name.Length || !char.IsLetter(name[afterIdx]);
+                return beforeOk && afterOk;
+            }).ToList();
+            if (patternMatches.Count > 0) { ShowPartSearchResults(searchTerm, patternMatches); return; }
+
+            // Operation keyword search — also uses cleaned term
+            _currentOpStats = _learningService.GetOperationStats(searchTerm);
             if (_currentOpStats.Occurrences.Count > 0) { ShowOperationKeywordResults(_currentOpStats); return; }
+
             _statusText!.Text = $"No results for \"{query}\""; _statusText.Foreground = new SolidColorBrush(AccentOrange); UpdateButtonStates();
         }
 
@@ -1165,10 +1156,7 @@ namespace McStudDesktop.Views
             UpdateEstimateDisplay();
             if (pattern.ManualLines.Count > 0)
             {
-                var first = pattern.ManualLines[0];
-                var partName = first.ManualLineType.Length > 0 ? first.ManualLineType : first.Description;
-                ShowRelatedOperations(partName, pattern.ParentOperationType ?? "");
-                ShowAdvisorSuggestions(pattern.ParentPartName ?? partName, pattern.ParentOperationType ?? "");
+                ShowUnifiedSuggestions(pattern.ParentPartName ?? pattern.ManualLines[0].ManualLineType, pattern.ParentOperationType ?? "");
             }
             _statusText!.Text = $"Added {pattern.ManualLines.Count} ops from {pattern.ParentPartName}";
             _statusText.Foreground = new SolidColorBrush(AccentGreen);
@@ -1240,62 +1228,82 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        private void ShowRelatedOperations(string partName, string operationType)
+        private void ShowUnifiedSuggestions(string partName, string operationType)
         {
-            if (_relatedOpsPanel == null) return;
-            var related = _learningService.GetRelatedOperations(partName, operationType, 8);
+            if (_suggestionsPanel == null) return;
+            _suggestionsPanel.Children.Clear();
+
             var existingKeys = _estimateLines.Select(l => $"{l.PartName}|{l.OperationType}".ToLowerInvariant()).ToHashSet();
-            related = related.Where(r => !existingKeys.Contains($"{r.PartName}|{r.OperationType}".ToLowerInvariant())).ToList();
-            _relatedOpsPanel.Children.Clear();
-            if (related.Count == 0) { _relatedOpsPanel.Visibility = Visibility.Collapsed; return; }
-            _relatedOpsPanel.Children.Add(new TextBlock { Text = "Also typically on this estimate:", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)), Margin = new Thickness(0, 0, 0, 6) });
-            var wrapGrid = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-            foreach (var entry in related) wrapGrid.Children.Add(CreateRelatedOpChip(entry));
-            _relatedOpsPanel.Children.Add(new ScrollViewer { Content = wrapGrid, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, MaxHeight = 50 });
-            _relatedOpsPanel.Visibility = Visibility.Visible;
-        }
 
-        private Border CreateRelatedOpChip(CoOccurrenceEntry entry)
-        {
-            var rateText = $"{entry.CoOccurrenceRate:P0}";
-            var hoursText = entry.AvgLaborHours > 0 ? $" {entry.AvgLaborHours:F1}h" : "";
-            var chip = new Border { Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(10, 4, 10, 4), Child = new TextBlock { Text = $"{entry.PartName} {entry.OperationType} ({rateText}{hoursText})", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)) } };
-            chip.PointerEntered += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 65, 65, 65)); chip.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 0, 120, 212)); };
-            chip.PointerExited += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)); chip.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)); };
-            chip.Tapped += (s, e) => { _estimateLines.Add(new EstimateLine { PartName = entry.PartName, OperationType = entry.OperationType, LaborHours = entry.AvgLaborHours, RefinishHours = entry.AvgRefinishHours, Price = entry.AvgPrice }); UpdateEstimateDisplay(); };
-            return chip;
-        }
+            // Collect suggestions from both sources, keyed by name+opType for dedup
+            var merged = new Dictionary<string, (string Name, string OpType, decimal LaborHours, decimal RefinishHours, decimal Price, double Confidence)>(StringComparer.OrdinalIgnoreCase);
 
-        private void ShowAdvisorSuggestions(string partName, string operationType)
-        {
-            if (_advisorSuggestionsPanel == null) return;
-            _advisorSuggestionsPanel.Children.Clear();
+            // Related operations from learning service
+            try
+            {
+                var related = _learningService.GetRelatedOperations(partName, operationType, 8);
+                foreach (var entry in related)
+                {
+                    var key = $"{entry.PartName}|{entry.OperationType}";
+                    if (!existingKeys.Contains(key.ToLowerInvariant()) && !merged.ContainsKey(key))
+                        merged[key] = (entry.PartName, entry.OperationType, entry.AvgLaborHours, entry.AvgRefinishHours, entry.AvgPrice, entry.CoOccurrenceRate);
+                }
+            }
+            catch { /* ignore */ }
+
+            // AI advisor suggestions
             try
             {
                 var enteredTypes = _estimateLines.Select(l => l.OperationType).ToList();
                 var suggestion = _advisorService.GetProactiveSuggestions(partName, operationType, enteredTypes, null);
-                if (suggestion == null || suggestion.PatternSuggestions.Count == 0) { _advisorSuggestionsPanel.Visibility = Visibility.Collapsed; return; }
-                var existingKeys = _estimateLines.Select(l => $"{l.PartName}|{l.OperationType}".ToLowerInvariant()).ToHashSet();
-                var newSuggestions = suggestion.PatternSuggestions.Where(s => !existingKeys.Contains($"{s.Description}|{s.OperationType}".ToLowerInvariant())).ToList();
-                if (newSuggestions.Count == 0) { _advisorSuggestionsPanel.Visibility = Visibility.Collapsed; return; }
-                _advisorSuggestionsPanel.Children.Add(new TextBlock { Text = $"\uD83E\uDDE0 Others who did {partName} {operationType} also added:", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 140)), Margin = new Thickness(0, 0, 0, 4) });
-                var wrapPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                foreach (var sug in newSuggestions.Take(6))
+                if (suggestion?.PatternSuggestions != null)
                 {
-                    var confText = sug.Confidence >= 0.7 ? "HIGH" : sug.Confidence >= 0.4 ? "MED" : "LOW";
-                    var hoursText = sug.Hours > 0 ? $" {sug.Hours:F1}h" : "";
-                    var chip = new Border { Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 120, 70)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(10, 4, 10, 4), Child = new TextBlock { Text = $"{sug.Description} ({confText}{hoursText})", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 220, 200)) } };
-                    var captured = sug;
-                    chip.PointerEntered += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 45, 70, 50)); };
-                    chip.PointerExited += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)); };
-                    chip.Tapped += (s, e) => { _estimateLines.Add(new EstimateLine { PartName = captured.Description.Split(' ').FirstOrDefault() ?? captured.Description, OperationType = captured.OperationType, LaborHours = captured.Hours }); UpdateEstimateDisplay(); };
-                    wrapPanel.Children.Add(chip);
+                    foreach (var sug in suggestion.PatternSuggestions)
+                    {
+                        var key = $"{sug.Description}|{sug.OperationType}";
+                        if (existingKeys.Contains(key.ToLowerInvariant())) continue;
+                        if (merged.TryGetValue(key, out var existing))
+                        {
+                            // Keep higher confidence
+                            if (sug.Confidence > existing.Confidence)
+                                merged[key] = (sug.Description, sug.OperationType, sug.Hours, 0, 0, sug.Confidence);
+                        }
+                        else
+                        {
+                            merged[key] = (sug.Description, sug.OperationType, sug.Hours, 0, 0, sug.Confidence);
+                        }
+                    }
                 }
-                _advisorSuggestionsPanel.Children.Add(new ScrollViewer { Content = wrapPanel, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, MaxHeight = 50 });
-                if (!string.IsNullOrWhiteSpace(suggestion.AccuracyWarning)) _advisorSuggestionsPanel.Children.Add(new TextBlock { Text = $"\u26A0 {suggestion.AccuracyWarning}", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)), Margin = new Thickness(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap });
-                _advisorSuggestionsPanel.Visibility = Visibility.Visible;
             }
-            catch { _advisorSuggestionsPanel.Visibility = Visibility.Collapsed; }
+            catch { /* ignore */ }
+
+            if (merged.Count == 0) { _suggestionsPanel.Visibility = Visibility.Collapsed; return; }
+
+            _suggestionsPanel.Children.Add(new TextBlock
+            {
+                Text = "SUGGESTIONS", FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextMuted), CharacterSpacing = 60
+            });
+            var chipRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            foreach (var item in merged.Values.OrderByDescending(v => v.Confidence).Take(8))
+            {
+                var hoursText = item.LaborHours > 0 ? $" {item.LaborHours:F1}h" : "";
+                var chip = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 120, 70)),
+                    BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(10, 4, 10, 4),
+                    Child = new TextBlock { Text = $"{item.Name} {item.OpType}{hoursText}", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 220, 200)) }
+                };
+                var captured = item;
+                chip.PointerEntered += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 45, 70, 50)); };
+                chip.PointerExited += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 40)); };
+                chip.Tapped += (s, e) => { _estimateLines.Add(new EstimateLine { PartName = captured.Name, OperationType = captured.OpType, LaborHours = captured.LaborHours, RefinishHours = captured.RefinishHours, Price = captured.Price }); UpdateEstimateDisplay(); };
+                chipRow.Children.Add(chip);
+            }
+            _suggestionsPanel.Children.Add(new ScrollViewer { Content = chipRow, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, MaxHeight = 50 });
+            _suggestionsPanel.Visibility = Visibility.Visible;
         }
 
         // ═══════════════════════════════════════════
@@ -1381,9 +1389,116 @@ namespace McStudDesktop.Views
         {
             var totalSelected = _selectedOperations.Count + _selectedOpResults.Count + _estimateLines.Count;
             var hasSelection = totalSelected > 0;
-            if (_copyButton != null) _copyButton.IsEnabled = hasSelection;
             if (_insertButton != null) _insertButton.IsEnabled = hasSelection;
             if (_selectionCountText != null) { _selectionCountText.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed; _selectionCountText.Text = $"{totalSelected} selected"; }
+        }
+
+        // ═══════════════════════════════════════════
+        //  PRESETS
+        // ═══════════════════════════════════════════
+
+        private StackPanel BuildPresetsRow()
+        {
+            var outer = new StackPanel { Spacing = 6 };
+            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            headerRow.Children.Add(new TextBlock
+            {
+                Text = "PRESETS", FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextMuted), CharacterSpacing = 60,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            var saveBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE74E", FontSize = 11 },
+                Padding = new Thickness(6, 3, 6, 3),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 55)),
+                Foreground = new SolidColorBrush(TextSecondary),
+                CornerRadius = new CornerRadius(4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(saveBtn, "Save current estimate as preset");
+            saveBtn.Click += SaveAsPreset_Click;
+            headerRow.Children.Add(saveBtn);
+            outer.Children.Add(headerRow);
+
+            _presetsPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            var scroller = new ScrollViewer
+            {
+                Content = _presetsPanel,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                MaxHeight = 36
+            };
+            outer.Children.Add(scroller);
+            return outer;
+        }
+
+        private async void SaveAsPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if (_estimateLines.Count == 0) return;
+            var dialog = new ContentDialog
+            {
+                Title = "Save as Preset",
+                PrimaryButtonText = "Save",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot
+            };
+            var nameBox = new TextBox { PlaceholderText = "Preset name...", FontSize = 13 };
+            dialog.Content = nameBox;
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(nameBox.Text))
+            {
+                var lines = _estimateLines.Select(l => new PresetLine
+                {
+                    PartName = l.PartName,
+                    OperationType = l.OperationType,
+                    LaborHours = l.LaborHours,
+                    RefinishHours = l.RefinishHours,
+                    Price = l.Price
+                }).ToList();
+                _presetService.SaveCurrentAsPreset(nameBox.Text.Trim(), lines);
+                RefreshPresetChips();
+            }
+        }
+
+        private void RefreshPresetChips()
+        {
+            if (_presetsPanel == null) return;
+            _presetsPanel.Children.Clear();
+            var presets = _presetService.GetAllPresets();
+            if (presets.Count == 0)
+            {
+                _presetsPanel.Children.Add(new TextBlock { Text = "No presets yet", FontSize = 11, Foreground = new SolidColorBrush(TextMuted), VerticalAlignment = VerticalAlignment.Center, FontStyle = Windows.UI.Text.FontStyle.Italic });
+                return;
+            }
+            foreach (var preset in presets)
+            {
+                var chip = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 40, 50, 65)),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 80, 110)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(10, 4, 10, 4)
+                };
+                var chipContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                chipContent.Children.Add(new TextBlock { Text = preset.Name, FontSize = 11, Foreground = new SolidColorBrush(TextPrimary), VerticalAlignment = VerticalAlignment.Center });
+                chipContent.Children.Add(new TextBlock { Text = $"{preset.Lines.Count}L", FontSize = 10, Foreground = new SolidColorBrush(TextMuted), VerticalAlignment = VerticalAlignment.Center });
+                chip.Child = chipContent;
+                var captured = preset;
+                chip.PointerEntered += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 55, 70, 90)); };
+                chip.PointerExited += (s, e) => { chip.Background = new SolidColorBrush(Color.FromArgb(255, 40, 50, 65)); };
+                chip.Tapped += (s, e) =>
+                {
+                    _presetService.RecordUsage(captured.Id);
+                    foreach (var line in captured.Lines)
+                        _estimateLines.Add(new EstimateLine { PartName = line.PartName, OperationType = line.OperationType, LaborHours = line.LaborHours, RefinishHours = line.RefinishHours, Price = line.Price });
+                    UpdateEstimateDisplay();
+                    _statusText!.Text = $"Loaded preset \"{captured.Name}\" ({captured.Lines.Count} lines)";
+                    _statusText.Foreground = new SolidColorBrush(AccentGreen);
+                };
+                _presetsPanel.Children.Add(chip);
+            }
         }
 
         // ═══════════════════════════════════════════
@@ -1450,14 +1565,6 @@ namespace McStudDesktop.Views
             else if (lower.Contains("refinish") || lower.Contains("refn")) opType = "refinish";
             else if (lower.Contains("r&i") || lower.Contains("r+i")) opType = "r&i";
             var partName = lower.Replace("replace", "").Replace("repl", "").Replace("repair", "").Replace("rpr", "").Replace("blend", "").Replace("blnd", "").Replace("refinish", "").Replace("refn", "").Replace("r&i", "").Replace("r+i", "").Trim();
-            if (partName.Contains("door shell")) partName = "door shell";
-            else if (partName.Contains("door")) partName = "door";
-            else if (partName.Contains("fender")) partName = "fender";
-            else if (partName.Contains("bumper")) partName = "bumper cover";
-            else if (partName.Contains("hood")) partName = "hood";
-            else if (partName.Contains("quarter")) partName = "quarter panel";
-            else if (partName.Contains("roof")) partName = "roof";
-            else if (partName.Contains("trunk") || partName.Contains("decklid")) partName = "trunk lid";
             return (partName, opType);
         }
 

@@ -21,11 +21,19 @@ namespace McStudDesktop.Views
     {
         private readonly ChecklistService _checklistService;
         private readonly CustomChecklistService _customChecklistService;
+        private readonly ShopDocsLayoutService _layoutService;
 
         // Sub-tab navigation (now using dropdown)
         private ComboBox? _docTypeCombo;
         private Grid? _subTabContent;
-        private int _selectedSubTab = 0;
+        private string _selectedWidgetId = "";
+
+        // Widget management panel
+        private Grid? _managementOverlay;
+        private StackPanel? _managementList;
+
+        // Cached view instances (keyed by widget ID)
+        private readonly Dictionary<string, UIElement> _viewCache = new();
 
         // My Docs
         private readonly ShopDocsSettingsService _settingsService = ShopDocsSettingsService.Instance;
@@ -50,18 +58,9 @@ namespace McStudDesktop.Views
         private ChecklistEditorView? _checklistEditor;
         private Grid? _checklistMainContainer;
 
-        // Labor Rates
-        private LaborRatesView? _laborRatesView;
-
-        // Tow Bill
-        private TowBillView? _towBillView;
-
-        // Invoices
+        // Invoices (used within BuildInvoicesContentInner)
         private ColorTintInvoiceView? _colorTintInvoiceView;
         private ShopStockInvoiceView? _shopStockInvoiceView;
-
-        // PPF Pricing
-        private PPFPricingView? _ppfPricingView;
 
         // Price Catalogs
         private PriceCatalogManagementView? _priceCatalogView;
@@ -79,7 +78,12 @@ namespace McStudDesktop.Views
         {
             _checklistService = ChecklistService.Instance;
             _customChecklistService = CustomChecklistService.Instance;
+            _layoutService = ShopDocsLayoutService.Instance;
             _customChecklistService.ChecklistsChanged += (s, e) => RefreshChecklistDropdown();
+            _layoutService.LayoutChanged += (s, e) =>
+            {
+                McstudDesktop.App.MainDispatcherQueue?.TryEnqueue(() => RebuildContent());
+            };
             BuildUI();
         }
 
@@ -106,14 +110,8 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(12, 0, 12, 12)
             };
 
-            // Build all sub-tab contents
-            BuildChecklistsContent();
-            BuildLaborRatesContent();
-            BuildTowBillContent();
-            BuildInvoicesContent();
-            BuildPPFContent();
-            BuildPriceCatalogsContent();
-            BuildMyDocsContent();
+            // Build content from layout config
+            BuildAllWidgetContent();
 
             Grid.SetRow(_subTabContent, 1);
             mainGrid.Children.Add(_subTabContent);
@@ -122,7 +120,66 @@ namespace McStudDesktop.Views
             Content = rootBorder;
 
             // Select first item
-            SelectSubTab(0);
+            var visible = _layoutService.GetVisibleWidgets();
+            if (visible.Count > 0)
+                SelectWidget(visible[0].Id);
+        }
+
+        private void RebuildContent()
+        {
+            // Rebuild dropdown
+            PopulateDropdown();
+
+            // Rebuild content area
+            if (_subTabContent != null)
+            {
+                _subTabContent.Children.Clear();
+                BuildAllWidgetContent();
+            }
+
+            // Select first visible widget
+            var visible = _layoutService.GetVisibleWidgets();
+            if (visible.Count > 0)
+                SelectWidget(visible[0].Id);
+        }
+
+        private void BuildAllWidgetContent()
+        {
+            var visibleWidgets = _layoutService.GetVisibleWidgets();
+            for (int i = 0; i < visibleWidgets.Count; i++)
+            {
+                var widget = visibleWidgets[i];
+                var content = BuildWidgetContent(widget, i);
+                if (content != null)
+                {
+                    _subTabContent?.Children.Add(content);
+                }
+            }
+        }
+
+        private UIElement? BuildWidgetContent(WidgetEntry widget, int index)
+        {
+            switch (widget.WidgetType)
+            {
+                case WidgetType.Checklists:
+                    return BuildChecklistsContentInner(widget.Id, index);
+                case WidgetType.LaborRates:
+                    return BuildLaborRatesContentInner(widget.Id, index);
+                case WidgetType.TowBill:
+                    return BuildTowBillContentInner(widget.Id, index);
+                case WidgetType.Invoices:
+                    return BuildInvoicesContentInner(widget.Id, index);
+                case WidgetType.PPFPricing:
+                    return BuildPPFContentInner(widget.Id, index);
+                case WidgetType.PriceCatalogs:
+                    return BuildPriceCatalogsContentInner(widget.Id, index);
+                case WidgetType.MyDocs:
+                    return BuildMyDocsContentInner(widget.Id, index);
+                case WidgetType.TemplateForm:
+                    return BuildTemplateFormContent(widget, index);
+                default:
+                    return null;
+            }
         }
 
         private Border BuildHeaderWithDropdown()
@@ -139,6 +196,7 @@ namespace McStudDesktop.Views
             headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Title
             headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) }); // Spacer
             headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Dropdown
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Gear
             headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Help
 
             // Icon
@@ -185,19 +243,55 @@ namespace McStudDesktop.Views
                 HorizontalAlignment = HorizontalAlignment.Left
             };
 
-            // Add document types with icons
-            var docTypes = new[]
+            PopulateDropdown();
+
+            _docTypeCombo.SelectionChanged += (s, e) =>
             {
-                ("Checklists", "\uE8A5", "Vehicle inspection & QC checklists"),
-                ("Labor Rates", "\uE8D4", "Shop labor rate calculator"),
-                ("Tow Bill", "\uE804", "Create & print tow bills"),
-                ("Invoices", "\uE9F9", "Color tint & shop stock invoices"),
-                ("Vehicle Protection", "\uE8B9", "PPF, ceramic coat & vinyl wrap quotes"),
-                ("Price Catalogs", "\uE8B5", "Supplier price sheets for auto-fill"),
-                ("My Docs", "\uE8B7", "Your custom documents folder")
+                if (_docTypeCombo.SelectedItem is ComboBoxItem item && item.Tag is string widgetId)
+                {
+                    SelectWidget(widgetId);
+                }
             };
 
-            foreach (var (name, glyph, description) in docTypes)
+            Grid.SetColumn(_docTypeCombo, 3);
+            headerGrid.Children.Add(_docTypeCombo);
+
+            // Gear button for widget management
+            var gearButton = new Button
+            {
+                Content = new FontIcon
+                {
+                    Glyph = "\uE713",
+                    FontSize = 16
+                },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(8, 6, 8, 6),
+                Margin = new Thickness(8, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(gearButton, "Customize widgets");
+            gearButton.Click += OnGearButtonClick;
+            Grid.SetColumn(gearButton, 4);
+            headerGrid.Children.Add(gearButton);
+
+            // Help button
+            var helpButton = ContextualHelpButton.Create("shop-docs-tab");
+            helpButton.Margin = new Thickness(4, 0, 0, 0);
+            Grid.SetColumn(helpButton, 5);
+            headerGrid.Children.Add(helpButton);
+
+            headerBorder.Child = headerGrid;
+            return headerBorder;
+        }
+
+        private void PopulateDropdown()
+        {
+            if (_docTypeCombo == null) return;
+            _docTypeCombo.SelectionChanged -= OnDropdownSelectionChanged;
+            _docTypeCombo.Items.Clear();
+
+            var visibleWidgets = _layoutService.GetVisibleWidgets();
+            foreach (var widget in visibleWidgets)
             {
                 var itemStack = new StackPanel
                 {
@@ -207,7 +301,7 @@ namespace McStudDesktop.Views
 
                 itemStack.Children.Add(new FontIcon
                 {
-                    Glyph = glyph,
+                    Glyph = widget.Icon,
                     FontSize = 14,
                     Foreground = new SolidColorBrush(AccentBlue)
                 });
@@ -215,13 +309,13 @@ namespace McStudDesktop.Views
                 var textStack = new StackPanel();
                 textStack.Children.Add(new TextBlock
                 {
-                    Text = name,
+                    Text = widget.Title,
                     FontSize = 13,
                     Foreground = new SolidColorBrush(Colors.White)
                 });
                 textStack.Children.Add(new TextBlock
                 {
-                    Text = description,
+                    Text = widget.Description,
                     FontSize = 10,
                     Foreground = new SolidColorBrush(TextGray)
                 });
@@ -230,40 +324,44 @@ namespace McStudDesktop.Views
                 _docTypeCombo.Items.Add(new ComboBoxItem
                 {
                     Content = itemStack,
-                    Tag = name
+                    Tag = widget.Id
                 });
             }
 
-            _docTypeCombo.SelectedIndex = 0;
-            _docTypeCombo.SelectionChanged += (s, e) =>
-            {
-                if (_docTypeCombo.SelectedIndex >= 0)
-                {
-                    SelectSubTab(_docTypeCombo.SelectedIndex);
-                }
-            };
+            if (_docTypeCombo.Items.Count > 0)
+                _docTypeCombo.SelectedIndex = 0;
 
-            Grid.SetColumn(_docTypeCombo, 3);
-            headerGrid.Children.Add(_docTypeCombo);
-
-            // Help button
-            var helpButton = ContextualHelpButton.Create("shop-docs-tab");
-            helpButton.Margin = new Thickness(12, 0, 0, 0);
-            Grid.SetColumn(helpButton, 4);
-            headerGrid.Children.Add(helpButton);
-
-            headerBorder.Child = headerGrid;
-            return headerBorder;
+            _docTypeCombo.SelectionChanged += OnDropdownSelectionChanged;
         }
 
-        private void SelectSubTab(int index)
+        private void OnDropdownSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            _selectedSubTab = index;
+            if (_docTypeCombo?.SelectedItem is ComboBoxItem item && item.Tag is string widgetId)
+            {
+                SelectWidget(widgetId);
+            }
+        }
+
+        private void SelectWidget(string widgetId)
+        {
+            _selectedWidgetId = widgetId;
 
             // Update dropdown if needed (when called programmatically)
-            if (_docTypeCombo != null && _docTypeCombo.SelectedIndex != index)
+            if (_docTypeCombo != null)
             {
-                _docTypeCombo.SelectedIndex = index;
+                for (int i = 0; i < _docTypeCombo.Items.Count; i++)
+                {
+                    if (_docTypeCombo.Items[i] is ComboBoxItem item && item.Tag is string id && id == widgetId)
+                    {
+                        if (_docTypeCombo.SelectedIndex != i)
+                        {
+                            _docTypeCombo.SelectionChanged -= OnDropdownSelectionChanged;
+                            _docTypeCombo.SelectedIndex = i;
+                            _docTypeCombo.SelectionChanged += OnDropdownSelectionChanged;
+                        }
+                        break;
+                    }
+                }
             }
 
             // Show/hide content
@@ -271,24 +369,450 @@ namespace McStudDesktop.Views
 
             foreach (UIElement child in _subTabContent.Children)
             {
-                if (child is FrameworkElement fe && fe.Tag is int tag)
+                if (child is FrameworkElement fe && fe.Tag is string tag)
                 {
-                    fe.Visibility = tag == index ? Visibility.Visible : Visibility.Collapsed;
+                    fe.Visibility = tag == widgetId ? Visibility.Visible : Visibility.Collapsed;
                 }
             }
 
-            // Refresh My Docs list when switching to that tab
-            if (index == 6)
+            // Refresh My Docs list when switching to that widget
+            var widget = _layoutService.GetAllWidgets().FirstOrDefault(w => w.Id == widgetId);
+            if (widget?.WidgetType == WidgetType.MyDocs)
             {
                 RefreshMyDocsList();
             }
         }
 
-        private void BuildChecklistsContent()
+        #region Widget Management Panel
+
+        private void OnGearButtonClick(object sender, RoutedEventArgs e)
+        {
+            if (_managementOverlay != null && _managementOverlay.Visibility == Visibility.Visible)
+            {
+                CloseManagementPanel();
+                return;
+            }
+            ShowManagementPanel();
+        }
+
+        private void ShowManagementPanel()
+        {
+            if (_subTabContent == null) return;
+
+            if (_managementOverlay != null)
+                _subTabContent.Children.Remove(_managementOverlay);
+
+            _managementOverlay = new Grid
+            {
+                Background = new SolidColorBrush(Color.FromArgb(220, 18, 18, 18)),
+                Tag = "__management__"
+            };
+
+            var panel = new Border
+            {
+                Background = new SolidColorBrush(CardBg),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16),
+                Margin = new Thickness(40, 20, 40, 20),
+                MaxWidth = 600,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Top
+            };
+
+            var scroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                MaxHeight = 500
+            };
+
+            var mainStack = new StackPanel { Spacing = 12 };
+
+            // Title row
+            var titleRow = new Grid();
+            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            titleRow.Children.Add(new TextBlock
+            {
+                Text = "Customize Widgets",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+
+            var closeBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE711", FontSize = 14 },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(6, 4, 6, 4)
+            };
+            closeBtn.Click += (s, e2) => CloseManagementPanel();
+            Grid.SetColumn(closeBtn, 1);
+            titleRow.Children.Add(closeBtn);
+
+            mainStack.Children.Add(titleRow);
+
+            mainStack.Children.Add(new TextBlock
+            {
+                Text = "Show, hide, and reorder your Shop Docs widgets",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(TextGray)
+            });
+
+            // Widget list
+            _managementList = new StackPanel { Spacing = 4 };
+            RefreshManagementList();
+            mainStack.Children.Add(_managementList);
+
+            // Action buttons
+            var actionRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var addBtn = new Button
+            {
+                Content = "+ Add Widget",
+                Background = new SolidColorBrush(AccentGreen),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6)
+            };
+            addBtn.Click += OnAddWidgetClick;
+            actionRow.Children.Add(addBtn);
+
+            var resetBtn = new Button
+            {
+                Content = "Reset to Defaults",
+                Background = new SolidColorBrush(Color.FromArgb(255, 120, 50, 50)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6)
+            };
+            resetBtn.Click += OnResetWidgetsClick;
+            actionRow.Children.Add(resetBtn);
+
+            var doneBtn = new Button
+            {
+                Content = "Done",
+                Background = new SolidColorBrush(AccentBlue),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(16, 6, 16, 6)
+            };
+            doneBtn.Click += (s, e2) => CloseManagementPanel();
+            actionRow.Children.Add(doneBtn);
+
+            mainStack.Children.Add(actionRow);
+
+            scroll.Content = mainStack;
+            panel.Child = scroll;
+            _managementOverlay.Children.Add(panel);
+
+            _managementOverlay.Tapped += (s, e2) =>
+            {
+                if (e2.OriginalSource == _managementOverlay)
+                    CloseManagementPanel();
+            };
+
+            _subTabContent.Children.Add(_managementOverlay);
+        }
+
+        private void CloseManagementPanel()
+        {
+            if (_managementOverlay != null && _subTabContent != null)
+            {
+                _subTabContent.Children.Remove(_managementOverlay);
+                _managementOverlay = null;
+                _managementList = null;
+            }
+        }
+
+        private void RefreshManagementList()
+        {
+            if (_managementList == null) return;
+            _managementList.Children.Clear();
+
+            var allWidgets = _layoutService.GetAllWidgets();
+            for (int i = 0; i < allWidgets.Count; i++)
+            {
+                _managementList.Children.Add(BuildManagementRow(allWidgets[i], i, allWidgets.Count));
+            }
+        }
+
+        private Border BuildManagementRow(WidgetEntry widget, int index, int total)
+        {
+            var border = new Border
+            {
+                Background = new SolidColorBrush(widget.IsVisible
+                    ? Color.FromArgb(255, 35, 35, 35)
+                    : Color.FromArgb(255, 25, 25, 25)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(10, 6, 10, 6)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Eye
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Icon
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Title
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Up
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Down
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Delete
+
+            // Eye toggle
+            var wId = widget.Id;
+            var wVisible = widget.IsVisible;
+            var eyeBtn = new Button
+            {
+                Content = new FontIcon
+                {
+                    Glyph = wVisible ? "\uE7B3" : "\uED1A",
+                    FontSize = 14,
+                    Foreground = new SolidColorBrush(wVisible ? Colors.White : TextGray)
+                },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(6, 4, 6, 4),
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            ToolTipService.SetToolTip(eyeBtn, wVisible ? "Hide" : "Show");
+            eyeBtn.Click += (s, e2) =>
+            {
+                _layoutService.SetWidgetVisibility(wId, !wVisible);
+                RefreshManagementList();
+            };
+            Grid.SetColumn(eyeBtn, 0);
+            grid.Children.Add(eyeBtn);
+
+            // Widget icon
+            var iconElement = new FontIcon
+            {
+                Glyph = widget.Icon,
+                FontSize = 14,
+                Foreground = new SolidColorBrush(wVisible ? AccentBlue : TextGray),
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(iconElement, 1);
+            grid.Children.Add(iconElement);
+
+            // Title
+            var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            titleStack.Children.Add(new TextBlock
+            {
+                Text = widget.Title,
+                FontSize = 13,
+                Foreground = new SolidColorBrush(wVisible ? Colors.White : TextGray)
+            });
+            titleStack.Children.Add(new TextBlock
+            {
+                Text = widget.IsBuiltIn ? "Built-in" : "Custom widget",
+                FontSize = 9,
+                Foreground = new SolidColorBrush(widget.IsBuiltIn ? TextGray : AccentOrange)
+            });
+            Grid.SetColumn(titleStack, 2);
+            grid.Children.Add(titleStack);
+
+            // Move up
+            var upBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE70E", FontSize = 12 },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(6, 4, 6, 4),
+                IsEnabled = index > 0
+            };
+            upBtn.Click += (s, e2) =>
+            {
+                _layoutService.MoveWidget(wId, -1);
+                RefreshManagementList();
+            };
+            Grid.SetColumn(upBtn, 3);
+            grid.Children.Add(upBtn);
+
+            // Move down
+            var downBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE70D", FontSize = 12 },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(6, 4, 6, 4),
+                IsEnabled = index < total - 1
+            };
+            downBtn.Click += (s, e2) =>
+            {
+                _layoutService.MoveWidget(wId, 1);
+                RefreshManagementList();
+            };
+            Grid.SetColumn(downBtn, 4);
+            grid.Children.Add(downBtn);
+
+            // Delete (user widgets only)
+            if (!widget.IsBuiltIn)
+            {
+                var deleteBtn = new Button
+                {
+                    Content = new FontIcon
+                    {
+                        Glyph = "\uE74D",
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 80, 80))
+                    },
+                    Background = new SolidColorBrush(Colors.Transparent),
+                    Padding = new Thickness(6, 4, 6, 4)
+                };
+                ToolTipService.SetToolTip(deleteBtn, "Delete widget");
+                deleteBtn.Click += async (s, e2) =>
+                {
+                    var dialog = new ContentDialog
+                    {
+                        Title = "Delete Widget",
+                        Content = $"Delete '{widget.Title}'? This cannot be undone.",
+                        PrimaryButtonText = "Delete",
+                        CloseButtonText = "Cancel",
+                        XamlRoot = this.XamlRoot
+                    };
+                    if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                    {
+                        if (widget.TemplateId != null)
+                        {
+                            var template = ShopDocTemplateService.Instance.GetTemplate(ShopDocType.Custom, widget.TemplateId);
+                            if (template != null)
+                                ShopDocTemplateService.Instance.DeleteUserTemplate(template);
+                        }
+                        _viewCache.Remove(wId);
+                        _layoutService.RemoveUserWidget(wId);
+                        RefreshManagementList();
+                    }
+                };
+                Grid.SetColumn(deleteBtn, 5);
+                grid.Children.Add(deleteBtn);
+            }
+
+            border.Child = grid;
+            return border;
+        }
+
+        private async void OnAddWidgetClick(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Add Widget",
+                PrimaryButtonText = "Create",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var formStack = new StackPanel { Spacing = 12 };
+
+            formStack.Children.Add(new TextBlock
+            {
+                Text = "Widget Name",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+
+            var nameBox = new TextBox
+            {
+                PlaceholderText = "e.g., Supplement Form",
+                Width = 300
+            };
+            formStack.Children.Add(nameBox);
+
+            formStack.Children.Add(new TextBlock
+            {
+                Text = "Start from",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Colors.White),
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+
+            var typeCombo = new ComboBox { Width = 300 };
+            typeCombo.Items.Add(new ComboBoxItem { Content = "Blank form", Tag = "blank" });
+            typeCombo.Items.Add(new ComboBoxItem { Content = "Copy existing template...", Tag = "copy" });
+            typeCombo.SelectedIndex = 0;
+            formStack.Children.Add(typeCombo);
+
+            var templateCombo = new ComboBox
+            {
+                Width = 300,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+
+            var templateService = ShopDocTemplateService.Instance;
+            foreach (ShopDocType docType in Enum.GetValues<ShopDocType>())
+            {
+                foreach (var t in templateService.GetTemplates(docType))
+                {
+                    templateCombo.Items.Add(new ComboBoxItem
+                    {
+                        Content = $"{t.Name} ({docType})",
+                        Tag = t
+                    });
+                }
+            }
+            if (templateCombo.Items.Count > 0)
+                templateCombo.SelectedIndex = 0;
+            formStack.Children.Add(templateCombo);
+
+            typeCombo.SelectionChanged += (s2, e2) =>
+            {
+                if (typeCombo.SelectedItem is ComboBoxItem ci && ci.Tag is string tag)
+                    templateCombo.Visibility = tag == "copy" ? Visibility.Visible : Visibility.Collapsed;
+            };
+
+            dialog.Content = formStack;
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(nameBox.Text))
+            {
+                var name = nameBox.Text.Trim();
+                string? templateId = null;
+
+                if (typeCombo.SelectedItem is ComboBoxItem typeItem && typeItem.Tag is string typeTag)
+                {
+                    if (typeTag == "blank")
+                    {
+                        var template = templateService.CreateBlankTemplate(name);
+                        templateId = template.Id;
+                    }
+                    else if (typeTag == "copy" && templateCombo.SelectedItem is ComboBoxItem tItem && tItem.Tag is ShopDocTemplate source)
+                    {
+                        var copy = templateService.MakeCopyAsCustom(source, name);
+                        templateId = copy.Id;
+                    }
+                }
+
+                _layoutService.AddUserWidget(name, "\uE8A5", templateId);
+                RefreshManagementList();
+            }
+        }
+
+        private async void OnResetWidgetsClick(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Reset Widgets",
+                Content = "Reset to the default 7 built-in widgets? Custom widgets will be removed from the layout.",
+                PrimaryButtonText = "Reset",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                _viewCache.Clear();
+                _layoutService.ResetToDefaults();
+                RefreshManagementList();
+            }
+        }
+
+        #endregion
+
+        private UIElement BuildChecklistsContentInner(string widgetId, int index)
         {
             var container = new Grid
             {
-                Tag = 0
+                Tag = widgetId,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
             // Main checklist view
@@ -328,43 +852,54 @@ namespace McStudDesktop.Views
             _checklistEditorContainer.Children.Add(_checklistEditor);
             container.Children.Add(_checklistEditorContainer);
 
-            _subTabContent?.Children.Add(container);
+            return container;
         }
 
-        private void BuildLaborRatesContent()
+        private UIElement BuildLaborRatesContentInner(string widgetId, int index)
         {
+            if (_viewCache.TryGetValue(widgetId, out var cached))
+                return cached;
+
             var container = new Grid
             {
-                Tag = 1,
-                Visibility = Visibility.Collapsed
+                Tag = widgetId,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
-            _laborRatesView = new LaborRatesView();
-            container.Children.Add(_laborRatesView);
+            var view = new LaborRatesView();
+            container.Children.Add(view);
 
-            _subTabContent?.Children.Add(container);
+            _viewCache[widgetId] = container;
+            return container;
         }
 
-        private void BuildTowBillContent()
+        private UIElement BuildTowBillContentInner(string widgetId, int index)
         {
+            if (_viewCache.TryGetValue(widgetId, out var cached))
+                return cached;
+
             var container = new Grid
             {
-                Tag = 2,
-                Visibility = Visibility.Collapsed
+                Tag = widgetId,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
-            _towBillView = new TowBillView();
-            container.Children.Add(_towBillView);
+            var view = new TowBillView();
+            container.Children.Add(view);
 
-            _subTabContent?.Children.Add(container);
+            _viewCache[widgetId] = container;
+            return container;
         }
 
-        private void BuildInvoicesContent()
+        private UIElement BuildInvoicesContentInner(string widgetId, int index)
         {
+            if (_viewCache.TryGetValue(widgetId, out var cached))
+                return cached;
+
             var container = new Grid
             {
-                Tag = 3,
-                Visibility = Visibility.Collapsed
+                Tag = widgetId,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
             container.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sub-tabs
@@ -426,43 +961,73 @@ namespace McStudDesktop.Views
             invoiceSubContent.Children.Add(_shopStockInvoiceView);
             container.Children.Add(invoiceSubContent);
 
-            _subTabContent?.Children.Add(container);
+            _viewCache[widgetId] = container;
+            return container;
         }
 
-        private void BuildPPFContent()
+        private UIElement BuildPPFContentInner(string widgetId, int index)
         {
+            if (_viewCache.TryGetValue(widgetId, out var cached))
+                return cached;
+
             var container = new Grid
             {
-                Tag = 4,
-                Visibility = Visibility.Collapsed
+                Tag = widgetId,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
-            _ppfPricingView = new PPFPricingView();
-            container.Children.Add(_ppfPricingView);
+            var view = new PPFPricingView();
+            container.Children.Add(view);
 
-            _subTabContent?.Children.Add(container);
+            _viewCache[widgetId] = container;
+            return container;
         }
 
-        private void BuildPriceCatalogsContent()
+        private UIElement BuildPriceCatalogsContentInner(string widgetId, int index)
         {
+            if (_viewCache.TryGetValue(widgetId, out var cached))
+                return cached;
+
             var container = new Grid
             {
-                Tag = 5,
-                Visibility = Visibility.Collapsed
+                Tag = widgetId,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
             _priceCatalogView = new PriceCatalogManagementView();
             container.Children.Add(_priceCatalogView);
 
-            _subTabContent?.Children.Add(container);
+            _viewCache[widgetId] = container;
+            return container;
         }
 
-        private void BuildMyDocsContent()
+        private UIElement BuildTemplateFormContent(WidgetEntry widget, int index)
         {
+            if (_viewCache.TryGetValue(widget.Id, out var cached))
+                return cached;
+
+            var container = new Grid
+            {
+                Tag = widget.Id,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
+            };
+
+            var formBuilder = new TemplateFormBuilder(ShopDocType.Custom);
+            container.Children.Add(formBuilder);
+
+            _viewCache[widget.Id] = container;
+            return container;
+        }
+
+        private UIElement BuildMyDocsContentInner(string widgetId, int index)
+        {
+            if (_viewCache.TryGetValue(widgetId, out var cached))
+                return cached;
+
             var scrollViewer = new ScrollViewer
             {
-                Tag = 6,
-                Visibility = Visibility.Collapsed,
+                Tag = widgetId,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
 
@@ -634,7 +1199,8 @@ namespace McStudDesktop.Views
             mainStack.Children.Add(instructionsWrapper);
 
             scrollViewer.Content = mainStack;
-            _subTabContent?.Children.Add(scrollViewer);
+            _viewCache[widgetId] = scrollViewer;
+            return scrollViewer;
         }
 
         private (Border wrapper, StackPanel content) CreateMyDocsSection(string title, string icon)

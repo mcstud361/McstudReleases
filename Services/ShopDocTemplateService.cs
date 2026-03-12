@@ -659,6 +659,69 @@ public class ShopDocTemplateService
 
     #endregion
 
+    #region Custom Templates
+
+    /// <summary>
+    /// Create a blank template for user-created custom widgets
+    /// </summary>
+    public ShopDocTemplate CreateBlankTemplate(string name)
+    {
+        var template = new ShopDocTemplate
+        {
+            Id = $"custom_{DateTime.Now.Ticks}",
+            DocType = ShopDocType.Custom,
+            Name = name,
+            Description = "Custom form",
+            Version = "1.0",
+            IsOriginal = false,
+            IsReadOnly = false,
+            CreatedDate = DateTime.Now,
+            ModifiedDate = DateTime.Now,
+            Sections = new List<TemplateSection>
+            {
+                new TemplateSection
+                {
+                    Id = "section1",
+                    Title = "Section 1",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "field1", Label = "Field 1", FieldType = FieldType.Text }
+                    }
+                }
+            }
+        };
+
+        _userTemplates[ShopDocType.Custom].Add(template);
+        SaveUserTemplate(template);
+
+        System.Diagnostics.Debug.WriteLine($"[ShopDocTemplate] Created blank custom template: {name}");
+        return template;
+    }
+
+    /// <summary>
+    /// Make a copy of a template as a Custom type for widget use
+    /// </summary>
+    public ShopDocTemplate MakeCopyAsCustom(ShopDocTemplate original, string newName)
+    {
+        var copy = original.DeepClone();
+        copy.Id = $"custom_{DateTime.Now.Ticks}";
+        copy.Name = newName;
+        copy.DocType = ShopDocType.Custom;
+        copy.IsOriginal = false;
+        copy.IsReadOnly = false;
+        copy.CreatedDate = DateTime.Now;
+        copy.ModifiedDate = DateTime.Now;
+        copy.CopiedFromId = original.Id;
+
+        _userTemplates[ShopDocType.Custom].Add(copy);
+        SaveUserTemplate(copy);
+
+        System.Diagnostics.Debug.WriteLine($"[ShopDocTemplate] Created custom copy: {newName} from {original.Name}");
+        return copy;
+    }
+
+    #endregion
+
     #region Helpers
 
     private void SaveOriginalTemplate(ShopDocTemplate template)
@@ -691,7 +754,8 @@ public enum ShopDocType
     ColorTintInvoice,
     ShopStockInvoice,
     PPFPricing,
-    LaborRates
+    LaborRates,
+    Custom
 }
 
 public enum SectionLayoutHint

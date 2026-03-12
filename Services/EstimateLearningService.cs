@@ -2123,6 +2123,11 @@ namespace McStudDesktop.Services
             if (_database.ManualLinePatterns.TryGetValue(key, out var pattern))
                 return pattern;
 
+            // Try with empty operation type (many patterns stored with empty string, not "any")
+            key = GenerateManualLinePatternKey(partName, "");
+            if (_database.ManualLinePatterns.TryGetValue(key, out pattern))
+                return pattern;
+
             // Try without operation type
             if (operationType != null)
             {
@@ -2132,9 +2137,7 @@ namespace McStudDesktop.Services
             }
 
             // Try partial match - but only if part names are actually similar
-            var normalizedPart = partName.ToLowerInvariant().Replace(" ", "_");
             var partWords = partName.ToLowerInvariant().Split(new[] { ' ', '_' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(w => w.Length >= 3)
                 .ToHashSet();
 
             if (partWords.Count == 0)
@@ -2147,18 +2150,19 @@ namespace McStudDesktop.Services
             {
                 var storedPartName = kvp.Value.ParentPartName?.ToLowerInvariant() ?? "";
                 var storedWords = storedPartName.Split(new[] { ' ', '_' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Where(w => w.Length >= 3)
                     .ToHashSet();
 
-                // Count overlapping significant words
+                // Count overlapping words (include all words, not just 3+ char)
                 var overlap = partWords.Intersect(storedWords, StringComparer.OrdinalIgnoreCase).Count();
 
-                // Require at least 1 significant word match, and at least 50% overlap
+                // Require all query words to match, or high overlap from stored side
                 if (overlap >= 1 && (overlap >= partWords.Count * 0.5 || overlap >= storedWords.Count * 0.5))
                 {
-                    if (overlap > bestScore)
+                    // Prefer exact word count match to avoid "Fender" matching when "LT Fender" was searched
+                    var score = overlap * 100 + (partWords.Count == storedWords.Count ? 50 : 0);
+                    if (score > bestScore)
                     {
-                        bestScore = overlap;
+                        bestScore = score;
                         bestMatch = kvp.Value;
                     }
                 }
