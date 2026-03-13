@@ -3393,9 +3393,7 @@ public class ChatbotView : UserControl
             IsTextSelectionEnabled = true
         };
 
-        var paragraph = new Microsoft.UI.Xaml.Documents.Paragraph();
-        paragraph.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = message });
-        richTextBlock.Blocks.Add(paragraph);
+        ParseMarkdownIntoRichText(richTextBlock, message);
 
         bubble.Child = richTextBlock;
         container.Children.Add(bubble);
@@ -3440,6 +3438,57 @@ public class ChatbotView : UserControl
         {
             // Older
             return timestamp.ToString("MMM d, h:mm tt");
+        }
+    }
+
+    /// <summary>
+    /// Parses markdown-style text into properly formatted RichTextBlock content.
+    /// Handles **bold**, # headers, and strips raw markdown symbols so responses look clean.
+    /// </summary>
+    private void ParseMarkdownIntoRichText(RichTextBlock richText, string message)
+    {
+        var lines = message.Split('\n');
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.TrimEnd('\r');
+            var paragraph = new Microsoft.UI.Xaml.Documents.Paragraph();
+
+            // Check for header lines (# Header, ## Header, etc.)
+            bool isHeader = false;
+            var headerMatch = Regex.Match(line, @"^(#{1,3})\s+(.*)");
+            if (headerMatch.Success)
+            {
+                line = headerMatch.Groups[2].Value;
+                isHeader = true;
+            }
+
+            // Parse inline bold (**text**) and regular text
+            var parts = Regex.Split(line, @"(\*\*.*?\*\*)");
+            foreach (var part in parts)
+            {
+                if (string.IsNullOrEmpty(part)) continue;
+
+                if (part.StartsWith("**") && part.EndsWith("**") && part.Length > 4)
+                {
+                    // Bold text
+                    var boldText = part.Substring(2, part.Length - 4);
+                    var bold = new Microsoft.UI.Xaml.Documents.Bold();
+                    bold.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = boldText });
+                    paragraph.Inlines.Add(bold);
+                }
+                else
+                {
+                    paragraph.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = part });
+                }
+            }
+
+            if (isHeader)
+            {
+                paragraph.FontSize = 15;
+            }
+
+            richText.Blocks.Add(paragraph);
         }
     }
 

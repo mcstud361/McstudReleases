@@ -45,19 +45,17 @@ namespace McStudDesktop.Views
         private TextBlock? _lastChangeText;
 
         // Results display
-        private StackPanel? _operationsPanel;
         private TextBox? _rawTextBox;
         private Border? _rawTextSection;
         private bool _rawTextExpanded = false;
         private TextBlock? _refMatchStatusText;
 
-        // Live Coach
-        private StackPanel? _coachingPanel;
+        // Estimate Analysis (unified operations + coaching)
+        private Border? _analysisSection;
+        private StackPanel? _analysisContentStack;
         private TextBlock? _coachingScoreText;
         private TextBlock? _coachingGradeText;
         private TextBlock? _coachingPotentialText;
-        private StackPanel? _coachingSuggestionsStack;
-        private Border? _coachingSection;
 
         // Diagnostics
         private StackPanel? _diagnosticStack;
@@ -100,8 +98,7 @@ namespace McStudDesktop.Views
             mainStack.Children.Add(CreateHeader());
             mainStack.Children.Add(CreateControlsSection());
             mainStack.Children.Add(CreateStatusSection());
-            mainStack.Children.Add(CreateCoachingSection());
-            mainStack.Children.Add(CreateOperationsSection());
+            mainStack.Children.Add(CreateEstimateAnalysisSection());
             mainStack.Children.Add(CreateDiagnosticSection());
             mainStack.Children.Add(CreateRawTextSection());
             mainStack.Children.Add(CreateActionsSection());
@@ -388,37 +385,103 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        // === DETECTED OPERATIONS ===
-        private Border CreateOperationsSection()
+        // === ESTIMATE ANALYSIS (unified operations + coaching) ===
+        private Border CreateEstimateAnalysisSection()
         {
-            var border = new Border
+            _analysisSection = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 35, 40, 48)),
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 45)),
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(16),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 55, 60, 70)),
                 BorderThickness = new Thickness(1)
             };
 
-            var stack = new StackPanel { Spacing = 10 };
-            stack.Children.Add(new TextBlock
+            var outerStack = new StackPanel { Spacing = 10 };
+
+            // Score banner row
+            var scoreBanner = new Grid();
+            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            _coachingGradeText = new TextBlock
             {
-                Text = "Detected Operations",
+                Text = "--",
+                FontSize = 24,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            Grid.SetColumn(_coachingGradeText, 0);
+
+            _coachingScoreText = new TextBlock
+            {
+                Text = "",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0)
+            };
+            Grid.SetColumn(_coachingScoreText, 1);
+
+            var sectionTitle = new TextBlock
+            {
+                Text = "Estimate Analysis",
                 FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(sectionTitle, 2);
 
-            _operationsPanel = new StackPanel { Spacing = 4 };
-            _operationsPanel.Children.Add(new TextBlock
+            _coachingPotentialText = new TextBlock
+            {
+                Text = "",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 214, 0)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(_coachingPotentialText, 3);
+
+            var sopSettingsButton = new Button
+            {
+                Content = new FontIcon
+                {
+                    Glyph = "\uE713",
+                    FontSize = 14
+                },
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderBrush = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(6),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            ToolTipService.SetToolTip(sopSettingsButton, "SOP Baseline Settings");
+            sopSettingsButton.Click += async (s, e) => await ShowSOPBaselineEditor();
+            Grid.SetColumn(sopSettingsButton, 4);
+
+            scoreBanner.Children.Add(_coachingGradeText);
+            scoreBanner.Children.Add(_coachingScoreText);
+            scoreBanner.Children.Add(sectionTitle);
+            scoreBanner.Children.Add(_coachingPotentialText);
+            scoreBanner.Children.Add(sopSettingsButton);
+            outerStack.Children.Add(scoreBanner);
+
+            // Content area (rebuilt dynamically)
+            _analysisContentStack = new StackPanel { Spacing = 4 };
+            _analysisContentStack.Children.Add(new TextBlock
             {
                 Text = "No operations detected yet. Capture a screenshot to begin.",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
                 FontStyle = Windows.UI.Text.FontStyle.Italic
             });
-
-            stack.Children.Add(_operationsPanel);
+            outerStack.Children.Add(_analysisContentStack);
 
             // Reference match status
             _refMatchStatusText = new TextBlock
@@ -430,7 +493,7 @@ namespace McStudDesktop.Views
                 Visibility = Visibility.Collapsed,
                 Margin = new Thickness(0, 4, 0, 0)
             };
-            stack.Children.Add(_refMatchStatusText);
+            outerStack.Children.Add(_refMatchStatusText);
 
             // AI pattern analysis panel (populated after OCR)
             _aiAnalysisPanel = new StackPanel
@@ -439,10 +502,10 @@ namespace McStudDesktop.Views
                 Visibility = Visibility.Collapsed,
                 Margin = new Thickness(0, 8, 0, 0)
             };
-            stack.Children.Add(_aiAnalysisPanel);
+            outerStack.Children.Add(_aiAnalysisPanel);
 
-            border.Child = stack;
-            return border;
+            _analysisSection.Child = outerStack;
+            return _analysisSection;
         }
 
         // === RAW TEXT (expandable) ===
@@ -573,120 +636,6 @@ namespace McStudDesktop.Views
 
             border.Child = row;
             return border;
-        }
-
-        // === LIVE COACHING SECTION ===
-        private Border CreateCoachingSection()
-        {
-            _coachingSection = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 45)),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(16),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 55, 60, 70)),
-                BorderThickness = new Thickness(1),
-                Visibility = Visibility.Collapsed // Hidden until screen monitor is active
-            };
-
-            _coachingPanel = new StackPanel { Spacing = 10 };
-
-            // Score banner row
-            var scoreBanner = new Grid();
-            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Grade
-            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Score
-            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Title
-            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Potential
-            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Settings gear
-
-            _coachingGradeText = new TextBlock
-            {
-                Text = "--",
-                FontSize = 24,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0)
-            };
-            Grid.SetColumn(_coachingGradeText, 0);
-
-            _coachingScoreText = new TextBlock
-            {
-                Text = "",
-                FontSize = 13,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0)
-            };
-            Grid.SetColumn(_coachingScoreText, 1);
-
-            var coachTitle = new TextBlock
-            {
-                Text = "Live Coaching",
-                FontSize = 16,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(coachTitle, 2);
-
-            _coachingPotentialText = new TextBlock
-            {
-                Text = "",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 214, 0)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(_coachingPotentialText, 3);
-
-            var sopSettingsButton = new Button
-            {
-                Content = new FontIcon
-                {
-                    Glyph = "\uE713", // Settings gear icon
-                    FontSize = 14
-                },
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderBrush = new SolidColorBrush(Colors.Transparent),
-                Padding = new Thickness(6),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 0, 0)
-            };
-            ToolTipService.SetToolTip(sopSettingsButton, "SOP Baseline Settings");
-            sopSettingsButton.Click += async (s, e) => await ShowSOPBaselineEditor();
-            Grid.SetColumn(sopSettingsButton, 4);
-
-            scoreBanner.Children.Add(_coachingGradeText);
-            scoreBanner.Children.Add(_coachingScoreText);
-            scoreBanner.Children.Add(coachTitle);
-            scoreBanner.Children.Add(_coachingPotentialText);
-            scoreBanner.Children.Add(sopSettingsButton);
-            _coachingPanel.Children.Add(scoreBanner);
-
-            // Suggestions list
-            _coachingSuggestionsStack = new StackPanel { Spacing = 4 };
-            _coachingSuggestionsStack.Children.Add(new TextBlock
-            {
-                Text = "Waiting for OCR data to analyze...",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
-                FontStyle = Windows.UI.Text.FontStyle.Italic
-            });
-            _coachingPanel.Children.Add(_coachingSuggestionsStack);
-
-            _coachingSection.Child = _coachingPanel;
-
-            // Show/hide when coaching state changes
-            LiveCoachingService.Instance.CoachingStateChanged += (s, isActive) =>
-            {
-                DispatcherQueue?.TryEnqueue(() =>
-                {
-                    if (_coachingSection != null)
-                        _coachingSection.Visibility = isActive ? Visibility.Visible : Visibility.Collapsed;
-                });
-            };
-
-            return _coachingSection;
         }
 
         private async Task ShowSOPBaselineEditor()
@@ -903,31 +852,39 @@ namespace McStudDesktop.Views
             {
                 try
                 {
-                    UpdateCoachingDisplay(snapshot);
+                    _latestSnapshot = snapshot;
+                    RebuildAnalysisDisplay();
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Coaching display error: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Analysis display error: {ex.Message}");
                 }
             });
         }
 
-        private void UpdateCoachingDisplay(McstudDesktop.Models.CoachingSnapshot snapshot)
+        private void RebuildAnalysisDisplay()
         {
-            _latestSnapshot = snapshot;
-            if (_coachingGradeText == null || _coachingSuggestionsStack == null) return;
+            if (_analysisContentStack == null) return;
 
-            // Update score banner
-            _coachingGradeText.Text = string.IsNullOrEmpty(snapshot.Grade) ? "--" : snapshot.Grade;
-            _coachingGradeText.Foreground = new SolidColorBrush(GetGradeColor(snapshot.Grade));
-            _coachingScoreText!.Text = $"{snapshot.Score}/100";
-            _coachingPotentialText!.Text = snapshot.PotentialRecovery > 0 ? $"+${snapshot.PotentialRecovery:F0} potential" : "";
+            var snapshot = _latestSnapshot;
+            var result = _latestResult;
 
-            // Update suggestions list
-            _coachingSuggestionsStack.Children.Clear();
+            // Update score banner from coaching snapshot
+            if (snapshot != null)
+            {
+                _coachingGradeText!.Text = string.IsNullOrEmpty(snapshot.Grade) ? "--" : snapshot.Grade;
+                _coachingGradeText.Foreground = new SolidColorBrush(GetGradeColor(snapshot.Grade));
+                _coachingScoreText!.Text = $"{snapshot.Score}/100";
+                _coachingPotentialText!.Text = snapshot.PotentialRecovery > 0 ? $"+${snapshot.PotentialRecovery:F0} potential" : "";
+            }
+
+            _analysisContentStack.Children.Clear();
+
+            var hasOps = result != null && result.DetectedOperations.Count > 0;
+            var hasCoaching = snapshot != null && snapshot.Suggestions.Count > 0;
 
             // Show vehicle/customer info if detected
-            if (!string.IsNullOrEmpty(snapshot.VehicleInfo) || !string.IsNullOrEmpty(snapshot.CustomerName))
+            if (snapshot != null && (!string.IsNullOrEmpty(snapshot.VehicleInfo) || !string.IsNullOrEmpty(snapshot.CustomerName)))
             {
                 var infoText = "";
                 if (!string.IsNullOrEmpty(snapshot.VehicleInfo))
@@ -935,7 +892,7 @@ namespace McStudDesktop.Views
                 if (!string.IsNullOrEmpty(snapshot.CustomerName))
                     infoText += (infoText.Length > 0 ? "  |  " : "") + snapshot.CustomerName;
 
-                _coachingSuggestionsStack.Children.Add(new TextBlock
+                _analysisContentStack.Children.Add(new TextBlock
                 {
                     Text = infoText,
                     FontSize = 12,
@@ -944,146 +901,272 @@ namespace McStudDesktop.Views
                 });
             }
 
-            var activeSuggestions = snapshot.Suggestions
-                .Where(s => !s.IsDismissed)
-                // Show missing items first, confirmed items at the bottom
-                .OrderBy(s => s.IsConfirmedOnEstimate ? 1 : 0)
-                .ThenByDescending(s => s.Severity)
-                .ThenByDescending(s => s.EstimatedCost)
-                .Take(20)
-                .ToList();
-
-            if (activeSuggestions.Count == 0)
+            // If no data at all, show placeholder
+            if (!hasOps && !hasCoaching)
             {
-                _coachingSuggestionsStack.Children.Add(new TextBlock
+                if (result != null && result.LineCount > 0)
                 {
-                    Text = "No suggestions — estimate looks complete!",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120)),
-                    FontStyle = Windows.UI.Text.FontStyle.Italic
-                });
+                    var noOpsMessage = result.SourceWindow == "Full Screen"
+                        ? $"Read {result.LineCount} lines but no estimate operations found. Make sure your estimating software (CCC ONE, Mitchell) is open and showing line items."
+                        : $"Read {result.LineCount} lines from \"{result.SourceWindow}\" but no estimate operations detected. Navigate to the estimate line items / operations page.";
+                    _analysisContentStack.Children.Add(new TextBlock
+                    {
+                        Text = noOpsMessage,
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 140, 100)),
+                        FontStyle = Windows.UI.Text.FontStyle.Italic,
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+                else
+                {
+                    _analysisContentStack.Children.Add(new TextBlock
+                    {
+                        Text = "No operations detected yet. Capture a screenshot to begin.",
+                        FontSize = 12,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                        FontStyle = Windows.UI.Text.FontStyle.Italic
+                    });
+                }
                 return;
             }
 
-            // Summary line
-            var missing = activeSuggestions.Where(s => !s.IsConfirmedOnEstimate).ToList();
-            var confirmed = activeSuggestions.Where(s => s.IsConfirmedOnEstimate).ToList();
+            // --- Build part groups from detected operations ---
+            var partGroups = new Dictionary<string, List<OcrDetectedOperation>>(StringComparer.OrdinalIgnoreCase);
+            var partOrder = new List<string>();
 
-            if (missing.Count > 0)
+            if (hasOps)
             {
-                var critical = missing.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.Critical);
-                var high = missing.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.High);
-                var summaryParts = new List<string>();
-                if (critical > 0) summaryParts.Add($"{critical} critical");
-                if (high > 0) summaryParts.Add($"{high} high priority");
-                var other = missing.Count - critical - high;
-                if (other > 0) summaryParts.Add($"{other} other");
-
-                _coachingSuggestionsStack.Children.Add(new TextBlock
+                foreach (var op in result!.DetectedOperations)
                 {
-                    Text = $"Missing: {string.Join(", ", summaryParts)}    |    On estimate: {confirmed.Count}",
-                    FontSize = 12,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 190, 80)),
-                    Margin = new Thickness(0, 0, 0, 4)
-                });
-            }
-            else
-            {
-                _coachingSuggestionsStack.Children.Add(new TextBlock
-                {
-                    Text = $"All {confirmed.Count} suggested operations found on estimate!",
-                    FontSize = 12,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120)),
-                    Margin = new Thickness(0, 0, 0, 4)
-                });
-            }
-
-            // Group suggestions by category for section headers
-            // SOP items use "SOP - Electrical", "SOP - Vehicle Diagnostics", "SOP - Miscellaneous"
-            var renderedHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            // Build display label from source + category
-            string GetSectionLabel(McstudDesktop.Models.CoachingSuggestion s)
-            {
-                if (s.IsConfirmedOnEstimate) return "\u2713 On Estimate";
-                if (s.Source == "SOP List" && s.Category.StartsWith("SOP - "))
-                    return s.Category; // "SOP - Electrical", "SOP - Vehicle Diagnostics", etc.
-                return s.Source switch
-                {
-                    "Learned Patterns" => "Learned Patterns",
-                    "Scoring" or "Analyzer" or "Both" => "Additional Checks",
-                    _ => "Additional Checks"
-                };
-            }
-
-            // Section sort priority
-            int GetSectionOrder(string label) => label switch
-            {
-                "SOP - Electrical" => 0,
-                "SOP - Vehicle Diagnostics" => 1,
-                "SOP - Miscellaneous" => 2,
-                "Learned Patterns" => 3,
-                "Additional Checks" => 4,
-                _ when label.StartsWith("SOP") => 2,
-                _ when label.Contains("On Estimate") => 10,
-                _ => 5
-            };
-
-            var orderedSuggestions = activeSuggestions
-                .OrderBy(s => s.IsConfirmedOnEstimate ? 1 : 0)
-                .ThenBy(s => GetSectionOrder(GetSectionLabel(s)))
-                .ThenByDescending(s => s.Severity)
-                .ThenByDescending(s => s.EstimatedCost)
-                .ToList();
-
-            foreach (var suggestion in orderedSuggestions)
-            {
-                var label = GetSectionLabel(suggestion);
-                if (renderedHeaders.Add(label))
-                {
-                    var isOnEstimate = label.Contains("On Estimate");
-                    _coachingSuggestionsStack.Children.Add(new TextBlock
+                    var partName = NormalizePartName(op.PartName);
+                    if (!partGroups.ContainsKey(partName))
                     {
-                        Text = label,
-                        FontSize = 11,
+                        partGroups[partName] = new List<OcrDetectedOperation>();
+                        partOrder.Add(partName);
+                    }
+                    partGroups[partName].Add(op);
+                }
+            }
+
+            // --- Categorize coaching suggestions ---
+            var matchedSuggestions = new Dictionary<string, List<McstudDesktop.Models.CoachingSuggestion>>(StringComparer.OrdinalIgnoreCase);
+            var unmatchedSuggestions = new List<McstudDesktop.Models.CoachingSuggestion>();
+            var sopSuggestions = new List<McstudDesktop.Models.CoachingSuggestion>();
+
+            if (hasCoaching)
+            {
+                var activeSuggestions = snapshot!.Suggestions
+                    .Where(s => !s.IsDismissed)
+                    .OrderBy(s => s.IsConfirmedOnEstimate ? 1 : 0)
+                    .ThenByDescending(s => s.Severity)
+                    .ThenByDescending(s => s.EstimatedCost)
+                    .ToList();
+
+                foreach (var suggestion in activeSuggestions)
+                {
+                    if (suggestion.Source == "SOP List" && string.IsNullOrEmpty(suggestion.TriggeredBy))
+                    {
+                        sopSuggestions.Add(suggestion);
+                    }
+                    else if (!string.IsNullOrEmpty(suggestion.TriggeredBy))
+                    {
+                        // Try to match to a part group
+                        var matched = false;
+                        foreach (var partName in partOrder)
+                        {
+                            if (partName.Contains(suggestion.TriggeredBy, StringComparison.OrdinalIgnoreCase) ||
+                                suggestion.TriggeredBy.Contains(partName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (!matchedSuggestions.ContainsKey(partName))
+                                    matchedSuggestions[partName] = new List<McstudDesktop.Models.CoachingSuggestion>();
+                                matchedSuggestions[partName].Add(suggestion);
+                                matched = true;
+                                break;
+                            }
+                        }
+                        if (!matched)
+                        {
+                            // Create a virtual part group for this suggestion's TriggeredBy
+                            var triggerPart = NormalizePartName(suggestion.TriggeredBy);
+                            if (!matchedSuggestions.ContainsKey(triggerPart))
+                            {
+                                matchedSuggestions[triggerPart] = new List<McstudDesktop.Models.CoachingSuggestion>();
+                                if (!partOrder.Contains(triggerPart, StringComparer.OrdinalIgnoreCase))
+                                    partOrder.Add(triggerPart);
+                            }
+                            matchedSuggestions[triggerPart].Add(suggestion);
+                        }
+                    }
+                    else
+                    {
+                        unmatchedSuggestions.Add(suggestion);
+                    }
+                }
+            }
+
+            // --- Summary line ---
+            if (hasCoaching)
+            {
+                var allActive = snapshot!.Suggestions.Where(s => !s.IsDismissed).ToList();
+                var missing = allActive.Where(s => !s.IsConfirmedOnEstimate).ToList();
+                var confirmed = allActive.Where(s => s.IsConfirmedOnEstimate).ToList();
+
+                if (missing.Count > 0)
+                {
+                    var critical = missing.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.Critical);
+                    var high = missing.Count(s => s.Severity == McstudDesktop.Models.CoachingSeverity.High);
+                    var summaryParts = new List<string>();
+                    if (critical > 0) summaryParts.Add($"{critical} critical");
+                    if (high > 0) summaryParts.Add($"{high} high priority");
+                    var other = missing.Count - critical - high;
+                    if (other > 0) summaryParts.Add($"{other} other");
+
+                    _analysisContentStack.Children.Add(new TextBlock
+                    {
+                        Text = $"Missing: {string.Join(", ", summaryParts)}    |    On estimate: {confirmed.Count}",
+                        FontSize = 12,
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                        Foreground = new SolidColorBrush(isOnEstimate
-                            ? Color.FromArgb(255, 80, 180, 80)
-                            : Color.FromArgb(255, 120, 140, 170)),
-                        Margin = new Thickness(0, 6, 0, 2)
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 190, 80)),
+                        Margin = new Thickness(0, 0, 0, 4)
                     });
                 }
-                _coachingSuggestionsStack.Children.Add(BuildCoachingSuggestionCard(suggestion));
+                else if (confirmed.Count > 0)
+                {
+                    _analysisContentStack.Children.Add(new TextBlock
+                    {
+                        Text = $"All {confirmed.Count} suggested operations found on estimate!",
+                        FontSize = 12,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120)),
+                        Margin = new Thickness(0, 0, 0, 4)
+                    });
+                }
             }
 
-            // Dismiss all button
-            var dismissAllBtn = new Button
+            // --- Render per-part groups ---
+            foreach (var partName in partOrder)
             {
-                Content = "Dismiss All Suggestions",
-                Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 65)),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
-                Padding = new Thickness(12, 6, 12, 6),
-                CornerRadius = new CornerRadius(4),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                FontSize = 11,
-                Margin = new Thickness(0, 4, 0, 0)
-            };
-            dismissAllBtn.Click += (s, e) =>
-            {
-                foreach (var suggestion in activeSuggestions)
-                    LiveCoachingService.Instance.DismissSuggestion(suggestion.Id);
-                _coachingSuggestionsStack.Children.Clear();
-                _coachingSuggestionsStack.Children.Add(new TextBlock
+                // Part header
+                _analysisContentStack.Children.Add(new Border
                 {
-                    Text = "All suggestions dismissed. Will refresh on next screen change.",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
-                    FontStyle = Windows.UI.Text.FontStyle.Italic
+                    Background = new SolidColorBrush(Color.FromArgb(255, 38, 45, 55)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 8, 0, 2),
+                    Child = new TextBlock
+                    {
+                        Text = $"\u2500\u2500 {partName} \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+                        FontSize = 13,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    }
                 });
-            };
-            _coachingSuggestionsStack.Children.Add(dismissAllBtn);
+
+                // Operations in this part group
+                if (partGroups.ContainsKey(partName))
+                {
+                    foreach (var op in partGroups[partName])
+                        _analysisContentStack.Children.Add(CreateOperationRow(op));
+                }
+
+                // Coaching suggestions matched to this part
+                if (matchedSuggestions.ContainsKey(partName))
+                {
+                    foreach (var suggestion in matchedSuggestions[partName])
+                    {
+                        var card = BuildCoachingSuggestionCard(suggestion);
+                        card.Margin = new Thickness(16, 1, 0, 1);
+                        _analysisContentStack.Children.Add(card);
+                    }
+                }
+            }
+
+            // --- Additional Checks (unmatched non-SOP suggestions) ---
+            if (unmatchedSuggestions.Count > 0)
+            {
+                _analysisContentStack.Children.Add(new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 38, 45, 55)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 8, 0, 2),
+                    Child = new TextBlock
+                    {
+                        Text = "\u2500\u2500 Additional Checks \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+                        FontSize = 13,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 140, 170)),
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    }
+                });
+
+                foreach (var suggestion in unmatchedSuggestions)
+                    _analysisContentStack.Children.Add(BuildCoachingSuggestionCard(suggestion));
+            }
+
+            // --- SOP Operations ---
+            if (sopSuggestions.Count > 0)
+            {
+                _analysisContentStack.Children.Add(new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 38, 45, 55)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 8, 0, 2),
+                    Child = new TextBlock
+                    {
+                        Text = "\u2500\u2500 SOP Operations \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+                        FontSize = 13,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 150, 255)),
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    }
+                });
+
+                foreach (var suggestion in sopSuggestions)
+                    _analysisContentStack.Children.Add(BuildCoachingSuggestionCard(suggestion));
+            }
+
+            // --- Dismiss All button ---
+            if (hasCoaching)
+            {
+                var allActiveDismiss = snapshot!.Suggestions.Where(s => !s.IsDismissed).ToList();
+                if (allActiveDismiss.Count > 0)
+                {
+                    var dismissAllBtn = new Button
+                    {
+                        Content = "Dismiss All Suggestions",
+                        Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 65)),
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
+                        Padding = new Thickness(12, 6, 12, 6),
+                        CornerRadius = new CornerRadius(4),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        FontSize = 11,
+                        Margin = new Thickness(0, 4, 0, 0)
+                    };
+                    dismissAllBtn.Click += (s, e) =>
+                    {
+                        foreach (var suggestion in allActiveDismiss)
+                            LiveCoachingService.Instance.DismissSuggestion(suggestion.Id);
+                        RebuildAnalysisDisplay();
+                    };
+                    _analysisContentStack.Children.Add(dismissAllBtn);
+                }
+            }
+        }
+
+        private string NormalizePartName(string partName)
+        {
+            if (string.IsNullOrEmpty(partName)) return "Unknown";
+            var lower = partName.ToLowerInvariant();
+            foreach (var (pattern, canonical) in _scanParts)
+            {
+                if (lower.Contains(pattern))
+                    return canonical;
+            }
+            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(partName.ToLowerInvariant());
         }
 
         private Border BuildCoachingSuggestionCard(McstudDesktop.Models.CoachingSuggestion suggestion)
@@ -1505,14 +1588,19 @@ namespace McStudDesktop.Views
         {
             _monitorService.ClearHistory();
             _latestResult = null;
-            _operationsPanel?.Children.Clear();
-            _operationsPanel?.Children.Add(new TextBlock
+            _latestSnapshot = null;
+            _analysisContentStack?.Children.Clear();
+            _analysisContentStack?.Children.Add(new TextBlock
             {
                 Text = "No operations detected yet. Capture a screenshot to begin.",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
                 FontStyle = Windows.UI.Text.FontStyle.Italic
             });
+            // Reset score banner
+            if (_coachingGradeText != null) _coachingGradeText.Text = "--";
+            if (_coachingScoreText != null) _coachingScoreText.Text = "";
+            if (_coachingPotentialText != null) _coachingPotentialText.Text = "";
             if (_rawTextBox != null) _rawTextBox.Text = "(no OCR text captured yet)";
             UpdateStatusDisplay();
             _feedToChatButton!.IsEnabled = false;
@@ -2214,47 +2302,6 @@ namespace McStudDesktop.Views
             if (result.ErrorMessage != null)
             {
                 UpdateStatus(result.ErrorMessage);
-                return;
-            }
-
-            // Update operations panel
-            _operationsPanel?.Children.Clear();
-
-            if (result.DetectedOperations.Count == 0)
-            {
-                var noOpsMessage = "No text recognized in the captured image.";
-                if (result.LineCount > 0)
-                {
-                    noOpsMessage = result.SourceWindow == "Full Screen"
-                        ? $"Read {result.LineCount} lines but no estimate operations found. Make sure your estimating software (CCC ONE, Mitchell) is open and showing line items."
-                        : $"Read {result.LineCount} lines from \"{result.SourceWindow}\" but no estimate operations detected. Navigate to the estimate line items / operations page.";
-                }
-
-                _operationsPanel?.Children.Add(new TextBlock
-                {
-                    Text = noOpsMessage,
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 140, 100)),
-                    FontStyle = Windows.UI.Text.FontStyle.Italic,
-                    TextWrapping = TextWrapping.Wrap
-                });
-
-                // Show tips for getting it working
-                _operationsPanel?.Children.Add(new TextBlock
-                {
-                    Text = "Tips: Open your estimating software and make sure it's the active window (in front). Navigate to the estimate line items page, then click Capture Once or toggle monitoring.",
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
-                    TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(0, 8, 0, 0)
-                });
-            }
-            else
-            {
-                foreach (var op in result.DetectedOperations)
-                {
-                    _operationsPanel?.Children.Add(CreateOperationRow(op));
-                }
             }
 
             // Update raw text
@@ -2270,6 +2317,9 @@ namespace McStudDesktop.Views
             _copyButton!.IsEnabled = hasContent;
             _loadToBuilderButton!.IsEnabled = hasOps;
             if (_transcriptButton != null) _transcriptButton.IsEnabled = hasContent;
+
+            // Rebuild unified analysis display
+            RebuildAnalysisDisplay();
         }
 
         private Border CreateOperationRow(OcrDetectedOperation op)

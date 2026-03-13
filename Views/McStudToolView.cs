@@ -504,6 +504,7 @@ namespace McStudDesktop.Views
                     var source = new GithubSource("https://github.com/mcstud361/McstudReleases", null, false);
                     var mgr = new UpdateManager(source);
                     await mgr.DownloadUpdatesAsync(_pendingUpdateInfo);
+                    McstudDesktop.App.ReleaseMutex();
                     mgr.ApplyUpdatesAndRestart(_pendingUpdateInfo);
                 }
                 catch (Exception ex)
@@ -958,7 +959,8 @@ namespace McStudDesktop.Views
 
                 statusText.Text = "Installing update...";
 
-                // Apply update and restart
+                // Release mutex so the restarted instance doesn't exit
+                McstudDesktop.App.ReleaseMutex();
                 mgr.ApplyUpdatesAndRestart(updateInfo);
             }
             catch (Exception ex)

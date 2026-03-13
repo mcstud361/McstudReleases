@@ -4,8 +4,6 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Controls;
 using WinRT.Interop;
-using Velopack;
-using Velopack.Sources;
 using McstudDesktop.Services;
 
 namespace McstudDesktop;
@@ -68,9 +66,6 @@ public partial class App : Application
             }
 
             Debug.WriteLine("[App] MainWindow activated");
-
-            // Check for updates in background
-            _ = CheckForUpdatesAsync();
         }
         catch (Exception ex)
         {
@@ -102,72 +97,23 @@ public partial class App : Application
         Environment.Exit(0);
     }
 
-    private static async Task CheckForUpdatesAsync()
+    /// <summary>
+    /// Releases the single-instance mutex so a Velopack restart
+    /// doesn't race against it and immediately exit.
+    /// Call this before ApplyUpdatesAndRestart.
+    /// </summary>
+    public static void ReleaseMutex()
     {
         try
         {
-            // GitHub releases URL for McStud updates
-            var source = new GithubSource("https://github.com/mcstud361/McstudReleases", null, false);
-            var mgr = new UpdateManager(source);
-
-            // Check if app was installed via Velopack (won't work in dev/debug mode)
-            if (!mgr.IsInstalled)
-            {
-                Debug.WriteLine("[App] Not installed via Velopack - skipping update check");
-                return;
-            }
-
-            Debug.WriteLine("[App] Checking for updates...");
-            var newVersion = await mgr.CheckForUpdatesAsync();
-
-            if (newVersion == null)
-            {
-                Debug.WriteLine("[App] No updates available");
-                return;
-            }
-
-            Debug.WriteLine($"[App] Update available: {newVersion.TargetFullRelease.Version}");
-
-            // Show update dialog on UI thread
-            MainDispatcherQueue?.TryEnqueue(async () =>
-            {
-                var dialog = new ContentDialog
-                {
-                    Title = "Update Available",
-                    Content = $"A new version ({newVersion.TargetFullRelease.Version}) is available.\n\nWould you like to download and install it now?",
-                    PrimaryButtonText = "Update Now",
-                    CloseButtonText = "Later",
-                    XamlRoot = MainWindow?.Content?.XamlRoot
-                };
-
-                var result = await dialog.ShowAsync();
-
-                if (result == ContentDialogResult.Primary)
-                {
-                    try
-                    {
-                        // Download and apply update
-                        await mgr.DownloadUpdatesAsync(newVersion);
-                        mgr.ApplyUpdatesAndRestart(newVersion);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"[App] Update failed: {ex.Message}");
-                        var errorDialog = new ContentDialog
-                        {
-                            Title = "Update Failed",
-                            Content = $"Failed to install update: {ex.Message}",
-                            CloseButtonText = "OK",
-                            XamlRoot = MainWindow?.Content?.XamlRoot
-                        };
-                        await errorDialog.ShowAsync();
-                    }
-                }
-            });
+            ((App)Current)._mutex?.ReleaseMutex();
+            ((App)Current)._mutex?.Dispose();
+            ((App)Current)._mutex = null;
+            Debug.WriteLine("[App] Mutex released for update restart");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[App] Update check failed: {ex.Message}");
+            Debug.WriteLine($"[App] Mutex release error (non-fatal): {ex.Message}");
         }
     }
 }
