@@ -127,7 +127,9 @@ namespace McStudDesktop.Services
                     System.Diagnostics.Debug.WriteLine($"[Learning] Error loading user knowledge in Personal mode: {ex.Message}");
                 }
 
-                return MigrateToSmartLearning(db);
+                db = MigrateToSmartLearning(db);
+                MigrateManualLinePatternKeys(db);
+                return db;
             }
 
             // Shop mode: Load base knowledge + merge user data on top (original behavior)
@@ -196,6 +198,9 @@ namespace McStudDesktop.Services
 
             // 3. Migrate to Smart Learning format if needed
             db = MigrateToSmartLearning(db);
+
+            // 4. Normalize operation type keys in ManualLinePatterns (one-time migration)
+            MigrateManualLinePatternKeys(db);
 
             return db;
         }
@@ -342,6 +347,71 @@ namespace McStudDesktop.Services
             }
 
             return db;
+        }
+
+        /// <summary>
+        /// One-time migration: re-key ManualLinePatterns using normalized operation types.
+        /// Merges duplicates by keeping the entry with the higher ExampleCount.
+        /// Guarded by a flag file so it only runs once.
+        /// </summary>
+        private void MigrateManualLinePatternKeys(LearnedPatternDatabase db)
+        {
+            var appDataPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "McStudDesktop"
+            );
+            var flagFile = Path.Combine(appDataPath, "optype_normalized_v1.flag");
+            if (File.Exists(flagFile)) return;
+
+            if (db.ManualLinePatterns == null || db.ManualLinePatterns.Count == 0)
+            {
+                try { File.WriteAllText(flagFile, DateTime.Now.ToString("o")); } catch { }
+                return;
+            }
+
+            var migrated = new Dictionary<string, ManualLinePattern>(StringComparer.OrdinalIgnoreCase);
+            int rekeyed = 0;
+
+            foreach (var kvp in db.ManualLinePatterns)
+            {
+                var oldKey = kvp.Key;
+                var pattern = kvp.Value;
+
+                // Re-generate the key using normalized operation type
+                var parts = oldKey.Split('|', 2);
+                if (parts.Length < 2)
+                {
+                    migrated[oldKey] = pattern;
+                    continue;
+                }
+
+                var partName = parts[0];
+                var newOp = NormalizeOperationType(parts[1]);
+                var newKey = $"{partName}|{newOp}";
+
+                if (newKey != oldKey)
+                    rekeyed++;
+
+                if (migrated.TryGetValue(newKey, out var existing))
+                {
+                    // Merge: keep the one with higher ExampleCount
+                    if (pattern.ExampleCount > existing.ExampleCount)
+                        migrated[newKey] = pattern;
+                }
+                else
+                {
+                    migrated[newKey] = pattern;
+                }
+            }
+
+            if (rekeyed > 0)
+            {
+                db.ManualLinePatterns = migrated;
+                SaveDatabase();
+                System.Diagnostics.Debug.WriteLine($"[Learning] Migrated {rekeyed} ManualLinePattern keys to normalized op types");
+            }
+
+            try { File.WriteAllText(flagFile, DateTime.Now.ToString("o")); } catch { }
         }
 
         /// <summary>
@@ -2090,7 +2160,7 @@ namespace McStudDesktop.Services
         private string GenerateManualLinePatternKey(string partName, string operationType)
         {
             var normalizedPart = partName.ToLowerInvariant().Replace(" ", "_");
-            var normalizedOp = (operationType ?? "any").ToLowerInvariant();
+            var normalizedOp = NormalizeOperationType(operationType ?? "any");
             return $"{normalizedPart}|{normalizedOp}";
         }
 
@@ -2616,11 +2686,15 @@ namespace McStudDesktop.Services
         private string NormalizeOperationType(string opType)
         {
             if (string.IsNullOrEmpty(opType)) return "";
-            var lower = opType.ToLowerInvariant();
+            var lower = opType.ToLowerInvariant().Trim();
+            if (lower == "blend" || lower == "blnd") return "blend";
             if (lower.Contains("repl")) return "replace";
             if (lower.Contains("rpr") || lower.Contains("repair")) return "repair";
-            if (lower.Contains("r&i") || lower.Contains("r/i")) return "ri";
             if (lower.Contains("refn") || lower.Contains("refinish")) return "refinish";
+            if (lower.Contains("algn") || lower.Contains("align")) return "align";
+            if (lower == "r&i" || lower == "r/i" || lower == "r+i" || lower == "ri") return "ri";
+            if (lower.Contains("subl") || lower.Contains("sublet")) return "sublet";
+            if (lower.Contains("o/h") || lower.Contains("overhaul")) return "overhaul";
             return lower.Replace(" ", "_");
         }
 

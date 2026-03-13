@@ -249,7 +249,7 @@ namespace McstudDesktop.Services
             ("door shell", "door"), ("door skin", "door"),
             ("door handle", "door handle"), ("door trim", "door trim panel"),
             // Panels
-            ("quarter panel", "quarter panel"), ("qtr panel", "quarter panel"),
+            ("quarter panel", "quarter panel"), ("qtr panel", "quarter panel"), ("quarter", "quarter panel"),
             ("rocker panel", "rocker panel"),
             ("roof panel", "roof"),
             // Trunk / liftgate
@@ -299,7 +299,12 @@ namespace McstudDesktop.Services
                 if (string.IsNullOrWhiteSpace(text) || text.Length < 5)
                     continue;
 
-                if (_cccSectionHeaders.Contains(text))
+                // Skip lines that are purely section headers (no operation codes or numerics mixed in).
+                // Strip leading digits/whitespace before checking so "3 HOOD" style sidebar items are caught,
+                // but "Repl Hood 2.5 $250.00" is NOT skipped.
+                var headerCandidate = Regex.Replace(text, @"^\d+\s*", "").Trim();
+                if (_cccSectionHeaders.Contains(headerCandidate) && !_cccOperationCodes.Any(op =>
+                    text.Contains(op, StringComparison.OrdinalIgnoreCase)))
                     continue;
 
                 OcrDetectedOperation? operation = source switch
@@ -317,7 +322,14 @@ namespace McstudDesktop.Services
             // This catches CCC ONE web UI, browser-rendered estimates, etc.
             if (operations.Count < 3)
             {
-                var fullText = string.Join(" ", lines.Select(l => l.Text)).ToLowerInvariant();
+                // Filter out section header / diagram label lines before joining — these cause
+                // false positives when CCC ONE's vehicle diagram labels (Hood, Fender, etc.) are in view.
+                var filteredLines = lines.Where(l =>
+                {
+                    var candidate = Regex.Replace(l.Text.Trim(), @"^\d+\s*", "").Trim();
+                    return !_cccSectionHeaders.Contains(candidate);
+                });
+                var fullText = string.Join(" ", filteredLines.Select(l => l.Text)).ToLowerInvariant();
                 var foundParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var existingParts = new HashSet<string>(
                     operations.Select(o => o.PartName?.ToLower() ?? ""),
@@ -459,16 +471,24 @@ namespace McstudDesktop.Services
                     continue;
                 }
 
-                // Skip labor type markers and "Incl"
+                // Skip labor type markers, "Incl", and status words
                 if (token == "M" || token == "m" ||
                     token.Equals("Incl", StringComparison.OrdinalIgnoreCase) ||
-                    token.Equals("Incl.", StringComparison.OrdinalIgnoreCase))
+                    token.Equals("Incl.", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("New", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("Existing", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("Yes", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("No", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Skip pure-digit tokens that didn't match hours/price/qty rules (OCR noise)
+                if (Regex.IsMatch(token, @"^\d+$"))
                     continue;
 
                 descParts.Add(token);
             }
 
-            var description = string.Join(" ", descParts);
+            var description = CleanPartName(string.Join(" ", descParts));
             if (string.IsNullOrWhiteSpace(description) && string.IsNullOrEmpty(opType))
                 return null;
 
@@ -570,14 +590,23 @@ namespace McstudDesktop.Services
                     continue;
                 }
 
-                // Skip labor type markers
-                if (token == "Body" || token == "Body*" || token == "Refinish" || token == "Mechanical")
+                // Skip labor type markers and status words
+                if (token == "Body" || token == "Body*" || token == "Refinish" || token == "Mechanical" ||
+                    token == "Refinish*" || token == "Mechanical*" ||
+                    token.Equals("New", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("Existing", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("Yes", StringComparison.OrdinalIgnoreCase) ||
+                    token.Equals("No", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Skip pure-digit tokens that didn't match hours/price/qty rules (OCR noise)
+                if (Regex.IsMatch(token, @"^\d+$"))
                     continue;
 
                 descParts.Add(token);
             }
 
-            var description = string.Join(" ", descParts);
+            var description = CleanPartName(string.Join(" ", descParts));
             if (string.IsNullOrWhiteSpace(description))
                 return null;
 
@@ -738,8 +767,25 @@ namespace McstudDesktop.Services
             cleaned = Regex.Replace(cleaned, @"(?:replace|r/?r|r&i|r\+i|repair|rpr|blend|refinish|o/?h|sublet|qty[:\s]*\d+)", "", RegexOptions.IgnoreCase);
             // Remove CCC abbreviations
             cleaned = Regex.Replace(cleaned, @"\b(?:Repl|Rpr|Refn|Blnd|Algn|Subl|Add|O/H|New)\b", "", RegexOptions.IgnoreCase);
-            cleaned = Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+            cleaned = CleanPartName(cleaned);
             return cleaned.Length > 2 ? cleaned : text.Trim();
+        }
+
+        /// <summary>
+        /// Strips leading/trailing digits, stray punctuation, and excess whitespace from a part name.
+        /// </summary>
+        private static string CleanPartName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "";
+            // Strip leading digits and whitespace (e.g., "4 Front Bumper" → "Front Bumper")
+            var cleaned = Regex.Replace(name, @"^\s*\d+\s+", "");
+            // Strip trailing standalone digits (e.g., "Hood 1" → "Hood")
+            cleaned = Regex.Replace(cleaned, @"\s+\d+\s*$", "");
+            // Strip stray asterisks and trailing punctuation from OCR
+            cleaned = cleaned.Replace("*", "").Trim().TrimEnd(',', '.', ';', ':');
+            // Collapse whitespace
+            cleaned = Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+            return cleaned;
         }
 
         /// <summary>

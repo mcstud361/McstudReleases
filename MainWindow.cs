@@ -290,6 +290,84 @@ public sealed class MainWindow : Window
     }
 
     /// <summary>
+    /// Snap window to quarter screen (bottom-right corner).
+    /// </summary>
+    public void SnapQuarterScreen()
+    {
+        var hWnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        var workArea = displayArea.WorkArea;
+
+        int width = workArea.Width / 2;
+        int height = workArea.Height / 2;
+        int x = workArea.X + workArea.Width - width;
+        int y = workArea.Y + workArea.Height - height;
+
+        appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+
+        var presenter = appWindow.Presenter as OverlappedPresenter;
+        if (presenter != null)
+        {
+            presenter.IsAlwaysOnTop = true;
+        }
+        SetWindowAlwaysOnTop(hWnd);
+    }
+
+    /// <summary>
+    /// Snap window to half screen (right side).
+    /// </summary>
+    public void SnapHalfScreen()
+    {
+        var hWnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        var workArea = displayArea.WorkArea;
+
+        int width = workArea.Width / 2;
+        int height = workArea.Height;
+        int x = workArea.X + workArea.Width - width;
+        int y = workArea.Y;
+
+        appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+
+        var presenter = appWindow.Presenter as OverlappedPresenter;
+        if (presenter != null)
+        {
+            presenter.IsAlwaysOnTop = true;
+        }
+        SetWindowAlwaysOnTop(hWnd);
+    }
+
+    /// <summary>
+    /// Snap back to compact tool window (default position).
+    /// </summary>
+    public void SnapCompact()
+    {
+        var hWnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+        var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+        var workArea = displayArea.WorkArea;
+
+        int width = 380;
+        int height = 600;
+        int x = workArea.Width - width - 20 + workArea.X;
+        int y = workArea.Height - height - 60 + workArea.Y;
+
+        appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
+
+        var presenter = appWindow.Presenter as OverlappedPresenter;
+        if (presenter != null)
+        {
+            presenter.IsAlwaysOnTop = true;
+        }
+        SetWindowAlwaysOnTop(hWnd);
+    }
+
+    /// <summary>
     /// Switch between user and admin mode
     /// </summary>
     public void ToggleMode()

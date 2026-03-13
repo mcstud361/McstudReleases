@@ -36,6 +36,7 @@ namespace McStudDesktop.Services
         private readonly PartRecognitionEngine _partRecognition;
         private readonly EstimateMiningEngine _mining;
         private readonly PatternIntelligenceService _patternIntelligence;
+        private readonly GhostConfigService _ghostConfig;
 
         // Confidence thresholds
         private const double HIGH_CONFIDENCE = 0.8;
@@ -48,6 +49,7 @@ namespace McStudDesktop.Services
             _partRecognition = PartRecognitionEngine.Instance;
             _mining = EstimateMiningEngine.Instance;
             _patternIntelligence = PatternIntelligenceService.Instance;
+            _ghostConfig = GhostConfigService.Instance;
         }
 
         #region Main Generation
@@ -293,32 +295,43 @@ namespace McStudDesktop.Services
 
         private void AddStandardOperations(SmartGhostResult result, SmartGhostInput input)
         {
-            // Pre/Post scan - check if we have learned data for this
+            // Pre/Post scan - use config scanning method (flat rate or labor hours)
             var preScanEstimate = _mining.GetExpectedLaborTime("pre_repair_scan", "mechanical", null);
             var postScanEstimate = _mining.GetExpectedLaborTime("post_repair_scan", "mechanical", null);
+            var scanConfig = _ghostConfig.GetEffectiveScanning();
+
+            var preScanHours = preScanEstimate.HasData ? preScanEstimate.Mean : scanConfig.LaborHours;
+            var preScanPrice = preScanEstimate.HasData ? 0m : scanConfig.Price;
 
             result.Operations.Add(new SmartGhostOperation
             {
                 PartName = "pre_repair_scan",
-                OperationType = "mechanical",
+                OperationType = preScanPrice > 0 ? "sublet" : "mechanical",
                 Description = "Pre-Repair Diagnostic Scan",
                 Category = "Scanning",
-                LaborHours = preScanEstimate.HasData ? preScanEstimate.Mean : 0.5m,
+                LaborHours = preScanHours,
+                Price = preScanPrice,
                 LaborConfidence = preScanEstimate.HasData ? preScanEstimate.Confidence : 0.9,
-                LaborSource = preScanEstimate.HasData ? "learned" : "industry_standard",
+                LaborSource = preScanEstimate.HasData ? "learned" :
+                    (preScanPrice > 0 ? "shop_flat_rate" : "industry_standard"),
                 OverallConfidence = 0.95,
                 ReasonIncluded = "Required for modern vehicles - OEM procedure"
             });
 
+            var postScanHours = postScanEstimate.HasData ? postScanEstimate.Mean : scanConfig.LaborHours;
+            var postScanPrice = postScanEstimate.HasData ? 0m : scanConfig.Price;
+
             result.Operations.Add(new SmartGhostOperation
             {
                 PartName = "post_repair_scan",
-                OperationType = "mechanical",
+                OperationType = postScanPrice > 0 ? "sublet" : "mechanical",
                 Description = "Post-Repair Diagnostic Scan",
                 Category = "Scanning",
-                LaborHours = postScanEstimate.HasData ? postScanEstimate.Mean : 0.5m,
+                LaborHours = postScanHours,
+                Price = postScanPrice,
                 LaborConfidence = postScanEstimate.HasData ? postScanEstimate.Confidence : 0.9,
-                LaborSource = postScanEstimate.HasData ? "learned" : "industry_standard",
+                LaborSource = postScanEstimate.HasData ? "learned" :
+                    (postScanPrice > 0 ? "shop_flat_rate" : "industry_standard"),
                 OverallConfidence = 0.95,
                 ReasonIncluded = "Required for modern vehicles - OEM procedure"
             });
@@ -366,11 +379,11 @@ namespace McStudDesktop.Services
 
         private void CalculateTotals(SmartGhostResult result)
         {
-            // Get labor rates from learned data or defaults
-            var bodyRate = 55.00m;  // TODO: Learn from estimates
-            var paintRate = 55.00m;
-            var mechRate = 95.00m;
-            var frameRate = 75.00m;
+            // Get labor rates from user config (falls back to defaults)
+            var bodyRate = _ghostConfig.GetEffectiveBodyRate();
+            var paintRate = _ghostConfig.GetEffectivePaintRate();
+            var mechRate = _ghostConfig.GetEffectiveMechRate();
+            var frameRate = _ghostConfig.GetEffectiveFrameRate();
 
             result.TotalBodyHours = result.Operations
                 .Where(o => o.Category == "Body" || o.Category == "R&I" || o.Category == "Part")

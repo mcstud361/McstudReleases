@@ -33,6 +33,8 @@ namespace McStudDesktop.Services
         private readonly SmartSuggestionService _suggestionService;
         private readonly LearnedKnowledgeBase _knowledgeBase;
         private readonly EstimateHistoryDatabase _historyDb;
+        private readonly GhostConfigService _ghostConfig;
+        private readonly ExcelGhostDataProvider _excelProvider;
 
         // Loaded knowledge from real estimates
         private GhostIncludedNotIncludedData? _operationsData;
@@ -73,6 +75,8 @@ namespace McStudDesktop.Services
             _suggestionService = SmartSuggestionService.Instance;
             _knowledgeBase = LearnedKnowledgeBase.Instance;
             _historyDb = EstimateHistoryDatabase.Instance;
+            _ghostConfig = GhostConfigService.Instance;
+            _excelProvider = ExcelGhostDataProvider.Instance;
             LoadRealEstimateData();
         }
 
@@ -198,13 +202,12 @@ namespace McStudDesktop.Services
                 UserOperations = userOperations
             };
 
-            // Find operations ghost has that user doesn't
+            // Find operations ghost has that user doesn't, and detect value differences
             foreach (var ghostOp in ghostEstimate.Operations)
             {
-                var userHas = userOperations.Any(u =>
-                    OperationsMatch(u, ghostOp));
+                var matchingUserOp = userOperations.FirstOrDefault(u => OperationsMatch(u, ghostOp));
 
-                if (!userHas)
+                if (matchingUserOp == null)
                 {
                     result.GhostFoundMissing.Add(new MissingOperation
                     {
@@ -212,10 +215,35 @@ namespace McStudDesktop.Services
                         Reason = ghostOp.Source ?? "AI pattern match",
                         Confidence = ghostOp.Confidence
                     });
+
+                    // Track category missing counts
+                    var cat = ghostOp.Category ?? "Other";
+                    result.CategoryMissingCounts[cat] = result.CategoryMissingCounts.GetValueOrDefault(cat) + 1;
                 }
                 else
                 {
                     result.BothHave.Add(ghostOp);
+
+                    // Track category match counts
+                    var cat = ghostOp.Category ?? "Other";
+                    result.CategoryMatchCounts[cat] = result.CategoryMatchCounts.GetValueOrDefault(cat) + 1;
+
+                    // Check for value differences
+                    var laborDiff = ghostOp.LaborHours - matchingUserOp.LaborHours;
+                    var refinishDiff = ghostOp.RefinishHours - matchingUserOp.RefinishHours;
+                    var priceDiff = ghostOp.Price - matchingUserOp.Price;
+
+                    if (Math.Abs(laborDiff) > 0.1m || Math.Abs(refinishDiff) > 0.1m || Math.Abs(priceDiff) > 1m)
+                    {
+                        result.ValueDifferences.Add(new ValueDifference
+                        {
+                            GhostOp = ghostOp,
+                            UserOp = matchingUserOp,
+                            LaborHoursDiff = laborDiff,
+                            RefinishHoursDiff = refinishDiff,
+                            PriceDiff = priceDiff
+                        });
+                    }
                 }
             }
 
@@ -233,6 +261,22 @@ namespace McStudDesktop.Services
                         LearnFromThis = true // Ghost should learn from user
                     });
                 }
+            }
+
+            // Calculate labor dollar difference
+            var ghostConfig = GhostConfigService.Instance;
+            var ghostTotalLabor = ghostEstimate.GrandTotalLaborDollars;
+            var userTotalLabor = userOperations.Sum(o => o.LaborHours) * ghostConfig.GetEffectiveBodyRate() +
+                                 userOperations.Sum(o => o.RefinishHours) * ghostConfig.GetEffectivePaintRate() +
+                                 userOperations.Sum(o => o.Price);
+            result.LaborDollarDifference = ghostTotalLabor - userTotalLabor;
+
+            // Detect coverage gaps
+            var ghostCategories = ghostEstimate.Operations.Select(o => o.Category).Distinct().ToHashSet();
+            var userCategories = userOperations.Select(o => o.Category).Distinct().ToHashSet();
+            foreach (var cat in ghostCategories.Where(c => !userCategories.Contains(c)))
+            {
+                result.CoverageGaps.Add(cat);
             }
 
             // Calculate summary
@@ -465,6 +509,10 @@ namespace McStudDesktop.Services
                 }
             }
 
+            // Step 4: Pull operations from Excel estimating tool sheets
+            // Gate by relevance: SRS ops when airbag components involved, Cover Car when welding present, etc.
+            AddExcelSheetOperations(result, affectedPanels, seenOperations);
+
             // Add warnings
             if (result.LearnedCount == 0)
                 result.Warnings.Add("No learned patterns available. Upload estimates to improve suggestions.");
@@ -506,6 +554,92 @@ namespace McStudDesktop.Services
                 return "adas calibration|calibration";
 
             return $"{part}|{op}";
+        }
+
+        /// <summary>
+        /// Pull relevant operations from Excel estimating tool sheets that aren't covered by existing logic.
+        /// Gates operations by relevance to the damage at hand.
+        /// </summary>
+        private void AddExcelSheetOperations(GuidanceEstimateResult result, List<AffectedPanel> affectedPanels, HashSet<string> seenOperations)
+        {
+            if (!_ghostConfig.IsCategoryEnabled("Excel Tool")) return;
+
+            var panelNames = affectedPanels.Select(p => p.Name.ToLower()).ToHashSet();
+            var existingOps = result.GuidanceOperations;
+
+            var hasWeldedPanels = existingOps.Any(o =>
+                o.PartName.Contains("quarter") || o.PartName.Contains("rocker") ||
+                o.PartName.Contains("pillar") || o.PartName.Contains("roof"));
+
+            var hasAirbagComponents = panelNames.Any(p =>
+                p.Contains("pillar") || p.Contains("dash") || p.Contains("steering") ||
+                p.Contains("door") || p.Contains("seat") || p.Contains("roof"));
+
+            var hasRefinish = existingOps.Any(o =>
+                o.Category == "Refinish Operations" || o.OperationType == "Rfn" || o.OperationType == "Blend");
+
+            var hasMechanical = existingOps.Any(o =>
+                o.PartName.Contains("suspension") || o.PartName.Contains("subframe") ||
+                o.PartName.Contains("steering") || o.PartName.Contains("engine") ||
+                o.PartName.Contains("radiator") || o.PartName.Contains("condenser"));
+
+            // Map sheet names to their relevance conditions and display categories
+            var sheetConfig = new (string SheetName, bool IsRelevant, string DisplayCategory)[]
+            {
+                ("SRS Operations", hasAirbagComponents, "SRS Operations"),
+                ("Cover Car Operations", hasWeldedPanels || hasRefinish, "Cover Car Operations"),
+                ("Mechanical Operations", hasMechanical, "Mechanical Operations"),
+                ("SOP Operations", existingOps.Count > 0, "SOP Operations"), // SOPs are always potentially relevant
+            };
+
+            foreach (var (sheetName, isRelevant, displayCategory) in sheetConfig)
+            {
+                if (!isRelevant) continue;
+                if (!_ghostConfig.IsCategoryEnabled(displayCategory)) continue;
+
+                var sheetOps = _excelProvider.GetSheetOperations(sheetName);
+                foreach (var excelOp in sheetOps)
+                {
+                    if (string.IsNullOrWhiteSpace(excelOp.Description)) continue;
+                    if (_excelProvider.IsOperationDisabled(excelOp.Description)) continue;
+
+                    var normalizedKey = NormalizeOperationKey(excelOp.Description.ToLower(), excelOp.OperationType ?? "Body");
+                    if (!seenOperations.Add(normalizedKey)) continue;
+
+                    var laborHours = _excelProvider.GetEffectiveLaborHours(excelOp.Description);
+                    var refinishHours = _excelProvider.GetEffectiveRefinishHours(excelOp.Description);
+                    var price = _excelProvider.GetEffectivePrice(excelOp.Description);
+
+                    // Determine operation type code
+                    var opType = (excelOp.Category ?? "B") switch
+                    {
+                        "M" => "Mech",
+                        "B" => "Body",
+                        "R" => "Rfn",
+                        "F" => "Frame",
+                        "D" => "Mech",
+                        _ => "Body"
+                    };
+
+                    result.GuidanceOperations.Add(new GuidanceOperation
+                    {
+                        OperationType = opType,
+                        PartName = excelOp.Description.ToLower(),
+                        Description = excelOp.Description,
+                        Category = displayCategory,
+                        LaborHours = laborHours,
+                        RefinishHours = refinishHours,
+                        Price = price,
+                        Confidence = 0.85,
+                        Source = $"Excel Tool: {sheetName}",
+                        DataSource = "Excel Tool",
+                        ConfidenceLabel = "High",
+                        IsRequired = false,
+                        Justification = $"From estimating tool ({sheetName})"
+                    });
+                    result.ExcelToolCount++;
+                }
+            }
         }
 
         #region Private Methods
@@ -999,31 +1133,46 @@ namespace McStudDesktop.Services
                 o.PartName.Contains("valance") ||
                 o.PartName.Contains("spoiler"));
 
-            // Add scan operations — use learned pricing if available
+            // Add scan operations — use config scanning method (flat rate or labor hours)
             if (result.Operations.Count > 0)
             {
-                var preScanHours = GetLearnedSubletOrLaborTime("pre-repair scan", "Mech", 0.5m);
+                var scanConfig = _ghostConfig.GetEffectiveScanning();
+                var learnedPreScan = GetLearnedSubletOrLaborTime("pre-repair scan", "Mech", 0m);
+                var learnedPostScan = GetLearnedSubletOrLaborTime("post-repair scan", "Mech", 0m);
+
+                // Use learned data if available, otherwise use config
+                var preScanHours = learnedPreScan > 0 ? learnedPreScan : scanConfig.LaborHours;
+                var preScanPrice = learnedPreScan > 0 ? 0m : scanConfig.Price;
+                var preScanSource = learnedPreScan > 0 ? "Learned from uploaded estimates" :
+                    (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
+
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Mech",
+                    OperationType = preScanPrice > 0 ? "Sublet" : "Mech",
                     PartName = "pre-repair scan",
                     Description = "Pre-Repair Diagnostic Scan",
                     Category = "Scanning",
                     LaborHours = preScanHours,
+                    Price = preScanPrice,
                     Confidence = 0.95,
-                    Source = preScanHours != 0.5m ? "Learned from uploaded estimates" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED"
+                    Source = preScanSource
                 });
 
-                var postScanHours = GetLearnedSubletOrLaborTime("post-repair scan", "Mech", 0.5m);
+                var postScanHours = learnedPostScan > 0 ? learnedPostScan : scanConfig.LaborHours;
+                var postScanPrice = learnedPostScan > 0 ? 0m : scanConfig.Price;
+                var postScanSource = learnedPostScan > 0 ? "Learned from uploaded estimates" :
+                    (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
+
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Mech",
+                    OperationType = postScanPrice > 0 ? "Sublet" : "Mech",
                     PartName = "post-repair scan",
                     Description = "Post-Repair Diagnostic Scan",
                     Category = "Scanning",
                     LaborHours = postScanHours,
+                    Price = postScanPrice,
                     Confidence = 0.95,
-                    Source = postScanHours != 0.5m ? "Learned from uploaded estimates" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED"
+                    Source = postScanSource
                 });
             }
 
@@ -1289,11 +1438,11 @@ namespace McStudDesktop.Services
 
         private void CalculateTotals(GhostEstimateResult result)
         {
-            // Typical shop labor rates (can be customized)
-            const decimal BODY_LABOR_RATE = 55.00m;     // $55/hr body labor (typical)
-            const decimal PAINT_LABOR_RATE = 55.00m;    // $55/hr refinish labor
-            const decimal MECH_LABOR_RATE = 95.00m;     // $95/hr mechanical (scanning, etc.)
-            const decimal FRAME_LABOR_RATE = 75.00m;    // $75/hr frame labor
+            // Labor rates from user config (falls back to defaults if not set)
+            var BODY_LABOR_RATE = _ghostConfig.GetEffectiveBodyRate();
+            var PAINT_LABOR_RATE = _ghostConfig.GetEffectivePaintRate();
+            var MECH_LABOR_RATE = _ghostConfig.GetEffectiveMechRate();
+            var FRAME_LABOR_RATE = _ghostConfig.GetEffectiveFrameRate();
 
             // Calculate hours by labor type
             result.TotalBodyHours = result.Operations
@@ -1449,7 +1598,15 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // PRIORITY 5: MET data from IncludedNotIncluded.json
+            // PRIORITY 5: Excel estimating tool data (ExcelOperationsDB.json)
+            var excelLookup = _excelProvider.LookupForGhost(partName, operationType);
+            if (excelLookup.Found && excelLookup.LaborHours > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Excel tool data for {partName} {operationType}: {excelLookup.LaborHours}h (sheet: {excelLookup.SheetName})");
+                return excelLookup.LaborHours;
+            }
+
+            // PRIORITY 6: MET data from IncludedNotIncluded.json
             if (_operationsData?.Operations != null)
             {
                 var matchingOp = _operationsData.Operations.FirstOrDefault(op =>
@@ -1467,7 +1624,7 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // PRIORITY 6: Hardcoded fallback (last resort — used only when no real data exists)
+            // PRIORITY 7: Hardcoded fallback (last resort — used only when no real data exists)
             System.Diagnostics.Debug.WriteLine($"[Ghost] FALLBACK for {partName} {operationType} — no learned data available");
             return (partName, operationType) switch
             {
@@ -1540,7 +1697,15 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // PRIORITY 3: Hardcoded fallback
+            // PRIORITY 3: Excel estimating tool data
+            var excelRfn = _excelProvider.LookupForGhost(partName, "refinish");
+            if (excelRfn.Found && excelRfn.RefinishHours > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Excel refinish for {partName}: {excelRfn.RefinishHours}h (sheet: {excelRfn.SheetName})");
+                return excelRfn.RefinishHours;
+            }
+
+            // PRIORITY 4: Hardcoded fallback
             System.Diagnostics.Debug.WriteLine($"[Ghost] FALLBACK refinish for {partName} — no learned data");
             return partName switch
             {
@@ -1601,6 +1766,11 @@ namespace McStudDesktop.Services
                 if (matchCount >= 2)
                     return true;
             }
+
+            // Check Excel tool data
+            var excelLookup = _excelProvider.LookupForGhost(partName, operationType);
+            if (excelLookup.Found && excelLookup.LaborHours > 0)
+                return true;
 
             return false;
         }
@@ -1875,8 +2045,24 @@ namespace McStudDesktop.Services
         public List<ExtraOperation> UserFoundExtra { get; set; } = new();
         public List<GhostOperation> BothHave { get; set; } = new();
 
+        // Enhanced comparison data
+        public List<ValueDifference> ValueDifferences { get; set; } = new();
+        public List<string> CoverageGaps { get; set; } = new();
+        public Dictionary<string, int> CategoryMatchCounts { get; set; } = new();
+        public Dictionary<string, int> CategoryMissingCounts { get; set; } = new();
+        public decimal LaborDollarDifference { get; set; }
+
         public double MatchPercentage { get; set; }
         public string Summary { get; set; } = "";
+    }
+
+    public class ValueDifference
+    {
+        public GhostOperation GhostOp { get; set; } = new();
+        public GhostOperation UserOp { get; set; } = new();
+        public decimal LaborHoursDiff { get; set; }
+        public decimal RefinishHoursDiff { get; set; }
+        public decimal PriceDiff { get; set; }
     }
 
     public class MissingOperation
@@ -1911,6 +2097,7 @@ namespace McStudDesktop.Services
         public int DatabaseCount { get; set; }
         public int KnowledgeBaseCount { get; set; }
         public int LearnedCount { get; set; }
+        public int ExcelToolCount { get; set; }
 
         public List<string> Warnings { get; set; } = new();
         public List<string> ProTips { get; set; } = new();

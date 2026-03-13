@@ -290,28 +290,19 @@ public class ShopDocTemplateService
                 },
                 new TemplateSection
                 {
-                    Id = "tints",
-                    Title = "Tint Formula",
-                    IsChargeSection = true,
-                    ChargeItems = new List<TemplateChargeItem>
-                    {
-                        new TemplateChargeItem { Id = "baseCoat", Name = "Base Coat", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
-                        new TemplateChargeItem { Id = "tint1", Name = "Tint 1", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Drops" },
-                        new TemplateChargeItem { Id = "tint2", Name = "Tint 2", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Drops" },
-                        new TemplateChargeItem { Id = "tint3", Name = "Tint 3", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Drops" },
-                        new TemplateChargeItem { Id = "tint4", Name = "Tint 4", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Drops" }
-                    }
-                },
-                new TemplateSection
-                {
                     Id = "charges",
                     Title = "Charges",
                     IsChargeSection = true,
+                    AllowAddItems = true,
                     ChargeItems = new List<TemplateChargeItem>
                     {
-                        new TemplateChargeItem { Id = "materialCost", Name = "Material Cost", DefaultAmount = 0, IsEnabled = true },
-                        new TemplateChargeItem { Id = "laborCost", Name = "Labor/Mixing", DefaultAmount = 35.00m, IsEnabled = true },
-                        new TemplateChargeItem { Id = "sprayout", Name = "Spray Out Card", DefaultAmount = 15.00m, IsEnabled = true }
+                        new TemplateChargeItem { Id = "colorMatch", Name = "Color Match", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Each" },
+                        new TemplateChargeItem { Id = "paintMaterial", Name = "Paint Material", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
+                        new TemplateChargeItem { Id = "clearCoat", Name = "Clear Coat", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
+                        new TemplateChargeItem { Id = "primerSealer", Name = "Primer / Sealer", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
+                        new TemplateChargeItem { Id = "reducerHardener", Name = "Reducer / Hardener", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
+                        new TemplateChargeItem { Id = "mixingLabor", Name = "Mixing Labor", DefaultAmount = 0, IsEnabled = true },
+                        new TemplateChargeItem { Id = "sprayout", Name = "Spray Out Card", DefaultAmount = 0, IsEnabled = true }
                     }
                 },
                 new TemplateSection

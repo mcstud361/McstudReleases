@@ -100,8 +100,8 @@ namespace McStudDesktop.Views
             mainStack.Children.Add(CreateHeader());
             mainStack.Children.Add(CreateControlsSection());
             mainStack.Children.Add(CreateStatusSection());
-            mainStack.Children.Add(CreateOperationsSection());
             mainStack.Children.Add(CreateCoachingSection());
+            mainStack.Children.Add(CreateOperationsSection());
             mainStack.Children.Add(CreateDiagnosticSection());
             mainStack.Children.Add(CreateRawTextSection());
             mainStack.Children.Add(CreateActionsSection());
@@ -596,6 +596,7 @@ namespace McStudDesktop.Views
             scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Score
             scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Title
             scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Potential
+            scoreBanner.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Settings gear
 
             _coachingGradeText = new TextBlock
             {
@@ -638,10 +639,28 @@ namespace McStudDesktop.Views
             };
             Grid.SetColumn(_coachingPotentialText, 3);
 
+            var sopSettingsButton = new Button
+            {
+                Content = new FontIcon
+                {
+                    Glyph = "\uE713", // Settings gear icon
+                    FontSize = 14
+                },
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderBrush = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(6),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            ToolTipService.SetToolTip(sopSettingsButton, "SOP Baseline Settings");
+            sopSettingsButton.Click += async (s, e) => await ShowSOPBaselineEditor();
+            Grid.SetColumn(sopSettingsButton, 4);
+
             scoreBanner.Children.Add(_coachingGradeText);
             scoreBanner.Children.Add(_coachingScoreText);
             scoreBanner.Children.Add(coachTitle);
             scoreBanner.Children.Add(_coachingPotentialText);
+            scoreBanner.Children.Add(sopSettingsButton);
             _coachingPanel.Children.Add(scoreBanner);
 
             // Suggestions list
@@ -668,6 +687,214 @@ namespace McStudDesktop.Views
             };
 
             return _coachingSection;
+        }
+
+        private async Task ShowSOPBaselineEditor()
+        {
+            var service = SOPBaselineService.Instance;
+            var allItems = service.GetAllItems();
+
+            var dialogContent = new StackPanel { Spacing = 12, MinWidth = 450 };
+
+            var scrollViewer = new ScrollViewer
+            {
+                MaxHeight = 400,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+            var itemsStack = new StackPanel { Spacing = 4 };
+
+            // Group by section
+            var sections = new[] { "Electrical", "Vehicle Diagnostics", "Miscellaneous", "Custom" };
+            foreach (var section in sections)
+            {
+                var sectionItems = allItems.Where(i =>
+                    section == "Custom" ? i.IsCustom : (!i.IsCustom && i.Section == section)).ToList();
+                if (sectionItems.Count == 0) continue;
+
+                itemsStack.Children.Add(new TextBlock
+                {
+                    Text = section,
+                    FontSize = 13,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
+                    Margin = new Thickness(0, 8, 0, 2)
+                });
+
+                foreach (var item in sectionItems)
+                {
+                    var row = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var capturedId = item.Id;
+                    var cb = new CheckBox
+                    {
+                        IsChecked = item.IsEnabled,
+                        MinWidth = 0,
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    cb.Checked += (s, e) => service.SetItemEnabled(capturedId, true);
+                    cb.Unchecked += (s, e) => service.SetItemEnabled(capturedId, false);
+                    Grid.SetColumn(cb, 0);
+
+                    var nameBlock = new TextBlock
+                    {
+                        Text = item.Name,
+                        FontSize = 12,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    Grid.SetColumn(nameBlock, 1);
+
+                    var costBlock = new TextBlock
+                    {
+                        Text = item.EstimatedCost > 0 ? $"${item.EstimatedCost:F0}" : "",
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    };
+                    Grid.SetColumn(costBlock, 2);
+
+                    row.Children.Add(cb);
+                    row.Children.Add(nameBlock);
+                    row.Children.Add(costBlock);
+
+                    if (item.IsCustom)
+                    {
+                        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                        var removeBtn = new Button
+                        {
+                            Content = new FontIcon { Glyph = "\uE74D", FontSize = 11 },
+                            Background = new SolidColorBrush(Colors.Transparent),
+                            BorderBrush = new SolidColorBrush(Colors.Transparent),
+                            Padding = new Thickness(4),
+                            Margin = new Thickness(4, 0, 0, 0),
+                            VerticalAlignment = VerticalAlignment.Center
+                        };
+                        ToolTipService.SetToolTip(removeBtn, "Remove custom item");
+                        var capturedRow = row;
+                        removeBtn.Click += (s, e) =>
+                        {
+                            service.RemoveCustomItem(capturedId);
+                            itemsStack.Children.Remove(capturedRow);
+                        };
+                        Grid.SetColumn(removeBtn, 3);
+                        row.Children.Add(removeBtn);
+                    }
+
+                    itemsStack.Children.Add(row);
+                }
+            }
+
+            scrollViewer.Content = itemsStack;
+            dialogContent.Children.Add(scrollViewer);
+
+            // Add custom item section
+            var addSection = new StackPanel { Spacing = 6, Margin = new Thickness(0, 8, 0, 0) };
+            addSection.Children.Add(new TextBlock
+            {
+                Text = "Add Custom Item",
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180))
+            });
+
+            var addRow = new Grid();
+            addRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            addRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            addRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var nameInput = new TextBox
+            {
+                PlaceholderText = "Item name...",
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            Grid.SetColumn(nameInput, 0);
+
+            var sectionCombo = new ComboBox
+            {
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 6, 0),
+                MinWidth = 130
+            };
+            sectionCombo.Items.Add("Electrical");
+            sectionCombo.Items.Add("Vehicle Diagnostics");
+            sectionCombo.Items.Add("Miscellaneous");
+            sectionCombo.SelectedIndex = 2;
+            Grid.SetColumn(sectionCombo, 1);
+
+            var addButton = new Button
+            {
+                Content = "Add",
+                FontSize = 12,
+                Padding = new Thickness(12, 4, 12, 4)
+            };
+            addButton.Click += (s, e) =>
+            {
+                var name = nameInput.Text?.Trim();
+                if (string.IsNullOrEmpty(name)) return;
+
+                var newItem = new SOPBaselineItem
+                {
+                    Name = name,
+                    Section = sectionCombo.SelectedItem?.ToString() ?? "Miscellaneous",
+                    Description = name,
+                    WhyNeeded = "Custom SOP item added by user.",
+                    Severity = "Medium",
+                    IsCustom = true
+                };
+                service.AddCustomItem(newItem);
+
+                // Add to the UI list
+                var newRow = new Grid { Margin = new Thickness(0, 1, 0, 1) };
+                newRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                newRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var newCb = new CheckBox { IsChecked = true, MinWidth = 0, VerticalAlignment = VerticalAlignment.Center };
+                var capturedNewId = newItem.Id;
+                newCb.Checked += (s2, e2) => service.SetItemEnabled(capturedNewId, true);
+                newCb.Unchecked += (s2, e2) => service.SetItemEnabled(capturedNewId, false);
+                Grid.SetColumn(newCb, 0);
+
+                var newNameBlock = new TextBlock
+                {
+                    Text = name,
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(newNameBlock, 1);
+
+                newRow.Children.Add(newCb);
+                newRow.Children.Add(newNameBlock);
+                itemsStack.Children.Add(newRow);
+
+                nameInput.Text = "";
+            };
+            Grid.SetColumn(addButton, 2);
+
+            addRow.Children.Add(nameInput);
+            addRow.Children.Add(sectionCombo);
+            addRow.Children.Add(addButton);
+            addSection.Children.Add(addRow);
+            dialogContent.Children.Add(addSection);
+
+            var dialog = new ContentDialog
+            {
+                Title = "SOP Baseline Settings",
+                Content = dialogContent,
+                PrimaryButtonText = "Done",
+                SecondaryButtonText = "Reset Defaults",
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Secondary)
+            {
+                service.ResetToDefaults();
+            }
         }
 
         private void OnCoachingSuggestionsUpdated(object? sender, McstudDesktop.Models.CoachingSnapshot snapshot)
@@ -773,38 +1000,58 @@ namespace McStudDesktop.Views
                 });
             }
 
-            // Group suggestions by source for section headers
-            var sourceGroups = new[] { "SOP List", "Learned Patterns", "Scoring", "Analyzer", "Both" };
-            var sourceLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            // Group suggestions by category for section headers
+            // SOP items use "SOP - Electrical", "SOP - Vehicle Diagnostics", "SOP - Miscellaneous"
+            var renderedHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Build display label from source + category
+            string GetSectionLabel(McstudDesktop.Models.CoachingSuggestion s)
             {
-                ["SOP List"] = "SOP List Items",
-                ["Learned Patterns"] = "Related Operations",
-                ["Scoring"] = "Additional Checks",
-                ["Analyzer"] = "Additional Checks",
-                ["Both"] = "Additional Checks",
+                if (s.IsConfirmedOnEstimate) return "\u2713 On Estimate";
+                if (s.Source == "SOP List" && s.Category.StartsWith("SOP - "))
+                    return s.Category; // "SOP - Electrical", "SOP - Vehicle Diagnostics", etc.
+                return s.Source switch
+                {
+                    "Learned Patterns" => "Learned Patterns",
+                    "Scoring" or "Analyzer" or "Both" => "Additional Checks",
+                    _ => "Additional Checks"
+                };
+            }
+
+            // Section sort priority
+            int GetSectionOrder(string label) => label switch
+            {
+                "SOP - Electrical" => 0,
+                "SOP - Vehicle Diagnostics" => 1,
+                "SOP - Miscellaneous" => 2,
+                "Learned Patterns" => 3,
+                "Additional Checks" => 4,
+                _ when label.StartsWith("SOP") => 2,
+                _ when label.Contains("On Estimate") => 10,
+                _ => 5
             };
 
-            var renderedHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            // Order: missing items first by source group priority, then confirmed at end
             var orderedSuggestions = activeSuggestions
                 .OrderBy(s => s.IsConfirmedOnEstimate ? 1 : 0)
-                .ThenBy(s => Array.IndexOf(sourceGroups, s.Source) is var idx && idx >= 0 ? idx : 99)
+                .ThenBy(s => GetSectionOrder(GetSectionLabel(s)))
                 .ThenByDescending(s => s.Severity)
                 .ThenByDescending(s => s.EstimatedCost)
                 .ToList();
 
             foreach (var suggestion in orderedSuggestions)
             {
-                var label = sourceLabels.GetValueOrDefault(suggestion.Source, "Additional Checks");
-                if (suggestion.IsConfirmedOnEstimate) label = "On Estimate";
+                var label = GetSectionLabel(suggestion);
                 if (renderedHeaders.Add(label))
                 {
+                    var isOnEstimate = label.Contains("On Estimate");
                     _coachingSuggestionsStack.Children.Add(new TextBlock
                     {
                         Text = label,
                         FontSize = 11,
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 140, 170)),
+                        Foreground = new SolidColorBrush(isOnEstimate
+                            ? Color.FromArgb(255, 80, 180, 80)
+                            : Color.FromArgb(255, 120, 140, 170)),
                         Margin = new Thickness(0, 6, 0, 2)
                     });
                 }
@@ -1038,14 +1285,12 @@ namespace McStudDesktop.Views
             string operationType;
             if (category.Contains("refinish") || category.Contains("paint") || category.Contains("blend") || title.Contains("blend"))
                 operationType = "Refinish";
-            else if (category.Contains("replace") || title.Contains("flex") || title.Contains("additive") || title.Contains("corrosion"))
+            else if (title.StartsWith("replace ") || title.Contains("cover and protect") || title.Contains("mobile cart"))
                 operationType = "Replace";
-            else if (category.Contains("repair"))
-                operationType = "Rpr";
-            else if (title.Contains("r&i") || title.Contains("remove"))
+            else if (title.Contains("r&i") || title.Contains("remove and install"))
                 operationType = "R&I";
             else
-                operationType = "Add";
+                operationType = "Rpr";
 
             // Build description: include the triggering part if available
             var description = suggestion.Title;
@@ -1497,7 +1742,7 @@ namespace McStudDesktop.Views
             ("front door", "Front Door"), ("rear door", "Rear Door"),
             ("door handle", "Door Handle"), ("door trim", "Door Trim Panel"),
             // Panels
-            ("quarter panel", "Quarter Panel"), ("qtr panel", "Quarter Panel"),
+            ("quarter panel", "Quarter Panel"), ("qtr panel", "Quarter Panel"), ("quarter", "Quarter Panel"),
             ("rocker panel", "Rocker Panel"),
             ("side panel", "Side Panel"),
             // Roof / trunk / liftgate

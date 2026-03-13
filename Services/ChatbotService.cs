@@ -3673,7 +3673,6 @@ public class ChatbotService
             "how accurate", "my accuracy", "accuracy report", "accuracy stats",
             "where do i miss", "what do i miss", "commonly miss", "keep missing",
             "supplement history", "my supplements", "supplement trends",
-            "retirement fund", "retirement", "roi", "potential revenue", "yearly gain",
             "how much money", "find money", "find revenue", "missed revenue"
         };
 
@@ -3685,15 +3684,9 @@ public class ChatbotService
         // Determine what type of response they want
         string message;
 
-        // "Retirement Fund Finder" - comprehensive analysis with ROI
-        if (inputLower.Contains("retirement") || inputLower.Contains("roi") ||
-            inputLower.Contains("yearly") || inputLower.Contains("potential") ||
+        if (inputLower.Contains("money") || inputLower.Contains("table") || inputLower.Contains("billing") ||
             inputLower.Contains("find money") || inputLower.Contains("find revenue") ||
             inputLower.Contains("how much money"))
-        {
-            message = _accuracyService.FormatRetirementFundFinder();
-        }
-        else if (inputLower.Contains("money") || inputLower.Contains("table") || inputLower.Contains("billing"))
         {
             // Money-focused response
             message = _accuracyService.FormatMoneyLeftOnTable();
@@ -3759,7 +3752,6 @@ public class ChatbotService
             Category = "accuracy",
             RelatedTopics = new List<string>
             {
-                "Retirement Fund Finder",
                 "Where am I leaving money?",
                 "My door accuracy",
                 "Accuracy tips"

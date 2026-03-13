@@ -387,6 +387,51 @@ namespace McStudDesktop.Views
             _tabHeader.Children.Add(_guideTabButton);
             _tabHeader.Children.Add(_shopDocsTabButton);
 
+            // Window snap buttons (half / quarter / compact)
+            var snapStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 2,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var halfBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE740", FontSize = 10 },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(4, 2, 4, 2),
+                MinWidth = 24, MinHeight = 24
+            };
+            ToolTipService.SetToolTip(halfBtn, "Half Screen");
+            halfBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapHalfScreen();
+            snapStack.Children.Add(halfBtn);
+
+            var quarterBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE744", FontSize = 10 },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(4, 2, 4, 2),
+                MinWidth = 24, MinHeight = 24
+            };
+            ToolTipService.SetToolTip(quarterBtn, "Quarter Screen");
+            quarterBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapQuarterScreen();
+            snapStack.Children.Add(quarterBtn);
+
+            var compactBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE73F", FontSize = 10 },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(4, 2, 4, 2),
+                MinWidth = 24, MinHeight = 24
+            };
+            ToolTipService.SetToolTip(compactBtn, "Compact (Default)");
+            compactBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapCompact();
+            snapStack.Children.Add(compactBtn);
+
+            Grid.SetColumn(snapStack, 9);
+            _tabHeader.Children.Add(snapStack);
+
             Grid.SetRow(_tabHeader, 1);
             mainGrid.Children.Add(_tabHeader);
 
@@ -2517,9 +2562,9 @@ namespace McStudDesktop.Views
             _statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40));
             _statusBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60));
             _statusIcon.Text = "⏳";
-            _statusText.Text = "Waiting for Excel data...";
+            _statusText.Text = "Waiting for data...";
             _statusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180));
-            _countText.Text = "Copy operations with Ctrl+C";
+            _countText.Text = "Copy from Excel (Ctrl+C) or add from Live Coach (+CCC)";
             _countText.Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120));
 
             if (_cccButton != null) _cccButton.IsEnabled = false;
@@ -2736,7 +2781,7 @@ namespace McStudDesktop.Views
                 var rawRows = _exportService.Operations;
                 if (rawRows.Count == 0)
                 {
-                    UpdateStatusError("No data found. Copy from Excel first.");
+                    UpdateStatusError("No data found. Add items with + CCC or copy from Excel.");
                     _isTyping = false;
                     if (_cccButton != null) _cccButton.IsEnabled = true;
                     if (_cccWebButton != null) _cccWebButton.IsEnabled = true;
@@ -2836,23 +2881,53 @@ namespace McStudDesktop.Views
                 if (_mitchellButton != null) _mitchellButton.IsEnabled = false;
                 if (_resumeButton != null) _resumeButton.Visibility = Visibility.Collapsed;
 
-                // Get clipboard data
+                // Get clipboard data — prefer raw Excel rows, fall back to Virtual Clipboard
                 var rawRows = _exportService.Operations;
+                var rows = new List<string[]>();
 
-                if (rawRows.Count == 0)
+                if (rawRows.Count > 0)
                 {
-                    UpdateStatusError("No data found. Copy from Excel first.");
+                    // Excel/clipboard source — use raw tab-separated rows
+                    foreach (var row in rawRows)
+                    {
+                        var fields = row.Split('\t');
+                        rows.Add(fields);
+                    }
+                }
+                else if (_virtualClipboard.Count > 0)
+                {
+                    // Virtual clipboard source (Live Coach "+ CCC" button, etc.)
+                    // Full CCC Desktop 18-column format:
+                    // 0  0  0  0  0  0  OpType  0  Description  0  Qty  Price  0  0  0  Labor  M  Refinish
+                    foreach (var op in _virtualClipboard.Operations)
+                    {
+                        var opType = op.OperationType;
+                        var desc = op.Description;
+                        var qty = op.Quantity > 0 ? op.Quantity.ToString() : "1";
+                        var labor = op.LaborHours > 0 ? op.LaborHours.ToString("0.0") : "0";
+                        var refinish = op.RefinishHours > 0 ? op.RefinishHours.ToString("0.0") : "0";
+                        var price = op.Price > 0 ? op.Price.ToString("0.00") : "0";
+                        rows.Add(new[] {
+                            "0", "0", "0", "0", "0", "0",
+                            opType,
+                            "0",
+                            desc,
+                            "0",
+                            qty,
+                            price,
+                            "0", "0", "0",
+                            labor,
+                            "M",
+                            refinish
+                        });
+                    }
+                }
+                else
+                {
+                    UpdateStatusError("No data found. Add items with + CCC or copy from Excel.");
                     _isTyping = false;
                     EnableAllButtons();
                     return;
-                }
-
-                // Convert raw rows to string arrays
-                var rows = new List<string[]>();
-                foreach (var row in rawRows)
-                {
-                    var fields = row.Split('\t');
-                    rows.Add(fields);
                 }
 
                 // Create or reuse paste service (keep for resume)

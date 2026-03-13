@@ -512,7 +512,6 @@ public class ChatbotView : UserControl
         // Quick categories as compact chips
         var categories = new List<(string Icon, string Label, string[] Examples)>
         {
-            ("🏦", "Retirement Fund", new[] { "Retirement Fund Finder", "How much money am I leaving?", "Show my yearly ROI potential" }),
             ("🎯", "McStud Approach", new[] { "What is the McStud systematic approach?", "Why is consistency important?" }),
             ("📝", "Build Operations", new[] { "Replacing front bumper, 1.0 trial fit, 3.0 refinish", "Quarter panel replace 6.5 body" }),
             ("✍️", "Write Descriptions", new[] { "fix the door dent, few dings and a crease", "bumper has a tear near the corner" }),

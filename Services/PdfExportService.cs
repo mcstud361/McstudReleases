@@ -120,6 +120,11 @@ namespace McStudDesktop.Services
                 outputPath = Path.Combine(documentsPath, fileName);
             }
 
+            // Sort items alphabetically by term
+            var sortedItems = selectedItems
+                .OrderBy(i => i.Term ?? "", StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             // Create the PDF document
             Document.Create(container =>
             {
@@ -138,10 +143,10 @@ namespace McStudDesktop.Services
                             column.Spacing(15);
 
                             // Summary
-                            column.Item().Element(e => ComposeSummaryFromItems(e, selectedItems));
+                            column.Item().Element(e => ComposeSummaryFromItems(e, sortedItems));
 
                             // Each selected item
-                            foreach (var item in selectedItems)
+                            foreach (var item in sortedItems)
                             {
                                 column.Item().Element(e => ComposeItemDetail(e, item));
                             }
@@ -226,7 +231,7 @@ namespace McStudDesktop.Services
 
                 // List item names
                 col.Item().PaddingTop(8).Text("Included Items:").Bold().FontSize(10);
-                col.Item().PaddingTop(4).Text(string.Join(", ", items.Select(i => i.Term)))
+                col.Item().PaddingTop(4).Text(string.Join(", ", items.Select(i => i.Term).OrderBy(t => t, StringComparer.OrdinalIgnoreCase)))
                     .FontSize(9)
                     .FontColor(Colors.Grey.Darken2);
             });

@@ -43,11 +43,12 @@ public class PPFPricingView : UserControl
     private TextBlock? _discountText;
     private TextBlock? _totalText;
     private TextBlock? _panelCountText;
-    private Button _ppfButton = null!;
-    private Button _vinylButton = null!;
-    private Button _ceramicButton = null!;
+    private StackPanel? _togglePanel;
+    private readonly Dictionary<string, Button> _serviceButtons = new();
     private ComboBox? _vehicleCombo;
     private InfoBar? _infoBar;
+
+    public event EventHandler? CustomizeRequested;
 
     // Diagram panel ID -> pricing service panel ID
     private static readonly Dictionary<string, string> DiagramToPricingMap = new()
@@ -147,24 +148,31 @@ public class PPFPricingView : UserControl
         topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        // Service type toggles
-        var togglePanel = new StackPanel
+        // Service type toggles (built dynamically)
+        _togglePanel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 4,
             VerticalAlignment = VerticalAlignment.Center
         };
+        RebuildServiceToggles();
 
-        _ppfButton = CreateServiceToggle("PPF", "ppf", true);
-        _vinylButton = CreateServiceToggle("Vinyl Wrap", "vinyl", false);
-        _ceramicButton = CreateServiceToggle("Ceramic Coat", "ceramic", false);
+        // Customize gear button
+        var gearBtn = new Button
+        {
+            Content = new FontIcon { Glyph = "\uE713", FontSize = 16 },
+            Padding = new Thickness(8, 6, 8, 6),
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(6, 0, 0, 0)
+        };
+        ToolTipService.SetToolTip(gearBtn, "Customize services");
+        gearBtn.Click += (_, _) => CustomizeRequested?.Invoke(this, EventArgs.Empty);
+        _togglePanel.Children.Add(gearBtn);
 
-        togglePanel.Children.Add(_ppfButton);
-        togglePanel.Children.Add(_vinylButton);
-        togglePanel.Children.Add(_ceramicButton);
-
-        Grid.SetColumn(togglePanel, 0);
-        topGrid.Children.Add(togglePanel);
+        Grid.SetColumn(_togglePanel, 0);
+        topGrid.Children.Add(_togglePanel);
 
         // Vehicle label
         var vehicleLabel = new TextBlock
@@ -431,9 +439,8 @@ public class PPFPricingView : UserControl
 
         _activeServiceType = serviceType;
 
-        _ppfButton.Background = new SolidColorBrush(_activeServiceType == "ppf" ? AccentGreen : Color.FromArgb(255, 55, 55, 55));
-        _vinylButton.Background = new SolidColorBrush(_activeServiceType == "vinyl" ? AccentGreen : Color.FromArgb(255, 55, 55, 55));
-        _ceramicButton.Background = new SolidColorBrush(_activeServiceType == "ceramic" ? AccentGreen : Color.FromArgb(255, 55, 55, 55));
+        foreach (var kvp in _serviceButtons)
+            kvp.Value.Background = new SolidColorBrush(kvp.Key == _activeServiceType ? AccentGreen : Color.FromArgb(255, 55, 55, 55));
 
         RecalculateAllPrices();
     }
@@ -539,7 +546,8 @@ public class PPFPricingView : UserControl
 
         try
         {
-            var serviceTypeName = _activeServiceType switch
+            var serviceConfig = _ppfService.GetServiceType(_activeServiceType);
+            var serviceTypeName = serviceConfig?.Name ?? _activeServiceType switch
             {
                 "vinyl" => "Vinyl Wrap",
                 "ceramic" => "Ceramic Coating",
@@ -742,6 +750,38 @@ public class PPFPricingView : UserControl
     #endregion
 
     #region Helpers
+
+    private void RebuildServiceToggles()
+    {
+        if (_togglePanel == null) return;
+
+        // Remove old service buttons (keep the gear button if present)
+        foreach (var btn in _serviceButtons.Values)
+            _togglePanel.Children.Remove(btn);
+        _serviceButtons.Clear();
+
+        var serviceTypes = _ppfService.GetServiceTypes();
+
+        // If active service type was removed, default to first
+        if (!serviceTypes.Any(s => s.Id == _activeServiceType))
+            _activeServiceType = serviceTypes.FirstOrDefault()?.Id ?? "ppf";
+
+        foreach (var st in serviceTypes)
+        {
+            var isActive = st.Id == _activeServiceType;
+            var btn = CreateServiceToggle(st.Name, st.Id, isActive);
+            _serviceButtons[st.Id] = btn;
+            // Insert before the gear button (last child)
+            var insertIdx = _togglePanel.Children.Count > 0 ? _togglePanel.Children.Count - 1 : 0;
+            _togglePanel.Children.Insert(insertIdx, btn);
+        }
+    }
+
+    public void RefreshAfterCustomization()
+    {
+        RebuildServiceToggles();
+        RecalculateAllPrices();
+    }
 
     private static string GetDiagramType(VehicleStyle style) => style.Icon switch
     {

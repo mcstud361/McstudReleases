@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using McstudDesktop.Models;
 using McStudDesktop.Views;
@@ -136,6 +137,13 @@ public sealed class EstimateReferenceMatcherService
     {
         // Remove side/position prefixes, numbers, and common noise
         var cleaned = term.Trim();
+
+        // Strip leading digits and whitespace (OCR noise like "4 Front Bumper" → "Front Bumper")
+        cleaned = Regex.Replace(cleaned, @"^\d+\s+", "");
+        // Strip trailing standalone digits
+        cleaned = Regex.Replace(cleaned, @"\s+\d+\s*$", "");
+        // Strip stray asterisks from OCR
+        cleaned = cleaned.Replace("*", "").Trim();
 
         // Remove leading side designations
         var prefixes = new[] { "LT ", "RT ", "LF ", "RF ", "LR ", "RR ", "FR ", "L ", "R " };

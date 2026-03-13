@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using McstudDesktop.Models;
 using McStudDesktop.Services;
 
@@ -277,13 +278,14 @@ namespace McstudDesktop.Services
                 });
             }
 
-            // Cross-check suggestions against ONLY structured ops — NOT raw OCR text.
-            // Raw text includes sidebar navigation and diagram labels that cause false confirmations,
-            // then items flip back to "missing" when user scrolls and the sidebar text changes.
+            // Cross-check suggestions against structured ops AND accumulated raw text.
+            // Structured ops alone miss many SOP/misc items (pre-wash, clean for delivery, etc.)
+            // that appear in OCR text but don't parse as structured operations.
             var structuredOpsText = string.Join(" | ", _accumulatedOps.Values
                 .Select(op => $"{op.Description} {op.PartName} {op.OperationType} {op.RawLine}"))
                 .ToLowerInvariant();
-            var combinedSeenText = structuredOpsText;
+            var rawText = _accumulatedRawText.ToString().ToLowerInvariant();
+            var combinedSeenText = structuredOpsText + " | " + rawText;
 
             foreach (var s in suggestions)
             {
@@ -320,22 +322,28 @@ namespace McstudDesktop.Services
 
         /// <summary>
         /// Returns SOP List baseline items that should always be suggested on every estimate.
+        /// Reads from SOPBaselineService so users can enable/disable and add custom items.
         /// </summary>
         private static List<CoachingSuggestion> GetSOPListSuggestions()
         {
-            return new List<CoachingSuggestion>
+            var enabledItems = SOPBaselineService.Instance.GetEnabledItems();
+            return enabledItems.Select(item => new CoachingSuggestion
             {
-                new() { Title = "Battery Disconnect/Reconnect", Description = "Disconnect and reconnect battery for safe electrical work.", WhyNeeded = "Required for any repair involving electrical components or welding.", Category = "SOP List", Severity = CoachingSeverity.High, Source = "SOP List", EstimatedCost = 18m },
-                new() { Title = "Pre-Repair Scan", Description = "Diagnostic scan before repairs begin.", WhyNeeded = "Documents pre-existing DTCs and establishes baseline for post-scan comparison.", Category = "SOP List", Severity = CoachingSeverity.Critical, Source = "SOP List", EstimatedCost = 40m },
-                new() { Title = "Post-Repair Scan", Description = "Diagnostic scan after all repairs completed.", WhyNeeded = "Verifies all DTCs are cleared and no new codes introduced by repair.", Category = "SOP List", Severity = CoachingSeverity.Critical, Source = "SOP List", EstimatedCost = 40m },
-                new() { Title = "Setup Scan Tool", Description = "Setup and configure diagnostic scan tool.", WhyNeeded = "Scan tool setup time is a billable operation per DEG guidelines.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 25m },
-                new() { Title = "ADAS Diagnostics", Description = "Include ADAS systems in diagnostic scan.", WhyNeeded = "ADAS-equipped vehicles require separate diagnostic procedures.", Category = "SOP List", Severity = CoachingSeverity.High, Source = "SOP List", EstimatedCost = 50m },
-                new() { Title = "Simulate Full Fluids", Description = "Simulate full fluid levels for accurate diagnostics.", WhyNeeded = "Some sensors require proper fluid levels to report correctly during scan.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 15m },
-                new() { Title = "Adjust Tire Pressure", Description = "Adjust tire pressure for diagnostics and ADAS calibration.", WhyNeeded = "Incorrect tire pressure can affect TPMS readings and ADAS calibration accuracy.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 12m },
-                new() { Title = "Drive Cycle", Description = "Perform drive cycle after repairs.", WhyNeeded = "Required to verify repair completion and clear certain adaptive DTCs.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 30m },
-                new() { Title = "Pre-Wash", Description = "Pre-wash vehicle before repair work.", WhyNeeded = "Ensures clean work surface and prevents contamination of repair areas.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 20m },
-                new() { Title = "Clean for Delivery", Description = "Final cleaning of vehicle before customer delivery.", WhyNeeded = "Professional delivery standard — removes dust, overspray, and repair debris.", Category = "SOP List", Severity = CoachingSeverity.Medium, Source = "SOP List", EstimatedCost = 25m },
-            };
+                Title = item.Name,
+                Description = item.Description,
+                WhyNeeded = item.WhyNeeded,
+                Category = $"SOP - {item.Section}",
+                Severity = item.Severity.ToLowerInvariant() switch
+                {
+                    "critical" => CoachingSeverity.Critical,
+                    "high" => CoachingSeverity.High,
+                    "low" => CoachingSeverity.Low,
+                    _ => CoachingSeverity.Medium
+                },
+                Source = "SOP List",
+                EstimatedCost = item.EstimatedCost,
+                LaborHours = item.LaborHours
+            }).ToList();
         }
 
         /// <summary>
@@ -354,11 +362,42 @@ namespace McstudDesktop.Services
             {
                 if (string.IsNullOrWhiteSpace(op.PartName)) continue;
 
-                // Query direct operations for this part
+                // Query manual line patterns — these are the # manual lines estimators
+                // add for each part+operation (backtape jambs, de-nib, flex additive, etc.)
+                var manualPattern = learningService.GetManualLinesForPart(op.PartName, op.OperationType);
+                if (manualPattern != null)
+                {
+                    foreach (var manualLine in manualPattern.ManualLines)
+                    {
+                        if (manualLine.TimesUsed < 1) continue;
+                        var key = $"manual|{manualLine.Description}".ToLowerInvariant();
+                        if (!seenKeys.Add(key)) continue;
+
+                        var laborDisplay = manualLine.LaborUnits > 0 ? $"{manualLine.LaborUnits:G} labor" : "";
+                        var refinishDisplay = manualLine.RefinishUnits > 0 ? $"{manualLine.RefinishUnits:G} refinish" : "";
+                        var hoursInfo = string.Join(", ", new[] { laborDisplay, refinishDisplay }.Where(s => !string.IsNullOrEmpty(s)));
+
+                        suggestions.Add(new CoachingSuggestion
+                        {
+                            Title = manualLine.Description,
+                            Description = !string.IsNullOrEmpty(hoursInfo) ? hoursInfo : $"Manual line for {op.PartName}.",
+                            WhyNeeded = $"Added {manualLine.TimesUsed}x in past estimates with {manualPattern.ParentOperationType} {manualPattern.ParentPartName}.",
+                            Category = "Learned Patterns",
+                            Severity = manualLine.TimesUsed >= 3 ? CoachingSeverity.High : CoachingSeverity.Medium,
+                            TriggeredBy = op.PartName,
+                            EstimatedCost = manualLine.AvgPrice > 0 ? manualLine.AvgPrice : manualLine.Price,
+                            LaborHours = manualLine.LaborUnits + manualLine.RefinishUnits,
+                            Source = "Learned Patterns"
+                        });
+                    }
+                }
+
+                // Query direct operations for this part — skip entries with no valid op type
                 var queryResult = learningService.QueryOperationsForPart(op.PartName, op.OperationType);
                 foreach (var suggested in queryResult.SuggestedOperations)
                 {
                     if (suggested.Confidence < 0.4 || suggested.TimesUsed < 2) continue;
+                    if (string.IsNullOrWhiteSpace(suggested.OperationType)) continue;
                     var key = $"{suggested.PartName}|{suggested.OperationType}".ToLowerInvariant();
                     if (!seenKeys.Add(key)) continue;
 
@@ -376,11 +415,14 @@ namespace McstudDesktop.Services
                     });
                 }
 
-                // Query co-occurring operations
+                // Query co-occurring operations — only keep those with a valid op type
                 var related = learningService.GetRelatedOperations(op.PartName, op.OperationType ?? "Replace");
                 foreach (var coOp in related)
                 {
                     if (coOp.TimesSeenTogether < 2) continue;
+                    // Skip co-occurrences with no operation type — those are parts, not labor
+                    if (string.IsNullOrWhiteSpace(coOp.OperationType)) continue;
+                    if (!_validOpTypes.Contains(coOp.OperationType.Trim())) continue;
                     var key = $"{coOp.PartName}|{coOp.OperationType}".ToLowerInvariant();
                     if (!seenKeys.Add(key)) continue;
 
@@ -399,7 +441,66 @@ namespace McstudDesktop.Services
                 }
             }
 
+            // Filter out parts — only keep actual labor operations
+            suggestions.RemoveAll(s => IsPartNotOperation(s.Title));
+
             return suggestions;
+        }
+
+        /// <summary>
+        /// Valid collision-side operation types that indicate a labor operation, not a part.
+        /// </summary>
+        private static readonly HashSet<string> _validOpTypes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "replace", "repl", "repair", "rpr", "refinish", "refn", "blend", "blnd",
+            "r&i", "r/i", "r+i", "ri", "overhaul", "o/h", "align", "algn",
+            "sublet", "subl", "inspect", "scan", "calibrate", "calibration",
+            "diagnostic", "setup", "test", "check", "verify", "clean", "wash",
+            "mask", "cover", "tint", "prime", "block", "sand"
+        };
+
+        /// <summary>
+        /// Returns true if the suggestion title looks like a physical part (emblem, clips,
+        /// molding, etc.) rather than a labor operation. Parts should NOT be coaching suggestions.
+        /// </summary>
+        private static bool IsPartNotOperation(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return true;
+
+            var lower = title.Trim().ToLowerInvariant();
+
+            // If it starts with a valid operation type, it's a real operation
+            foreach (var op in _validOpTypes)
+            {
+                if (lower.StartsWith(op + " ") || lower.StartsWith(op + "\t"))
+                    return false;
+            }
+
+            // If it contains a part number pattern (6+ alphanumeric chars like ABC12345), it's a part
+            if (Regex.IsMatch(lower, @"\b[a-z]*\d{3,}[a-z]*\b") && !Regex.IsMatch(lower, @"\b\d+\.?\d*\s*(hr|hour|labor|refin)"))
+                return true;
+
+            // Known part-only keywords — if the title is JUST a part name with no op type, filter it
+            string[] partKeywords = {
+                "emblem", "badge", "nameplate", "decal", "sticker", "logo",
+                "clip", "clips", "fastener", "fasteners", "rivet", "rivets",
+                "bolt", "bolts", "nut", "nuts", "screw", "screws",
+                "bracket", "retainer", "grommet", "pin", "pins",
+                "tape", "adhesive", "sealer", "sealant", "foam",
+                "wire", "wiring", "harness", "connector", "pigtail",
+                "weatherstrip", "seal", "gasket",
+                "insulation", "dampener", "deadener",
+                "filler", "putty", "primer"
+            };
+
+            // If the whole suggestion is just a part keyword or a part keyword with modifiers, skip it
+            foreach (var pk in partKeywords)
+            {
+                if (lower == pk || lower.EndsWith(" " + pk) || lower.EndsWith(" " + pk + "s"))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -432,75 +533,203 @@ namespace McstudDesktop.Services
         {
             var keywords = new List<string>();
 
-            // Scan-related
-            if (titleLower.Contains("pre") && (titleLower.Contains("scan") || titleLower.Contains("repair")))
-                keywords.AddRange(new[] { "pre-scan", "pre scan", "pre-repair scan", "prescan", "pre repair scan" });
-            if (titleLower.Contains("post") && (titleLower.Contains("scan") || titleLower.Contains("repair")))
-                keywords.AddRange(new[] { "post-scan", "post scan", "post-repair scan", "postscan", "post repair scan" });
+            // === ELECTRICAL SOP ===
+
+            // Battery disconnect/reconnect
+            if (titleLower.Contains("battery") || titleLower.Contains("disconnect"))
+                keywords.AddRange(new[] { "disconnect battery", "reconnect battery", "d/c battery",
+                    "battery disconnect", "disconnect and reconnect", "disconnect & reconnect",
+                    "disconnect/reconnect" });
+
+            // Test battery condition
+            if (titleLower.Contains("test battery"))
+                keywords.AddRange(new[] { "test battery", "battery condition", "battery test" });
+
+            // Electronic reset
+            if (titleLower.Contains("electronic reset"))
+                keywords.AddRange(new[] { "electronic reset", "module reset", "window relearn",
+                    "idle relearn", "initialization" });
+
+            // Cover/protect electrical
+            if (titleLower.Contains("cover") && titleLower.Contains("electrical"))
+                keywords.AddRange(new[] { "cover and protect electrical", "cover electrical",
+                    "protect electrical", "cover & protect electrical" });
+
+            // Battery support
+            if (titleLower.Contains("battery support"))
+                keywords.AddRange(new[] { "battery support", "memory saver", "ks-100",
+                    "keep alive", "keep-alive", "battery charger" });
+
+            // Charge/maintain battery during ADAS
+            if (titleLower.Contains("charge") && titleLower.Contains("battery"))
+                keywords.AddRange(new[] { "charge and maintain", "charge & maintain",
+                    "maintain battery", "charge battery" });
+
+            // === VEHICLE DIAGNOSTICS SOP ===
+
+            // Pre-Scan
+            if (titleLower.Contains("pre") && titleLower.Contains("scan"))
+                keywords.AddRange(new[] { "pre-scan", "pre scan", "pre-repair scan",
+                    "prescan", "pre repair scan" });
+
+            // In-Process Scan
+            if (titleLower.Contains("in-process") || titleLower.Contains("in process"))
+                keywords.AddRange(new[] { "in-process scan", "in process scan" });
+
+            // Post Scan
+            if (titleLower.Contains("post") && titleLower.Contains("scan"))
+                keywords.AddRange(new[] { "post-scan", "post scan", "post-repair scan",
+                    "postscan", "post repair scan" });
+
+            // Setup Scan Tool
+            if (titleLower.Contains("scan tool") || titleLower.Contains("setup scan"))
+                keywords.AddRange(new[] { "scan tool", "setup scan", "diagnostic scan",
+                    "diagnostic" });
+
+            // Dynamic Systems Verification
+            if (titleLower.Contains("dynamic") || titleLower.Contains("systems verification"))
+                keywords.AddRange(new[] { "dynamic systems", "systems verification",
+                    "drive cycle", "test drive", "road test" });
+
+            // OEM Research
+            if (titleLower.Contains("oem"))
+                keywords.AddRange(new[] { "oem research", "oem procedure", "oem position",
+                    "repair procedure", "oem repair" });
+
+            // ADAS Diagnostic Report
+            if (titleLower.Contains("adas") && titleLower.Contains("report"))
+                keywords.AddRange(new[] { "adas diagnostic", "adas report", "diagnostic report" });
+
+            // Setup ADAS Equipment
+            if (titleLower.Contains("adas") && titleLower.Contains("equipment"))
+                keywords.AddRange(new[] { "adas equipment", "setup adas", "adas calibration",
+                    "calibration equipment" });
+
+            // Simulate Full Fluids
+            if (titleLower.Contains("simulate") || titleLower.Contains("full fluids"))
+                keywords.AddRange(new[] { "simulate full fluids", "simulate fluids",
+                    "full fluids", "fluid levels" });
+
+            // Check and Adjust Tire Pressure
+            if (titleLower.Contains("tire pressure") || titleLower.Contains("adjust tire"))
+                keywords.AddRange(new[] { "tire pressure", "adjust tire", "check tire",
+                    "check and adjust tire" });
+
+            // === MISCELLANEOUS SOP ===
+
+            // Pre-Wash
+            if (titleLower.Contains("pre-wash") || titleLower.Contains("pre wash"))
+                keywords.AddRange(new[] { "pre-wash", "pre wash", "prewash" });
+
+            // Clean for Delivery
+            if (titleLower.Contains("clean") && titleLower.Contains("delivery"))
+                keywords.AddRange(new[] { "clean for delivery", "final clean", "delivery clean" });
+
+            // Glass Cleaner
+            if (titleLower.Contains("glass clean"))
+                keywords.AddRange(new[] { "glass cleaner", "clean glass" });
+
+            // Mask and Protect
+            if (titleLower.Contains("mask") && titleLower.Contains("protect"))
+                keywords.AddRange(new[] { "mask and protect", "mask & protect", "mask/protect" });
+
+            // Parts Disposal
+            if (titleLower.Contains("parts disposal") || titleLower.Contains("disposal"))
+                keywords.AddRange(new[] { "parts disposal", "dispose", "disposal" });
+
+            // Hazardous Waste
+            if (titleLower.Contains("hazardous") || titleLower.Contains("hazmat"))
+                keywords.AddRange(new[] { "hazardous waste", "haz waste", "hazmat",
+                    "hazardous material" });
+
+            // Misc Hardware
+            if (titleLower.Contains("misc hardware") || titleLower.Contains("miscellaneous hardware"))
+                keywords.AddRange(new[] { "misc hardware", "miscellaneous hardware",
+                    "misc. hardware", "clips", "fasteners" });
+
+            // Steering Wheel Cover / Seat Cover / Floor Mat
+            if (titleLower.Contains("seat cover") || titleLower.Contains("floor mat") || titleLower.Contains("steering wheel cover"))
+                keywords.AddRange(new[] { "seat cover", "floor mat", "steering wheel cover",
+                    "interior protection" });
+
+            // Refinish Material Invoice
+            if (titleLower.Contains("refinish material"))
+                keywords.AddRange(new[] { "refinish material", "paint material", "rmc",
+                    "material invoice" });
+
+            // Color Tint
+            if (titleLower.Contains("color tint") || titleLower.Contains("colour tint"))
+                keywords.AddRange(new[] { "color tint", "colour tint", "tint" });
+
+            // Spray Out Cards
+            if (titleLower.Contains("spray out"))
+                keywords.AddRange(new[] { "spray out", "sprayout", "spray-out", "test card" });
+
+            // Static Gun
+            if (titleLower.Contains("static gun"))
+                keywords.AddRange(new[] { "static gun", "tack cloth", "dust removal" });
+
+            // Touch Up Painted Bolts
+            if (titleLower.Contains("touch up"))
+                keywords.AddRange(new[] { "touch up", "touchup", "touch-up" });
+
+            // Monitor Flash and Cure Time
+            if (titleLower.Contains("flash") && titleLower.Contains("cure"))
+                keywords.AddRange(new[] { "flash and cure", "flash & cure", "flash/cure",
+                    "monitor flash", "cure time" });
+
+            // Cover Car for Overspray
+            if (titleLower.Contains("cover") && titleLower.Contains("overspray"))
+                keywords.AddRange(new[] { "cover for overspray", "overspray", "cover car" });
+
+            // Cover for Edging
+            if (titleLower.Contains("cover") && titleLower.Contains("edging"))
+                keywords.AddRange(new[] { "cover for edging", "edging" });
+
+            // Mask for Buffing
+            if (titleLower.Contains("mask") && titleLower.Contains("buff"))
+                keywords.AddRange(new[] { "mask for buffing", "mask for buff", "buffing" });
+
+            // Cover Engine Compartment
+            if (titleLower.Contains("engine compartment"))
+                keywords.AddRange(new[] { "cover engine", "engine compartment" });
+
+            // Cover Interior and Jambs for Refinish
+            if (titleLower.Contains("interior") && titleLower.Contains("jamb"))
+                keywords.AddRange(new[] { "cover interior", "interior and jambs",
+                    "interior & jambs", "jambs for refinish" });
+
+            // === GENERIC MATCHES ===
 
             // Calibration
-            if (titleLower.Contains("calibrat") || categoryLower == "calibration")
-                keywords.AddRange(new[] { "calibration", "calibrate", "adas calibration", "adas calib" });
-            if (titleLower.Contains("static calibration"))
-                keywords.Add("static calibration");
-            if (titleLower.Contains("dynamic calibration"))
-                keywords.Add("dynamic calibration");
+            if (titleLower.Contains("calibrat"))
+                keywords.AddRange(new[] { "calibration", "calibrate", "adas calibration" });
 
             // Blend
             if (titleLower.Contains("blend"))
-                keywords.AddRange(new[] { "blend", "blending" });
+                keywords.AddRange(new[] { "blend", "blending", "blnd" });
 
             // Corrosion
             if (titleLower.Contains("corrosion"))
-                keywords.AddRange(new[] { "corrosion", "anti-corrosion", "corrosion protection", "cavity wax", "weld-thru primer", "weld thru primer" });
+                keywords.AddRange(new[] { "corrosion", "anti-corrosion", "corrosion protection",
+                    "cavity wax", "weld-thru primer", "weld thru primer" });
 
             // Flex additive
             if (titleLower.Contains("flex"))
                 keywords.AddRange(new[] { "flex additive", "flex add", "flexible additive" });
 
-            // Battery
-            if (titleLower.Contains("battery") || titleLower.Contains("disconnect"))
-                keywords.AddRange(new[] { "disconnect battery", "reconnect battery", "d/c battery", "battery disconnect" });
-
             // R&I
             if (titleLower.Contains("r&i") || titleLower.Contains("remove") || titleLower.Contains("reinstall"))
-                keywords.AddRange(new[] { "r&i", "r & i", "remove & install", "remove and install", "remove/install" });
-
-            // Diagnostic / scan tool
-            if (titleLower.Contains("diagnostic") || titleLower.Contains("scan tool"))
-                keywords.AddRange(new[] { "diagnostic", "scan tool", "diagnostic scan" });
-
-            // Drive cycle
-            if (titleLower.Contains("drive cycle"))
-                keywords.AddRange(new[] { "drive cycle", "test drive" });
-
-            // OEM
-            if (titleLower.Contains("oem"))
-                keywords.AddRange(new[] { "oem research", "oem procedure", "oem position" });
-
-            // Clean for delivery
-            if (titleLower.Contains("clean") && titleLower.Contains("delivery"))
-                keywords.AddRange(new[] { "clean for delivery", "final clean" });
-
-            // Hazardous waste
-            if (titleLower.Contains("hazardous") || titleLower.Contains("hazmat"))
-                keywords.AddRange(new[] { "hazardous waste", "haz waste", "hazmat" });
-
-            // Memory saver
-            if (titleLower.Contains("memory saver") || titleLower.Contains("ks-100"))
-                keywords.AddRange(new[] { "memory saver", "ks-100", "battery support", "keep alive", "keep-alive" });
+                keywords.AddRange(new[] { "r&i", "r & i", "remove & install",
+                    "remove and install", "remove/install" });
 
             // Module programming
-            if (titleLower.Contains("module") || titleLower.Contains("programming") || titleLower.Contains("initialization"))
-                keywords.AddRange(new[] { "module programming", "reprogram", "initialization", "initialize", "relearn", "idle relearn", "window relearn" });
+            if (titleLower.Contains("module") || titleLower.Contains("programming"))
+                keywords.AddRange(new[] { "module programming", "reprogram", "initialization" });
 
-            // Drive cycle (broader matching for the new item title)
-            if (titleLower.Contains("drive") || titleLower.Contains("test drive"))
-                keywords.AddRange(new[] { "drive cycle", "test drive", "road test" });
-
-            // OEM research (broader matching)
-            if (titleLower.Contains("oem") || titleLower.Contains("repair procedure"))
-                keywords.AddRange(new[] { "oem research", "oem procedure", "oem position", "repair procedure", "oem repair" });
+            // Seam sealer
+            if (titleLower.Contains("seam seal"))
+                keywords.AddRange(new[] { "seam sealer", "seam seal" });
 
             return keywords;
         }

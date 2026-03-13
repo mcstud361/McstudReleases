@@ -356,12 +356,13 @@ public class PPFPricingService
                 basePrice = overrides[sizeCategory];
         }
 
-        // Apply service type multiplier
-        var multiplier = serviceType switch
+        // Apply service type multiplier (dynamic lookup, hardcoded fallback)
+        var serviceConfig = GetServiceType(serviceType);
+        var multiplier = serviceConfig?.PriceMultiplier ?? serviceType switch
         {
-            "ceramic" => 0.6m,  // Ceramic coating is typically less per panel
-            "ppf" => 1.0m,      // PPF is the base
-            "vinyl" => 1.2m,    // Vinyl wrap can be more for full coverage
+            "ceramic" => 0.6m,
+            "ppf" => 1.0m,
+            "vinyl" => 1.2m,
             _ => 1.0m
         };
 
@@ -432,6 +433,236 @@ public class PPFPricingService
             _userSettings.CustomProducts[serviceType].RemoveAll(p => p.Id == productId);
             SaveUserSettings();
         }
+    }
+
+    #endregion
+
+    #region Service Type Customization
+
+    private static readonly List<ServiceTypeConfig> BuiltInServiceTypes = new()
+    {
+        new ServiceTypeConfig { Id = "ppf", Name = "PPF", PriceMultiplier = 1.0m, IsBuiltIn = true, Order = 0 },
+        new ServiceTypeConfig { Id = "vinyl", Name = "Vinyl Wrap", PriceMultiplier = 1.2m, IsBuiltIn = true, Order = 1 },
+        new ServiceTypeConfig { Id = "ceramic", Name = "Ceramic Coat", PriceMultiplier = 0.6m, IsBuiltIn = true, Order = 2 }
+    };
+
+    public List<ServiceTypeConfig> GetServiceTypes()
+    {
+        var result = new List<ServiceTypeConfig>();
+
+        foreach (var builtIn in BuiltInServiceTypes)
+        {
+            var userOverride = _userSettings.ServiceTypes?.FirstOrDefault(s => s.Id == builtIn.Id);
+            if (userOverride != null)
+            {
+                if (!userOverride.IsHidden)
+                    result.Add(userOverride);
+            }
+            else
+            {
+                result.Add(builtIn);
+            }
+        }
+
+        if (_userSettings.ServiceTypes != null)
+        {
+            foreach (var custom in _userSettings.ServiceTypes.Where(s => !s.IsBuiltIn && !s.IsHidden))
+            {
+                if (!result.Any(r => r.Id == custom.Id))
+                    result.Add(custom);
+            }
+        }
+
+        return result.OrderBy(s => s.Order).ToList();
+    }
+
+    public ServiceTypeConfig? GetServiceType(string id)
+    {
+        var userOverride = _userSettings.ServiceTypes?.FirstOrDefault(s => s.Id == id);
+        if (userOverride != null) return userOverride;
+        return BuiltInServiceTypes.FirstOrDefault(s => s.Id == id);
+    }
+
+    public List<ServiceTypeConfig> GetAllServiceTypesIncludingHidden()
+    {
+        var result = new List<ServiceTypeConfig>();
+
+        foreach (var builtIn in BuiltInServiceTypes)
+        {
+            var userOverride = _userSettings.ServiceTypes?.FirstOrDefault(s => s.Id == builtIn.Id);
+            result.Add(userOverride ?? builtIn);
+        }
+
+        if (_userSettings.ServiceTypes != null)
+        {
+            foreach (var custom in _userSettings.ServiceTypes.Where(s => !s.IsBuiltIn))
+            {
+                if (!result.Any(r => r.Id == custom.Id))
+                    result.Add(custom);
+            }
+        }
+
+        return result.OrderBy(s => s.Order).ToList();
+    }
+
+    public void AddServiceType(string name, decimal multiplier)
+    {
+        _userSettings.ServiceTypes ??= new List<ServiceTypeConfig>();
+        var maxOrder = _userSettings.ServiceTypes.Count > 0
+            ? _userSettings.ServiceTypes.Max(s => s.Order)
+            : BuiltInServiceTypes.Max(s => s.Order);
+
+        _userSettings.ServiceTypes.Add(new ServiceTypeConfig
+        {
+            Id = $"custom_{Guid.NewGuid():N}".Substring(0, 20),
+            Name = name,
+            PriceMultiplier = multiplier,
+            IsBuiltIn = false,
+            IsHidden = false,
+            Order = maxOrder + 1
+        });
+        SaveUserSettings();
+    }
+
+    public void UpdateServiceType(string id, string? name = null, decimal? multiplier = null)
+    {
+        EnsureServiceTypeInSettings(id);
+        var st = _userSettings.ServiceTypes!.FirstOrDefault(s => s.Id == id);
+        if (st == null) return;
+
+        if (name != null) st.Name = name;
+        if (multiplier.HasValue) st.PriceMultiplier = multiplier.Value;
+        SaveUserSettings();
+    }
+
+    public void RemoveServiceType(string id)
+    {
+        EnsureServiceTypeInSettings(id);
+        var st = _userSettings.ServiceTypes!.FirstOrDefault(s => s.Id == id);
+        if (st == null) return;
+
+        if (st.IsBuiltIn)
+            st.IsHidden = true;
+        else
+            _userSettings.ServiceTypes!.Remove(st);
+
+        SaveUserSettings();
+    }
+
+    public void RestoreServiceType(string id)
+    {
+        var st = _userSettings.ServiceTypes?.FirstOrDefault(s => s.Id == id);
+        if (st != null)
+        {
+            st.IsHidden = false;
+            SaveUserSettings();
+        }
+    }
+
+    public void ReorderServiceType(string id, int direction)
+    {
+        var all = GetAllServiceTypesIncludingHidden();
+        var idx = all.FindIndex(s => s.Id == id);
+        if (idx < 0) return;
+
+        var swapIdx = idx + direction;
+        if (swapIdx < 0 || swapIdx >= all.Count) return;
+
+        var tempOrder = all[idx].Order;
+        EnsureServiceTypeInSettings(all[idx].Id);
+        EnsureServiceTypeInSettings(all[swapIdx].Id);
+
+        var a = _userSettings.ServiceTypes!.First(s => s.Id == all[idx].Id);
+        var b = _userSettings.ServiceTypes!.First(s => s.Id == all[swapIdx].Id);
+        a.Order = b.Order;
+        b.Order = tempOrder;
+
+        SaveUserSettings();
+    }
+
+    private void EnsureServiceTypeInSettings(string id)
+    {
+        _userSettings.ServiceTypes ??= new List<ServiceTypeConfig>();
+        if (_userSettings.ServiceTypes.Any(s => s.Id == id)) return;
+
+        var builtIn = BuiltInServiceTypes.FirstOrDefault(s => s.Id == id);
+        if (builtIn != null)
+        {
+            _userSettings.ServiceTypes.Add(new ServiceTypeConfig
+            {
+                Id = builtIn.Id,
+                Name = builtIn.Name,
+                PriceMultiplier = builtIn.PriceMultiplier,
+                IsBuiltIn = true,
+                IsHidden = false,
+                Order = builtIn.Order
+            });
+        }
+    }
+
+    public List<PPFPanel> GetVisiblePanels()
+    {
+        var all = GetAllPanels();
+        if (_userSettings.HiddenPanels == null || _userSettings.HiddenPanels.Count == 0)
+            return all;
+        return all.Where(p => !_userSettings.HiddenPanels.Contains(p.Id ?? "")).ToList();
+    }
+
+    public List<string> GetHiddenPanelIds()
+    {
+        return _userSettings.HiddenPanels?.ToList() ?? new List<string>();
+    }
+
+    public void HidePanel(string panelId)
+    {
+        _userSettings.HiddenPanels ??= new HashSet<string>();
+        _userSettings.HiddenPanels.Add(panelId);
+        SaveUserSettings();
+    }
+
+    public void UnhidePanel(string panelId)
+    {
+        _userSettings.HiddenPanels?.Remove(panelId);
+        SaveUserSettings();
+    }
+
+    public List<CustomPanelItem> GetCustomPanelItems(string serviceType)
+    {
+        if (_userSettings.CustomPanelItems?.ContainsKey(serviceType) == true)
+            return _userSettings.CustomPanelItems[serviceType];
+        return new List<CustomPanelItem>();
+    }
+
+    public void AddCustomPanelItem(string serviceType, CustomPanelItem item)
+    {
+        _userSettings.CustomPanelItems ??= new Dictionary<string, List<CustomPanelItem>>();
+        if (!_userSettings.CustomPanelItems.ContainsKey(serviceType))
+            _userSettings.CustomPanelItems[serviceType] = new List<CustomPanelItem>();
+
+        _userSettings.CustomPanelItems[serviceType].Add(item);
+        SaveUserSettings();
+    }
+
+    public void UpdateCustomPanelItem(string serviceType, CustomPanelItem item)
+    {
+        if (_userSettings.CustomPanelItems?.ContainsKey(serviceType) != true) return;
+
+        var existing = _userSettings.CustomPanelItems[serviceType].FirstOrDefault(i => i.Id == item.Id);
+        if (existing != null)
+        {
+            existing.Name = item.Name;
+            existing.Description = item.Description;
+            existing.Category = item.Category;
+            existing.DefaultPrices = item.DefaultPrices;
+            SaveUserSettings();
+        }
+    }
+
+    public void RemoveCustomPanelItem(string serviceType, string itemId)
+    {
+        if (_userSettings.CustomPanelItems?.ContainsKey(serviceType) != true) return;
+        _userSettings.CustomPanelItems[serviceType].RemoveAll(i => i.Id == itemId);
+        SaveUserSettings();
     }
 
     #endregion
@@ -567,6 +798,15 @@ public class PPFUserSettings
 
     // Custom products per service type: serviceType -> list of products
     public Dictionary<string, List<CustomProduct>>? CustomProducts { get; set; }
+
+    // Customizable service types (overrides/extends the 3 built-ins)
+    public List<ServiceTypeConfig>? ServiceTypes { get; set; }
+
+    // Panels the user has hidden from the list
+    public HashSet<string>? HiddenPanels { get; set; }
+
+    // User-added panel items per service type
+    public Dictionary<string, List<CustomPanelItem>>? CustomPanelItems { get; set; }
 }
 
 public class CustomProduct
@@ -601,6 +841,25 @@ public class PPFQuoteItem
     public string? PanelDescription { get; set; }
     public string? Category { get; set; }
     public decimal Price { get; set; }
+}
+
+public class ServiceTypeConfig
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public decimal PriceMultiplier { get; set; } = 1.0m;
+    public bool IsBuiltIn { get; set; }
+    public bool IsHidden { get; set; }
+    public int Order { get; set; }
+}
+
+public class CustomPanelItem
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Description { get; set; }
+    public string? Category { get; set; }
+    public Dictionary<string, decimal>? DefaultPrices { get; set; }
 }
 
 #endregion

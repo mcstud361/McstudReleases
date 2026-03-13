@@ -62,6 +62,12 @@ namespace McStudDesktop.Views
         private ColorTintInvoiceView? _colorTintInvoiceView;
         private ShopStockInvoiceView? _shopStockInvoiceView;
 
+        // Vehicle Protection (PPF) customization
+        private PPFPricingView? _ppfPricingView;
+        private Grid? _ppfMainContainer;
+        private Grid? _ppfEditorContainer;
+        private PPFCustomizationView? _ppfCustomizationEditor;
+
         // Price Catalogs
         private PriceCatalogManagementView? _priceCatalogView;
 
@@ -976,8 +982,34 @@ namespace McStudDesktop.Views
                 Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
-            var view = new PPFPricingView();
-            container.Children.Add(view);
+            // Main container (shown by default)
+            _ppfMainContainer = new Grid();
+            _ppfPricingView = new PPFPricingView();
+            _ppfPricingView.CustomizeRequested += (_, _) =>
+            {
+                _ppfMainContainer!.Visibility = Visibility.Collapsed;
+                _ppfEditorContainer!.Visibility = Visibility.Visible;
+                _ppfCustomizationEditor?.LoadData();
+            };
+            _ppfMainContainer.Children.Add(_ppfPricingView);
+            container.Children.Add(_ppfMainContainer);
+
+            // Editor container (hidden initially)
+            _ppfEditorContainer = new Grid { Visibility = Visibility.Collapsed };
+            _ppfCustomizationEditor = new PPFCustomizationView();
+            _ppfCustomizationEditor.SaveRequested += (_, _) =>
+            {
+                _ppfEditorContainer!.Visibility = Visibility.Collapsed;
+                _ppfMainContainer!.Visibility = Visibility.Visible;
+                _ppfPricingView?.RefreshAfterCustomization();
+            };
+            _ppfCustomizationEditor.CloseRequested += (_, _) =>
+            {
+                _ppfEditorContainer!.Visibility = Visibility.Collapsed;
+                _ppfMainContainer!.Visibility = Visibility.Visible;
+            };
+            _ppfEditorContainer.Children.Add(_ppfCustomizationEditor);
+            container.Children.Add(_ppfEditorContainer);
 
             _viewCache[widgetId] = container;
             return container;
@@ -1847,6 +1879,7 @@ namespace McStudDesktop.Views
         {
             _currentChecklist = checklist;
             _checkedItems.Clear(); // Clear checked items when loading new checklist
+            _sectionStatusIndicators.Clear();
             _checklistContent?.Children.Clear();
 
             if (_checklistContent == null || checklist.Sections == null) return;
@@ -2190,6 +2223,47 @@ namespace McStudDesktop.Views
             }
 
             mainStack.Children.Add(itemsContainer);
+
+            // Per-section drivability status indicator
+            var hasRequired = section.Items?.Any(i => i.Required) ?? false;
+            if (hasRequired)
+            {
+                var statusBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30)),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0),
+                    CornerRadius = new CornerRadius(0, 0, 5, 5)
+                };
+
+                var statusPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+
+                statusPanel.Children.Add(new FontIcon
+                {
+                    Glyph = "\uE7BA",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100))
+                });
+
+                statusPanel.Children.Add(new TextBlock
+                {
+                    Text = "Vehicle should NOT be driven — required items not confirmed",
+                    FontSize = 10,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+                statusBorder.Child = statusPanel;
+                mainStack.Children.Add(statusBorder);
+                _sectionStatusIndicators[sectionIndex] = statusBorder;
+            }
+
             border.Child = mainStack;
             return border;
         }
@@ -2270,6 +2344,7 @@ namespace McStudDesktop.Views
         // Progress tracking UI elements
         private TextBlock? _progressText;
         private ProgressBar? _progressBar;
+        private Dictionary<int, Border> _sectionStatusIndicators = new();
 
         private void UpdateChecklistProgress()
         {
@@ -2297,6 +2372,46 @@ namespace McStudDesktop.Views
             {
                 _progressBar.Maximum = totalItems;
                 _progressBar.Value = checkedCount;
+            }
+
+            // Update per-section drivability status indicators
+            for (int si = 0; si < _currentChecklist.Sections.Count; si++)
+            {
+                if (!_sectionStatusIndicators.TryGetValue(si, out var statusBorder)) continue;
+
+                var sectionItems = _currentChecklist.Sections[si].Items ?? new List<ChecklistItem>();
+                var allRequiredChecked = true;
+                for (int ii = 0; ii < sectionItems.Count; ii++)
+                {
+                    if (sectionItems[ii].Required && !_checkedItems.Contains($"{si}_{ii}"))
+                    {
+                        allRequiredChecked = false;
+                        break;
+                    }
+                }
+
+                if (allRequiredChecked)
+                {
+                    statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 20, 50, 30));
+                    var panel = (StackPanel)statusBorder.Child;
+                    var icon = (FontIcon)panel.Children[0];
+                    var text = (TextBlock)panel.Children[1];
+                    icon.Glyph = "\uE73E";
+                    icon.Foreground = new SolidColorBrush(AccentGreen);
+                    text.Text = "PASS — All required items confirmed";
+                    text.Foreground = new SolidColorBrush(AccentGreen);
+                }
+                else
+                {
+                    statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30));
+                    var panel = (StackPanel)statusBorder.Child;
+                    var icon = (FontIcon)panel.Children[0];
+                    var text = (TextBlock)panel.Children[1];
+                    icon.Glyph = "\uE7BA";
+                    icon.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
+                    text.Text = "Vehicle should NOT be driven — required items not confirmed";
+                    text.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
+                }
             }
         }
 
