@@ -1608,7 +1608,7 @@ namespace McStudDesktop.Views
             var standardContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             standardContent.Children.Add(new TextBlock { Text = "Standard (Recommended)", VerticalAlignment = VerticalAlignment.Center });
             var standardHelp = new FontIcon { Glyph = "\uE897", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), VerticalAlignment = VerticalAlignment.Center };
-            ToolTipService.SetToolTip(standardHelp, "Uses the pre-trained AI data that ships with the app.\nBest for consistent results across the team.\nUploaded estimates use this data but do not modify it.");
+            ToolTipService.SetToolTip(standardHelp, "Uses the pre-trained learned data that ships with the app.\nBest for consistent results across the team.\nUploaded estimates use this data but do not modify it.");
             standardContent.Children.Add(standardHelp);
 
             var shopRadio = new RadioButton
@@ -1623,7 +1623,7 @@ namespace McStudDesktop.Views
 
             var shopDescription = new TextBlock
             {
-                Text = "Uses the pre-trained AI data. Best for consistent results across the team. Uploaded estimates use the standard knowledge base but do not modify it.",
+                Text = "Uses the pre-trained learned data. Best for consistent results across the team. Uploaded estimates use the standard knowledge base but do not modify it.",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
                 TextWrapping = TextWrapping.Wrap,

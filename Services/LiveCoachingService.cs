@@ -25,6 +25,9 @@ namespace McstudDesktop.Services
         private readonly ScreenMonitorService _screenMonitor;
         private readonly McStudDesktop.Services.EstimateScoringService _scoringService;
         private readonly McStudDesktop.Services.SmartEstimateAnalyzerService _analyzerService;
+        private readonly McStudDesktop.Services.GhostConfigService _ghostConfig;
+        private readonly McStudDesktop.Services.ExcelGhostDataProvider _excelProvider;
+        private readonly McStudDesktop.Services.OperationKnowledgeService _knowledgeService;
 
         private CancellationTokenSource? _debounceCts;
         private string _lastContentHash = "";
@@ -51,6 +54,9 @@ namespace McstudDesktop.Services
             _screenMonitor = ScreenMonitorService.Instance;
             _scoringService = McStudDesktop.Services.EstimateScoringService.Instance;
             _analyzerService = McStudDesktop.Services.SmartEstimateAnalyzerService.Instance;
+            _ghostConfig = McStudDesktop.Services.GhostConfigService.Instance;
+            _excelProvider = McStudDesktop.Services.ExcelGhostDataProvider.Instance;
+            _knowledgeService = McStudDesktop.Services.OperationKnowledgeService.Instance;
         }
 
         public void Start()
@@ -188,13 +194,19 @@ namespace McstudDesktop.Services
             Debug.WriteLine($"[LiveCoaching] Processing {parsedLines.Count} structured operations");
 
             // --- New suggestion pipeline ---
-            // 1. SOP List baseline suggestions (always present)
-            var sopSuggestions = GetSOPListSuggestions();
+            // 1. SOP List baseline suggestions (context-filtered)
+            var sopSuggestions = GetSOPListSuggestions(parsedLines, _accumulatedRawText.ToString());
 
-            // 2. Learned pattern suggestions (from past uploaded estimates)
+            // 2. Excel Tool suggestions (from shop's estimating tool data)
+            var excelSuggestions = GetExcelToolSuggestions(parsedLines);
+
+            // 3. Knowledge Base suggestions (missing ops detection)
+            var kbSuggestions = GetKnowledgeBaseSuggestions(parsedLines);
+
+            // 4. Learned pattern suggestions (from past uploaded estimates)
             var learnedSuggestions = GetLearnedPatternSuggestions(parsedLines);
 
-            // 3. Run scoring/analysis engines on structured ops only
+            // 5. Run scoring/analysis engines on structured ops only
             var scoringResult = parsedLines.Count > 0
                 ? _scoringService.ScoreEstimate(parsedLines)
                 : new McStudDesktop.Services.EstimateScoringResult { OverallScore = 0, Grade = "--" };
@@ -202,7 +214,7 @@ namespace McstudDesktop.Services
                 ? _analyzerService.AnalyzeEstimate(parsedLines)
                 : new McStudDesktop.Services.AnalysisResult();
 
-            // Merge all suggestions: SOP List → Learned → Scoring → Analyzer
+            // Merge all suggestions: SOP → Excel → KB → Learned → Scoring → Analyzer
             var suggestions = new List<CoachingSuggestion>();
             var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -215,7 +227,29 @@ namespace McstudDesktop.Services
                 suggestions.Add(sop);
             }
 
-            // 2. Learned pattern suggestions (High/Medium — from real past estimates)
+            // 2. Excel Tool suggestions (High — from shop's estimating reference)
+            foreach (var excel in excelSuggestions)
+            {
+                var key = NormalizeKey(excel.Category, excel.Title);
+                if (seenKeys.Contains(key)) continue;
+                if (IsFuzzyDuplicate(key, seenKeys)) continue;
+                seenKeys.Add(key);
+                excel.Id = key;
+                suggestions.Add(excel);
+            }
+
+            // 3. Knowledge Base suggestions (High — structural/procedural requirements)
+            foreach (var kb in kbSuggestions)
+            {
+                var key = NormalizeKey(kb.Category, kb.Title);
+                if (seenKeys.Contains(key)) continue;
+                if (IsFuzzyDuplicate(key, seenKeys)) continue;
+                seenKeys.Add(key);
+                kb.Id = key;
+                suggestions.Add(kb);
+            }
+
+            // 4. Learned pattern suggestions (High/Medium — from real past estimates)
             foreach (var learned in learnedSuggestions)
             {
                 var key = NormalizeKey(learned.Category, learned.Title);
@@ -302,6 +336,17 @@ namespace McstudDesktop.Services
                 }
             }
 
+            // B2: Suggestion cap — keep all Critical/High, cap Medium so total <=20, Low only if <15
+            var criticalHigh = suggestions.Where(s => s.Severity == CoachingSeverity.Critical || s.Severity == CoachingSeverity.High).ToList();
+            var mediums = suggestions.Where(s => s.Severity == CoachingSeverity.Medium).ToList();
+            var lows = suggestions.Where(s => s.Severity == CoachingSeverity.Low).ToList();
+            var capped = new List<CoachingSuggestion>(criticalHigh);
+            var mediumSlots = Math.Max(0, 20 - capped.Count);
+            capped.AddRange(mediums.Take(mediumSlots));
+            if (capped.Count < 15)
+                capped.AddRange(lows.Take(15 - capped.Count));
+            suggestions = capped;
+
             var confirmedCount = suggestions.Count(s => s.IsConfirmedOnEstimate);
             var snapshot = new CoachingSnapshot
             {
@@ -316,41 +361,117 @@ namespace McstudDesktop.Services
                 Timestamp = DateTime.Now
             };
 
-            Debug.WriteLine($"[LiveCoaching] Snapshot: score={snapshot.Score}, grade={snapshot.Grade}, suggestions={suggestions.Count} (SOP={sopSuggestions.Count}, learned={learnedSuggestions.Count})");
+            Debug.WriteLine($"[LiveCoaching] Snapshot: score={snapshot.Score}, grade={snapshot.Grade}, suggestions={suggestions.Count} (SOP={sopSuggestions.Count}, Excel={excelSuggestions.Count}, KB={kbSuggestions.Count}, learned={learnedSuggestions.Count})");
             SuggestionsUpdated?.Invoke(this, snapshot);
         }
 
+        // SOP items shown on every collision job (Critical)
+        private static readonly HashSet<string> _alwaysShowSop = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Pre-Scan", "Post Scan", "Disconnect/Reconnect Battery", "Disconnect / Reconnect Battery",
+            "Electronic Reset", "OEM Research", "Refinish Material Invoice",
+            "Pre-Wash", "Clean for Delivery", "Parts Disposal"
+        };
+
+        // SOP items only relevant when refinish work is detected
+        private static readonly HashSet<string> _refinishOnlySop = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Color Tint", "Spray Out Cards", "Static Gun", "Touch Up Painted Bolts",
+            "Monitor Flash and Cure Time", "Cover Car for Overspray", "Cover for Edging",
+            "Mask for Buffing", "Cover Interior and Jambs for Refinish", "Glass Cleaner",
+            "Mask and Protect", "Cover Engine Compartment"
+        };
+
+        // SOP items only relevant when ADAS-triggering parts are detected
+        private static readonly HashSet<string> _adasOnlySop = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "ADAS Diagnostic Report", "Setup ADAS Equipment",
+            "Charge and Maintain Battery during ADAS", "Simulate Full Fluids",
+            "Check and Adjust Tire Pressure"
+        };
+
+        // SOP items only shown when estimate has >=3 operations (not a tiny sublet/supplement)
+        private static readonly HashSet<string> _multiOpOnlySop = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Battery Support", "Test Battery Condition", "Cover and Protect Electrical",
+            "Setup Scan Tool", "Dynamic Systems Verification", "In-Process Scan",
+            "Steering Wheel Cover", "Seat Cover", "Floor Mat",
+            "Hazardous Waste", "Misc Hardware"
+        };
+
+        // Keywords that indicate refinish work
+        private static readonly string[] _refinishKeywords = { "refinish", "blend", "paint", "clear coat", "refn", "blnd" };
+
+        // Keywords that indicate ADAS-triggering parts
+        private static readonly string[] _adasKeywords = { "windshield", "camera", "radar", "sensor", "calibrat" };
+
         /// <summary>
-        /// Returns SOP List baseline items that should always be suggested on every estimate.
-        /// Reads from SOPBaselineService so users can enable/disable and add custom items.
+        /// Returns context-filtered SOP List baseline items.
+        /// Items are gated by what's actually on the estimate (refinish, ADAS, operation count).
         /// </summary>
-        private static List<CoachingSuggestion> GetSOPListSuggestions()
+        private List<CoachingSuggestion> GetSOPListSuggestions(List<ParsedEstimateLine> structuredOps, string rawText)
         {
             var enabledItems = SOPBaselineService.Instance.GetEnabledItems();
-            return enabledItems.Select(item => new CoachingSuggestion
-            {
-                Title = item.Name,
-                Description = item.Description,
-                WhyNeeded = item.WhyNeeded,
-                Category = $"SOP - {item.Section}",
-                Severity = item.Severity.ToLowerInvariant() switch
+
+            // Build context signals
+            var lowerRaw = rawText.ToLowerInvariant();
+            var opsText = string.Join(" ", structuredOps.Select(o =>
+                $"{o.Description} {o.PartName} {o.OperationType}")).ToLowerInvariant();
+            var combined = lowerRaw + " " + opsText;
+
+            var hasRefinish = _refinishKeywords.Any(kw => combined.Contains(kw)) ||
+                              structuredOps.Any(o => o.RefinishHours > 0);
+            var hasAdas = _adasKeywords.Any(kw => combined.Contains(kw));
+            var hasEnoughOps = structuredOps.Count >= 3;
+
+            return enabledItems
+                .Where(item =>
                 {
-                    "critical" => CoachingSeverity.Critical,
-                    "high" => CoachingSeverity.High,
-                    "low" => CoachingSeverity.Low,
-                    _ => CoachingSeverity.Medium
-                },
-                Source = "SOP List",
-                EstimatedCost = item.EstimatedCost,
-                LaborHours = item.LaborHours
-            }).ToList();
+                    var name = item.Name;
+                    // Always-show items pass unconditionally
+                    if (_alwaysShowSop.Contains(name)) return true;
+                    // Refinish-only items gated on refinish detection
+                    if (_refinishOnlySop.Contains(name)) return hasRefinish;
+                    // ADAS-only items gated on ADAS part detection
+                    if (_adasOnlySop.Contains(name)) return hasAdas;
+                    // Multi-op items gated on operation count
+                    if (_multiOpOnlySop.Contains(name)) return hasEnoughOps;
+                    // Uncategorized SOP items — show if estimate has any operations
+                    return structuredOps.Count > 0;
+                })
+                .Select(item =>
+                {
+                    var cost = ComputeCostFromHours(item.LaborHours, item.Name, item.Section);
+                    // For material-only items (LaborHours=0 but EstimatedCost>0), keep original cost
+                    if (item.LaborHours == 0 && item.EstimatedCost > 0)
+                        cost = item.EstimatedCost;
+
+                    return new CoachingSuggestion
+                    {
+                        Title = item.Name,
+                        Description = item.Description,
+                        WhyNeeded = item.WhyNeeded,
+                        Category = $"SOP - {item.Section}",
+                        Severity = item.Severity.ToLowerInvariant() switch
+                        {
+                            "critical" => CoachingSeverity.Critical,
+                            "high" => CoachingSeverity.High,
+                            "low" => CoachingSeverity.Low,
+                            _ => CoachingSeverity.Medium
+                        },
+                        Source = "SOP List",
+                        EstimatedCost = cost,
+                        LaborHours = item.LaborHours
+                    };
+                }).ToList();
         }
 
         /// <summary>
         /// Queries learned patterns for operations that commonly co-occur with the
         /// structured operations detected on the current estimate.
+        /// Computes costs using GhostConfigService rates for consistency with Ghost Estimate.
         /// </summary>
-        private static List<CoachingSuggestion> GetLearnedPatternSuggestions(List<ParsedEstimateLine> structuredOps)
+        private List<CoachingSuggestion> GetLearnedPatternSuggestions(List<ParsedEstimateLine> structuredOps)
         {
             var suggestions = new List<CoachingSuggestion>();
             if (structuredOps.Count == 0) return suggestions;
@@ -377,6 +498,12 @@ namespace McstudDesktop.Services
                         var refinishDisplay = manualLine.RefinishUnits > 0 ? $"{manualLine.RefinishUnits:G} refinish" : "";
                         var hoursInfo = string.Join(", ", new[] { laborDisplay, refinishDisplay }.Where(s => !string.IsNullOrEmpty(s)));
 
+                        var totalHours = manualLine.LaborUnits + manualLine.RefinishUnits;
+                        var manualCost = ComputeCostFromHours(totalHours, manualLine.Description, op.OperationType);
+                        // If configured rate gives $0, fall back to learned price
+                        if (manualCost == 0 && (manualLine.AvgPrice > 0 || manualLine.Price > 0))
+                            manualCost = manualLine.AvgPrice > 0 ? manualLine.AvgPrice : manualLine.Price;
+
                         suggestions.Add(new CoachingSuggestion
                         {
                             Title = manualLine.Description,
@@ -385,8 +512,8 @@ namespace McstudDesktop.Services
                             Category = "Learned Patterns",
                             Severity = manualLine.TimesUsed >= 3 ? CoachingSeverity.High : CoachingSeverity.Medium,
                             TriggeredBy = op.PartName,
-                            EstimatedCost = manualLine.AvgPrice > 0 ? manualLine.AvgPrice : manualLine.Price,
-                            LaborHours = manualLine.LaborUnits + manualLine.RefinishUnits,
+                            EstimatedCost = manualCost,
+                            LaborHours = totalHours,
                             Source = "Learned Patterns"
                         });
                     }
@@ -401,6 +528,9 @@ namespace McstudDesktop.Services
                     var key = $"{suggested.PartName}|{suggested.OperationType}".ToLowerInvariant();
                     if (!seenKeys.Add(key)) continue;
 
+                    var sugCost = ComputeCostFromHours(suggested.TypicalLaborHours, suggested.OperationType ?? "", suggested.OperationType);
+                    if (sugCost == 0 && suggested.TypicalPrice > 0) sugCost = suggested.TypicalPrice;
+
                     suggestions.Add(new CoachingSuggestion
                     {
                         Title = $"{suggested.OperationType} {suggested.PartName}".Trim(),
@@ -409,7 +539,7 @@ namespace McstudDesktop.Services
                         Category = !string.IsNullOrEmpty(suggested.Category) ? suggested.Category : "Learned Patterns",
                         Severity = suggested.Confidence >= 0.7 ? CoachingSeverity.High : CoachingSeverity.Medium,
                         TriggeredBy = op.PartName,
-                        EstimatedCost = suggested.TypicalPrice,
+                        EstimatedCost = sugCost,
                         LaborHours = suggested.TypicalLaborHours,
                         Source = "Learned Patterns"
                     });
@@ -426,6 +556,9 @@ namespace McstudDesktop.Services
                     var key = $"{coOp.PartName}|{coOp.OperationType}".ToLowerInvariant();
                     if (!seenKeys.Add(key)) continue;
 
+                    var coOpCost = ComputeCostFromHours(coOp.AvgLaborHours, coOp.OperationType ?? "", coOp.OperationType);
+                    if (coOpCost == 0 && coOp.AvgPrice > 0) coOpCost = coOp.AvgPrice;
+
                     suggestions.Add(new CoachingSuggestion
                     {
                         Title = $"{coOp.OperationType} {coOp.PartName}".Trim(),
@@ -434,7 +567,7 @@ namespace McstudDesktop.Services
                         Category = "Learned Patterns",
                         Severity = coOp.CoOccurrenceRate >= 0.7 ? CoachingSeverity.High : CoachingSeverity.Medium,
                         TriggeredBy = op.PartName,
-                        EstimatedCost = coOp.AvgPrice,
+                        EstimatedCost = coOpCost,
                         LaborHours = coOp.AvgLaborHours,
                         Source = "Learned Patterns"
                     });
@@ -445,6 +578,181 @@ namespace McstudDesktop.Services
             suggestions.RemoveAll(s => IsPartNotOperation(s.Title));
 
             return suggestions;
+        }
+
+        /// <summary>
+        /// Queries Excel Tool operations relevant to the detected parts on screen.
+        /// Uses the same ExcelGhostDataProvider as Ghost Estimate for consistent data.
+        /// </summary>
+        private List<CoachingSuggestion> GetExcelToolSuggestions(List<ParsedEstimateLine> structuredOps)
+        {
+            var suggestions = new List<CoachingSuggestion>();
+            if (structuredOps.Count == 0) return suggestions;
+
+            var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var op in structuredOps)
+            {
+                if (string.IsNullOrWhiteSpace(op.PartName)) continue;
+
+                // Look up this part+operation in the Excel tool
+                var lookup = _excelProvider.LookupForGhost(op.PartName, op.OperationType ?? "");
+                if (!lookup.Found) continue;
+
+                var key = $"excel|{op.PartName}|{op.OperationType}".ToLowerInvariant();
+                if (!seenKeys.Add(key)) continue;
+
+                // Skip if disabled by user override
+                var desc = $"{op.OperationType} {op.PartName}".Trim();
+                if (_excelProvider.IsOperationDisabled(desc)) continue;
+
+                var laborHours = lookup.LaborHours + lookup.RefinishHours;
+                var cost = ComputeCostFromHours(laborHours, desc, op.OperationType);
+                if (cost == 0 && lookup.Price > 0) cost = lookup.Price;
+
+                suggestions.Add(new CoachingSuggestion
+                {
+                    Title = desc,
+                    Description = $"From Excel tool ({lookup.SheetName}): {lookup.LaborHours:G}h labor, {lookup.RefinishHours:G}h refinish.",
+                    WhyNeeded = $"Excel estimating tool reference for {op.PartName}.",
+                    Category = lookup.SheetName,
+                    Severity = CoachingSeverity.High,
+                    TriggeredBy = op.PartName,
+                    EstimatedCost = cost,
+                    LaborHours = laborHours,
+                    Source = "Excel Tool"
+                });
+            }
+
+            return suggestions;
+        }
+
+        /// <summary>
+        /// Queries the Knowledge Base (570+ ops) for missing operations based on
+        /// what's detected on the estimate. Uses same KB as Ghost Estimate.
+        /// </summary>
+        private List<CoachingSuggestion> GetKnowledgeBaseSuggestions(List<ParsedEstimateLine> structuredOps)
+        {
+            var suggestions = new List<CoachingSuggestion>();
+            if (structuredOps.Count == 0) return suggestions;
+
+            // Build estimate lines for the KB missing-op detector
+            var estimateLines = structuredOps
+                .Select(op => $"{op.OperationType} {op.PartName} {op.Description}".Trim())
+                .ToList();
+
+            var missingOps = _knowledgeService.DetectMissingOperations(estimateLines);
+            var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var missing in missingOps)
+            {
+                var key = $"kb|{missing.Operation}".ToLowerInvariant();
+                if (!seenKeys.Add(key)) continue;
+
+                // Check if the user has disabled this category
+                if (!_ghostConfig.IsCategoryEnabled(missing.Operation)) continue;
+
+                // Look up labor hours from the KB justification or Excel tool
+                var laborHours = 0m;
+                var cost = 0m;
+
+                // Try Excel tool first for consistent pricing
+                var excelMatches = _excelProvider.FindOperation(missing.Operation);
+                if (excelMatches.Count > 0 && excelMatches[0].RelevanceScore >= 50)
+                {
+                    laborHours = excelMatches[0].Operation.LaborHours + excelMatches[0].Operation.RefinishHours;
+                    cost = ComputeCostFromHours(laborHours, missing.Operation, null);
+                    if (cost == 0) cost = excelMatches[0].Operation.Price;
+                }
+
+                // Fall back: look up from KB part operations
+                if (laborHours == 0)
+                {
+                    // Try to find from part operations in the KB
+                    foreach (var op in structuredOps)
+                    {
+                        if (string.IsNullOrWhiteSpace(op.PartName)) continue;
+                        var partOps = _knowledgeService.GetOperationsForPart(op.PartName);
+                        var match = partOps.Operations.FirstOrDefault(o =>
+                            o.Name.Contains(missing.Operation, StringComparison.OrdinalIgnoreCase) ||
+                            missing.Operation.Contains(o.Name, StringComparison.OrdinalIgnoreCase));
+                        if (match != null)
+                        {
+                            laborHours = match.LaborHours;
+                            cost = match.IsMaterial ? match.TypicalCost : ComputeCostFromHours(match.LaborHours, missing.Operation, match.Category);
+                            break;
+                        }
+                    }
+                }
+
+                suggestions.Add(new CoachingSuggestion
+                {
+                    Title = missing.Operation,
+                    Description = missing.Reason,
+                    WhyNeeded = missing.Justification?.WhyNeeded ?? missing.Reason,
+                    DegReference = missing.Justification?.DEGReference,
+                    Category = "Knowledge Base",
+                    Severity = missing.Priority.ToLowerInvariant() switch
+                    {
+                        "high" => CoachingSeverity.High,
+                        "critical" => CoachingSeverity.Critical,
+                        _ => CoachingSeverity.Medium
+                    },
+                    EstimatedCost = cost,
+                    LaborHours = laborHours,
+                    Source = "Knowledge Base"
+                });
+            }
+
+            return suggestions;
+        }
+
+        /// <summary>
+        /// Computes dollar cost from labor hours using GhostConfigService rates.
+        /// Uses the same rates as Ghost Estimate for consistency.
+        /// Maps operation type/category to the appropriate rate (body, paint, mech, frame, glass).
+        /// </summary>
+        private decimal ComputeCostFromHours(decimal laborHours, string operationName, string? operationType)
+        {
+            if (laborHours <= 0) return 0;
+
+            var nameLower = operationName.ToLowerInvariant();
+            var typeLower = (operationType ?? "").ToLowerInvariant();
+
+            // Scanning operations use configured scanning rate
+            if (nameLower.Contains("scan") || nameLower.Contains("diagnostic"))
+            {
+                var scanning = _ghostConfig.GetEffectiveScanning();
+                if (scanning.Price > 0) return scanning.Price; // flat rate
+                return scanning.LaborHours * _ghostConfig.GetEffectiveMechRate();
+            }
+
+            // Refinish/paint operations
+            if (typeLower.Contains("refin") || typeLower.Contains("paint") || typeLower.Contains("blend") ||
+                nameLower.Contains("refinish") || nameLower.Contains("paint") || nameLower.Contains("blend") ||
+                nameLower.Contains("clear coat") || nameLower.Contains("primer") || nameLower.Contains("tint") ||
+                nameLower.Contains("spray") || nameLower.Contains("color"))
+                return laborHours * _ghostConfig.GetEffectivePaintRate();
+
+            // Mechanical operations
+            if (typeLower.Contains("mech") || nameLower.Contains("a/c") || nameLower.Contains("ac ") ||
+                nameLower.Contains("evacuate") || nameLower.Contains("recharge") ||
+                nameLower.Contains("calibrat") || nameLower.Contains("adas") ||
+                nameLower.Contains("alignment") || nameLower.Contains("electronic"))
+                return laborHours * _ghostConfig.GetEffectiveMechRate();
+
+            // Frame operations
+            if (typeLower.Contains("frame") || nameLower.Contains("frame") ||
+                nameLower.Contains("measure") || nameLower.Contains("structural"))
+                return laborHours * _ghostConfig.GetEffectiveFrameRate();
+
+            // Glass operations
+            if (typeLower.Contains("glass") || nameLower.Contains("windshield") ||
+                nameLower.Contains("glass") || nameLower.Contains("window"))
+                return laborHours * _ghostConfig.GetEffectiveGlassRate();
+
+            // Default to body rate for general labor
+            return laborHours * _ghostConfig.GetEffectiveBodyRate();
         }
 
         /// <summary>
@@ -820,26 +1128,49 @@ namespace McstudDesktop.Services
 
         private static bool IsFuzzyDuplicate(string key, HashSet<string> existingKeys)
         {
+            // Extract title from key (category|title format)
+            var keyParts = key.Split('|');
+            var keyTitle = keyParts.Length >= 2 ? keyParts[1] : key;
+            var keyWords = keyTitle.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length > 1).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             foreach (var existing in existingKeys)
             {
                 if (existing.Length == 0 || key.Length == 0) continue;
 
-                var keyParts = key.Split('|');
                 var existingParts = existing.Split('|');
-                if (keyParts.Length < 2 || existingParts.Length < 2) continue;
-                if (keyParts[0] != existingParts[0]) continue;
+                if (existingParts.Length < 2) continue;
 
-                var keyTitle = keyParts[1];
                 var existingTitle = existingParts[1];
 
-                if (keyTitle.Contains(existingTitle) || existingTitle.Contains(keyTitle))
-                    return true;
+                // Same-category substring check (original logic)
+                if (keyParts.Length >= 2 && keyParts[0] == existingParts[0])
+                {
+                    if (keyTitle.Contains(existingTitle) || existingTitle.Contains(keyTitle))
+                        return true;
 
-                var maxLen = Math.Max(keyTitle.Length, existingTitle.Length);
-                if (maxLen <= 3) continue;
-                var commonChars = keyTitle.Intersect(existingTitle).Count();
-                if ((double)commonChars / maxLen >= 0.8)
-                    return true;
+                    var maxLen = Math.Max(keyTitle.Length, existingTitle.Length);
+                    if (maxLen > 3)
+                    {
+                        var commonChars = keyTitle.Intersect(existingTitle).Count();
+                        if ((double)commonChars / maxLen >= 0.8)
+                            return true;
+                    }
+                }
+
+                // B3: Cross-category word overlap check (>70% word overlap = duplicate)
+                if (keyWords.Count >= 2)
+                {
+                    var existingWords = existingTitle.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Where(w => w.Length > 1).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    if (existingWords.Count >= 2)
+                    {
+                        var overlap = keyWords.Count(w => existingWords.Contains(w));
+                        var smaller = Math.Min(keyWords.Count, existingWords.Count);
+                        if (smaller > 0 && (double)overlap / smaller > 0.7)
+                            return true;
+                    }
+                }
             }
             return false;
         }

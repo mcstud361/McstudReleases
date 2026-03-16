@@ -66,20 +66,20 @@
   },
   "calculations": {
     "blendFormulas": {
-      "description": "Blend is added when refinishing panels adjacent to repaired/replaced panels for color match",
-      "largePanels": {
-        "panels": ["Hood", "Roof", "Trunk Lid", "Spoiler"],
-        "firstPanel": "Add up to 20% of full base refinish time",
-        "additionalPanels": "Add up to 10% for each additional panel"
+      "description": "Blend is added when refinishing panels adjacent to repaired/replaced panels for color match. IP default: 50% of full refinish time for two-stage, 70% for three-stage (CCC). SCRS Blend Study (2022) found blend actually takes 31.59% MORE time than full refinish on average.",
+      "ipDefaults": {
+        "twoStage": "50% of full refinish time for that panel",
+        "threeStage": "70% of full refinish time for that panel (CCC)",
+        "example": "3.0 hr full refinish panel → 1.5 hr blend (two-stage) or 2.1 hr blend (three-stage)"
       },
-      "standardPanels": {
-        "panels": ["Fender", "Door", "Quarter Panel", "Bumper Cover"],
-        "firstPanel": "Add up to 20% of full base refinish time",
-        "additionalPanels": "Add up to 10% for each additional panel"
+      "scrsStudy": {
+        "finding": "Blend takes 31.59% MORE time than full refinish on average",
+        "source": "SCRS 2022 study with all 5 major refinish manufacturers"
       },
-      "bumperCover": {
-        "firstPanel": "Add up to 10% of full base refinish time",
-        "notes": "Lower percentage due to smaller visible blend area"
+      "updatedGuidance": {
+        "ccc": "Added Edit Blend Rules — estimator can set custom blend value",
+        "audatex": "Removed 50% formula, allows 50-150%, defers to estimator judgment",
+        "mitchell": "Default still 50%, added profile flexibility (Jan 2024)"
       }
     },
     "overlapDeductions": {
@@ -133,9 +133,9 @@
       ]
     },
     "triCoatAdditive": {
-      "description": "Three-stage/tri-coat paint requires additional time",
-      "formula": "Add 50% to refinish time for 3-stage paint",
-      "example": "2.0 hrs base refinish + 1.0 hr (50%) = 3.0 hrs total"
+      "description": "Three-stage/tri-coat paint requires additional time per CCC/MOTOR G41",
+      "formula": "Add 20-30% to refinish time for 3-stage paint (CCC/MOTOR G41). CCC blend button calculates 3-stage blend at 70% of full refinish (vs 50% for two-stage).",
+      "example": "3.0 hrs base refinish + 0.6-0.9 hr (20-30%) = 3.6-3.9 hrs total"
     }
   },
   "orderOfOperations": {

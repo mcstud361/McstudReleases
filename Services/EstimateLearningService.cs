@@ -26,7 +26,7 @@ namespace McStudDesktop.Services
     /// </summary>
     public class EstimateLearningService
     {
-        private readonly string _dataFilePath;
+        private string _dataFilePath;
         private LearnedPatternDatabase _database;
 
         /// <summary>Read-only access to the current database for cleanup/analysis</summary>
@@ -60,8 +60,10 @@ namespace McStudDesktop.Services
 
         // Base knowledge file (distributed with app) - read-only baseline
         private readonly string _baseKnowledgePath;
-        // User knowledge file (in AppData) - user's additional learning
+        // User knowledge file (in AppData) - shop mode learning
         private readonly string _userKnowledgePath;
+        // Personal knowledge file (in AppData) - personal mode learning, persists through updates
+        private readonly string _personalKnowledgePath;
 
         public EstimateLearningService()
         {
@@ -69,16 +71,19 @@ namespace McStudDesktop.Services
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
             _baseKnowledgePath = Path.Combine(appDir, "Data", "LearnedPatterns.json");
 
-            // User's additional learning in AppData
+            // User's learning files in AppData (persist through updates)
             var appDataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "McStudDesktop"
             );
             Directory.CreateDirectory(appDataPath);
             _userKnowledgePath = Path.Combine(appDataPath, "learned_patterns.json");
+            _personalKnowledgePath = Path.Combine(appDataPath, "learned_patterns_personal.json");
 
-            // Legacy support - keep _dataFilePath pointing to user knowledge
-            _dataFilePath = _userKnowledgePath;
+            // Point save path to the correct file for current mode
+            _dataFilePath = LearningModeService.Instance.CurrentMode == LearningMode.Personal
+                ? _personalKnowledgePath
+                : _userKnowledgePath;
 
             _database = LoadDatabase();
         }
@@ -101,30 +106,31 @@ namespace McStudDesktop.Services
 
             if (mode == LearningMode.Personal)
             {
-                // Personal mode: Load ONLY user's learned_patterns.json, skip baseline
+                // Personal mode: Load ONLY personal file, skip baseline entirely
+                // This is a clean-slate local file that persists through app updates
                 try
                 {
-                    if (File.Exists(_userKnowledgePath))
+                    if (File.Exists(_personalKnowledgePath))
                     {
-                        var json = File.ReadAllText(_userKnowledgePath);
+                        var json = File.ReadAllText(_personalKnowledgePath);
                         if (!string.IsNullOrWhiteSpace(json) && json.Trim() != "null")
                         {
                             var userDb = JsonSerializer.Deserialize<LearnedPatternDatabase>(json);
                             if (userDb != null)
                             {
                                 db = userDb;
-                                System.Diagnostics.Debug.WriteLine($"[Learning] PERSONAL mode: Loaded {db.Patterns.Count} user patterns");
+                                System.Diagnostics.Debug.WriteLine($"[Learning] PERSONAL mode: Loaded {db.Patterns.Count} patterns from personal file");
                             }
                         }
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine("[Learning] PERSONAL mode: No user data file — starting empty");
+                        System.Diagnostics.Debug.WriteLine("[Learning] PERSONAL mode: No personal data file — starting empty");
                     }
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[Learning] Error loading user knowledge in Personal mode: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"[Learning] Error loading personal knowledge: {ex.Message}");
                 }
 
                 db = MigrateToSmartLearning(db);
@@ -566,8 +572,13 @@ namespace McStudDesktop.Services
         /// </summary>
         public void ReloadForMode(LearningMode mode)
         {
+            // Switch save path to the correct file for this mode
+            _dataFilePath = mode == LearningMode.Personal
+                ? _personalKnowledgePath
+                : _userKnowledgePath;
+
             _database = LoadDatabaseForMode(mode);
-            System.Diagnostics.Debug.WriteLine($"[Learning] Reloaded database for {mode} mode: {_database.Patterns.Count} patterns");
+            System.Diagnostics.Debug.WriteLine($"[Learning] Reloaded database for {mode} mode: {_database.Patterns.Count} patterns, saving to {Path.GetFileName(_dataFilePath)}");
         }
 
         public void SaveDatabase()
@@ -1062,23 +1073,123 @@ namespace McStudDesktop.Services
         private static readonly Dictionary<string, string> _normalizations = new(StringComparer.OrdinalIgnoreCase)
         {
             // Position/Side abbreviations
-            { "frt", "front" }, { "rr", "rear" }, { "lh", "left" }, { "rh", "right" },
-            { "lt", "left" }, { "rt", "right" }, { "lf", "left_front" }, { "rf", "right_front" },
-            { "lr", "left_rear" }, { "ctr", "center" }, { "upr", "upper" }, { "lwr", "lower" },
+            { "frt", "front" }, { "fr", "front" },
+            { "rr", "rear" },
+            { "lh", "left" }, { "l/h", "left" }, { "lt", "left" },
+            { "rh", "right" }, { "r/h", "right" }, { "rt", "right" },
+            { "lf", "left_front" }, { "l/f", "left_front" },
+            { "rf", "right_front" }, { "r/f", "right_front" },
+            { "lr", "left_rear" }, { "l/r", "left_rear" },
+            { "ctr", "center" }, { "upr", "upper" }, { "lwr", "lower" },
             { "inr", "inner" }, { "otr", "outer" }, { "fwd", "forward" },
+
             // Part abbreviations
-            { "bpr", "bumper" }, { "cvr", "cover" }, { "pnl", "panel" }, { "qtr", "quarter" },
-            { "assy", "assembly" }, { "brkt", "bracket" }, { "reinf", "reinforcement" },
-            { "mldg", "molding" }, { "hndl", "handle" }, { "mirr", "mirror" },
-            { "hdlmp", "headlamp" }, { "tllmp", "taillamp" }, { "flr", "floor" },
-            { "whl", "wheel" }, { "wndsld", "windshield" }, { "w/s", "windshield" },
-            { "abs", "absorber" }, { "supp", "support" }, { "mtg", "mounting" },
+            { "bmpr", "bumper" }, { "bpr", "bumper" }, { "bmp", "bumper" },
+            { "cvr", "cover" }, { "cov", "cover" },
+            { "pnl", "panel" }, { "pan", "panel" },
+            { "fndr", "fender" }, { "fdr", "fender" },
+            { "dr", "door" }, { "dor", "door" },
+            { "qtr", "quarter" }, { "qp", "quarter_panel" }, { "q/p", "quarter_panel" },
+            { "hd", "hood" }, { "hod", "hood" },
+            { "trnk", "trunk" }, { "trk", "trunk" }, { "dklid", "decklid" },
+            { "rckr", "rocker" }, { "rkr", "rocker" },
+            { "assy", "assembly" }, { "assm", "assembly" }, { "asm", "assembly" },
+            { "brkt", "bracket" },
+            { "reinf", "reinforcement" }, { "rebar", "reinforcement" },
+            { "mldg", "molding" }, { "mld", "molding" }, { "moulding", "molding" },
+            { "hndl", "handle" },
+            { "mirr", "mirror" }, { "mir", "mirror" },
+            { "hlamp", "headlamp" }, { "hdlmp", "headlamp" }, { "hdlt", "headlamp" }, { "hdlp", "headlamp" },
+            { "tllmp", "taillamp" }, { "tllt", "taillamp" }, { "tllp", "taillamp" },
+            { "flr", "floor" }, { "whl", "wheel" },
+            { "wndsld", "windshield" }, { "wndshld", "windshield" }, { "w/s", "windshield" }, { "ws", "windshield" },
+            { "abs", "absorber" }, { "absr", "absorber" },
+            { "supp", "support" }, { "spt", "support" },
+            { "mtg", "mounting" }, { "mntg", "mounting" },
+            { "hse", "housing" },
+            { "cond", "condenser" }, { "cndsr", "condenser" },
+            { "rad", "radiator" }, { "radtr", "radiator" },
+            { "ext", "extension" }, { "extn", "extension" },
+            { "rpl", "replace" },
+
             // Operation abbreviations
             { "r&i", "remove_install" }, { "r+i", "remove_install" }, { "r/i", "remove_install" },
+            { "ri", "remove_install" },
             { "o/h", "overhaul" }, { "oh", "overhaul" },
-            { "rpr", "repair" }, { "repl", "replace" },
+            { "rpr", "repair" }, { "rep", "repair" },
+            { "repl", "replace" },
             { "ref", "refinish" }, { "rfn", "refinish" }, { "refn", "refinish" },
             { "blnd", "blend" }, { "algn", "alignment" }, { "subl", "sublet" },
+
+            // Scan aliases → canonical forms
+            { "pre-scan", "pre_repair_scan" }, { "pre scan", "pre_repair_scan" }, { "prescan", "pre_repair_scan" },
+            { "pre-repair scan", "pre_repair_scan" }, { "pre repair scan", "pre_repair_scan" },
+            { "post-scan", "post_repair_scan" }, { "post scan", "post_repair_scan" }, { "postscan", "post_repair_scan" },
+            { "post-repair scan", "post_repair_scan" }, { "post repair scan", "post_repair_scan" },
+            { "in-process scan", "in_process_scan" }, { "in process scan", "in_process_scan" },
+            { "mid-repair scan", "in_process_scan" },
+
+            // Calibration aliases
+            { "camera calibration", "adas_calibration" }, { "radar calibration", "adas_calibration" },
+            { "sensor calibration", "adas_calibration" }, { "static calibration", "adas_calibration" },
+            { "dynamic calibration", "adas_calibration" }, { "target setup", "adas_calibration" },
+
+            // Battery aliases
+            { "disconnect battery", "battery_disconnect_reconnect" }, { "reconnect battery", "battery_disconnect_reconnect" },
+            { "d/c battery", "battery_disconnect_reconnect" }, { "battery disconnect", "battery_disconnect_reconnect" },
+            { "battery reconnect", "battery_disconnect_reconnect" },
+            { "memory saver", "memory_saver" }, { "ks-100", "memory_saver" },
+            { "keep alive", "memory_saver" }, { "keep-alive", "memory_saver" },
+            { "battery support", "memory_saver" },
+
+            // Module/programming aliases
+            { "reprogram", "module_programming" }, { "initialization", "module_programming" },
+            { "initialize", "module_programming" }, { "relearn", "module_programming" },
+            { "idle relearn", "module_programming" }, { "flash module", "module_programming" },
+
+            // Paint material aliases
+            { "ad pro", "adhesion_promoter" }, { "adpro", "adhesion_promoter" },
+            { "flex add", "flex_additive" }, { "flex agent", "flex_additive" },
+            { "clearcoat", "clear_coat" },
+            { "seam seal", "seam_sealer" },
+            { "weld thru", "weld_thru_primer" }, { "weld through", "weld_thru_primer" },
+            { "welding primer", "weld_thru_primer" },
+            { "cavity wax", "corrosion_protection" }, { "rust protection", "corrosion_protection" },
+            { "anti-corrosion", "corrosion_protection" }, { "rust preventative", "corrosion_protection" },
+            { "undercoating", "corrosion_protection" },
+            { "de-nib", "denib" }, { "de nib", "denib" }, { "nib sand", "denib" },
+            { "c/cnvrtr", "catalytic_converter" },
+
+            // Finishing aliases
+            { "rub-out", "cut_and_buff" }, { "rub out", "cut_and_buff" },
+            { "cut and buff", "cut_and_buff" }, { "cut & buff", "cut_and_buff" },
+            { "color sand", "wet_sand" },
+            { "feather, prime & block", "feather_prime_block" }, { "fpb", "feather_prime_block" },
+            { "color match", "color_tint" }, { "tinting", "color_tint" },
+
+            // Alignment aliases
+            { "4-wheel alignment", "alignment" }, { "4 wheel alignment", "alignment" },
+            { "four wheel alignment", "alignment" }, { "wheel alignment", "alignment" },
+
+            // Shop operation aliases
+            { "final clean", "clean_for_delivery" }, { "detail clean", "clean_for_delivery" },
+            { "detail vehicle", "clean_for_delivery" }, { "vehicle cleanup", "clean_for_delivery" },
+            { "final wash", "clean_for_delivery" }, { "final detail", "clean_for_delivery" },
+            { "interior clean", "clean_for_delivery" }, { "wash vehicle", "clean_for_delivery" },
+            { "haz waste", "hazardous_waste" }, { "hazmat", "hazardous_waste" },
+            { "waste disposal", "hazardous_waste" },
+            { "disposal fee", "parts_disposal" },
+            { "crash wrap", "collision_wrap" },
+            { "oem procedure", "oem_research" }, { "oem repair procedure", "oem_research" },
+            { "repair procedure", "oem_research" }, { "oem position", "oem_research" },
+            { "test drive", "drive_cycle" }, { "road test", "drive_cycle" },
+
+            // Welding aliases
+            { "squeeze type resistance", "resistance_weld" },
+            { "panel bond", "structural_adhesive" },
+            { "dress weld", "grind_weld" },
+            { "flow drill", "rivet" },
+
             // Other
             { "w/", "with_" }, { "w/o", "without_" },
             { "incl", "included" }, { "excl", "excluded" },
@@ -1151,31 +1262,43 @@ namespace McStudDesktop.Services
             var lower = line.ToLowerInvariant();
 
             // Extract operation type
-            if (lower.Contains("replace") || lower.Contains("repl"))
+            if (lower.Contains("replace") || lower.Contains("repl") || lower.Contains("rpl")
+                || Regex.IsMatch(lower, @"\bnew\b") || lower.Contains("r/r"))
                 data.OperationType = "Replace";
-            else if (lower.Contains("repair") || lower.Contains("rpr"))
+            else if (lower.Contains("repair") || lower.Contains("rpr") || Regex.IsMatch(lower, @"\brep\b"))
                 data.OperationType = "Repair";
-            else if (lower.Contains("r&i") || lower.Contains("r+i") || lower.Contains("remove"))
+            else if (lower.Contains("r&i") || lower.Contains("r+i") || lower.Contains("r/i")
+                || lower.Contains("remove and install") || lower.Contains("remove/install")
+                || lower.Contains("remove & install") || lower.Contains("remove / install"))
                 data.OperationType = "R&I";
-            else if (lower.Contains("refinish") || lower.Contains("rfn") || lower.Contains("paint"))
+            else if (lower.Contains("refinish") || lower.Contains("rfn") || lower.Contains("refn")
+                || Regex.IsMatch(lower, @"\bpaint\b"))
                 data.OperationType = "Refinish";
-            else if (lower.Contains("blend"))
+            else if (lower.Contains("blend") || lower.Contains("blnd") || lower.Contains("blending"))
                 data.OperationType = "Blend";
             else if (lower.Contains("o/h") || lower.Contains("overhaul"))
                 data.OperationType = "Overhaul";
+            else if (lower.Contains("sublet") || lower.Contains("subl"))
+                data.OperationType = "Sublet";
+            else if (lower.Contains("align") || lower.Contains("algn"))
+                data.OperationType = "Align";
+            else if (Regex.IsMatch(lower, @"\badd\b") || lower.Contains("additional operation"))
+                data.OperationType = "Add";
 
             // Extract part name
             data.PartName = ExtractPartName(line);
 
             // Extract position (front/rear/left/right)
-            if (lower.Contains("front") || lower.Contains("frt"))
+            if (lower.Contains("front") || Regex.IsMatch(lower, @"\bfrt\b") || Regex.IsMatch(lower, @"\bfr\b"))
                 data.Position = "Front";
-            else if (lower.Contains("rear") || lower.Contains("rr"))
+            else if (lower.Contains("rear") || Regex.IsMatch(lower, @"\brr\b"))
                 data.Position = "Rear";
 
-            if (lower.Contains("left") || lower.Contains("lh") || lower.Contains("driver"))
+            if (lower.Contains("left") || Regex.IsMatch(lower, @"\blh\b") || Regex.IsMatch(lower, @"\bl/h\b")
+                || Regex.IsMatch(lower, @"\blt\b") || lower.Contains("driver"))
                 data.Side = "Left";
-            else if (lower.Contains("right") || lower.Contains("rh") || lower.Contains("passenger"))
+            else if (lower.Contains("right") || Regex.IsMatch(lower, @"\brh\b") || Regex.IsMatch(lower, @"\br/h\b")
+                || Regex.IsMatch(lower, @"\brt\b") || lower.Contains("passenger"))
                 data.Side = "Right";
 
             // Extract hours
@@ -2675,26 +2798,38 @@ namespace McStudDesktop.Services
         private string NormalizePartName(string partName)
         {
             if (string.IsNullOrEmpty(partName)) return "";
-            return partName.ToLowerInvariant()
-                .Replace(" ", "_")
-                .Replace("-", "_")
-                .Replace("cover", "")
-                .Replace("panel", "")
-                .Trim('_');
+            var normalized = partName.ToLowerInvariant();
+
+            // Apply the same canonical normalizations used everywhere
+            foreach (var kvp in _normalizations)
+            {
+                var pattern = $@"\b{Regex.Escape(kvp.Key)}\b";
+                normalized = Regex.Replace(normalized, pattern, kvp.Value, RegexOptions.IgnoreCase);
+            }
+
+            return Regex.Replace(normalized, @"[\s\-]+", "_").Trim('_');
         }
 
         private string NormalizeOperationType(string opType)
         {
             if (string.IsNullOrEmpty(opType)) return "";
             var lower = opType.ToLowerInvariant().Trim();
-            if (lower == "blend" || lower == "blnd") return "blend";
-            if (lower.Contains("repl")) return "replace";
+
+            // Core operation types
+            if (lower == "blend" || lower == "blnd" || lower == "blending") return "blend";
+            if (lower.Contains("repl") || lower == "new" || lower == "r/r" || lower == "rpl") return "replace";
             if (lower.Contains("rpr") || lower.Contains("repair")) return "repair";
-            if (lower.Contains("refn") || lower.Contains("refinish")) return "refinish";
+            if (lower.Contains("refn") || lower.Contains("refinish") || lower == "paint") return "refinish";
             if (lower.Contains("algn") || lower.Contains("align")) return "align";
-            if (lower == "r&i" || lower == "r/i" || lower == "r+i" || lower == "ri") return "ri";
+            if (lower == "r&i" || lower == "r/i" || lower == "r+i" || lower == "ri"
+                || lower == "remove_install" || lower == "remove & install"
+                || lower == "remove and install" || lower == "remove/install") return "ri";
             if (lower.Contains("subl") || lower.Contains("sublet")) return "sublet";
             if (lower.Contains("o/h") || lower.Contains("overhaul")) return "overhaul";
+            if (lower == "add" || lower == "additional operation") return "add";
+            if (lower == "cost" || lower == "additional cost") return "cost";
+            if (lower.Contains("check") && lower.Contains("adjust")) return "adjust";
+
             return lower.Replace(" ", "_");
         }
 
@@ -3171,14 +3306,7 @@ namespace McStudDesktop.Services
         /// </summary>
         private string NormalizePartNameForMatch(string partName)
         {
-            var normalized = partName.ToLowerInvariant()
-                .Replace("front ", "frt ")
-                .Replace("rear ", "rr ")
-                .Replace("left ", "lh ")
-                .Replace("right ", "rh ")
-                .Replace("  ", " ")
-                .Trim();
-            return normalized;
+            return NormalizePartName(partName);
         }
 
         /// <summary>

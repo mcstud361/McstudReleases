@@ -1295,12 +1295,12 @@ namespace McStudDesktop.Views
 
             if (!isConfirmed)
             {
-                // "Add to CCC" button
+                // Export button
                 var addBtn = new Button
                 {
                     Content = new TextBlock
                     {
-                        Text = "+ CCC",
+                        Text = "Export",
                         FontSize = 9,
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                     },
@@ -1314,8 +1314,8 @@ namespace McStudDesktop.Views
                 var suggestionForAdd = suggestion;
                 addBtn.Click += (s, e) =>
                 {
-                    AddSuggestionToCCC(suggestionForAdd);
-                    ((TextBlock)addBtn.Content).Text = "\u2713 Added";
+                    ExportSuggestion(suggestionForAdd);
+                    ((TextBlock)addBtn.Content).Text = "\u2713 Exported";
                     addBtn.IsEnabled = false;
                 };
                 rightStack.Children.Add(addBtn);
@@ -1347,9 +1347,9 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
-        /// Adds a coaching suggestion to the virtual clipboard and navigates to the Export tab.
+        /// Exports a coaching suggestion to the virtual clipboard and navigates to the Export tab.
         /// </summary>
-        private void AddSuggestionToCCC(McstudDesktop.Models.CoachingSuggestion suggestion)
+        private void ExportSuggestion(McstudDesktop.Models.CoachingSuggestion suggestion)
         {
             var op = MapSuggestionToVirtualClipboardOp(suggestion);
             VirtualClipboardService.Instance.AddOperation(op, "Live Coach");

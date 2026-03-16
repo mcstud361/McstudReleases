@@ -179,6 +179,17 @@ namespace McstudDesktop.Services
         // Bare decimal pattern for hours detection (0.1–50, not preceded by $)
         private static readonly Regex _bareDecimalPattern = new(@"(?<!\$)\b(\d{1,2}\.\d{1,2})\b", RegexOptions.Compiled);
 
+        // CCC ONE toolbar / UI chrome strings — any OCR line containing one of these is skipped
+        private static readonly HashSet<string> _cccUiChrome = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "WORKFILE", "Save Filter", "Frame Save and Print", "Advisor", "ECIT",
+            "Estimate Properties", "Rates and Rules", "Delete Estimate",
+            "Repairable Total Loss", "threshold", "Preliminary Estimate",
+            "Lines MOTOR", "Other Charg", "Ext. Price", "Part Cod",
+            "Search for Parts", "Checkout", "Ins ur ance", "Es tin",
+            "Rental Estim", "Attachments", "Ev ents", "Fo rms"
+        };
+
         // CCC section headers — lines matching these are skipped during operation parsing
         private static readonly HashSet<string> _cccSectionHeaders = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -234,54 +245,294 @@ namespace McstudDesktop.Services
         // Avoid single generic words that cause false positives.
         private static readonly (string Pattern, string CanonicalName)[] _knownParts = new[]
         {
-            // Bumper — specific before generic
-            ("front bumper", "front bumper cover"), ("rear bumper", "rear bumper cover"),
-            ("bumper reinforcement", "bumper reinforcement"), ("bumper absorber", "bumper absorber"),
+            // ── Bumper (specific before generic) ──
+            ("front bumper cover", "front bumper cover"), ("front bumper", "front bumper cover"),
+            ("frt bmpr cvr", "front bumper cover"), ("frt bumper", "front bumper cover"),
+            ("rear bumper cover", "rear bumper cover"), ("rear bumper", "rear bumper cover"),
+            ("rr bmpr cvr", "rear bumper cover"), ("rr bumper", "rear bumper cover"),
+            ("bumper reinforcement", "bumper reinforcement"), ("bumper rebar", "bumper reinforcement"),
+            ("bumper reinf", "bumper reinforcement"),
+            ("bumper absorber", "bumper absorber"), ("energy absorber", "bumper absorber"),
             ("bumper cover", "bumper cover"), ("bumper fascia", "bumper cover"),
-            ("energy absorber", "bumper absorber"),
-            // Fender — liner before fender
+            ("bmpr cvr", "bumper cover"),
+
+            // ── Fender (liner before fender) ──
             ("fender liner", "fender liner"), ("inner fender", "fender liner"),
-            ("front fender", "fender"), ("fender", "fender"),
-            // Hood
+            ("fndr liner", "fender liner"),
+            ("front fender", "fender"), ("frt fndr", "fender"), ("fender", "fender"),
+
+            // ── Hood ──
             ("hood panel", "hood"), ("hood", "hood"),
-            // Doors — specific before generic
-            ("front door", "front door"), ("rear door", "rear door"),
+
+            // ── Doors (specific before generic) ──
+            ("front door", "front door"), ("frt door", "front door"),
+            ("rear door", "rear door"),
             ("door shell", "door"), ("door skin", "door"),
-            ("door handle", "door handle"), ("door trim", "door trim panel"),
-            // Panels
-            ("quarter panel", "quarter panel"), ("qtr panel", "quarter panel"), ("quarter", "quarter panel"),
-            ("rocker panel", "rocker panel"),
-            ("roof panel", "roof"),
-            // Trunk / liftgate
-            ("trunk lid", "trunk lid"), ("decklid", "trunk lid"),
-            ("liftgate", "liftgate"), ("tailgate", "tailgate"),
-            // Lights — multi-word only
+            ("door handle", "door handle"), ("door hndl", "door handle"),
+            ("door trim panel", "door trim panel"), ("door trim", "door trim panel"),
+
+            // ── Panels ──
+            ("quarter panel", "quarter panel"), ("qtr panel", "quarter panel"),
+            ("q/p", "quarter panel"), ("quarter", "quarter panel"),
+            ("rocker panel", "rocker panel"), ("rckr panel", "rocker panel"),
+            ("roof panel", "roof"), ("roof", "roof"),
+
+            // ── Trunk / liftgate ──
+            ("trunk lid", "trunk lid"), ("decklid", "trunk lid"), ("deck lid", "trunk lid"),
+            ("dklid", "trunk lid"),
+            ("liftgate", "liftgate"), ("lift gate", "liftgate"),
+            ("tailgate", "tailgate"), ("tail gate", "tailgate"),
+
+            // ── Lights ──
             ("headlamp", "headlight"), ("headlight", "headlight"), ("head lamp", "headlight"),
+            ("head light", "headlight"), ("hdlmp", "headlight"), ("hdlt", "headlight"),
             ("tail lamp", "tail light"), ("taillight", "tail light"), ("tail light", "tail light"),
+            ("tllmp", "tail light"),
             ("fog lamp", "fog light"), ("fog light", "fog light"),
-            // Front end
-            ("grille", "grille"),
+            ("turn signal", "turn signal"), ("marker lamp", "marker lamp"),
+
+            // ── Front end ──
+            ("grille", "grille"), ("grill", "grille"),
             ("radiator support", "radiator support"), ("rad support", "radiator support"),
-            // Glass
-            ("windshield", "windshield"), ("back glass", "rear glass"),
-            // Exterior
+            ("radtr support", "radiator support"),
+
+            // ── Glass ──
+            ("windshield", "windshield"), ("wndshld", "windshield"), ("w/s", "windshield"),
+            ("back glass", "rear glass"), ("rear glass", "rear glass"),
+            ("side glass", "side glass"), ("door glass", "door glass"),
+            ("prime glass", "prime glass"),
+
+            // ── Exterior ──
             ("side mirror", "mirror"), ("outside mirror", "mirror"),
+            ("door mirror", "mirror"), ("mirr", "mirror"),
             ("parking sensor", "parking sensor"), ("park sensor", "parking sensor"),
-            ("backup camera", "backup camera"),
+            ("backup camera", "backup camera"), ("rear camera", "backup camera"),
+            ("rearview camera", "backup camera"),
             ("splash shield", "splash shield"), ("wheel opening", "wheel opening molding"),
-            ("molding", "molding"), ("moulding", "molding"),
+            ("molding", "molding"), ("moulding", "molding"), ("mldg", "molding"),
+            ("emblem", "emblem"), ("badge", "emblem"), ("nameplate", "emblem"),
             ("spoiler", "spoiler"), ("valance", "valance"),
-            // Pillars
-            ("a pillar", "a-pillar"), ("b pillar", "b-pillar"), ("c pillar", "c-pillar"),
-            // Truck
+
+            // ── Pillars ──
+            ("a pillar", "a-pillar"), ("a-pillar", "a-pillar"),
+            ("b pillar", "b-pillar"), ("b-pillar", "b-pillar"),
+            ("c pillar", "c-pillar"), ("c-pillar", "c-pillar"),
+
+            // ── Truck ──
             ("running board", "running board"), ("step bar", "running board"),
             ("bed side", "bed side"), ("truck bed", "truck bed"),
-            // Mechanical — multi-word only
+
+            // ── Restraints ──
+            ("air bag", "air bag"), ("airbag", "air bag"),
+            ("seat belt", "seat belt"), ("seatbelt", "seat belt"),
+            ("pretensioner", "seat belt pretensioner"),
+
+            // ── Interior ──
+            ("instrument panel", "instrument panel"), ("dash panel", "instrument panel"),
+            ("dashboard", "instrument panel"), ("dash pad", "instrument panel"),
+
+            // ── Diagnostics — scans ──
+            ("diagnostic scan", "diagnostic scan"),
+            ("pre-repair scan", "pre-repair scan"), ("pre repair scan", "pre-repair scan"),
+            ("pre-scan", "pre-repair scan"), ("pre scan", "pre-repair scan"), ("prescan", "pre-repair scan"),
+            ("post-repair scan", "post-repair scan"), ("post repair scan", "post-repair scan"),
+            ("post-scan", "post-repair scan"), ("post scan", "post-repair scan"), ("postscan", "post-repair scan"),
+            ("in-process scan", "in-process scan"), ("in process scan", "in-process scan"),
+            ("mid-repair scan", "in-process scan"),
+
+            // ── Diagnostics — calibration & modules ──
+            ("adas calibration", "adas calibration"), ("camera calibration", "adas calibration"),
+            ("radar calibration", "adas calibration"), ("sensor calibration", "adas calibration"),
+            ("static calibration", "adas calibration"), ("dynamic calibration", "adas calibration"),
+            ("target setup", "adas calibration"),
+            ("adas diagnostic", "adas diagnostic report"), ("adas report", "adas diagnostic report"),
+            ("module programming", "module programming"), ("reprogram", "module programming"),
+            ("initialization", "module programming"), ("initialize", "module programming"),
+            ("relearn", "module programming"), ("idle relearn", "module programming"),
+            ("module setup", "module programming"), ("flash module", "module programming"),
+            ("gateway unlock", "gateway unlock"), ("security gateway", "gateway unlock"),
+            ("drive cycle", "drive cycle"), ("test drive", "drive cycle"), ("road test", "drive cycle"),
+            ("dynamic systems verification", "dynamic systems verification"),
+            ("dynamic systems", "dynamic systems verification"),
+            ("systems verification", "dynamic systems verification"),
+            ("setup scan tool", "setup scan tool"), ("scan tool setup", "setup scan tool"),
+            ("steering angle reset", "steering angle reset"),
+            ("aim headlamp", "aim headlamps"), ("aim headlamps", "aim headlamps"),
+            ("headlamp aiming", "aim headlamps"),
+            ("tpms reset", "TPMS reset"), ("tpms relearn", "TPMS reset"),
+
+            // ── Battery ──
+            ("disconnect/reconnect battery", "battery disconnect/reconnect"),
+            ("disconnect battery", "battery disconnect/reconnect"),
+            ("reconnect battery", "battery disconnect/reconnect"),
+            ("d/c battery", "battery disconnect/reconnect"),
+            ("battery disconnect", "battery disconnect/reconnect"),
+            ("battery reconnect", "battery disconnect/reconnect"),
+            ("battery initialize", "battery disconnect/reconnect"),
+            ("battery init", "battery disconnect/reconnect"),
+            ("test battery", "test battery condition"),
+            ("battery condition", "test battery condition"),
+            ("battery test", "test battery condition"),
+            ("memory saver", "memory saver"), ("ks-100", "memory saver"),
+            ("keep alive", "memory saver"), ("keep-alive", "memory saver"),
+            ("battery support", "memory saver"),
+
+            // ── Surface prep & paint materials ──
+            ("adhesion promoter", "adhesion promoter"), ("ad pro", "adhesion promoter"),
+            ("adpro", "adhesion promoter"),
+            ("flex additive", "flex additive"), ("flex add", "flex additive"),
+            ("flex agent", "flex additive"),
+            ("plastic prep", "adhesion promoter"),
+            ("primer surfacer", "primer surfacer"), ("primer sealer", "primer surfacer"),
+            ("color tint", "color tint"), ("color match", "color tint"), ("tinting", "color tint"),
+            ("spray card", "color tint"), ("let down panel", "color tint"),
+            ("color verify", "color tint"),
+            ("clear coat", "clear coat"), ("clearcoat", "clear coat"),
+            ("basecoat", "basecoat"), ("base coat", "basecoat"),
+            ("single stage", "single stage"),
+            ("tri-coat", "tri-coat"), ("tricoat", "tri-coat"), ("three stage", "tri-coat"),
+            ("seam sealer", "seam sealer"), ("seam seal", "seam sealer"),
+            ("weld-thru primer", "weld-thru primer"), ("weld thru primer", "weld-thru primer"),
+            ("weld through primer", "weld-thru primer"), ("welding primer", "weld-thru primer"),
+            ("weld thru", "weld-thru primer"),
+            ("e-coat", "e-coat"), ("ecoat", "e-coat"),
+            ("corrosion protection", "corrosion protection"), ("cavity wax", "corrosion protection"),
+            ("rust protection", "corrosion protection"), ("anti-corrosion", "corrosion protection"),
+            ("rust preventative", "corrosion protection"), ("undercoating", "corrosion protection"),
+            ("undercoat", "corrosion protection"),
+            ("sound deadener", "sound deadener"),
+            ("chip guard", "chip guard"), ("stone guard", "chip guard"),
+            ("rubberize", "chip guard"),
+            ("bedliner", "bedliner"), ("bed liner", "bedliner"),
+
+            // ── Sanding & finishing ──
+            ("denib", "denib"), ("de-nib", "denib"), ("de nib", "denib"), ("nib sand", "denib"),
+            ("wet sand", "wet sand"), ("color sand", "wet sand"),
+            ("block sand", "block sand"), ("final sand", "block sand"),
+            ("dry sand", "block sand"),
+            ("rub-out", "cut & buff"), ("rub out", "cut & buff"),
+            ("cut and buff", "cut & buff"), ("cut & buff", "cut & buff"),
+            ("buff and polish", "cut & buff"), ("compound", "cut & buff"),
+            ("feather edge", "feather edge"),
+            ("feather prime and block", "feather prime & block"),
+            ("feather, prime & block", "feather prime & block"),
+            ("feather prime block", "feather prime & block"),
+            ("feather prime & block", "feather prime & block"),
+            ("fpb", "feather prime & block"),
+            ("spot repair", "spot repair"),
+
+            // ── Masking & protection ──
+            ("mask and protect", "mask & protect"), ("mask & protect", "mask & protect"),
+            ("masking", "mask & protect"), ("mask for", "mask & protect"),
+            ("tape for", "mask & protect"),
+            ("backtape", "back tape"), ("back tape", "back tape"),
+            ("cover car", "cover vehicle"), ("cover interior", "cover vehicle"),
+            ("cover engine", "cover vehicle"), ("cover trunk", "cover vehicle"),
+            ("bagging", "cover vehicle"),
+            ("wheel cover", "wheel/tire cover"), ("tire cover", "wheel/tire cover"),
+            ("cover wheels", "wheel/tire cover"),
+            ("plastic cover", "protective covers"),
+
+            // ── Pre-wash & degrease ──
+            ("pre wash and degrease", "pre-wash & degrease"),
+            ("pre-wash and degrease", "pre-wash & degrease"),
+            ("pre wash", "pre-wash & degrease"), ("pre-wash", "pre-wash & degrease"),
+            ("degrease", "pre-wash & degrease"), ("decontaminate", "pre-wash & degrease"),
+            ("solvent wipe", "pre-wash & degrease"), ("prep wipe", "pre-wash & degrease"),
+            ("tack cloth", "pre-wash & degrease"),
+
+            // ── Setup & handling ──
+            ("stage and secure", "stage & secure"), ("stage & secure", "stage & secure"),
+            ("trial fit", "test fit"), ("test fit", "test fit"),
+            ("dry fit", "test fit"), ("mock up", "test fit"),
+            ("transfer parts", "parts transfer"), ("swap parts", "parts transfer"),
+            ("parts transfer", "parts transfer"),
+            ("r&i for access", "R&I for access"), ("remove for access", "R&I for access"),
+            ("access time", "R&I for access"),
+            ("additional labor", "additional labor"),
+
+            // ── Welding & structural ──
+            ("plug weld", "plug weld"), ("spot weld", "spot weld"),
+            ("mig weld", "MIG weld"), ("mig braze", "MIG braze"),
+            ("resistance weld", "resistance weld"), ("squeeze type resistance", "resistance weld"),
+            ("weld prep", "weld prep"), ("grind weld", "grind weld"),
+            ("dress weld", "grind weld"), ("seam weld", "seam weld"),
+            ("structural adhesive", "structural adhesive"), ("panel bond", "structural adhesive"),
+            ("rivet", "rivet"), ("flow drill", "rivet"),
+
+            // ── Glass materials ──
+            ("urethane", "urethane"), ("butyl tape", "butyl tape"),
+            ("dam tape", "dam tape"),
+            ("molding tape", "molding tape"), ("emblem tape", "molding tape"),
+            ("badge tape", "molding tape"), ("retape", "molding tape"),
+
+            // ── Alignment ──
+            ("4-wheel alignment", "4-wheel alignment"), ("4 wheel alignment", "4-wheel alignment"),
+            ("four wheel alignment", "4-wheel alignment"), ("wheel alignment", "4-wheel alignment"),
+            ("alignment check", "4-wheel alignment"), ("alignment", "4-wheel alignment"),
+
+            // ── Shop operations — cleanup ──
+            ("clean for delivery", "clean for delivery"), ("final clean", "clean for delivery"),
+            ("detail clean", "clean for delivery"), ("detail vehicle", "clean for delivery"),
+            ("vehicle cleanup", "clean for delivery"), ("final wash", "clean for delivery"),
+            ("final detail", "clean for delivery"), ("interior clean", "clean for delivery"),
+            ("exterior wash", "clean for delivery"), ("wash vehicle", "clean for delivery"),
+            ("clean area", "clean for delivery"),
+
+            // ── Shop operations — waste & disposal ──
+            ("hazardous waste", "hazardous waste"), ("haz waste", "hazardous waste"),
+            ("hazmat", "hazardous waste"), ("waste disposal", "hazardous waste"),
+            ("environmental fee", "hazardous waste"),
+            ("parts disposal", "parts disposal"), ("disposal fee", "parts disposal"),
+            ("shop supplies", "shop supplies"),
+
+            // ── Shop operations — misc ──
+            ("collision wrap", "collision wrap"), ("crash wrap", "collision wrap"),
+            ("oem research", "OEM research"), ("oem procedure", "OEM research"),
+            ("oem repair procedure", "OEM research"), ("repair procedure", "OEM research"),
+            ("oem position", "OEM research"), ("oem position statement", "OEM research"),
+            ("misc hardware", "misc hardware"), ("miscellaneous hardware", "misc hardware"),
+            ("misc. hardware", "misc hardware"),
+            ("seat cover", "protective covers"), ("floor mat cover", "protective covers"),
+            ("steering wheel cover", "protective covers"), ("protective cover", "protective covers"),
+            ("glass cleaner", "glass cleaner"),
+
+            // ── Mechanical ──
+            ("tpms sensor", "TPMS sensor"), ("tpms", "TPMS sensor"),
+            ("exhaust assembly", "exhaust assembly"), ("exhaust assy", "exhaust assembly"),
+            ("catalytic converter", "catalytic converter"), ("c/cnvrtr", "catalytic converter"),
+            ("muffler", "muffler"), ("resonator", "resonator"),
             ("radiator", "radiator"), ("condenser", "condenser"),
+            ("a/c compressor", "A/C compressor"), ("ac compressor", "A/C compressor"),
+            ("evaporator", "evaporator"),
             ("control arm", "control arm"),
-            // Diagnostics — multi-word only
-            ("adas calibration", "adas calibration"), ("diagnostic scan", "diagnostic scan"),
-            ("pre scan", "diagnostic scan"), ("post scan", "diagnostic scan")
+
+            // ── Hybrid / EV ──
+            ("high voltage system", "high voltage system"),
+            ("high voltage", "high voltage system"), ("hv system", "high voltage system"),
+            ("ev safe", "high voltage system"), ("hybrid safe", "high voltage system"),
+            ("hybrid system", "hybrid system"), ("hybrid", "hybrid system"),
+            ("mobile cart", "mobile cart"), ("ev battery", "EV battery"),
+
+            // ── Suspension ──
+            ("strut", "strut"), ("strut assembly", "strut"),
+            ("shock absorber", "shock absorber"), ("shock assy", "shock absorber"),
+            ("wheel bearing", "wheel bearing"), ("hub assembly", "hub assembly"),
+            ("hub assy", "hub assembly"),
+            ("tie rod", "tie rod"), ("tie rod end", "tie rod"),
+            ("ball joint", "ball joint"),
+
+            // ── Brakes ──
+            ("brake rotor", "brake rotor"), ("brake disc", "brake rotor"),
+            ("brake pad", "brake pad"), ("brake shoe", "brake pad"),
+            ("brake caliper", "brake caliper"),
+
+            // ── Other ──
+            ("door latch", "door latch"), ("window regulator", "window regulator"),
+            ("window motor", "window regulator"),
+            ("wiper motor", "wiper motor"), ("wiper arm", "wiper arm"),
+            ("antenna", "antenna"), ("antenna mast", "antenna"),
+            ("connecting support", "connecting support")
         };
 
         /// <summary>
@@ -297,6 +548,10 @@ namespace McstudDesktop.Services
             {
                 var text = line.Text.Trim();
                 if (string.IsNullOrWhiteSpace(text) || text.Length < 5)
+                    continue;
+
+                // Skip CCC UI chrome / toolbar text
+                if (_cccUiChrome.Any(chrome => text.Contains(chrome, StringComparison.OrdinalIgnoreCase)))
                     continue;
 
                 // Skip lines that are purely section headers (no operation codes or numerics mixed in).
@@ -315,12 +570,29 @@ namespace McstudDesktop.Services
                 };
 
                 if (operation != null)
+                {
+                    // A2: Validate Pass 1 output — reject garbage fragments
+                    var desc = CleanPartName(operation.Description);
+                    // Empty description with only a price → garbage
+                    if (string.IsNullOrWhiteSpace(desc) && operation.Price > 0 && string.IsNullOrEmpty(operation.OperationType))
+                        continue;
+                    // Description too short (<3 chars) → garbage
+                    if (desc.Length > 0 && desc.Length < 3)
+                        continue;
+                    // Contains UI text that slipped through
+                    if (desc.Contains("threshold", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("preliminary estimate", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    // Single short word (<4 chars) that isn't a known part → garbage (e.g., "able")
+                    if (!desc.Contains(' ') && desc.Length < 4 &&
+                        !_knownParts.Any(kp => kp.CanonicalName.Equals(desc, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+
                     operations.Add(operation);
+                }
             }
 
-            // Pass 2: If structured parsing found very little, do fuzzy part-name scan
-            // This catches CCC ONE web UI, browser-rendered estimates, etc.
-            if (operations.Count < 3)
+            // Pass 2: Always run fuzzy part-name scan and merge with Pass 1 (dedup by canonical name)
             {
                 // Filter out section header / diagram label lines before joining — these cause
                 // false positives when CCC ONE's vehicle diagram labels (Hood, Fender, etc.) are in view.
@@ -331,6 +603,7 @@ namespace McstudDesktop.Services
                 });
                 var fullText = string.Join(" ", filteredLines.Select(l => l.Text)).ToLowerInvariant();
                 var foundParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                // Dedup against Pass 1 results by canonical name
                 var existingParts = new HashSet<string>(
                     operations.Select(o => o.PartName?.ToLower() ?? ""),
                     StringComparer.OrdinalIgnoreCase);
@@ -352,38 +625,57 @@ namespace McstudDesktop.Services
 
                     foundParts.Add(canonical);
                     matchedPatterns.Add(pattern);
+
+                    // Try to detect operation type from nearby context
+                    var opType = "";
                     {
-                        // Try to detect operation type from nearby context
-                        var opType = "";
-                        if (patternIdx >= 0)
-                        {
-                            // Look at ~60 chars around the mention for operation clues
-                            var start = Math.Max(0, patternIdx - 30);
-                            var end = Math.Min(fullText.Length, patternIdx + pattern.Length + 30);
-                            var context = fullText.Substring(start, end - start);
+                        var start = Math.Max(0, patternIdx - 30);
+                        var end = Math.Min(fullText.Length, patternIdx + pattern.Length + 30);
+                        var context = fullText.Substring(start, end - start);
 
-                            if (context.Contains("repl") || context.Contains("new") || context.Contains("r/r"))
-                                opType = "Replace";
-                            else if (context.Contains("r&i") || context.Contains("r+i") || context.Contains("remove"))
-                                opType = "R&I";
-                            else if (context.Contains("rpr") || context.Contains("repair"))
-                                opType = "Repair";
-                            else if (context.Contains("refn") || context.Contains("refinish") || context.Contains("paint"))
-                                opType = "Refinish";
-                            else if (context.Contains("blend") || context.Contains("blnd"))
-                                opType = "Blend";
-                        }
-
-                        operations.Add(new OcrDetectedOperation
-                        {
-                            Description = canonical,
-                            PartName = canonical,
-                            OperationType = opType,
-                            RawLine = $"[detected from screen: {canonical}]",
-                            LaborHours = 0,
-                            Price = 0
-                        });
+                        if (context.Contains("repl") || context.Contains("new") || context.Contains("r/r"))
+                            opType = "Replace";
+                        else if (context.Contains("r&i") || context.Contains("r+i") || context.Contains("remove"))
+                            opType = "R&I";
+                        else if (context.Contains("rpr") || context.Contains("repair"))
+                            opType = "Repair";
+                        else if (context.Contains("refn") || context.Contains("refinish") || context.Contains("paint"))
+                            opType = "Refinish";
+                        else if (context.Contains("blend") || context.Contains("blnd"))
+                            opType = "Blend";
                     }
+
+                    // A4: Extract nearby price and labor hours from ~80 chars after the mention
+                    decimal nearbyPrice = 0;
+                    decimal nearbyHours = 0;
+                    {
+                        var scanStart = patternIdx;
+                        var scanEnd = Math.Min(fullText.Length, patternIdx + pattern.Length + 80);
+                        var nearby = fullText.Substring(scanStart, scanEnd - scanStart);
+                        // Price: $xxx.xx or xxx.xx preceded by $ context
+                        var priceMatch = _pricePattern.Match(nearby);
+                        if (priceMatch.Success && decimal.TryParse(priceMatch.Groups[1].Value.Replace(",", ""), out var pv))
+                            nearbyPrice = pv;
+                        // Hours: bare decimal 0.1–50
+                        foreach (Match hm in _bareDecimalPattern.Matches(nearby))
+                        {
+                            if (decimal.TryParse(hm.Groups[1].Value, out var hv) && hv >= 0.1m && hv <= 50m && hv != nearbyPrice)
+                            {
+                                nearbyHours = hv;
+                                break;
+                            }
+                        }
+                    }
+
+                    operations.Add(new OcrDetectedOperation
+                    {
+                        Description = canonical,
+                        PartName = canonical,
+                        OperationType = opType,
+                        RawLine = $"[detected from screen: {canonical}]",
+                        LaborHours = nearbyHours,
+                        Price = nearbyPrice
+                    });
                 }
 
                 if (foundParts.Count > 0)

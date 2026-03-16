@@ -36,11 +36,9 @@ namespace McStudDesktop.Views
         private TextBlock? _statusText;
         private Button? _uploadButton;
         private Button? _learnButton;
-        private Button? _clearDataButton;
         private Button? _buildLinesButton;
         private Button? _publishButton;
         private Button? _exportBaselineButton;
-        private Button? _cleanupButton;
         private TextBox? _pasteArea;
         private ListView? _parsedItemsList;
         private ProgressRing? _progressRing;
@@ -133,12 +131,6 @@ namespace McStudDesktop.Views
                     _learnButton.Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60));
                     ToolTipService.SetToolTip(_learnButton, "Client licenses cannot train the learning system. Contact admin for shop license.");
                 }
-            }
-
-            // Show/hide clear data button (only for trainers)
-            if (_clearDataButton != null)
-            {
-                _clearDataButton.Visibility = canTrain ? Visibility.Visible : Visibility.Collapsed;
             }
 
             // Show/hide publish button (only for trainers)
@@ -713,37 +705,6 @@ namespace McStudDesktop.Views
             };
             mainStack.Children.Add(_statusText);
 
-            // === FOOTER: Clear Data ===
-            var footerStack = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 12,
-                Margin = new Thickness(0, 16, 0, 0)
-            };
-
-            _clearDataButton = new Button
-            {
-                Content = "Clear All Learned Data",
-                Background = new SolidColorBrush(Color.FromArgb(255, 80, 40, 40)),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 150, 150)),
-                Padding = new Thickness(12, 6, 12, 6),
-                FontSize = 11
-            };
-            _clearDataButton.Click += ClearDataButton_Click;
-            footerStack.Children.Add(_clearDataButton);
-
-            _cleanupButton = new Button
-            {
-                Content = "Clean & Rebuild Database",
-                Background = new SolidColorBrush(Color.FromArgb(255, 40, 60, 80)),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 180, 220)),
-                Padding = new Thickness(12, 6, 12, 6),
-                FontSize = 11
-            };
-            _cleanupButton.Click += CleanupButton_Click;
-            footerStack.Children.Add(_cleanupButton);
-
-            mainStack.Children.Add(footerStack);
 
             // === HELP TEXT ===
             var helpBorder = new Border
@@ -1768,94 +1729,6 @@ namespace McStudDesktop.Views
                 : Visibility.Collapsed;
         }
 
-        private async void ClearDataButton_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = "Clear All Learned Data?",
-                Content = "This will delete all learned patterns. You'll need to re-import estimates to train the system again.",
-                PrimaryButtonText = "Clear All",
-                CloseButtonText = "Cancel",
-                XamlRoot = this.XamlRoot,
-                DefaultButton = ContentDialogButton.Close
-            };
-
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
-            {
-                _learningService.ClearAllData();
-                UpdateStats();
-                ShowStatus("All learned data cleared.");
-            }
-        }
-
-        private async void CleanupButton_Click(object sender, RoutedEventArgs e)
-        {
-            var confirmDialog = new ContentDialog
-            {
-                Title = "Clean & Rebuild Database?",
-                Content = "This will:\n" +
-                    "- Remove junk lines (shop info, boilerplate, addresses)\n" +
-                    "- Keep only real operation data (parts, hours, prices)\n" +
-                    "- Rebuild patterns with accurate averages\n" +
-                    "- Populate estimate history from imported batches\n\n" +
-                    "A backup will be created before changes are made.",
-                PrimaryButtonText = "Clean & Rebuild",
-                CloseButtonText = "Cancel",
-                XamlRoot = this.XamlRoot,
-                DefaultButton = ContentDialogButton.Close
-            };
-
-            var confirmResult = await confirmDialog.ShowAsync();
-            if (confirmResult != ContentDialogResult.Primary)
-                return;
-
-            _cleanupButton!.IsEnabled = false;
-            ShowStatus("Cleaning database...");
-
-            DatabaseCleanupService.CleanupResult? cleanupResult = null;
-            Exception? error = null;
-
-            await Task.Run(() =>
-            {
-                try
-                {
-                    var service = new DatabaseCleanupService();
-                    cleanupResult = service.CleanupAndRebuild();
-                }
-                catch (Exception ex)
-                {
-                    error = ex;
-                }
-            });
-
-            _cleanupButton.IsEnabled = true;
-
-            if (error != null)
-            {
-                ShowStatus($"Cleanup failed: {error.Message}", isError: true);
-                return;
-            }
-
-            UpdateStats();
-
-            var resultDialog = new ContentDialog
-            {
-                Title = "Database Cleanup Complete",
-                Content = $"Total examples processed: {cleanupResult!.TotalExamples}\n" +
-                    $"Operation examples kept: {cleanupResult.OperationExamplesKept}\n" +
-                    $"Metadata lines found: {cleanupResult.MetadataLinesFound}\n" +
-                    $"Junk lines removed: {cleanupResult.JunkLinesRemoved}\n" +
-                    $"Patterns rebuilt: {cleanupResult.PatternsRebuilt}\n" +
-                    $"Batches found: {cleanupResult.BatchesFound}\n" +
-                    $"History entries created: {cleanupResult.HistoryEntriesCreated}",
-                CloseButtonText = "OK",
-                XamlRoot = this.XamlRoot
-            };
-            await resultDialog.ShowAsync();
-
-            ShowStatus($"Cleanup done: {cleanupResult.OperationExamplesKept} kept, {cleanupResult.JunkLinesRemoved} junk removed.");
-        }
 
         private async void PublishButton_Click(object sender, RoutedEventArgs e)
         {

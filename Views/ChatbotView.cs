@@ -3021,8 +3021,19 @@ public class ChatbotView : UserControl
                           "  • Paint weathering/fading\n" +
                           "  • Slight formula variations\n" +
                           "  • Application differences\n\n" +
-                          "WHEN: Refinishing any panel, adjacent panels typically need blend.\n\n" +
-                          "EXAMPLE: Hood refinish → blend both fenders\n\n" +
+                          "📐 IP DEFAULT FORMULA:\n" +
+                          "  • Two-stage: 50% of full refinish time\n" +
+                          "  • Three-stage (tri-coat): 70% of full refinish time (CCC)\n" +
+                          "  Example: 3.0 hr full refinish → 1.5 hr blend (two-stage)\n\n" +
+                          "⚠️ SCRS BLEND STUDY (2022):\n" +
+                          "  SCRS found blend actually takes 31.59% MORE time than full\n" +
+                          "  refinish on average — the opposite of the 50% formula.\n" +
+                          "  \"Performing the processes necessary to blend a panel does not\n" +
+                          "  take less labor than the processes to fully refinish a panel.\"\n\n" +
+                          "📋 UPDATED IP GUIDANCE:\n" +
+                          "  • CCC: Added \"Edit Blend Rules\" — estimator can set custom value\n" +
+                          "  • Audatex: Removed 50% formula, allows 50–150%, defers to estimator judgment\n" +
+                          "  • Mitchell: Default still 50%, added profile flexibility (Jan 2024)\n\n" +
                           "TIP: Ask me \"Blend for [panel name]\" to see adjacent panels!";
                 break;
 
@@ -3032,10 +3043,14 @@ public class ChatbotView : UserControl
                           "  1. Basecoat (color)\n" +
                           "  2. Mid-coat (pearl/mica)\n" +
                           "  3. Clearcoat\n\n" +
-                          "LABOR: Add 50% to refinish time!\n" +
-                          "  Example: 3.0 hr refinish → 4.5 hr for tri-coat\n\n" +
+                          "LABOR:\n" +
+                          "  • CCC/MOTOR G41: Add 20–30% to refinish time for the extra coat\n" +
+                          "  • CCC blend button: Calculates 3-stage blend at 70% of full refinish\n" +
+                          "    (vs 50% for two-stage blend)\n" +
+                          "  Example: 3.0 hr refinish → 3.6–3.9 hr for tri-coat (at 20–30%)\n\n" +
                           "COMMON: White Pearl, certain reds, some metallics\n\n" +
-                          "TIP: Check paint code - if it mentions 'pearl', 'tri', or 'mica', it's likely 3-stage.";
+                          "TIP: Check paint code — if it mentions 'pearl', 'tri', or 'mica', it's likely 3-stage.\n" +
+                          "TIP: Some shops add more than 30% due to mid-coat complexity — use estimator judgment.";
                 break;
 
             case "not included":

@@ -44,6 +44,7 @@ namespace McStudDesktop.Views
         private Border? _byPartTab;
         private Border? _byOpTab;
         private Border? _recentTab;
+        private Border? _historyTab;
         private int _selectedCategory = 0;
 
         // Quick filter chips
@@ -414,13 +415,14 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(4), BorderBrush = new SolidColorBrush(BorderSubtle), BorderThickness = new Thickness(1)
             };
             var tabsGrid = new Grid { ColumnSpacing = 4 };
-            for (int i = 0; i < 4; i++) tabsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            for (int i = 0; i < 5; i++) tabsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             _allTab = CreateCategoryTab("All", 0, true);
             _byPartTab = CreateCategoryTab("By Part", 1, false);
             _byOpTab = CreateCategoryTab("By Op", 2, false);
             _recentTab = CreateCategoryTab("Top Used", 3, false);
-            Grid.SetColumn(_allTab, 0); Grid.SetColumn(_byPartTab, 1); Grid.SetColumn(_byOpTab, 2); Grid.SetColumn(_recentTab, 3);
-            tabsGrid.Children.Add(_allTab); tabsGrid.Children.Add(_byPartTab); tabsGrid.Children.Add(_byOpTab); tabsGrid.Children.Add(_recentTab);
+            _historyTab = CreateCategoryTab("History", 4, false);
+            Grid.SetColumn(_allTab, 0); Grid.SetColumn(_byPartTab, 1); Grid.SetColumn(_byOpTab, 2); Grid.SetColumn(_recentTab, 3); Grid.SetColumn(_historyTab, 4);
+            tabsGrid.Children.Add(_allTab); tabsGrid.Children.Add(_byPartTab); tabsGrid.Children.Add(_byOpTab); tabsGrid.Children.Add(_recentTab); tabsGrid.Children.Add(_historyTab);
             tabsOuter.Child = tabsGrid;
             outer.Children.Add(tabsOuter);
 
@@ -506,7 +508,7 @@ namespace McStudDesktop.Views
             _activeQuickFilter = null;
             HighlightActiveQuickFilter(null);
             UpdateCategoryTabStyle(_allTab, 0); UpdateCategoryTabStyle(_byPartTab, 1);
-            UpdateCategoryTabStyle(_byOpTab, 2); UpdateCategoryTabStyle(_recentTab, 3);
+            UpdateCategoryTabStyle(_byOpTab, 2); UpdateCategoryTabStyle(_recentTab, 3); UpdateCategoryTabStyle(_historyTab, 4);
             ShowCategoryContent(index);
         }
 
@@ -649,6 +651,7 @@ namespace McStudDesktop.Views
             _resultsPanel!.Children.Clear();
             _selectedOperations.Clear();
             _selectedOpResults.Clear();
+            if (category == 4) { ShowHistoryView(); UpdateButtonStates(); return; }
             var allPatterns = _learningService.GetAllManualLinePatterns()
                 .Where(p => p.ManualLines.Count > 0 && !string.IsNullOrEmpty(p.ParentPartName)).ToList();
             if (allPatterns.Count == 0) { ShowEmptyState(); return; }
@@ -1016,6 +1019,7 @@ namespace McStudDesktop.Views
             var query = _searchBox?.Text?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(query)) { _statusText!.Text = "Search by part name or operation"; _statusText.Foreground = new SolidColorBrush(TextSecondary); _resultsPanel!.Children.Clear(); _currentPattern = null; _currentOpStats = null; UpdateButtonStates(); return; }
             _resultsPanel!.Children.Clear(); _selectedOperations.Clear(); _selectedOpResults.Clear();
+            if (_selectedCategory == 4) { ShowHistorySearchResults(query); return; }
             var (partName, opType) = ParseQuery(query);
             // Use cleaned partName for service calls (raw query has op keywords that pollute substring matching)
             var searchTerm = string.IsNullOrWhiteSpace(partName) ? query : partName;
@@ -1499,6 +1503,245 @@ namespace McStudDesktop.Views
                 };
                 _presetsPanel.Children.Add(chip);
             }
+        }
+
+        // ═══════════════════════════════════════════
+        //  HISTORY VIEW
+        // ═══════════════════════════════════════════
+
+        private void ShowHistoryView()
+        {
+            var estimates = EstimateHistoryDatabase.Instance.GetAllEstimates()
+                .OrderByDescending(e => e.ImportedDate).ToList();
+            if (estimates.Count == 0)
+            {
+                _statusText!.Text = "No imported estimates yet";
+                _statusText.Foreground = new SolidColorBrush(TextSecondary);
+                var emptyCard = new Border
+                {
+                    Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(14),
+                    Padding = new Thickness(40, 48, 40, 48), Margin = new Thickness(0, 40, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Center, BorderBrush = new SolidColorBrush(BorderSubtle), BorderThickness = new Thickness(1)
+                };
+                var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, Spacing = 16 };
+                var iconCircle = new Border { Width = 80, Height = 80, CornerRadius = new CornerRadius(40), Background = new SolidColorBrush(Color.FromArgb(255, 38, 38, 50)), HorizontalAlignment = HorizontalAlignment.Center };
+                iconCircle.Child = new FontIcon { Glyph = "\uE81C", FontSize = 36, Foreground = new SolidColorBrush(TextMuted), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                stack.Children.Add(iconCircle);
+                stack.Children.Add(new TextBlock { Text = "No Estimate History", FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(TextPrimary), HorizontalAlignment = HorizontalAlignment.Center });
+                stack.Children.Add(new TextBlock { Text = "Import estimates in the Upload tab to build\nyour searchable history.", FontSize = 13, Foreground = new SolidColorBrush(TextSecondary), HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = Microsoft.UI.Xaml.TextAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 360 });
+                emptyCard.Child = stack;
+                _resultsPanel!.Children.Add(emptyCard);
+                return;
+            }
+            _statusText!.Text = $"{estimates.Count} estimate{(estimates.Count != 1 ? "s" : "")} in history";
+            _statusText.Foreground = new SolidColorBrush(AccentBlue);
+            AddSectionHeader($"{estimates.Count} ESTIMATES");
+            foreach (var est in estimates)
+                _resultsPanel!.Children.Add(BuildEstimateHistoryCard(est));
+        }
+
+        private void ShowHistorySearchResults(string query)
+        {
+            // Search across insurance, vehicle, claim number, RO, and line item descriptions
+            var allEstimates = EstimateHistoryDatabase.Instance.GetAllEstimates();
+            var queryLower = query.ToLowerInvariant();
+            var matches = allEstimates.Where(e =>
+                e.InsuranceCompany.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.VehicleInfo.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.ClaimNumber.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.RONumber.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.VIN.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                e.LineItems.Any(i => i.Description?.Contains(query, StringComparison.OrdinalIgnoreCase) == true) ||
+                e.LineItems.Any(i => i.PartName?.Contains(query, StringComparison.OrdinalIgnoreCase) == true)
+            ).OrderByDescending(e => e.ImportedDate).ToList();
+
+            if (matches.Count == 0)
+            {
+                _statusText!.Text = $"No estimates matching \"{query}\"";
+                _statusText.Foreground = new SolidColorBrush(AccentOrange);
+                return;
+            }
+            _statusText!.Text = $"{matches.Count} estimate{(matches.Count != 1 ? "s" : "")} matching \"{query}\"";
+            _statusText.Foreground = new SolidColorBrush(AccentGreen);
+            _resultsPanel!.Children.Add(CreateBackButton(() => ShowCategoryContent(4)));
+            foreach (var est in matches)
+                _resultsPanel.Children.Add(BuildEstimateHistoryCard(est));
+            UpdateButtonStates();
+        }
+
+        private Border BuildEstimateHistoryCard(StoredEstimate est)
+        {
+            var card = new Border
+            {
+                Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(0), Margin = new Thickness(0, 0, 0, 4),
+                BorderBrush = new SolidColorBrush(BorderSubtle), BorderThickness = new Thickness(1)
+            };
+            var innerGrid = new Grid();
+            innerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3) });
+            innerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var accentBar = new Border { Background = new SolidColorBrush(AccentTeal), CornerRadius = new CornerRadius(8, 0, 0, 8) };
+            Grid.SetColumn(accentBar, 0);
+            innerGrid.Children.Add(accentBar);
+
+            var contentStack = new StackPanel { Padding = new Thickness(14, 12, 14, 12), Spacing = 5 };
+
+            // Row 1: Vehicle info + grand total
+            var row1 = new Grid();
+            row1.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row1.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row1.Children.Add(new TextBlock
+            {
+                Text = !string.IsNullOrEmpty(est.VehicleInfo) ? est.VehicleInfo : "Unknown Vehicle",
+                FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextPrimary), TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            var totalBlock = new TextBlock
+            {
+                Text = est.GrandTotal > 0 ? $"${est.GrandTotal:N0}" : "",
+                FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(AccentGreen)
+            };
+            Grid.SetColumn(totalBlock, 1);
+            row1.Children.Add(totalBlock);
+            contentStack.Children.Add(row1);
+
+            // Row 2: Insurance | Claim | Source
+            var metaParts = new List<string>();
+            if (!string.IsNullOrEmpty(est.InsuranceCompany)) metaParts.Add(est.InsuranceCompany);
+            if (!string.IsNullOrEmpty(est.ClaimNumber)) metaParts.Add(est.ClaimNumber);
+            if (!string.IsNullOrEmpty(est.EstimateSource)) metaParts.Add(est.EstimateSource);
+            if (metaParts.Count > 0)
+            {
+                contentStack.Children.Add(new TextBlock
+                {
+                    Text = string.Join("  \u2022  ", metaParts),
+                    FontSize = 11, Foreground = new SolidColorBrush(TextSecondary),
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                });
+            }
+
+            // Row 3: RO | Import date
+            var row3Parts = new List<string>();
+            if (!string.IsNullOrEmpty(est.RONumber)) row3Parts.Add($"RO: {est.RONumber}");
+            row3Parts.Add($"Imported: {est.ImportedDate:MM/dd/yyyy}");
+            contentStack.Children.Add(new TextBlock
+            {
+                Text = string.Join("  \u2022  ", row3Parts),
+                FontSize = 11, Foreground = new SolidColorBrush(TextMuted)
+            });
+
+            // Row 4: Expandable line items
+            var lineItemCount = est.LineItems.Count;
+            if (lineItemCount > 0)
+            {
+                var expandPanel = new StackPanel { Spacing = 0 };
+                var expandHeader = new Border
+                {
+                    Background = new SolidColorBrush(Colors.Transparent),
+                    Padding = new Thickness(0, 4, 0, 0)
+                };
+                var expandText = new TextBlock
+                {
+                    Text = $"\u25B6  {lineItemCount} line item{(lineItemCount != 1 ? "s" : "")}",
+                    FontSize = 11, Foreground = new SolidColorBrush(AccentTeal)
+                };
+                expandHeader.Child = expandText;
+                var lineItemsContainer = new StackPanel { Visibility = Visibility.Collapsed, Spacing = 2, Margin = new Thickness(0, 6, 0, 0) };
+
+                foreach (var item in est.LineItems)
+                {
+                    var itemRow = new Grid { Margin = new Thickness(0, 0, 0, 1) };
+                    itemRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    itemRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    itemRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var desc = !string.IsNullOrEmpty(item.Description) ? item.Description : item.PartName;
+                    if (!string.IsNullOrEmpty(item.OperationType)) desc += $" ({item.OperationType})";
+                    itemRow.Children.Add(new TextBlock
+                    {
+                        Text = desc, FontSize = 11, Foreground = new SolidColorBrush(TextSecondary),
+                        TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center
+                    });
+
+                    var valueParts = new List<string>();
+                    if (item.LaborHours > 0) valueParts.Add($"{item.LaborHours:N1}h");
+                    if (item.RefinishHours > 0) valueParts.Add($"R:{item.RefinishHours:N1}h");
+                    if (item.Price > 0) valueParts.Add($"${item.Price:N0}");
+                    var valueBlock = new TextBlock
+                    {
+                        Text = string.Join(" ", valueParts), FontSize = 11,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                        Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center
+                    };
+                    Grid.SetColumn(valueBlock, 1);
+                    itemRow.Children.Add(valueBlock);
+
+                    if (item.WasDenied)
+                    {
+                        var deniedPill = CreatePill("Denied", Color.FromArgb(255, 230, 100, 100), Color.FromArgb(255, 60, 25, 25));
+                        deniedPill.Margin = new Thickness(6, 0, 0, 0);
+                        deniedPill.VerticalAlignment = VerticalAlignment.Center;
+                        Grid.SetColumn(deniedPill, 2);
+                        itemRow.Children.Add(deniedPill);
+                    }
+
+                    lineItemsContainer.Children.Add(itemRow);
+                }
+
+                bool isExpanded = false;
+                expandHeader.PointerPressed += (s, e) =>
+                {
+                    isExpanded = !isExpanded;
+                    lineItemsContainer.Visibility = isExpanded ? Visibility.Visible : Visibility.Collapsed;
+                    expandText.Text = isExpanded
+                        ? $"\u25BC  {lineItemCount} line item{(lineItemCount != 1 ? "s" : "")}"
+                        : $"\u25B6  {lineItemCount} line item{(lineItemCount != 1 ? "s" : "")}";
+                    e.Handled = true;
+                };
+
+                expandPanel.Children.Add(expandHeader);
+                expandPanel.Children.Add(lineItemsContainer);
+                contentStack.Children.Add(expandPanel);
+            }
+
+            // Load to Cart button
+            var loadBtn = new Button
+            {
+                Content = "Load to Cart", FontSize = 11,
+                Padding = new Thickness(10, 4, 10, 4),
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 55, 45)),
+                Foreground = new SolidColorBrush(AccentGreen),
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            var capturedEst = est;
+            loadBtn.Click += (s, e) =>
+            {
+                foreach (var item in capturedEst.LineItems)
+                {
+                    _estimateLines.Add(new EstimateLine
+                    {
+                        PartName = !string.IsNullOrEmpty(item.Description) ? item.Description : item.PartName,
+                        OperationType = item.OperationType,
+                        LaborHours = item.LaborHours,
+                        RefinishHours = item.RefinishHours,
+                        Price = item.Price
+                    });
+                }
+                UpdateEstimateDisplay();
+                _statusText!.Text = $"Loaded {capturedEst.LineItems.Count} lines from {capturedEst.VehicleInfo}";
+                _statusText.Foreground = new SolidColorBrush(AccentGreen);
+            };
+            contentStack.Children.Add(loadBtn);
+
+            Grid.SetColumn(contentStack, 1);
+            innerGrid.Children.Add(contentStack);
+            card.Child = innerGrid;
+
+            card.PointerEntered += (s, e) => card.Background = new SolidColorBrush(CardHover);
+            card.PointerExited += (s, e) => card.Background = new SolidColorBrush(CardBg);
+            return card;
         }
 
         // ═══════════════════════════════════════════
