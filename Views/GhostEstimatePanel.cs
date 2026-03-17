@@ -835,6 +835,7 @@ namespace McStudDesktop.Views
             cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            cardsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             // Card 1: Total Operations
             var totalCard = CreateSummaryCard("Total Ops",
@@ -859,22 +860,42 @@ namespace McStudDesktop.Views
             Grid.SetColumn(refinishCard, 2);
             cardsGrid.Children.Add(refinishCard);
 
-            // Card 4: Labor Total
+            // Card 4: Labor Total (rate-based) — also show learned dollar total if available
             var laborTotal = result.GrandTotalLaborDollars;
-            var laborCard = CreateSummaryCard("Labor Total",
-                $"${laborTotal:F0}",
+            var laborLabel = "Rate-Based";
+            var laborValue = $"${laborTotal:F0}";
+            var laborCard = CreateSummaryCard(laborLabel, laborValue,
                 Color.FromArgb(255, 100, 220, 100));
             Grid.SetColumn(laborCard, 3);
             cardsGrid.Children.Add(laborCard);
 
-            // Card 5: Data Sources
-            var sourceText = $"DB:{result.DatabaseCount} KB:{result.KnowledgeBaseCount} L:{result.LearnedCount}" +
-                (result.ExcelToolCount > 0 ? $" XL:{result.ExcelToolCount}" : "");
-            var sourceCard = CreateSummaryCard("Sources",
-                sourceText,
-                Color.FromArgb(255, 150, 200, 255));
-            Grid.SetColumn(sourceCard, 4);
-            cardsGrid.Children.Add(sourceCard);
+            // Card 5: Learned Dollar Total (from uploaded estimates) if >50% of ops have learned amounts
+            var opsWithDollars = filteredOps.Count(o => o.LearnedDollarAmount.HasValue && o.LearnedDollarAmount > 0);
+            if (opsWithDollars > 0 && result.LearnedDollarTotal.HasValue)
+            {
+                var learnedText = $"${result.LearnedDollarTotal:F0}";
+                if (result.MinDollarTotal.HasValue && result.MaxDollarTotal.HasValue && result.MinDollarTotal != result.MaxDollarTotal)
+                    learnedText += $"\n${result.MinDollarTotal:F0}–${result.MaxDollarTotal:F0}";
+                var learnedCard = CreateSummaryCard("From Estimates", learnedText,
+                    Color.FromArgb(255, 100, 220, 180));
+                Grid.SetColumn(learnedCard, 4);
+                cardsGrid.Children.Add(learnedCard);
+            }
+
+            // Card 6: Data Quality — % of operations with learned data
+            var totalOps = filteredOps.Count;
+            var learnedOps = filteredOps.Count(o => o.LaborSource != "fallback" && o.LaborSource != "met_data" && !string.IsNullOrEmpty(o.LaborSource));
+            var qualityPercent = totalOps > 0 ? (int)(100.0 * learnedOps / totalOps) : 0;
+            var qualityColor = qualityPercent > 70
+                ? Color.FromArgb(255, 80, 190, 80)   // Green
+                : qualityPercent > 30
+                    ? Color.FromArgb(255, 220, 180, 60)   // Yellow
+                    : Color.FromArgb(255, 220, 130, 60);  // Orange
+            var qualityCard = CreateSummaryCard("Data Quality",
+                $"{qualityPercent}% learned",
+                qualityColor);
+            Grid.SetColumn(qualityCard, 5);
+            cardsGrid.Children.Add(qualityCard);
 
             _summaryCardsPanel?.Children.Add(cardsGrid);
         }
@@ -1099,11 +1120,37 @@ namespace McStudDesktop.Views
             Grid.SetColumn(descText, 1);
             topRow.Children.Add(descText);
 
-            // Hours
+            // Hours — with range display when learned data has multiple samples
             var hoursInfo = "";
-            if (op.LaborHours > 0) hoursInfo += $"{op.LaborHours:F1}h";
-            if (op.RefinishHours > 0) hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + $"{op.RefinishHours:F1}h rfn";
-            if (op.Price > 0) hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + $"${op.Price:F2}";
+            if (op.LaborHours > 0)
+            {
+                hoursInfo += $"{op.LaborHours:F1}h";
+                if (op.SampleCount >= 2 && op.MinLaborHours != op.MaxLaborHours)
+                    hoursInfo += $" ({op.MinLaborHours:F1}–{op.MaxLaborHours:F1})";
+                else if (op.SampleCount == 1 && op.LaborSource != "fallback" && op.LaborSource != "met_data")
+                    hoursInfo += " (1 est)";
+            }
+            if (op.RefinishHours > 0)
+            {
+                var rfnPart = $"{op.RefinishHours:F1}h rfn";
+                if (op.SampleCount >= 2 && op.MinRefinishHours != op.MaxRefinishHours && op.MinRefinishHours > 0)
+                    rfnPart += $" ({op.MinRefinishHours:F1}–{op.MaxRefinishHours:F1})";
+                hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + rfnPart;
+            }
+            if (op.Price > 0)
+            {
+                var pricePart = $"${op.Price:F2}";
+                if (op.SampleCount >= 2 && op.MinDollarAmount.HasValue && op.MaxDollarAmount.HasValue && op.MinDollarAmount != op.MaxDollarAmount)
+                    pricePart += $" (${op.MinDollarAmount:F0}–${op.MaxDollarAmount:F0})";
+                hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + pricePart;
+            }
+            if (op.LearnedDollarAmount.HasValue && op.LearnedDollarAmount > 0 && op.Price == 0)
+            {
+                var dollarPart = $"~${op.LearnedDollarAmount:F0}";
+                if (op.SampleCount >= 2 && op.MinDollarAmount.HasValue && op.MaxDollarAmount.HasValue && op.MinDollarAmount != op.MaxDollarAmount)
+                    dollarPart += $" (${op.MinDollarAmount:F0}–${op.MaxDollarAmount:F0})";
+                hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + dollarPart;
+            }
 
             if (!string.IsNullOrEmpty(hoursInfo))
             {
@@ -1244,6 +1291,30 @@ namespace McStudDesktop.Views
                         Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 160)),
                         TextWrapping = TextWrapping.Wrap
                     });
+                }
+
+                // Show sample count for learned data
+                if (op.SampleCount > 0 && op.LaborSource != "fallback" && op.LaborSource != "met_data")
+                {
+                    justPanel.Children.Add(new TextBlock
+                    {
+                        Text = $"Based on {op.SampleCount} uploaded estimate(s)",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 160)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+
+                    // Show range details
+                    if (!string.IsNullOrEmpty(op.RangeDisplayText))
+                    {
+                        justPanel.Children.Add(new TextBlock
+                        {
+                            Text = op.RangeDisplayText,
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 200)),
+                            TextWrapping = TextWrapping.Wrap
+                        });
+                    }
                 }
 
                 mainStack.Children.Add(justPanel);

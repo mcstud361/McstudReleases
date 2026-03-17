@@ -394,7 +394,7 @@ namespace McStudDesktop.Services
             if (_store.VehicleSpecificPatterns.TryGetValue(vehKey, out var patterns))
             {
                 var opKey = $"{canonicalPart}|{operationType}";
-                if (patterns.OperationAverages.TryGetValue(opKey, out var avg) && avg.SampleCount >= 2)
+                if (patterns.OperationAverages.TryGetValue(opKey, out var avg) && avg.SampleCount >= 1)
                 {
                     return avg.LaborValues.Average();
                 }

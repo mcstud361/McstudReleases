@@ -843,9 +843,10 @@ namespace McStudDesktop.Services
             {
                 var blendOp = panel.ExplicitOperation == "Blend" ? "Blend" : "Rfn";
                 var blendLabel = panel.ExplicitOperation == "Blend" ? "Blend" : "Refinish";
-                var refinishHours = GetLearnedRefinishTime(panel.Name);
+                var rfnResolution = ResolveRefinishTime(panel.Name);
+                var refinishHours = rfnResolution.Hours;
                 if (blendOp == "Blend")
-                    refinishHours = Math.Max(refinishHours * 0.5m, 1.0m); // Blend is ~50% of full refinish
+                    refinishHours = Math.Max(refinishHours * 0.5m, 1.0m);
 
                 operations.Add(new GhostOperation
                 {
@@ -854,6 +855,10 @@ namespace McStudDesktop.Services
                     Description = $"{sideCode}{ToTitleCase(panel.Name)} {blendLabel}",
                     Category = "Refinish Operations",
                     RefinishHours = refinishHours,
+                    MinRefinishHours = rfnResolution.MinHours,
+                    MaxRefinishHours = rfnResolution.MaxHours,
+                    SampleCount = rfnResolution.SampleCount,
+                    LaborSource = rfnResolution.Source,
                     Confidence = 0.90,
                     Source = "User-specified refinish operation",
                     Side = panel.Side
@@ -883,11 +888,11 @@ namespace McStudDesktop.Services
             }
 
             // Get learned labor times or use defaults
-            var bodyHours = GetLearnedLaborTime(panel.Name, primaryOp, vehicleType) * severityMultiplier;
+            var laborResolution = ResolveLaborTime(panel.Name, primaryOp, vehicleType);
+            var bodyHours = laborResolution.Hours * severityMultiplier;
 
-            // Determine source label based on whether we got learned data
-            var sourceLabel = IsFromLearnedData(panel.Name, primaryOp, vehicleType)
-                ? $"Learned from {_knowledgeBase.GetOperationStats(_knowledgeBase.ResolveAlias(panel.Name.ToLower()) ?? panel.Name.ToLower(), primaryOp.ToLower())?.SampleCount ?? 0} uploaded estimates"
+            var sourceLabel = laborResolution.HasLearnedData
+                ? $"Learned from {laborResolution.SampleCount} uploaded estimates"
                 : "CCC/MOTOR database";
 
             // Primary operation - format like real CCC estimate line
@@ -898,7 +903,14 @@ namespace McStudDesktop.Services
                 Description = $"{sideCode}{ToTitleCase(panel.Name)} {opCode}",
                 Category = DetermineCategory(panel.Name),
                 LaborHours = bodyHours,
-                Confidence = sourceLabel.StartsWith("Learned") ? 0.98 : 0.95,
+                MinLaborHours = laborResolution.MinHours * severityMultiplier,
+                MaxLaborHours = laborResolution.MaxHours * severityMultiplier,
+                SampleCount = laborResolution.SampleCount,
+                LaborSource = laborResolution.Source,
+                LearnedDollarAmount = laborResolution.LearnedDollarAmount,
+                MinDollarAmount = laborResolution.MinDollarAmount,
+                MaxDollarAmount = laborResolution.MaxDollarAmount,
+                Confidence = laborResolution.HasLearnedData ? 0.98 : 0.95,
                 Source = sourceLabel,
                 Side = panel.Side
             });
@@ -909,14 +921,18 @@ namespace McStudDesktop.Services
                 var riParts = GetRAndIParts(panel.Name);
                 foreach (var riPart in riParts)
                 {
-                    var riHours = GetLearnedLaborTime(riPart, "R&I", vehicleType);
+                    var riResolution = ResolveLaborTime(riPart, "R&I", vehicleType);
                     operations.Add(new GhostOperation
                     {
                         OperationType = "R&I",
                         PartName = riPart,
                         Description = $"{sideCode}{ToTitleCase(riPart)} R&I",
                         Category = "Part Operations",
-                        LaborHours = riHours,
+                        LaborHours = riResolution.Hours,
+                        MinLaborHours = riResolution.MinHours,
+                        MaxLaborHours = riResolution.MaxHours,
+                        SampleCount = riResolution.SampleCount,
+                        LaborSource = riResolution.Source,
                         Confidence = 0.85,
                         Source = $"CCC Pathways - NOT INCLUDED in {panel.Name} time",
                         Side = panel.Side
@@ -1057,13 +1073,15 @@ namespace McStudDesktop.Services
                         continue;
 
                     // Get learned labor time for this co-occurring operation
-                    var laborHours = GetLearnedLaborTime(assoc.AssociatedPart, assoc.AssociatedOperation, vehicleType);
+                    var coResolution = ResolveLaborTime(assoc.AssociatedPart, assoc.AssociatedOperation, vehicleType);
+                    var laborHours = coResolution.Hours;
                     var refinishHours = 0m;
                     if (assoc.AssociatedOperation.Equals("refinish", StringComparison.OrdinalIgnoreCase) ||
                         assoc.AssociatedOperation.Equals("rfn", StringComparison.OrdinalIgnoreCase) ||
                         assoc.AssociatedOperation.Equals("blend", StringComparison.OrdinalIgnoreCase))
                     {
-                        refinishHours = GetLearnedRefinishTime(assoc.AssociatedPart);
+                        var coRfnResolution = ResolveRefinishTime(assoc.AssociatedPart);
+                        refinishHours = coRfnResolution.Hours;
                         laborHours = 0m;
                     }
 
@@ -1179,16 +1197,23 @@ namespace McStudDesktop.Services
             // Add ADAS calibrations if needed — use learned pricing if available
             if (hasADASComponents)
             {
-                var adasPrice = GetLearnedSubletPrice("adas calibration", 350.00m);
+                var adasResolved = ResolveSubletPrice("adas calibration", 350.00m);
                 result.Operations.Add(new GhostOperation
                 {
                     OperationType = "Sublet",
                     PartName = "adas calibration",
                     Description = "ADAS Calibration - Forward Camera/Radar",
                     Category = "Calibration",
-                    Price = adasPrice,
+                    Price = adasResolved.price,
+                    SampleCount = adasResolved.sampleCount,
+                    LearnedDollarAmount = adasResolved.sampleCount > 0 ? adasResolved.price : null,
+                    MinDollarAmount = adasResolved.sampleCount > 0 ? adasResolved.minPrice : null,
+                    MaxDollarAmount = adasResolved.sampleCount > 0 ? adasResolved.maxPrice : null,
+                    LaborSource = adasResolved.sampleCount > 0 ? "learned" : "fallback",
                     Confidence = 0.80,
-                    Source = adasPrice != 350.00m ? $"Learned from uploaded estimates (avg ${adasPrice:F2})" : "CCC/MOTOR G33 - ADAS calibration triggers"
+                    Source = adasResolved.sampleCount > 0
+                        ? $"Learned from {adasResolved.sampleCount} uploaded estimates (avg ${adasResolved.price:F2})"
+                        : "CCC/MOTOR G33 - ADAS calibration triggers"
                 });
             }
 
@@ -1207,7 +1232,7 @@ namespace McStudDesktop.Services
                 });
             }
 
-            // Add WELDED PANEL operations from ACTUAL MET times
+            // Add WELDED PANEL operations — learned-first, fallback to MET times
             if (hasWeldedPanels)
             {
                 var weldedCount = result.Operations.Count(o =>
@@ -1216,68 +1241,83 @@ namespace McStudDesktop.Services
                     o.PartName.Contains("rocker") ||
                     o.PartName.Contains("pillar")));
 
-                // Remove Factory E-Coat - 0.3h per MET
+                // E-Coat Removal
+                var ecoatRes = ResolveLaborTime("e-coat removal", "Body", result.VehicleType);
+                var ecoatHours = ecoatRes.HasLearnedData ? ecoatRes.Hours : 0.3m * Math.Max(1, weldedCount);
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Body",
-                    PartName = "e-coat removal",
+                    OperationType = "Body", PartName = "e-coat removal",
                     Description = "Remove Factory E-Coat at Weld Flanges",
-                    Category = "Body Operations",
-                    LaborHours = 0.3m * Math.Max(1, weldedCount),  // MET: BodyOp_A29
+                    Category = "Body Operations", LaborHours = ecoatHours,
+                    MinLaborHours = ecoatRes.HasLearnedData ? ecoatRes.MinHours : ecoatHours,
+                    MaxLaborHours = ecoatRes.HasLearnedData ? ecoatRes.MaxHours : ecoatHours,
+                    SampleCount = ecoatRes.SampleCount, LaborSource = ecoatRes.Source,
                     Confidence = 0.90,
-                    Source = "MET: Body Operations - DEG: protective coatings NOT INCLUDED"
+                    Source = ecoatRes.HasLearnedData ? $"Learned from {ecoatRes.SampleCount} estimates" : "MET: Body Operations - DEG: protective coatings NOT INCLUDED"
                 });
 
-                // Weld-Through Primer - 0.2h per MET
+                // Weld-Through Primer
+                var wtpRes = ResolveLaborTime("weld-through primer", "Body", result.VehicleType);
+                var wtpHours = wtpRes.HasLearnedData ? wtpRes.Hours : 0.2m * Math.Max(1, weldedCount);
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Body",
-                    PartName = "weld-through primer",
+                    OperationType = "Body", PartName = "weld-through primer",
                     Description = "Weld-Through Primer Application",
-                    Category = "Body Operations",
-                    LaborHours = 0.2m * Math.Max(1, weldedCount),  // MET: BodyOp_B29
+                    Category = "Body Operations", LaborHours = wtpHours,
+                    MinLaborHours = wtpRes.HasLearnedData ? wtpRes.MinHours : wtpHours,
+                    MaxLaborHours = wtpRes.HasLearnedData ? wtpRes.MaxHours : wtpHours,
+                    SampleCount = wtpRes.SampleCount, LaborSource = wtpRes.Source,
                     Confidence = 0.90,
-                    Source = "MET: Body Operations - Mitchell CEG: NOT INCLUDED"
+                    Source = wtpRes.HasLearnedData ? $"Learned from {wtpRes.SampleCount} estimates" : "MET: Body Operations - Mitchell CEG: NOT INCLUDED"
                 });
 
-                // Cover Vehicle from Weld Sparks - 0.5h per MET
+                // Cover Vehicle from Weld Sparks
+                var coverRes = ResolveLaborTime("cover car", "Body", result.VehicleType);
+                var coverHours = coverRes.HasLearnedData ? coverRes.Hours : 0.5m;
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Body",
-                    PartName = "cover car",
+                    OperationType = "Body", PartName = "cover car",
                     Description = "Cover Vehicle from Weld Spark Damage",
-                    Category = "Body Operations",
-                    LaborHours = 0.5m,  // MET: Cover Car Operations
+                    Category = "Body Operations", LaborHours = coverHours,
+                    MinLaborHours = coverRes.HasLearnedData ? coverRes.MinHours : coverHours,
+                    MaxLaborHours = coverRes.HasLearnedData ? coverRes.MaxHours : coverHours,
+                    SampleCount = coverRes.SampleCount, LaborSource = coverRes.Source,
                     Confidence = 0.85,
-                    Source = "DEG Inquiry 13434 - NOT INCLUDED"
+                    Source = coverRes.HasLearnedData ? $"Learned from {coverRes.SampleCount} estimates" : "DEG Inquiry 13434 - NOT INCLUDED"
                 });
 
-                // Seam Sealer - 0.3h per application
+                // Seam Sealer
+                var sealerRes = ResolveLaborTime("seam sealer", "Body", result.VehicleType);
+                var sealerHours = sealerRes.HasLearnedData ? sealerRes.Hours : 0.3m * Math.Max(1, weldedCount);
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Body",
-                    PartName = "seam sealer",
+                    OperationType = "Body", PartName = "seam sealer",
                     Description = "Seam Sealer Application (Beyond Attachment Points)",
-                    Category = "Body Operations",
-                    LaborHours = 0.3m * Math.Max(1, weldedCount),  // MET: BodyOp_C29
+                    Category = "Body Operations", LaborHours = sealerHours,
+                    MinLaborHours = sealerRes.HasLearnedData ? sealerRes.MinHours : sealerHours,
+                    MaxLaborHours = sealerRes.HasLearnedData ? sealerRes.MaxHours : sealerHours,
+                    SampleCount = sealerRes.SampleCount, LaborSource = sealerRes.Source,
                     Confidence = 0.85,
-                    Source = "DEG Inquiry 23010 - additional seam sealer NOT INCLUDED"
+                    Source = sealerRes.HasLearnedData ? $"Learned from {sealerRes.SampleCount} estimates" : "DEG Inquiry 23010 - additional seam sealer NOT INCLUDED"
                 });
 
-                // Cavity Wax / Anti-Corrosion - 0.3-0.5h per MET
+                // Cavity Wax / Anti-Corrosion
+                var cavityRes = ResolveLaborTime("cavity wax", "Body", result.VehicleType);
+                var cavityHours = cavityRes.HasLearnedData ? cavityRes.Hours : 0.5m * Math.Max(1, weldedCount);
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Body",
-                    PartName = "cavity wax",
+                    OperationType = "Body", PartName = "cavity wax",
                     Description = "Cavity Wax / Anti-Corrosion Treatment",
-                    Category = "Body Operations",
-                    LaborHours = 0.5m * Math.Max(1, weldedCount),  // MET: BodyOp_D29
+                    Category = "Body Operations", LaborHours = cavityHours,
+                    MinLaborHours = cavityRes.HasLearnedData ? cavityRes.MinHours : cavityHours,
+                    MaxLaborHours = cavityRes.HasLearnedData ? cavityRes.MaxHours : cavityHours,
+                    SampleCount = cavityRes.SampleCount, LaborSource = cavityRes.Source,
                     Confidence = 0.90,
-                    Source = "Mitchell CEG G31 - corrosion protection NOT INCLUDED"
+                    Source = cavityRes.HasLearnedData ? $"Learned from {cavityRes.SampleCount} estimates" : "Mitchell CEG G31 - corrosion protection NOT INCLUDED"
                 });
             }
 
-            // Add PLASTIC PART operations from ACTUAL formulas
+            // Add PLASTIC PART operations — learned-first, fallback to formulas
             if (hasPlasticParts)
             {
                 var plasticPanels = result.Operations.Where(o =>
@@ -1286,32 +1326,32 @@ namespace McStudDesktop.Services
 
                 if (plasticPanels.Any())
                 {
-                    // Calculate refinish hours for plastic panels
                     var totalRefinishHours = plasticPanels.Sum(p => p.RefinishHours > 0 ? p.RefinishHours : 2.5m);
 
-                    // Adhesion Promoter - 10% of refinish, min 0.2, max 0.5 per PartOperationsFormulas.json
-                    var adhesionHours = Math.Min(0.5m, Math.Max(0.2m, totalRefinishHours * 0.10m));
+                    // Adhesion Promoter
+                    var adhRes = ResolveLaborTime("adhesion promoter", "Paint", result.VehicleType);
+                    var adhesionHours = adhRes.HasLearnedData ? adhRes.Hours : Math.Min(0.5m, Math.Max(0.2m, totalRefinishHours * 0.10m));
                     result.Operations.Add(new GhostOperation
                     {
-                        OperationType = "Paint",
-                        PartName = "adhesion promoter",
+                        OperationType = "Paint", PartName = "adhesion promoter",
                         Description = "Adhesion Promoter (Plastic Parts)",
-                        Category = "Refinish Operations",
-                        RefinishHours = adhesionHours,
+                        Category = "Refinish Operations", RefinishHours = adhesionHours,
+                        SampleCount = adhRes.SampleCount, LaborSource = adhRes.Source,
                         Confidence = 0.95,
-                        Source = "Mitchell CEG Section 22 - plastic NOT INCLUDED"
+                        Source = adhRes.HasLearnedData ? $"Learned from {adhRes.SampleCount} estimates" : "Mitchell CEG Section 22 - plastic NOT INCLUDED"
                     });
 
-                    // Flex Additive - 0.2h for first large plastic part per formula
+                    // Flex Additive
+                    var flexRes = ResolveLaborTime("flex additive", "Paint", result.VehicleType);
+                    var flexHours = flexRes.HasLearnedData ? flexRes.Hours : 0.2m;
                     result.Operations.Add(new GhostOperation
                     {
-                        OperationType = "Paint",
-                        PartName = "flex additive",
+                        OperationType = "Paint", PartName = "flex additive",
                         Description = "Flex Additive (First Large Plastic Part)",
-                        Category = "Refinish Operations",
-                        RefinishHours = 0.2m,
+                        Category = "Refinish Operations", RefinishHours = flexHours,
+                        SampleCount = flexRes.SampleCount, LaborSource = flexRes.Source,
                         Confidence = 0.95,
-                        Source = "MET: Part Operations - flexible paint NOT INCLUDED"
+                        Source = flexRes.HasLearnedData ? $"Learned from {flexRes.SampleCount} estimates" : "MET: Part Operations - flexible paint NOT INCLUDED"
                     });
                 }
             }
@@ -1320,16 +1360,18 @@ namespace McStudDesktop.Services
             var replacedPanels = result.Operations.Where(o => o.OperationType == "Replace").ToList();
             if (replacedPanels.Any() && !hasWeldedPanels)
             {
-                // Hem flange corrosion protection for bolted panels
+                var corrRes = ResolveLaborTime("corrosion protection", "Body", result.VehicleType);
+                var corrHours = corrRes.HasLearnedData ? corrRes.Hours : 0.2m * replacedPanels.Count;
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Body",
-                    PartName = "corrosion protection",
+                    OperationType = "Body", PartName = "corrosion protection",
                     Description = "Corrosion Protection - Hem Flanges",
-                    Category = "Body Operations",
-                    LaborHours = 0.2m * replacedPanels.Count,  // MET: 0.2h per panel
+                    Category = "Body Operations", LaborHours = corrHours,
+                    MinLaborHours = corrRes.HasLearnedData ? corrRes.MinHours : corrHours,
+                    MaxLaborHours = corrRes.HasLearnedData ? corrRes.MaxHours : corrHours,
+                    SampleCount = corrRes.SampleCount, LaborSource = corrRes.Source,
                     Confidence = 0.90,
-                    Source = "Mitchell CEG G31 - hem flange protection NOT INCLUDED"
+                    Source = corrRes.HasLearnedData ? $"Learned from {corrRes.SampleCount} estimates" : "Mitchell CEG G31 - hem flange protection NOT INCLUDED"
                 });
             }
         }
@@ -1349,7 +1391,7 @@ namespace McStudDesktop.Services
 
             foreach (var panel in panelsNeedingRefinish)
             {
-                var refinishHours = GetLearnedRefinishTime(panel);
+                var rfnResolution = ResolveRefinishTime(panel);
 
                 // Add refinish for the panel - use proper CCC terminology
                 result.Operations.Add(new GhostOperation
@@ -1358,9 +1400,15 @@ namespace McStudDesktop.Services
                     PartName = panel,
                     Description = $"Refinish {ToTitleCase(panel)}",
                     Category = "Refinish Operations",
-                    RefinishHours = refinishHours,
+                    RefinishHours = rfnResolution.Hours,
+                    MinRefinishHours = rfnResolution.MinHours,
+                    MaxRefinishHours = rfnResolution.MaxHours,
+                    SampleCount = rfnResolution.SampleCount,
+                    LaborSource = rfnResolution.Source,
                     Confidence = 0.95,
-                    Source = "Mitchell CEG - separate operation"
+                    Source = rfnResolution.HasLearnedData
+                        ? $"Learned from {rfnResolution.SampleCount} uploaded estimates"
+                        : "Mitchell CEG - separate operation"
                 });
 
                 // Get adjacent panels for blending
@@ -1374,14 +1422,50 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // Add blend operations - ACTUAL FORMULA: up to 20% of base refinish time first panel, 10% each additional
+            // Add blend operations — check for learned blend hours first, then formula
             var blendPanelList = panelsToBlend.ToList();
             for (int i = 0; i < blendPanelList.Count; i++)
             {
                 var blendPanel = blendPanelList[i];
-                var baseRefinish = GetLearnedRefinishTime(blendPanel);
-                // First blend panel: 20% of base, additional: 10% per IncludedNotIncluded.json blend formulas
-                var blendPercent = i == 0 ? 0.20m : 0.10m;
+
+                // First: check if we have direct learned blend hours
+                var blendResolution = ResolveLaborTime(blendPanel, "blend", "");
+                decimal blendHours;
+                string blendSource;
+                int blendSamples;
+                decimal blendMin, blendMax;
+
+                if (blendResolution.HasLearnedData)
+                {
+                    // Use direct learned blend hours (halved for additional panels)
+                    blendHours = i == 0 ? blendResolution.Hours : blendResolution.Hours * 0.5m;
+                    blendSource = $"Learned blend from {blendResolution.SampleCount} estimates";
+                    blendSamples = blendResolution.SampleCount;
+                    blendMin = i == 0 ? blendResolution.MinHours : blendResolution.MinHours * 0.5m;
+                    blendMax = i == 0 ? blendResolution.MaxHours : blendResolution.MaxHours * 0.5m;
+                }
+                else
+                {
+                    // Check for learned blend percentage formula
+                    var blendFormula = _knowledgeBase.GetFormula("blend_percentage");
+                    decimal blendPercent;
+                    if (blendFormula?.DerivedPercentage != null && blendFormula.DerivedPercentage > 0)
+                    {
+                        blendPercent = (decimal)blendFormula.DerivedPercentage.Value;
+                        if (i > 0) blendPercent *= 0.5m; // Halved for additional panels
+                    }
+                    else
+                    {
+                        blendPercent = i == 0 ? 0.20m : 0.10m; // Hardcoded fallback
+                    }
+
+                    var baseRfnResolution = ResolveRefinishTime(blendPanel);
+                    blendHours = baseRfnResolution.Hours * blendPercent;
+                    blendSource = "Mitchell CEG Section 28 - blend NOT INCLUDED";
+                    blendSamples = 0;
+                    blendMin = baseRfnResolution.MinHours * blendPercent;
+                    blendMax = baseRfnResolution.MaxHours * blendPercent;
+                }
 
                 result.Operations.Add(new GhostOperation
                 {
@@ -1389,42 +1473,50 @@ namespace McStudDesktop.Services
                     PartName = blendPanel,
                     Description = $"Blend {ToTitleCase(blendPanel)} (Color Match)",
                     Category = "Refinish Operations",
-                    RefinishHours = baseRefinish * blendPercent,
-                    Confidence = 0.80,
-                    Source = "Mitchell CEG Section 28 - blend NOT INCLUDED"
+                    RefinishHours = blendHours,
+                    MinRefinishHours = blendMin,
+                    MaxRefinishHours = blendMax,
+                    SampleCount = blendSamples,
+                    LaborSource = blendResolution.HasLearnedData ? blendResolution.Source : "fallback",
+                    Confidence = blendResolution.HasLearnedData ? 0.90 : 0.80,
+                    Source = blendSource
                 });
             }
 
-            // Add Feather, Prime & Block for REPAIR panels - ACTUAL operation from estimates
+            // Feather, Prime & Block for REPAIR panels
             if (hasRepairPanels)
             {
                 var repairPanelCount = result.Operations.Count(o => o.OperationType == "Repair");
-                // Per IncludedNotIncluded.json: "Feather, prime & block" typical 0.5-3.0 hours
+                var fpbRes = ResolveLaborTime("feather prime block", "Paint", "");
+                var fpbHours = fpbRes.HasLearnedData ? fpbRes.Hours : 0.5m * repairPanelCount;
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Paint",
-                    PartName = "feather prime block",
+                    OperationType = "Paint", PartName = "feather prime block",
                     Description = "Feather, Prime & Block (Repair Panels)",
-                    Category = "Refinish Operations",
-                    RefinishHours = 0.5m * repairPanelCount,  // MET: PartOp_A33 base
+                    Category = "Refinish Operations", RefinishHours = fpbHours,
+                    MinRefinishHours = fpbRes.HasLearnedData ? fpbRes.MinHours : fpbHours,
+                    MaxRefinishHours = fpbRes.HasLearnedData ? fpbRes.MaxHours : fpbHours,
+                    SampleCount = fpbRes.SampleCount, LaborSource = fpbRes.Source,
                     Confidence = 0.90,
-                    Source = "Mitchell CEG Section 28 - NOT INCLUDED"
+                    Source = fpbRes.HasLearnedData ? $"Learned from {fpbRes.SampleCount} estimates" : "Mitchell CEG Section 28 - NOT INCLUDED"
                 });
             }
 
-            // Add DE-NIB if refinishing - ACTUAL operation from PartOperationsFormulas.json
+            // DE-NIB if refinishing
             if (panelsNeedingRefinish.Any())
             {
-                // Per formula: 0.2h flat rate when refinishing (if refinishHours >= 0.5)
+                var denibRes = ResolveLaborTime("denib", "Paint", "");
+                var denibHours = denibRes.HasLearnedData ? denibRes.Hours : 0.3m;
                 result.Operations.Add(new GhostOperation
                 {
-                    OperationType = "Paint",
-                    PartName = "denib",
+                    OperationType = "Paint", PartName = "denib",
                     Description = "DE-NIB & Polish",
-                    Category = "Refinish Operations",
-                    RefinishHours = 0.3m,  // Per formula: 0.2-0.3h typical
+                    Category = "Refinish Operations", RefinishHours = denibHours,
+                    MinRefinishHours = denibRes.HasLearnedData ? denibRes.MinHours : denibHours,
+                    MaxRefinishHours = denibRes.HasLearnedData ? denibRes.MaxHours : denibHours,
+                    SampleCount = denibRes.SampleCount, LaborSource = denibRes.Source,
                     Confidence = 0.85,
-                    Source = "MET: Part Operations - denib NOT INCLUDED"
+                    Source = denibRes.HasLearnedData ? $"Learned from {denibRes.SampleCount} estimates" : "MET: Part Operations - denib NOT INCLUDED"
                 });
             }
 
@@ -1482,6 +1574,15 @@ namespace McStudDesktop.Services
             result.RefinishPanelCount = result.Operations.Count(o =>
                 (o.OperationType == "Rfn" || o.OperationType == "Refinish") && o.PartName != "clear coat");
             result.BlendPanelCount = result.Operations.Count(o => o.OperationType == "Blend");
+
+            // Calculate learned dollar totals from operations that have learned dollar amounts
+            var opsWithDollars = result.Operations.Where(o => o.LearnedDollarAmount.HasValue && o.LearnedDollarAmount > 0).ToList();
+            if (opsWithDollars.Count > 0)
+            {
+                result.LearnedDollarTotal = opsWithDollars.Sum(o => o.LearnedDollarAmount!.Value);
+                result.MinDollarTotal = opsWithDollars.Sum(o => o.MinDollarAmount ?? o.LearnedDollarAmount!.Value);
+                result.MaxDollarTotal = opsWithDollars.Sum(o => o.MaxDollarAmount ?? o.LearnedDollarAmount!.Value);
+            }
         }
 
         private void AddConfidenceNotes(GhostEstimateResult result)
@@ -1527,21 +1628,31 @@ namespace McStudDesktop.Services
             }
         }
 
-        private decimal GetLearnedLaborTime(string partName, string operationType, string vehicleType)
+        private LaborResolution ResolveLaborTime(string partName, string operationType, string vehicleType)
         {
             var partLower = partName.ToLower();
 
             // PRIORITY 1: Real learned data from uploaded estimates (LearnedKnowledgeBase)
-            // Try exact match first, then resolve aliases
             var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
             var learnedStats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
 
-            if (learnedStats != null && learnedStats.SampleCount >= 2 && learnedStats.MeanLaborHours > 0)
+            if (learnedStats != null && learnedStats.SampleCount >= 1 && learnedStats.MeanLaborHours > 0)
             {
-                // Use median for robustness against outliers, fall back to mean
                 var hours = learnedStats.MedianLaborHours > 0 ? learnedStats.MedianLaborHours : learnedStats.MeanLaborHours;
                 System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED data for {partName} {operationType}: {hours}h (from {learnedStats.SampleCount} estimates)");
-                return hours;
+                return new LaborResolution
+                {
+                    Hours = hours,
+                    Source = "learned",
+                    SampleCount = learnedStats.SampleCount,
+                    MinHours = learnedStats.MinLaborHours,
+                    MaxHours = learnedStats.MaxLaborHours,
+                    MedianHours = learnedStats.MedianLaborHours,
+                    Confidence = learnedStats.SampleCount >= 3 ? 0.95 : learnedStats.SampleCount == 2 ? 0.85 : 0.5,
+                    LearnedDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MeanPrice : null,
+                    MinDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MinPrice : null,
+                    MaxDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MaxPrice : null
+                };
             }
 
             // PRIORITY 2: Vehicle-specific learned data (truck vs SUV vs car)
@@ -1551,7 +1662,16 @@ namespace McStudDesktop.Services
                 if (vehSpecific.HasValue && vehSpecific.Value > 0)
                 {
                     System.Diagnostics.Debug.WriteLine($"[Ghost] Vehicle-specific data for {vehicleType} {partName} {operationType}: {vehSpecific.Value}h");
-                    return vehSpecific.Value;
+                    return new LaborResolution
+                    {
+                        Hours = vehSpecific.Value,
+                        Source = "vehicle_specific",
+                        SampleCount = 1,
+                        MinHours = vehSpecific.Value,
+                        MaxHours = vehSpecific.Value,
+                        MedianHours = vehSpecific.Value,
+                        Confidence = 0.7
+                    };
                 }
             }
 
@@ -1561,9 +1681,8 @@ namespace McStudDesktop.Services
                 p.PartName.Equals(partName, StringComparison.OrdinalIgnoreCase) &&
                 p.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase));
 
-            if (matchingPattern != null && matchingPattern.ExampleCount >= 2)
+            if (matchingPattern != null && matchingPattern.ExampleCount >= 1)
             {
-                // Pull labor hours from the pattern's training examples
                 var patternOps = matchingPattern.Operations?
                     .Where(o => o.LaborHours > 0)
                     .ToList();
@@ -1573,7 +1692,16 @@ namespace McStudDesktop.Services
                     if (avgHours > 0)
                     {
                         System.Diagnostics.Debug.WriteLine($"[Ghost] Pattern data for {partName} {operationType}: {avgHours}h (from {matchingPattern.ExampleCount} examples)");
-                        return avgHours;
+                        return new LaborResolution
+                        {
+                            Hours = avgHours,
+                            Source = "pattern",
+                            SampleCount = matchingPattern.ExampleCount,
+                            MinHours = patternOps.Min(o => o.LaborHours),
+                            MaxHours = patternOps.Max(o => o.LaborHours),
+                            MedianHours = avgHours,
+                            Confidence = matchingPattern.ExampleCount >= 3 ? 0.85 : matchingPattern.ExampleCount == 2 ? 0.75 : 0.5
+                        };
                     }
                 }
             }
@@ -1590,11 +1718,29 @@ namespace McStudDesktop.Services
                                  li.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
-                if (matchingLines.Count >= 2)
+                if (matchingLines.Count >= 1)
                 {
                     var avgHours = matchingLines.Average(li => li.LaborHours);
+                    // Also compute dollar amounts from matching line items
+                    var priceLines = matchingLines.Where(li => li.Price > 0).ToList();
+                    decimal? avgPrice = priceLines.Count > 0 ? priceLines.Average(li => li.Price) : null;
+                    decimal? minPrice = priceLines.Count > 0 ? priceLines.Min(li => li.Price) : null;
+                    decimal? maxPrice = priceLines.Count > 0 ? priceLines.Max(li => li.Price) : null;
+
                     System.Diagnostics.Debug.WriteLine($"[Ghost] History DB for {partName} {operationType}: {avgHours:F2}h (from {matchingLines.Count} line items)");
-                    return avgHours;
+                    return new LaborResolution
+                    {
+                        Hours = avgHours,
+                        Source = "history_db",
+                        SampleCount = matchingLines.Count,
+                        MinHours = matchingLines.Min(li => li.LaborHours),
+                        MaxHours = matchingLines.Max(li => li.LaborHours),
+                        MedianHours = avgHours,
+                        Confidence = matchingLines.Count >= 3 ? 0.85 : matchingLines.Count == 2 ? 0.75 : 0.5,
+                        LearnedDollarAmount = avgPrice,
+                        MinDollarAmount = minPrice,
+                        MaxDollarAmount = maxPrice
+                    };
                 }
             }
 
@@ -1603,7 +1749,16 @@ namespace McStudDesktop.Services
             if (excelLookup.Found && excelLookup.LaborHours > 0)
             {
                 System.Diagnostics.Debug.WriteLine($"[Ghost] Excel tool data for {partName} {operationType}: {excelLookup.LaborHours}h (sheet: {excelLookup.SheetName})");
-                return excelLookup.LaborHours;
+                return new LaborResolution
+                {
+                    Hours = excelLookup.LaborHours,
+                    Source = "excel_tool",
+                    SampleCount = 1,
+                    MinHours = excelLookup.LaborHours,
+                    MaxHours = excelLookup.LaborHours,
+                    MedianHours = excelLookup.LaborHours,
+                    Confidence = 0.7
+                };
             }
 
             // PRIORITY 6: MET data from IncludedNotIncluded.json
@@ -1619,14 +1774,23 @@ namespace McStudDesktop.Services
                     if (totalHours > 0)
                     {
                         System.Diagnostics.Debug.WriteLine($"[Ghost] MET data for {partName}: {totalHours}h total");
-                        return (decimal)totalHours;
+                        return new LaborResolution
+                        {
+                            Hours = (decimal)totalHours,
+                            Source = "met_data",
+                            SampleCount = 0,
+                            MinHours = (decimal)totalHours,
+                            MaxHours = (decimal)totalHours,
+                            MedianHours = (decimal)totalHours,
+                            Confidence = 0.8
+                        };
                     }
                 }
             }
 
-            // PRIORITY 7: Hardcoded fallback (last resort — used only when no real data exists)
+            // PRIORITY 7: Hardcoded fallback (last resort)
             System.Diagnostics.Debug.WriteLine($"[Ghost] FALLBACK for {partName} {operationType} — no learned data available");
-            return (partName, operationType) switch
+            var fallbackHours = (partName, operationType) switch
             {
                 (var p, "Replace") when p.Contains("bumper cover") || p.Contains("fascia") => 1.5m,
                 (var p, "Replace") when p.Contains("front bumper") => 1.5m,
@@ -1658,23 +1822,42 @@ namespace McStudDesktop.Services
                 (var p, "R&I") when p.Contains("reinforcement") || p.Contains("rebar") => 0.3m,
                 _ => 1.0m
             };
+
+            return new LaborResolution
+            {
+                Hours = fallbackHours,
+                Source = "fallback",
+                SampleCount = 0,
+                MinHours = fallbackHours,
+                MaxHours = fallbackHours,
+                MedianHours = fallbackHours,
+                Confidence = 0.5
+            };
         }
 
-        private decimal GetLearnedRefinishTime(string partName)
+        private LaborResolution ResolveRefinishTime(string partName)
         {
             var partLower = partName.ToLower();
 
             // PRIORITY 1: Real learned refinish data from uploaded estimates
             var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
 
-            // Check multiple operation types that carry refinish hours
             foreach (var opType in new[] { "refinish", "rfn", "replace", "repair" })
             {
                 var stats = _knowledgeBase.GetOperationStats(canonicalName, opType);
-                if (stats != null && stats.RefinishHoursValues.Count >= 2 && stats.MeanRefinishHours > 0)
+                if (stats != null && stats.RefinishHoursValues.Count >= 1 && stats.MeanRefinishHours > 0)
                 {
                     System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED refinish for {partName}: {stats.MeanRefinishHours}h (from {stats.RefinishHoursValues.Count} samples)");
-                    return stats.MeanRefinishHours;
+                    return new LaborResolution
+                    {
+                        Hours = stats.MeanRefinishHours,
+                        Source = "learned",
+                        SampleCount = stats.RefinishHoursValues.Count,
+                        MinHours = stats.MinRefinishHours,
+                        MaxHours = stats.MaxRefinishHours,
+                        MedianHours = stats.MeanRefinishHours,
+                        Confidence = stats.RefinishHoursValues.Count >= 3 ? 0.95 : stats.RefinishHoursValues.Count == 2 ? 0.85 : 0.5
+                    };
                 }
             }
 
@@ -1689,11 +1872,20 @@ namespace McStudDesktop.Services
                                  li.PartName.ToLower().Contains(partLower))
                     .ToList();
 
-                if (matchingLines.Count >= 2)
+                if (matchingLines.Count >= 1)
                 {
                     var avgHours = matchingLines.Average(li => li.RefinishHours);
                     System.Diagnostics.Debug.WriteLine($"[Ghost] History DB refinish for {partName}: {avgHours:F2}h (from {matchingLines.Count} lines)");
-                    return avgHours;
+                    return new LaborResolution
+                    {
+                        Hours = avgHours,
+                        Source = "history_db",
+                        SampleCount = matchingLines.Count,
+                        MinHours = matchingLines.Min(li => li.RefinishHours),
+                        MaxHours = matchingLines.Max(li => li.RefinishHours),
+                        MedianHours = avgHours,
+                        Confidence = matchingLines.Count >= 3 ? 0.85 : matchingLines.Count == 2 ? 0.75 : 0.5
+                    };
                 }
             }
 
@@ -1702,12 +1894,21 @@ namespace McStudDesktop.Services
             if (excelRfn.Found && excelRfn.RefinishHours > 0)
             {
                 System.Diagnostics.Debug.WriteLine($"[Ghost] Excel refinish for {partName}: {excelRfn.RefinishHours}h (sheet: {excelRfn.SheetName})");
-                return excelRfn.RefinishHours;
+                return new LaborResolution
+                {
+                    Hours = excelRfn.RefinishHours,
+                    Source = "excel_tool",
+                    SampleCount = 1,
+                    MinHours = excelRfn.RefinishHours,
+                    MaxHours = excelRfn.RefinishHours,
+                    MedianHours = excelRfn.RefinishHours,
+                    Confidence = 0.7
+                };
             }
 
             // PRIORITY 4: Hardcoded fallback
             System.Diagnostics.Debug.WriteLine($"[Ghost] FALLBACK refinish for {partName} — no learned data");
-            return partName switch
+            var fallbackHours = partName switch
             {
                 var p when p.Contains("hood") => 3.5m,
                 var p when p.Contains("roof") => 4.0m,
@@ -1722,6 +1923,17 @@ namespace McStudDesktop.Services
                 var p when p.Contains("molding") => 0.5m,
                 _ => 2.5m
             };
+
+            return new LaborResolution
+            {
+                Hours = fallbackHours,
+                Source = "fallback",
+                SampleCount = 0,
+                MinHours = fallbackHours,
+                MaxHours = fallbackHours,
+                MedianHours = fallbackHours,
+                Confidence = 0.5
+            };
         }
 
         /// <summary>
@@ -1729,50 +1941,7 @@ namespace McStudDesktop.Services
         /// </summary>
         private bool IsFromLearnedData(string partName, string operationType, string vehicleType)
         {
-            var partLower = partName.ToLower();
-            var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
-
-            // Check learned knowledge base
-            var stats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
-            if (stats != null && stats.SampleCount >= 2 && stats.MeanLaborHours > 0)
-                return true;
-
-            // Check vehicle-specific
-            if (!string.IsNullOrEmpty(vehicleType))
-            {
-                var vehSpecific = _knowledgeBase.GetVehicleSpecificLaborTime(vehicleType, canonicalName, operationType);
-                if (vehSpecific.HasValue && vehSpecific.Value > 0)
-                    return true;
-            }
-
-            // Check learned patterns
-            var patterns = _learningService.SearchPatterns(partName, 5);
-            var match = patterns.FirstOrDefault(p =>
-                p.PartName.Equals(partName, StringComparison.OrdinalIgnoreCase) &&
-                p.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase));
-            if (match != null && match.ExampleCount >= 2)
-                return true;
-
-            // Check history DB
-            var historyEstimates = _historyDb.GetAllEstimates();
-            if (historyEstimates.Count > 0)
-            {
-                var matchCount = historyEstimates
-                    .SelectMany(e => e.LineItems)
-                    .Count(li => li.LaborHours > 0 &&
-                                 !string.IsNullOrEmpty(li.PartName) &&
-                                 li.PartName.ToLower().Contains(partLower) &&
-                                 li.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase));
-                if (matchCount >= 2)
-                    return true;
-            }
-
-            // Check Excel tool data
-            var excelLookup = _excelProvider.LookupForGhost(partName, operationType);
-            if (excelLookup.Found && excelLookup.LaborHours > 0)
-                return true;
-
-            return false;
+            return ResolveLaborTime(partName, operationType, vehicleType).HasLearnedData;
         }
 
         /// <summary>
@@ -1782,7 +1951,7 @@ namespace McStudDesktop.Services
         {
             var canonicalName = _knowledgeBase.ResolveAlias(partName.ToLower()) ?? partName.ToLower();
             var stats = _knowledgeBase.GetOperationStats(canonicalName, operationType.ToLower());
-            if (stats != null && stats.SampleCount >= 2 && stats.MeanLaborHours > 0)
+            if (stats != null && stats.SampleCount >= 1 && stats.MeanLaborHours > 0)
                 return stats.MeanLaborHours;
 
             // Check history DB
@@ -1796,7 +1965,7 @@ namespace McStudDesktop.Services
                                  li.Description.ToLower().Contains(partName.ToLower()))
                     .ToList();
 
-                if (matchingLines.Count >= 2)
+                if (matchingLines.Count >= 1)
                     return matchingLines.Average(li => li.LaborHours);
             }
 
@@ -1808,14 +1977,19 @@ namespace McStudDesktop.Services
         /// </summary>
         private decimal GetLearnedSubletPrice(string partName, decimal fallback)
         {
+            return ResolveSubletPrice(partName, fallback).price;
+        }
+
+        private (decimal price, int sampleCount, decimal minPrice, decimal maxPrice) ResolveSubletPrice(string partName, decimal fallback)
+        {
             var canonicalName = _knowledgeBase.ResolveAlias(partName.ToLower()) ?? partName.ToLower();
 
             // Check for price data in knowledge base
             foreach (var opType in new[] { "sublet", "calibration", "mech" })
             {
                 var stats = _knowledgeBase.GetOperationStats(canonicalName, opType);
-                if (stats != null && stats.PriceValues.Count >= 2 && stats.MeanPrice > 0)
-                    return stats.MeanPrice;
+                if (stats != null && stats.PriceValues.Count >= 1 && stats.MeanPrice > 0)
+                    return (stats.MeanPrice, stats.PriceValues.Count, stats.MinPrice, stats.MaxPrice);
             }
 
             // Check history DB for sublet lines matching this description
@@ -1829,11 +2003,25 @@ namespace McStudDesktop.Services
                                  li.Description.ToLower().Contains(partName.ToLower()))
                     .ToList();
 
-                if (matchingLines.Count >= 2)
-                    return matchingLines.Average(li => li.Price);
+                if (matchingLines.Count >= 1)
+                    return (matchingLines.Average(li => li.Price), matchingLines.Count, matchingLines.Min(li => li.Price), matchingLines.Max(li => li.Price));
             }
 
-            return fallback;
+            // Check history DB via GetOperationPaymentStats pattern
+            if (historyEstimates.Count > 0)
+            {
+                var paymentLines = historyEstimates
+                    .SelectMany(e => e.LineItems)
+                    .Where(li => li.Price > 0 &&
+                                 !string.IsNullOrEmpty(li.PartName) &&
+                                 li.PartName.ToLower().Contains(partName.ToLower()))
+                    .ToList();
+
+                if (paymentLines.Count >= 1)
+                    return (paymentLines.Average(li => li.Price), paymentLines.Count, paymentLines.Min(li => li.Price), paymentLines.Max(li => li.Price));
+            }
+
+            return (fallback, 0, fallback, fallback);
         }
 
         private bool RequiresRAndI(string panelName, string operation)
@@ -2007,6 +2195,11 @@ namespace McStudDesktop.Services
         public decimal TotalFrameLaborDollars { get; set; }
         public decimal GrandTotalLaborDollars { get; set; }
 
+        // Learned dollar totals from uploaded estimates
+        public decimal? LearnedDollarTotal { get; set; }
+        public decimal? MinDollarTotal { get; set; }
+        public decimal? MaxDollarTotal { get; set; }
+
         public List<string> Notes { get; set; } = new();
     }
 
@@ -2024,6 +2217,17 @@ namespace McStudDesktop.Services
 
         public double Confidence { get; set; } = 1.0;
         public string? Source { get; set; }
+
+        // Learned data range fields
+        public int SampleCount { get; set; }
+        public decimal MinLaborHours { get; set; }
+        public decimal MaxLaborHours { get; set; }
+        public decimal MinRefinishHours { get; set; }
+        public decimal MaxRefinishHours { get; set; }
+        public decimal? LearnedDollarAmount { get; set; }
+        public decimal? MinDollarAmount { get; set; }
+        public decimal? MaxDollarAmount { get; set; }
+        public string LaborSource { get; set; } = "fallback";
     }
 
     public class AffectedPanel
@@ -2087,6 +2291,7 @@ namespace McStudDesktop.Services
         public bool IsRequired { get; set; }
         public int LearnedFrequency { get; set; }
         public string ConfidenceLabel { get; set; } = "Medium"; // "High", "Medium", "Low"
+        public string RangeDisplayText { get; set; } = "";
     }
 
     public class GuidanceEstimateResult : GhostEstimateResult
@@ -2104,6 +2309,21 @@ namespace McStudDesktop.Services
     }
 
     #endregion
+
+    public class LaborResolution
+    {
+        public decimal Hours { get; set; }
+        public string Source { get; set; } = "fallback";
+        public int SampleCount { get; set; }
+        public decimal MinHours { get; set; }
+        public decimal MaxHours { get; set; }
+        public decimal MedianHours { get; set; }
+        public double Confidence { get; set; } = 0.5;
+        public decimal? LearnedDollarAmount { get; set; }
+        public decimal? MinDollarAmount { get; set; }
+        public decimal? MaxDollarAmount { get; set; }
+        public bool HasLearnedData => Source != "fallback" && Source != "met_data";
+    }
 
     #region Knowledge Base Data Models
 

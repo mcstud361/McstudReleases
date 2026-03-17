@@ -347,6 +347,7 @@ namespace McStudDesktop.Views
             else
             {
                 var maxCount = partStats.Max(p => p.Count);
+                int barIndex = 0;
                 foreach (var part in partStats.Take(8))
                 {
                     var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
@@ -357,13 +358,15 @@ namespace McStudDesktop.Views
                     row.Children.Add(new TextBlock { Text = part.PartType, FontSize = 11, Foreground = new SolidColorBrush(AccentBlue), VerticalAlignment = VerticalAlignment.Center });
 
                     var barWidth = maxCount > 0 ? (double)part.Count / maxCount * 160 : 0;
-                    var bar = new Border { Width = barWidth, Height = 12, Background = new SolidColorBrush(AccentPurple), CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left };
+                    var bar = new Border { Width = 0, Height = 12, Background = new SolidColorBrush(AccentPurple), CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left };
                     Grid.SetColumn(bar, 1); row.Children.Add(bar);
+                    AnimateBarWidth(bar, barWidth, delayMs: barIndex * 60);
 
                     var cnt = new TextBlock { Text = $"{part.Percentage:F0}%", FontSize = 11, Foreground = new SolidColorBrush(Colors.White), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
                     Grid.SetColumn(cnt, 2); row.Children.Add(cnt);
 
                     stack.Children.Add(row);
+                    barIndex++;
                 }
             }
 
@@ -386,6 +389,7 @@ namespace McStudDesktop.Views
             else
             {
                 var maxCount = addedOps.Max(o => o.TimesAdded);
+                int barIndex = 0;
                 foreach (var op in addedOps)
                 {
                     var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
@@ -396,13 +400,15 @@ namespace McStudDesktop.Views
                     row.Children.Add(new TextBlock { Text = op.OperationType, FontSize = 11, Foreground = new SolidColorBrush(AccentOrange), VerticalAlignment = VerticalAlignment.Center });
 
                     var barWidth = maxCount > 0 ? (double)op.TimesAdded / maxCount * 160 : 0;
-                    var bar = new Border { Width = barWidth, Height = 12, Background = new SolidColorBrush(AccentGreen), CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left };
+                    var bar = new Border { Width = 0, Height = 12, Background = new SolidColorBrush(AccentGreen), CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left };
                     Grid.SetColumn(bar, 1); row.Children.Add(bar);
+                    AnimateBarWidth(bar, barWidth, delayMs: barIndex * 60);
 
                     var cnt = new TextBlock { Text = op.TimesAdded.ToString(), FontSize = 11, Foreground = new SolidColorBrush(Colors.White), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
                     Grid.SetColumn(cnt, 2); row.Children.Add(cnt);
 
                     stack.Children.Add(row);
+                    barIndex++;
                 }
             }
 
@@ -429,9 +435,9 @@ namespace McStudDesktop.Views
             summaryGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
             summaryGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var invoicesCard = CreateStatCard("TOTAL INVOICES", summary.TotalInvoices.ToString(), summary.FormattedInvoiceValue, AccentGreen, "\uE8C7");
-            var pdfsCard = CreateStatCard("PDFs EXPORTED", summary.TotalPdfExports.ToString(), $"{summary.TotalDocuments} docs", AccentBlue, "\uE8A5");
-            var avgCard = CreateStatCard("AVG INVOICE", invoiceStats.FormattedAvg, $"{invoiceStats.AvgItems:F1} items", AccentOrange, "\uE8C8");
+            var invoicesCard = CreateStatCard("TOTAL INVOICES", summary.TotalInvoices.ToString(), summary.FormattedInvoiceValue, AccentGreen, "\uE8C7", summary.TotalInvoices, "N0");
+            var pdfsCard = CreateStatCard("PDFs EXPORTED", summary.TotalPdfExports.ToString(), $"{summary.TotalDocuments} docs", AccentBlue, "\uE8A5", summary.TotalPdfExports, "N0");
+            var avgCard = CreateStatCard("AVG INVOICE", invoiceStats.FormattedAvg, $"{invoiceStats.AvgItems:F1} items", AccentOrange, "\uE8C8", (double)invoiceStats.AvgValue, "C0");
 
             Grid.SetColumn(invoicesCard, 0);
             Grid.SetColumn(pdfsCard, 2);
@@ -534,6 +540,15 @@ namespace McStudDesktop.Views
             var exportStats = _exportStats.GetCombinedStatsByUser(period, _currentUserId);
             var docSummary = DocumentUsageTrackingService.Instance.GetUsageSummary(period, _currentUserId);
 
+            // Daily data for sparklines
+            var dailyExport = _exportStats.GetDailyBreakdownByUser(_currentUserId).Take(14).Reverse().ToList();
+            var dailyInvoice = DocumentUsageTrackingService.Instance.GetDailyActivity(period, _currentUserId).Take(14).ToList();
+            var estSpark = dailyExport.Select(d => (double)d.ExportCount).ToList();
+            var opsSpark = dailyExport.Select(d => (double)d.ExportOperations).ToList();
+            var valSpark = dailyExport.Select(d => (double)d.ExportPrice).ToList();
+            var invSpark = dailyInvoice.Select(d => (double)d.InvoiceCount).ToList();
+            var invValSpark = dailyInvoice.Select(d => (double)d.InvoiceValue).ToList();
+
             var border = new Border
             {
                 Background = new LinearGradientBrush
@@ -549,11 +564,11 @@ namespace McStudDesktop.Views
             var grid = new Grid();
             for (int i = 0; i < 5; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var est = CreateHeaderMetric("Estimates", exportStats.ExportCount.ToString(), AccentBlue);
-            var ops = CreateHeaderMetric("Operations", exportStats.ExportOperations.ToString(), AccentGreen);
-            var val = CreateHeaderMetric("Export Value", exportStats.FormattedExportPrice, AccentOrange);
-            var inv = CreateHeaderMetric("Invoices", docSummary.TotalInvoices.ToString(), AccentPurple);
-            var invVal = CreateHeaderMetric("Invoice Value", docSummary.FormattedInvoiceValue, AccentCyan);
+            var est = CreateHeaderMetric("Estimates", exportStats.ExportCount.ToString(), AccentBlue, exportStats.ExportCount, "N0", estSpark);
+            var ops = CreateHeaderMetric("Operations", exportStats.ExportOperations.ToString(), AccentGreen, exportStats.ExportOperations, "N0", opsSpark);
+            var val = CreateHeaderMetric("Export Value", exportStats.FormattedExportPrice, AccentOrange, (double)exportStats.ExportPrice, "C0", valSpark);
+            var inv = CreateHeaderMetric("Invoices", docSummary.TotalInvoices.ToString(), AccentPurple, docSummary.TotalInvoices, "N0", invSpark);
+            var invVal = CreateHeaderMetric("Invoice Value", docSummary.FormattedInvoiceValue, AccentCyan, (double)docSummary.TotalInvoiceValue, "C0", invValSpark);
 
             Grid.SetColumn(est, 0); Grid.SetColumn(ops, 1); Grid.SetColumn(val, 2); Grid.SetColumn(inv, 3); Grid.SetColumn(invVal, 4);
             grid.Children.Add(est); grid.Children.Add(ops); grid.Children.Add(val); grid.Children.Add(inv); grid.Children.Add(invVal);
@@ -562,11 +577,16 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        private StackPanel CreateHeaderMetric(string label, string value, Color accent)
+        private StackPanel CreateHeaderMetric(string label, string value, Color accent, double rawValue = 0, string format = "", List<double>? sparkData = null)
         {
             var stack = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center };
-            stack.Children.Add(new TextBlock { Text = value, FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center });
+            var valueBlock = new TextBlock { Text = value, FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center };
+            stack.Children.Add(valueBlock);
+            if (rawValue > 0 && !string.IsNullOrEmpty(format))
+                AnimateCountUp(valueBlock, rawValue, format);
             stack.Children.Add(new TextBlock { Text = label, FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)), HorizontalAlignment = HorizontalAlignment.Center });
+            if (sparkData != null && sparkData.Count >= 2)
+                AddSparkline(stack, sparkData, accent);
             return stack;
         }
 
@@ -582,10 +602,10 @@ namespace McStudDesktop.Views
             var statsGrid = new Grid();
             for (int i = 0; i < 4; i++) statsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var est = CreateMiniStatCard("Estimates", exportStats.ExportCount.ToString(), AccentBlue);
-            var ops = CreateMiniStatCard("Operations", exportStats.ExportOperations.ToString(), AccentGreen);
-            var labor = CreateMiniStatCard("Labor Hours", enhancedStats.TotalLaborHours.ToString("F1"), AccentOrange);
-            var val = CreateMiniStatCard("Total Value", exportStats.FormattedExportPrice, AccentPurple);
+            var est = CreateMiniStatCard("Estimates", exportStats.ExportCount.ToString(), AccentBlue, exportStats.ExportCount, "N0");
+            var ops = CreateMiniStatCard("Operations", exportStats.ExportOperations.ToString(), AccentGreen, exportStats.ExportOperations, "N0");
+            var labor = CreateMiniStatCard("Labor Hours", enhancedStats.TotalLaborHours.ToString("F1"), AccentOrange, (double)enhancedStats.TotalLaborHours, "F1");
+            var val = CreateMiniStatCard("Total Value", exportStats.FormattedExportPrice, AccentPurple, (double)exportStats.ExportPrice, "C0");
 
             Grid.SetColumn(est, 0); Grid.SetColumn(ops, 1); Grid.SetColumn(labor, 2); Grid.SetColumn(val, 3);
             statsGrid.Children.Add(est); statsGrid.Children.Add(ops); statsGrid.Children.Add(labor); statsGrid.Children.Add(val);
@@ -617,6 +637,7 @@ namespace McStudDesktop.Views
             else
             {
                 var maxCount = mostUsed.Max(o => o.Count);
+                int barIndex = 0;
                 foreach (var op in mostUsed.Take(6))
                 {
                     var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
@@ -626,13 +647,16 @@ namespace McStudDesktop.Views
 
                     row.Children.Add(new TextBlock { Text = op.OperationType, FontSize = 11, Foreground = new SolidColorBrush(AccentBlue), VerticalAlignment = VerticalAlignment.Center });
 
-                    var bar = new Border { Width = (double)op.Count / maxCount * 180, Height = 12, Background = new SolidColorBrush(AccentGreen), CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left };
+                    var targetWidth = (double)op.Count / maxCount * 180;
+                    var bar = new Border { Width = 0, Height = 12, Background = new SolidColorBrush(AccentGreen), CornerRadius = new CornerRadius(2), HorizontalAlignment = HorizontalAlignment.Left };
                     Grid.SetColumn(bar, 1); row.Children.Add(bar);
+                    AnimateBarWidth(bar, targetWidth, delayMs: barIndex * 60);
 
                     var cnt = new TextBlock { Text = op.Count.ToString(), FontSize = 11, Foreground = new SolidColorBrush(Colors.White), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
                     Grid.SetColumn(cnt, 2); row.Children.Add(cnt);
 
                     stack.Children.Add(row);
+                    barIndex++;
                 }
             }
 
@@ -678,10 +702,13 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        private StackPanel CreateMiniStatCard(string label, string value, Color accent)
+        private StackPanel CreateMiniStatCard(string label, string value, Color accent, double rawValue = 0, string format = "")
         {
             var stack = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Center, Padding = new Thickness(8) };
-            stack.Children.Add(new TextBlock { Text = value, FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center });
+            var valueBlock = new TextBlock { Text = value, FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(accent), HorizontalAlignment = HorizontalAlignment.Center };
+            stack.Children.Add(valueBlock);
+            if (rawValue > 0 && !string.IsNullOrEmpty(format))
+                AnimateCountUp(valueBlock, rawValue, format);
             stack.Children.Add(new TextBlock { Text = label, FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), HorizontalAlignment = HorizontalAlignment.Center });
             return stack;
         }
@@ -738,11 +765,11 @@ namespace McStudDesktop.Views
             row1.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var estimatesCard = CreateStatCardWithTrend("ESTIMATES", enhancedStats.TotalEstimates.ToString(),
-                $"Avg {enhancedStats.AvgOperationsPerEstimate:F1} ops/est", AccentBlue, "\uE8A1", enhancedStats.EstimatesTrend);
+                $"Avg {enhancedStats.AvgOperationsPerEstimate:F1} ops/est", AccentBlue, "\uE8A1", enhancedStats.EstimatesTrend, enhancedStats.TotalEstimates, "N0");
             var opsCard = CreateStatCardWithTrend("OPERATIONS", enhancedStats.TotalOperations.ToString(),
-                $"{enhancedStats.FormattedAvgValue}/avg", AccentGreen, "\uE8B8", enhancedStats.OperationsTrend);
+                $"{enhancedStats.FormattedAvgValue}/avg", AccentGreen, "\uE8B8", enhancedStats.OperationsTrend, enhancedStats.TotalOperations, "N0");
             var valueCard = CreateStatCardWithTrend("TOTAL VALUE", enhancedStats.FormattedValue,
-                $"{enhancedStats.AvgValuePerOperation:C0}/op", AccentOrange, "\uE8C8", enhancedStats.ValueTrend);
+                $"{enhancedStats.AvgValuePerOperation:C0}/op", AccentOrange, "\uE8C8", enhancedStats.ValueTrend, (double)enhancedStats.TotalValue, "C0");
 
             Grid.SetColumn(estimatesCard, 0);
             Grid.SetColumn(opsCard, 2);
@@ -761,9 +788,9 @@ namespace McStudDesktop.Views
             row2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var laborCard = CreateStatCard("LABOR HRS", enhancedStats.TotalLaborHours.ToString("F1"),
-                $"Exported", AccentPurple, "\uE823");
+                $"Exported", AccentPurple, "\uE823", (double)enhancedStats.TotalLaborHours, "F1");
             var sessionsCard = CreateStatCard("SESSIONS", enhancedStats.TotalSessions.ToString(),
-                $"Avg {enhancedStats.AvgEstimatesPerSession:F1} est/session", AccentCyan, "\uE7EF");
+                $"Avg {enhancedStats.AvgEstimatesPerSession:F1} est/session", AccentCyan, "\uE7EF", enhancedStats.TotalSessions, "N0");
             var timeCard = CreateStatCard("TIME SPENT", enhancedStats.FormattedTimeSpent,
                 $"Avg {(enhancedStats.AvgSessionDuration.TotalMinutes > 0 ? enhancedStats.AvgSessionDuration.TotalMinutes.ToString("F0") + "m" : "0m")}/session", Color.FromArgb(255, 100, 200, 150), "\uE916");
 
@@ -2172,7 +2199,7 @@ namespace McStudDesktop.Views
             return Colors.White;
         }
 
-        private Border CreateStatCardWithTrend(string label, string value, string subtitle, Color accentColor, string glyph, double trend)
+        private Border CreateStatCardWithTrend(string label, string value, string subtitle, Color accentColor, string glyph, double trend, double rawValue = 0, string format = "")
         {
             var border = new Border
             {
@@ -2205,13 +2232,16 @@ namespace McStudDesktop.Views
             stack.Children.Add(labelStack);
 
             // Value
-            stack.Children.Add(new TextBlock
+            var valueBlock = new TextBlock
             {
                 Text = value,
                 FontSize = 22,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White)
-            });
+            };
+            stack.Children.Add(valueBlock);
+            if (rawValue > 0 && !string.IsNullOrEmpty(format))
+                AnimateCountUp(valueBlock, rawValue, format);
 
             // Subtitle
             stack.Children.Add(new TextBlock
@@ -2360,7 +2390,7 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        private Border CreateStatCard(string label, string value, string subtext, Color accentColor, string icon)
+        private Border CreateStatCard(string label, string value, string subtext, Color accentColor, string icon, double rawValue = 0, string format = "")
         {
             var border = new Border
             {
@@ -2390,13 +2420,16 @@ namespace McStudDesktop.Views
             });
             stack.Children.Add(header);
 
-            stack.Children.Add(new TextBlock
+            var valueBlock = new TextBlock
             {
                 Text = value,
                 FontSize = 24,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(accentColor)
-            });
+            };
+            stack.Children.Add(valueBlock);
+            if (rawValue > 0 && !string.IsNullOrEmpty(format))
+                AnimateCountUp(valueBlock, rawValue, format);
 
             stack.Children.Add(new TextBlock
             {
@@ -3043,43 +3076,19 @@ namespace McStudDesktop.Views
             }
         }
 
-        // Enhanced Bar Chart with gradients and better styling
+        // Enhanced Horizontal Bar Chart with animated bars
         private Border CreateEnhancedHorizontalBarChart(string title, List<DailyStats> data)
         {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(20),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                BorderThickness = new Thickness(1)
-            };
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(10), Padding = new Thickness(20), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), BorderThickness = new Thickness(1) };
+            var mainStack = new StackPanel { Spacing = 12 };
 
-            var mainStack = new StackPanel { Spacing = 16 };
-
-            // Header with stats
             var header = new Grid();
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            header.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontSize = 15,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
-
-            // Summary stat
+            header.Children.Add(new TextBlock { Text = title, FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
             var totalOps = data.Sum(d => d.ExportOperations);
             var avgOps = data.Count > 0 ? data.Average(d => d.ExportOperations) : 0;
-            var summaryText = new TextBlock
-            {
-                Text = $"Total: {totalOps} | Avg: {avgOps:N1}/day",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 180, 255)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            var summaryText = new TextBlock { Text = $"Total: {totalOps} | Avg: {avgOps:N1}/day", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 180, 255)), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(summaryText, 1);
             header.Children.Add(summaryText);
             mainStack.Children.Add(header);
@@ -3090,72 +3099,48 @@ namespace McStudDesktop.Views
             }
             else
             {
-                var maxCount = data.Max(d => d.ExportOperations);
-                foreach (var day in data.TakeLast(10))
+                var items = data.TakeLast(10).ToList();
+                var maxCount = items.Max(d => d.ExportOperations);
+                if (maxCount == 0) maxCount = 1;
+
+                for (int idx = 0; idx < items.Count; idx++)
                 {
+                    var day = items[idx];
                     var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
                     row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
                     row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
 
-                    // Date label
-                    row.Children.Add(new TextBlock
-                    {
-                        Text = day.Date.ToString("MMM dd"),
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
-                        VerticalAlignment = VerticalAlignment.Center
-                    });
+                    row.Children.Add(new TextBlock { Text = day.Date.ToString("MMM dd"), FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)), VerticalAlignment = VerticalAlignment.Center });
 
-                    // Bar with gradient effect
-                    var barWidth = maxCount > 0 ? (double)day.ExportOperations / maxCount * BarMaxWidth : 0;
+                    var targetWidth = (double)day.ExportOperations / maxCount * 380;
                     var barContainer = new Grid { HorizontalAlignment = HorizontalAlignment.Left };
 
-                    // Background bar (track)
-                    barContainer.Children.Add(new Border
-                    {
-                        Width = BarMaxWidth,
-                        Height = 18,
-                        Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
-                        CornerRadius = new CornerRadius(4)
-                    });
+                    // Track background
+                    barContainer.Children.Add(new Border { Width = 380, Height = 22, Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)), CornerRadius = new CornerRadius(4) });
 
-                    // Foreground bar with gradient
-                    var intensity = maxCount > 0 ? (double)day.ExportOperations / maxCount : 0;
-                    var barColor = InterpolateColor(AccentBlue, AccentCyan, intensity);
-
+                    // Animated foreground bar
+                    var intensity = (double)day.ExportOperations / maxCount;
                     var bar = new Border
                     {
-                        Width = Math.Max(barWidth, 2),
-                        Height = 18,
+                        Width = 0,
+                        Height = 22,
                         CornerRadius = new CornerRadius(4),
-                        HorizontalAlignment = HorizontalAlignment.Left
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Background = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0, 0),
+                            EndPoint = new Windows.Foundation.Point(1, 0),
+                            GradientStops = { new GradientStop { Color = InterpolateColor(AccentBlue, AccentCyan, intensity), Offset = 0 }, new GradientStop { Color = AccentBlue, Offset = 1 } }
+                        }
                     };
-
-                    // Create gradient brush
-                    var gradientBrush = new LinearGradientBrush
-                    {
-                        StartPoint = new Windows.Foundation.Point(0, 0),
-                        EndPoint = new Windows.Foundation.Point(1, 0)
-                    };
-                    gradientBrush.GradientStops.Add(new GradientStop { Color = barColor, Offset = 0 });
-                    gradientBrush.GradientStops.Add(new GradientStop { Color = AccentBlue, Offset = 1 });
-                    bar.Background = gradientBrush;
-
                     barContainer.Children.Add(bar);
+                    AnimateBarWidth(bar, Math.Max(targetWidth, 2), delayMs: idx * 50);
+
                     Grid.SetColumn(barContainer, 1);
                     row.Children.Add(barContainer);
 
-                    // Count value
-                    var countText = new TextBlock
-                    {
-                        Text = day.ExportOperations.ToString(),
-                        FontSize = 12,
-                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                        Foreground = new SolidColorBrush(Colors.White),
-                        HorizontalAlignment = HorizontalAlignment.Right,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
+                    var countText = new TextBlock { Text = day.ExportOperations.ToString(), FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
                     Grid.SetColumn(countText, 2);
                     row.Children.Add(countText);
 
@@ -3177,41 +3162,18 @@ namespace McStudDesktop.Views
             );
         }
 
-        // Enhanced Vertical Column Chart
+        // Enhanced Vertical Column Chart with axes and gridlines
         private Border CreateEnhancedVerticalColumnChart(string title, List<DailyStats> data)
         {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(20),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                BorderThickness = new Thickness(1)
-            };
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(10), Padding = new Thickness(20), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), BorderThickness = new Thickness(1) };
+            var mainStack = new StackPanel { Spacing = 12 };
 
-            var mainStack = new StackPanel { Spacing = 16 };
-
-            // Header
             var header = new Grid();
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            header.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontSize = 15,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
-
+            header.Children.Add(new TextBlock { Text = title, FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
             var totalValue = data.Sum(d => d.ExportPrice);
-            var summaryText = new TextBlock
-            {
-                Text = $"Total: {totalValue:C0}",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(AccentGreen),
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            var summaryText = new TextBlock { Text = $"Total: {totalValue:C0}", FontSize = 11, Foreground = new SolidColorBrush(AccentGreen), VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(summaryText, 1);
             header.Children.Add(summaryText);
             mainStack.Children.Add(header);
@@ -3222,99 +3184,88 @@ namespace McStudDesktop.Views
             }
             else
             {
-                var chartArea = new Grid { Height = ColumnMaxHeight + 40 };
-                var columnsPanel = new StackPanel
+                var items = data.TakeLast(10).ToList();
+                const double cW = 540, cH = 280, pL = 55, pR = 530, pT = 15, pB = 235;
+                var plotW = pR - pL;
+                var plotH = pB - pT;
+                var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
+
+                var maxVal = (double)Math.Max(items.Max(d => d.ExportPrice), 1);
+                DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "C0");
+
+                double slotW = plotW / items.Count;
+                double colW = slotW * 0.65;
+                double gap = slotW * 0.35;
+
+                for (int i = 0; i < items.Count; i++)
                 {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 8,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Bottom
-                };
+                    var x = pL + i * slotW + gap / 2;
+                    var targetH = (double)items[i].ExportPrice / maxVal * plotH;
+                    var intensity = (double)items[i].ExportPrice / maxVal;
 
-                var maxValue = data.Max(d => d.ExportPrice);
-                foreach (var day in data.TakeLast(10))
-                {
-                    var colStack = new StackPanel { Spacing = 4, Width = 32 };
+                    // Column container for bottom-aligned growth
+                    var colContainer = new Grid { Width = colW, Height = plotH };
+                    Canvas.SetLeft(colContainer, x);
+                    Canvas.SetTop(colContainer, pT);
 
-                    // Value label on top
-                    colStack.Children.Add(new TextBlock
+                    var col = new Border
                     {
-                        Text = day.ExportPrice > 0 ? day.ExportPrice.ToString("C0") : "",
-                        FontSize = 9,
-                        Foreground = new SolidColorBrush(Colors.White),
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        TextTrimming = TextTrimming.CharacterEllipsis
-                    });
-
-                    // Column
-                    var colHeight = maxValue > 0 ? (double)day.ExportPrice / (double)maxValue * ColumnMaxHeight : 0;
-                    var intensity = maxValue > 0 ? (double)day.ExportPrice / (double)maxValue : 0;
-
-                    var column = new Border
-                    {
-                        Width = 28,
-                        Height = Math.Max(colHeight, 2),
-                        CornerRadius = new CornerRadius(4, 4, 0, 0),
-                        VerticalAlignment = VerticalAlignment.Bottom
+                        Width = colW,
+                        Height = Math.Max(targetH, 2),
+                        CornerRadius = new CornerRadius(3, 3, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Bottom,
+                        Background = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 1),
+                            EndPoint = new Windows.Foundation.Point(0.5, 0),
+                            GradientStops = { new GradientStop { Color = AccentGreen, Offset = 0 }, new GradientStop { Color = InterpolateColor(AccentGreen, AccentCyan, intensity), Offset = 1 } }
+                        }
                     };
+                    colContainer.Children.Add(col);
+                    canvas.Children.Add(colContainer);
+                    AnimateColumnHeight(col, Math.Max(targetH, 2), delayMs: i * 40);
 
-                    // Gradient from green to cyan based on intensity
-                    var gradientBrush = new LinearGradientBrush
+                    // Value label above column
+                    if (items[i].ExportPrice > 0)
                     {
-                        StartPoint = new Windows.Foundation.Point(0.5, 1),
-                        EndPoint = new Windows.Foundation.Point(0.5, 0)
-                    };
-                    gradientBrush.GradientStops.Add(new GradientStop { Color = AccentGreen, Offset = 0 });
-                    gradientBrush.GradientStops.Add(new GradientStop { Color = InterpolateColor(AccentGreen, AccentCyan, intensity), Offset = 1 });
-                    column.Background = gradientBrush;
+                        var valLabel = new TextBlock { Text = items[i].ExportPrice.ToString("C0"), FontSize = 8, Foreground = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)), TextAlignment = TextAlignment.Center, Width = colW + 8 };
+                        Canvas.SetLeft(valLabel, x - 4);
+                        Canvas.SetTop(valLabel, pB - targetH - 14);
+                        canvas.Children.Add(valLabel);
+                    }
 
-                    colStack.Children.Add(column);
-
-                    // Date label below
-                    colStack.Children.Add(new TextBlock
-                    {
-                        Text = day.Date.ToString("dd"),
-                        FontSize = 9,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
-                        HorizontalAlignment = HorizontalAlignment.Center
-                    });
-
-                    columnsPanel.Children.Add(colStack);
+                    // Date label
+                    var dateLabel = new TextBlock { Text = items[i].Date.ToString("MMM dd"), FontSize = 8, Foreground = new SolidColorBrush(Color.FromArgb(100, 255, 255, 255)), TextAlignment = TextAlignment.Center, Width = slotW };
+                    Canvas.SetLeft(dateLabel, pL + i * slotW);
+                    Canvas.SetTop(dateLabel, pB + 6);
+                    canvas.Children.Add(dateLabel);
                 }
 
-                chartArea.Children.Add(columnsPanel);
-                mainStack.Children.Add(chartArea);
+                mainStack.Children.Add(canvas);
             }
 
             border.Child = mainStack;
             return border;
         }
 
-        // Enhanced Labor Chart
+        // Enhanced Labor Chart - stacked daily bar chart
         private Border CreateEnhancedLaborChart(List<DailyStats> data)
         {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(20),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                BorderThickness = new Thickness(1)
-            };
-
-            var mainStack = new StackPanel { Spacing = 16 };
-
-            mainStack.Children.Add(new TextBlock
-            {
-                Text = "⏱️ Labor Hours Breakdown",
-                FontSize = 15,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(10), Padding = new Thickness(20), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), BorderThickness = new Thickness(1) };
+            var mainStack = new StackPanel { Spacing = 12 };
 
             var totalLabor = data.Sum(d => d.ExportLabor);
             var totalRefinish = data.Sum(d => d.ExportPaint);
             var total = totalLabor + totalRefinish;
+
+            var header = new Grid();
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.Children.Add(new TextBlock { Text = "Labor Hours Breakdown", FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
+            var totalLabel = new TextBlock { Text = $"Total: {total:N1} hrs", FontSize = 11, Foreground = new SolidColorBrush(AccentBlue), VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(totalLabel, 1);
+            header.Children.Add(totalLabel);
+            mainStack.Children.Add(header);
 
             if (total == 0)
             {
@@ -3322,58 +3273,76 @@ namespace McStudDesktop.Views
             }
             else
             {
-                // Stacked bar showing labor vs refinish
-                var barGrid = new Grid { Height = 40, Margin = new Thickness(0, 8, 0, 8) };
+                var items = data.Where(d => d.ExportLabor > 0 || d.ExportPaint > 0).TakeLast(10).ToList();
+                if (items.Count == 0) items = data.TakeLast(10).ToList();
 
-                var laborWidth = total > 0 ? (double)(totalLabor / total * 100) : 0;
-                var refinishWidth = total > 0 ? (double)(totalRefinish / total * 100) : 0;
+                const double cW = 540, cH = 280, pL = 55, pR = 530, pT = 15, pB = 235;
+                var plotW = pR - pL;
+                var plotH = pB - pT;
+                var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
-                barGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(laborWidth, GridUnitType.Star) });
-                barGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(refinishWidth, GridUnitType.Star) });
+                var maxVal = (double)Math.Max(items.Max(d => d.ExportLabor + d.ExportPaint), 1);
+                DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N1");
 
-                var laborBar = new Border
+                double slotW = plotW / items.Count;
+                double colW = slotW * 0.65;
+                double gap = slotW * 0.35;
+
+                for (int i = 0; i < items.Count; i++)
                 {
-                    Background = new SolidColorBrush(AccentBlue),
-                    CornerRadius = new CornerRadius(6, 0, 0, 6)
-                };
-                Grid.SetColumn(laborBar, 0);
-                barGrid.Children.Add(laborBar);
+                    var x = pL + i * slotW + gap / 2;
+                    var laborH = (double)items[i].ExportLabor / maxVal * plotH;
+                    var refinishH = (double)items[i].ExportPaint / maxVal * plotH;
 
-                var refinishBar = new Border
-                {
-                    Background = new SolidColorBrush(AccentPurple),
-                    CornerRadius = new CornerRadius(0, 6, 6, 0)
-                };
-                Grid.SetColumn(refinishBar, 1);
-                barGrid.Children.Add(refinishBar);
+                    // Stacked columns: refinish on top of labor
+                    var colContainer = new Grid { Width = colW, Height = plotH };
+                    Canvas.SetLeft(colContainer, x);
+                    Canvas.SetTop(colContainer, pT);
 
-                mainStack.Children.Add(barGrid);
+                    // Combined stack panel aligned to bottom
+                    var colStack = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
 
-                // Legend with values
-                var legendGrid = new Grid();
-                legendGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                legendGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    // Refinish (top)
+                    if (refinishH > 0)
+                    {
+                        colStack.Children.Add(new Border
+                        {
+                            Width = colW,
+                            Height = Math.Max(refinishH, 1),
+                            CornerRadius = laborH > 0 ? new CornerRadius(3, 3, 0, 0) : new CornerRadius(3),
+                            Background = new SolidColorBrush(AccentPurple)
+                        });
+                    }
 
-                var laborLegend = CreateLaborLegendItem("Body Labor", totalLabor, AccentBlue, laborWidth);
-                Grid.SetColumn(laborLegend, 0);
-                legendGrid.Children.Add(laborLegend);
+                    // Labor (bottom)
+                    if (laborH > 0)
+                    {
+                        colStack.Children.Add(new Border
+                        {
+                            Width = colW,
+                            Height = Math.Max(laborH, 1),
+                            CornerRadius = refinishH > 0 ? new CornerRadius(0) : new CornerRadius(3, 3, 0, 0),
+                            Background = new SolidColorBrush(AccentBlue)
+                        });
+                    }
 
-                var refinishLegend = CreateLaborLegendItem("Refinish", totalRefinish, AccentPurple, refinishWidth);
-                Grid.SetColumn(refinishLegend, 1);
-                legendGrid.Children.Add(refinishLegend);
+                    colContainer.Children.Add(colStack);
+                    canvas.Children.Add(colContainer);
 
-                mainStack.Children.Add(legendGrid);
+                    // Date label
+                    var dateLabel = new TextBlock { Text = items[i].Date.ToString("MMM dd"), FontSize = 8, Foreground = new SolidColorBrush(Color.FromArgb(100, 255, 255, 255)), TextAlignment = TextAlignment.Center, Width = slotW };
+                    Canvas.SetLeft(dateLabel, pL + i * slotW);
+                    Canvas.SetTop(dateLabel, pB + 6);
+                    canvas.Children.Add(dateLabel);
+                }
 
-                // Total
-                mainStack.Children.Add(new TextBlock
-                {
-                    Text = $"Total: {total:N1} hours",
-                    FontSize = 13,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Colors.White),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 8, 0, 0)
-                });
+                mainStack.Children.Add(canvas);
+
+                // Legend
+                var legend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
+                legend.Children.Add(CreateLaborLegendItem("Body Labor", totalLabor, AccentBlue, total > 0 ? (double)(totalLabor / total * 100) : 0));
+                legend.Children.Add(CreateLaborLegendItem("Refinish", totalRefinish, AccentPurple, total > 0 ? (double)(totalRefinish / total * 100) : 0));
+                mainStack.Children.Add(legend);
             }
 
             border.Child = mainStack;
@@ -3560,53 +3529,30 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        // Enhanced Line Chart
+        // Enhanced Line Chart with axes and gridlines
         private Border CreateEnhancedLineChart(string title, List<DailyStats> data)
         {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(20),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                BorderThickness = new Thickness(1)
-            };
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(10), Padding = new Thickness(20), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), BorderThickness = new Thickness(1) };
+            var mainStack = new StackPanel { Spacing = 12 };
 
-            var mainStack = new StackPanel { Spacing = 16 };
-
-            // Header
+            // Header with trend
             var header = new Grid();
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.Children.Add(new TextBlock { Text = title, FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
 
-            header.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontSize = 15,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
-
-            // Trend indicator
             if (data.Count >= 2)
             {
                 var recentAvg = data.TakeLast(3).Average(d => d.ExportOperations);
                 var olderAvg = data.Take(Math.Max(1, data.Count - 3)).Average(d => d.ExportOperations);
                 var trend = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg * 100) : 0;
                 var trendColor = trend >= 0 ? AccentGreen : AccentRed;
-                var trendIcon = trend >= 0 ? "↑" : "↓";
-
-                var trendText = new TextBlock
-                {
-                    Text = $"{trendIcon} {Math.Abs(trend):N1}%",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(trendColor),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                Grid.SetColumn(trendText, 1);
-                header.Children.Add(trendText);
+                var trendStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+                trendStack.Children.Add(new FontIcon { Glyph = trend >= 0 ? "\uE70E" : "\uE70D", FontSize = 12, Foreground = new SolidColorBrush(trendColor) });
+                trendStack.Children.Add(new TextBlock { Text = $"{Math.Abs(trend):N1}%", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(trendColor) });
+                Grid.SetColumn(trendStack, 1);
+                header.Children.Add(trendStack);
             }
-
             mainStack.Children.Add(header);
 
             if (!data.Any())
@@ -3615,66 +3561,55 @@ namespace McStudDesktop.Views
             }
             else
             {
-                var canvas = new Canvas { Width = 320, Height = 150 };
+                const double cW = 540, cH = 260, pL = 55, pR = 530, pT = 15, pB = 220;
+                var plotW = pR - pL;
+                var plotH = pB - pT;
+                var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
-                var maxVal = data.Max(d => d.ExportOperations);
-                if (maxVal == 0) maxVal = 1;
+                var maxVal = (double)Math.Max(data.Max(d => d.ExportOperations), 1);
+                DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N0");
 
                 var points = new List<Windows.Foundation.Point>();
-                double xStep = 300.0 / Math.Max(data.Count - 1, 1);
-
+                double xStep = plotW / Math.Max(data.Count - 1, 1);
                 for (int i = 0; i < data.Count; i++)
-                {
-                    var x = 10 + i * xStep;
-                    var y = 140 - (data[i].ExportOperations / (double)maxVal * 120);
-                    points.Add(new Windows.Foundation.Point((float)x, (float)y));
-                }
+                    points.Add(new Windows.Foundation.Point(pL + i * xStep, pB - (data[i].ExportOperations / maxVal * plotH)));
 
-                // Area fill under line
+                // Area gradient fill
                 if (points.Count > 1)
                 {
-                    var areaPath = new Microsoft.UI.Xaml.Shapes.Polygon();
-                    var areaPoints = new Microsoft.UI.Xaml.Media.PointCollection();
-
-                    areaPoints.Add(new Windows.Foundation.Point(points[0].X, 140));
-                    foreach (var pt in points)
-                        areaPoints.Add(pt);
-                    areaPoints.Add(new Windows.Foundation.Point(points[^1].X, 140));
-
-                    areaPath.Points = areaPoints;
-                    areaPath.Fill = new SolidColorBrush(Color.FromArgb(40, 0, 120, 215));
-                    canvas.Children.Add(areaPath);
+                    var area = new Polygon();
+                    var pts = new PointCollection();
+                    pts.Add(new Windows.Foundation.Point(points[0].X, pB));
+                    foreach (var pt in points) pts.Add(pt);
+                    pts.Add(new Windows.Foundation.Point(points[^1].X, pB));
+                    area.Points = pts;
+                    area.Fill = new LinearGradientBrush
+                    {
+                        StartPoint = new Windows.Foundation.Point(0.5, 0),
+                        EndPoint = new Windows.Foundation.Point(0.5, 1),
+                        GradientStops = { new GradientStop { Color = Color.FromArgb(60, 0, 120, 215), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 0, 120, 215), Offset = 1 } }
+                    };
+                    canvas.Children.Add(area);
                 }
 
                 // Line
                 if (points.Count > 1)
                 {
-                    var polyline = new Polyline
-                    {
-                        StrokeThickness = 3,
-                        Stroke = new SolidColorBrush(AccentBlue)
-                    };
-                    foreach (var pt in points)
-                        polyline.Points.Add(pt);
+                    var polyline = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentBlue), StrokeLineJoin = PenLineJoin.Round };
+                    foreach (var pt in points) polyline.Points.Add(pt);
                     canvas.Children.Add(polyline);
                 }
 
-                // Data points
+                // Dots
                 foreach (var pt in points)
                 {
-                    var dot = new Ellipse
-                    {
-                        Width = 8,
-                        Height = 8,
-                        Fill = new SolidColorBrush(Colors.White),
-                        Stroke = new SolidColorBrush(AccentBlue),
-                        StrokeThickness = 2
-                    };
+                    var dot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentBlue), StrokeThickness = 2 };
                     Canvas.SetLeft(dot, pt.X - 4);
                     Canvas.SetTop(dot, pt.Y - 4);
                     canvas.Children.Add(dot);
                 }
 
+                DrawChartDateLabels(canvas, data, pL, pB, xStep);
                 mainStack.Children.Add(canvas);
             }
 
@@ -3682,27 +3617,21 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        // Enhanced Value Line Chart
+        // Enhanced Value Line Chart with axes and gridlines
         private Border CreateEnhancedValueLineChart(string title, List<DailyStats> data)
         {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(20),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                BorderThickness = new Thickness(1)
-            };
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(10), Padding = new Thickness(20), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), BorderThickness = new Thickness(1) };
+            var mainStack = new StackPanel { Spacing = 12 };
 
-            var mainStack = new StackPanel { Spacing = 16 };
-
-            mainStack.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontSize = 15,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
+            var header = new Grid();
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.Children.Add(new TextBlock { Text = title, FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
+            var totalValue = data.Sum(d => d.ExportPrice);
+            var summaryText = new TextBlock { Text = $"Total: {totalValue:C0}", FontSize = 11, Foreground = new SolidColorBrush(AccentGreen), VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(summaryText, 1);
+            header.Children.Add(summaryText);
+            mainStack.Children.Add(header);
 
             if (!data.Any() || data.All(d => d.ExportPrice == 0))
             {
@@ -3710,66 +3639,55 @@ namespace McStudDesktop.Views
             }
             else
             {
-                var canvas = new Canvas { Width = 320, Height = 150 };
+                const double cW = 540, cH = 260, pL = 55, pR = 530, pT = 15, pB = 220;
+                var plotW = pR - pL;
+                var plotH = pB - pT;
+                var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
-                var maxVal = data.Max(d => d.ExportPrice);
-                if (maxVal == 0) maxVal = 1;
+                var maxVal = (double)Math.Max(data.Max(d => d.ExportPrice), 1);
+                DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "C0");
 
                 var points = new List<Windows.Foundation.Point>();
-                double xStep = 300.0 / Math.Max(data.Count - 1, 1);
-
+                double xStep = plotW / Math.Max(data.Count - 1, 1);
                 for (int i = 0; i < data.Count; i++)
-                {
-                    var x = 10 + i * xStep;
-                    var y = 140 - ((double)data[i].ExportPrice / (double)maxVal * 120);
-                    points.Add(new Windows.Foundation.Point((float)x, (float)y));
-                }
+                    points.Add(new Windows.Foundation.Point(pL + i * xStep, pB - ((double)data[i].ExportPrice / maxVal * plotH)));
 
-                // Area fill
+                // Area gradient fill
                 if (points.Count > 1)
                 {
-                    var areaPath = new Microsoft.UI.Xaml.Shapes.Polygon();
-                    var areaPoints = new Microsoft.UI.Xaml.Media.PointCollection();
-
-                    areaPoints.Add(new Windows.Foundation.Point(points[0].X, 140));
-                    foreach (var pt in points)
-                        areaPoints.Add(pt);
-                    areaPoints.Add(new Windows.Foundation.Point(points[^1].X, 140));
-
-                    areaPath.Points = areaPoints;
-                    areaPath.Fill = new SolidColorBrush(Color.FromArgb(40, 0, 150, 80));
-                    canvas.Children.Add(areaPath);
+                    var area = new Polygon();
+                    var pts = new PointCollection();
+                    pts.Add(new Windows.Foundation.Point(points[0].X, pB));
+                    foreach (var pt in points) pts.Add(pt);
+                    pts.Add(new Windows.Foundation.Point(points[^1].X, pB));
+                    area.Points = pts;
+                    area.Fill = new LinearGradientBrush
+                    {
+                        StartPoint = new Windows.Foundation.Point(0.5, 0),
+                        EndPoint = new Windows.Foundation.Point(0.5, 1),
+                        GradientStops = { new GradientStop { Color = Color.FromArgb(60, 0, 150, 80), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 0, 150, 80), Offset = 1 } }
+                    };
+                    canvas.Children.Add(area);
                 }
 
                 // Line
                 if (points.Count > 1)
                 {
-                    var polyline = new Polyline
-                    {
-                        StrokeThickness = 3,
-                        Stroke = new SolidColorBrush(AccentGreen)
-                    };
-                    foreach (var pt in points)
-                        polyline.Points.Add(pt);
+                    var polyline = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentGreen), StrokeLineJoin = PenLineJoin.Round };
+                    foreach (var pt in points) polyline.Points.Add(pt);
                     canvas.Children.Add(polyline);
                 }
 
-                // Data points
+                // Dots
                 foreach (var pt in points)
                 {
-                    var dot = new Ellipse
-                    {
-                        Width = 8,
-                        Height = 8,
-                        Fill = new SolidColorBrush(Colors.White),
-                        Stroke = new SolidColorBrush(AccentGreen),
-                        StrokeThickness = 2
-                    };
+                    var dot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentGreen), StrokeThickness = 2 };
                     Canvas.SetLeft(dot, pt.X - 4);
                     Canvas.SetTop(dot, pt.Y - 4);
                     canvas.Children.Add(dot);
                 }
 
+                DrawChartDateLabels(canvas, data, pL, pB, xStep);
                 mainStack.Children.Add(canvas);
             }
 
@@ -3777,27 +3695,13 @@ namespace McStudDesktop.Views
             return border;
         }
 
-        // New: Average Per Export Chart
+        // Average Per Export Chart with daily value line
         private Border CreateAvgPerExportChart(List<DailyStats> data)
         {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(20),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                BorderThickness = new Thickness(1)
-            };
-
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(10), Padding = new Thickness(20), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), BorderThickness = new Thickness(1) };
             var stack = new StackPanel { Spacing = 12 };
 
-            stack.Children.Add(new TextBlock
-            {
-                Text = "📈 Average Per Export",
-                FontSize = 15,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
+            stack.Children.Add(new TextBlock { Text = "Average Per Export", FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
 
             if (!data.Any())
             {
@@ -3805,160 +3709,196 @@ namespace McStudDesktop.Views
             }
             else
             {
-                var grid = new Grid();
-                for (int i = 0; i < 4; i++)
-                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
                 var totalOps = data.Sum(d => d.ExportOperations);
-                var totalExports = data.Count(d => d.ExportOperations > 0);
+                var totalExports = data.Count(d => d.ExportCount > 0);
                 var totalValue = data.Sum(d => d.ExportPrice);
                 var totalLabor = data.Sum(d => d.ExportLabor);
-
                 var avgOps = totalExports > 0 ? (double)totalOps / totalExports : 0;
                 var avgValue = totalExports > 0 ? totalValue / totalExports : 0;
                 var avgLabor = totalExports > 0 ? totalLabor / totalExports : 0;
 
-                var metrics = new[]
-                {
-                    ("Avg Ops", avgOps.ToString("N1"), AccentBlue),
-                    ("Avg Value", avgValue.ToString("C0"), AccentGreen),
-                    ("Avg Labor", $"{avgLabor:N1} hrs", AccentPurple),
-                    ("Active Days", totalExports.ToString(), AccentOrange)
-                };
+                // Summary cards row
+                var grid = new Grid();
+                for (int i = 0; i < 4; i++)
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
+                var metrics = new[] { ("Avg Ops", avgOps.ToString("N1"), AccentBlue), ("Avg Value", avgValue.ToString("C0"), AccentGreen), ("Avg Labor", $"{avgLabor:N1} hrs", AccentPurple), ("Active Days", totalExports.ToString(), AccentOrange) };
                 for (int i = 0; i < metrics.Length; i++)
                 {
                     var (label, value, color) = metrics[i];
-                    var card = new Border
-                    {
-                        Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 45)),
-                        CornerRadius = new CornerRadius(8),
-                        Padding = new Thickness(12, 10, 12, 10),
-                        Margin = new Thickness(4, 0, 4, 0)
-                    };
-
+                    var card = new Border { Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 45)), CornerRadius = new CornerRadius(8), Padding = new Thickness(12, 10, 12, 10), Margin = new Thickness(4, 0, 4, 0) };
                     var cardStack = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
-                    cardStack.Children.Add(new TextBlock
-                    {
-                        Text = value,
-                        FontSize = 18,
-                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                        Foreground = new SolidColorBrush(color),
-                        HorizontalAlignment = HorizontalAlignment.Center
-                    });
-                    cardStack.Children.Add(new TextBlock
-                    {
-                        Text = label,
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
-                        HorizontalAlignment = HorizontalAlignment.Center
-                    });
-
+                    cardStack.Children.Add(new TextBlock { Text = value, FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(color), HorizontalAlignment = HorizontalAlignment.Center });
+                    cardStack.Children.Add(new TextBlock { Text = label, FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)), HorizontalAlignment = HorizontalAlignment.Center });
                     card.Child = cardStack;
                     Grid.SetColumn(card, i);
                     grid.Children.Add(card);
                 }
-
                 stack.Children.Add(grid);
+
+                // Daily avg value line chart
+                var activeDays = data.Where(d => d.ExportCount > 0).ToList();
+                if (activeDays.Count >= 2)
+                {
+                    stack.Children.Add(new TextBlock { Text = "Daily Average Value", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)), Margin = new Thickness(0, 8, 0, 0) });
+
+                    const double cW = 540, cH = 180, pL = 55, pR = 530, pT = 10, pB = 145;
+                    var plotW = pR - pL;
+                    var plotH = pB - pT;
+                    var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
+
+                    var dailyAvgs = activeDays.Select(d => d.ExportCount > 0 ? (double)(d.ExportPrice / d.ExportCount) : 0).ToList();
+                    var maxAvg = Math.Max(dailyAvgs.Max(), 1);
+                    DrawChartAxes(canvas, pL, pT, pR, pB, maxAvg, "C0", 3);
+
+                    var points = new List<Windows.Foundation.Point>();
+                    double xStep = plotW / Math.Max(activeDays.Count - 1, 1);
+                    for (int i = 0; i < activeDays.Count; i++)
+                        points.Add(new Windows.Foundation.Point(pL + i * xStep, pB - (dailyAvgs[i] / maxAvg * plotH)));
+
+                    // Area fill
+                    if (points.Count > 1)
+                    {
+                        var area = new Polygon();
+                        var pts = new PointCollection();
+                        pts.Add(new Windows.Foundation.Point(points[0].X, pB));
+                        foreach (var pt in points) pts.Add(pt);
+                        pts.Add(new Windows.Foundation.Point(points[^1].X, pB));
+                        area.Points = pts;
+                        area.Fill = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 0), EndPoint = new Windows.Foundation.Point(0.5, 1),
+                            GradientStops = { new GradientStop { Color = Color.FromArgb(50, 255, 150, 0), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 255, 150, 0), Offset = 1 } }
+                        };
+                        canvas.Children.Add(area);
+                    }
+
+                    if (points.Count > 1)
+                    {
+                        var polyline = new Polyline { StrokeThickness = 2, Stroke = new SolidColorBrush(AccentOrange), StrokeLineJoin = PenLineJoin.Round };
+                        foreach (var pt in points) polyline.Points.Add(pt);
+                        canvas.Children.Add(polyline);
+                    }
+
+                    foreach (var pt in points)
+                    {
+                        var dot = new Ellipse { Width = 6, Height = 6, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentOrange), StrokeThickness = 1.5 };
+                        Canvas.SetLeft(dot, pt.X - 3);
+                        Canvas.SetTop(dot, pt.Y - 3);
+                        canvas.Children.Add(dot);
+                    }
+
+                    DrawChartDateLabels(canvas, activeDays, pL, pB, xStep);
+                    stack.Children.Add(canvas);
+                }
             }
 
             border.Child = stack;
             return border;
         }
 
-        // New: Peak Hours Chart
+        // Peak Hours Chart - full 24-hour histogram
         private Border CreatePeakHoursChart(List<HourlyActivity> hourlyData)
         {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(20),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                BorderThickness = new Thickness(1)
-            };
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(10), Padding = new Thickness(20), BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)), BorderThickness = new Thickness(1) };
+            var mainStack = new StackPanel { Spacing = 12 };
 
-            var stack = new StackPanel { Spacing = 12 };
-
-            stack.Children.Add(new TextBlock
+            var peakHour = hourlyData.OrderByDescending(h => h.OperationCount).FirstOrDefault();
+            var header = new Grid();
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.Children.Add(new TextBlock { Text = "Peak Hours Analysis", FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
+            if (peakHour != null && peakHour.OperationCount > 0)
             {
-                Text = "⏰ Peak Hours Analysis",
-                FontSize = 15,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
+                var peakText = new TextBlock { Text = $"Peak: {peakHour.FormattedHour}", FontSize = 11, Foreground = new SolidColorBrush(AccentCyan), VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(peakText, 1);
+                header.Children.Add(peakText);
+            }
+            mainStack.Children.Add(header);
 
-            if (!hourlyData.Any())
+            if (!hourlyData.Any() || hourlyData.All(h => h.OperationCount == 0))
             {
-                stack.Children.Add(CreateNoDataMessage());
+                mainStack.Children.Add(CreateNoDataMessage());
             }
             else
             {
-                // Top 5 busiest hours
-                var topHours = hourlyData.OrderByDescending(h => h.OperationCount).Take(5).ToList();
-                var maxCount = topHours.FirstOrDefault()?.OperationCount ?? 1;
+                // Build full 24-hour array
+                var allHours = new int[24];
+                foreach (var h in hourlyData)
+                    if (h.Hour >= 0 && h.Hour < 24)
+                        allHours[h.Hour] = h.OperationCount;
 
-                foreach (var hour in topHours)
+                // Find range with activity (pad 1 hour each side)
+                int firstHour = Array.FindIndex(allHours, c => c > 0);
+                int lastHour = Array.FindLastIndex(allHours, c => c > 0);
+                firstHour = Math.Max(0, firstHour - 1);
+                lastHour = Math.Min(23, lastHour + 1);
+                int hourCount = lastHour - firstHour + 1;
+                if (hourCount < 6) { firstHour = Math.Max(0, firstHour - 2); lastHour = Math.Min(23, lastHour + 2); hourCount = lastHour - firstHour + 1; }
+
+                const double cW = 540, cH = 260, pL = 55, pR = 530, pT = 15, pB = 220;
+                var plotW = pR - pL;
+                var plotH = pB - pT;
+                var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
+
+                var maxVal = (double)Math.Max(allHours.Max(), 1);
+                DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N0");
+
+                double slotW = plotW / hourCount;
+                double colW = slotW * 0.7;
+                double gap = slotW * 0.3;
+                int peakIdx = peakHour?.Hour ?? -1;
+
+                for (int i = 0; i < hourCount; i++)
                 {
-                    var row = new Grid { Margin = new Thickness(0, 4, 0, 4) };
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+                    int hour = firstHour + i;
+                    var x = pL + i * slotW + gap / 2;
+                    var targetH = allHours[hour] / maxVal * plotH;
+                    var intensity = allHours[hour] / maxVal;
+                    bool isPeak = hour == peakIdx;
+
+                    var colContainer = new Grid { Width = colW, Height = plotH };
+                    Canvas.SetLeft(colContainer, x);
+                    Canvas.SetTop(colContainer, pT);
+
+                    var col = new Border
+                    {
+                        Width = colW,
+                        Height = Math.Max(targetH, allHours[hour] > 0 ? 2 : 0),
+                        CornerRadius = new CornerRadius(2, 2, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Bottom,
+                        Background = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 1),
+                            EndPoint = new Windows.Foundation.Point(0.5, 0),
+                            GradientStops = { new GradientStop { Color = AccentCyan, Offset = 0 }, new GradientStop { Color = InterpolateColor(AccentCyan, isPeak ? AccentOrange : AccentPurple, intensity), Offset = 1 } }
+                        }
+                    };
+                    colContainer.Children.Add(col);
+                    canvas.Children.Add(colContainer);
+                    if (targetH > 0) AnimateColumnHeight(col, Math.Max(targetH, 2), delayMs: i * 25);
+
+                    // Value above column for significant bars
+                    if (allHours[hour] > 0 && targetH > 20)
+                    {
+                        var valLabel = new TextBlock { Text = allHours[hour].ToString(), FontSize = 8, Foreground = new SolidColorBrush(Colors.White), TextAlignment = TextAlignment.Center, Width = colW };
+                        Canvas.SetLeft(valLabel, x);
+                        Canvas.SetTop(valLabel, pB - targetH - 13);
+                        canvas.Children.Add(valLabel);
+                    }
 
                     // Hour label
-                    var hourLabel = hour.Hour < 12 ? $"{hour.Hour}:00 AM" :
-                                    hour.Hour == 12 ? "12:00 PM" :
-                                    $"{hour.Hour - 12}:00 PM";
-
-                    row.Children.Add(new TextBlock
-                    {
-                        Text = hourLabel,
-                        FontSize = 12,
-                        Foreground = new SolidColorBrush(AccentCyan),
-                        VerticalAlignment = VerticalAlignment.Center
-                    });
-
-                    // Bar
-                    var barWidth = (double)hour.OperationCount / maxCount * 200;
-                    var intensity = (double)hour.OperationCount / maxCount;
-
-                    var barBorder = new Border
-                    {
-                        Width = barWidth,
-                        Height = 16,
-                        CornerRadius = new CornerRadius(4),
-                        HorizontalAlignment = HorizontalAlignment.Left
-                    };
-
-                    var gradientBrush = new LinearGradientBrush
-                    {
-                        StartPoint = new Windows.Foundation.Point(0, 0),
-                        EndPoint = new Windows.Foundation.Point(1, 0)
-                    };
-                    gradientBrush.GradientStops.Add(new GradientStop { Color = AccentCyan, Offset = 0 });
-                    gradientBrush.GradientStops.Add(new GradientStop { Color = InterpolateColor(AccentCyan, AccentPurple, intensity), Offset = 1 });
-                    barBorder.Background = gradientBrush;
-
-                    Grid.SetColumn(barBorder, 1);
-                    row.Children.Add(barBorder);
-
-                    // Count
-                    var countText = new TextBlock
-                    {
-                        Text = $"{hour.OperationCount} ops",
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Colors.White),
-                        HorizontalAlignment = HorizontalAlignment.Right,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
-                    Grid.SetColumn(countText, 2);
-                    row.Children.Add(countText);
-
-                    stack.Children.Add(row);
+                    var hourStr = hour == 0 ? "12a" : hour < 12 ? $"{hour}a" : hour == 12 ? "12p" : $"{hour - 12}p";
+                    var hourLabel = new TextBlock { Text = hourStr, FontSize = 8, Foreground = new SolidColorBrush(Color.FromArgb(100, 255, 255, 255)), TextAlignment = TextAlignment.Center, Width = slotW };
+                    Canvas.SetLeft(hourLabel, pL + i * slotW);
+                    Canvas.SetTop(hourLabel, pB + 6);
+                    canvas.Children.Add(hourLabel);
                 }
+
+                mainStack.Children.Add(canvas);
             }
 
-            border.Child = stack;
+            border.Child = mainStack;
             return border;
         }
 
@@ -6165,10 +6105,10 @@ namespace McStudDesktop.Views
             var totalPaint = mostUsed.Sum(o => o.TotalPaint);
             var avgOpsPerExport = totalOps > 0 ? totalPrice / totalOps : 0;
 
-            var opsCard = CreateStatCard("TOTAL OPERATIONS", totalOps.ToString("N0"), "Operations exported", AccentBlue, "\uE8B8");
-            var valueCard = CreateStatCard("TOTAL VALUE", totalPrice.ToString("C0"), "Dollar amount", AccentGreen, "\uE8D4");
-            var laborCard = CreateStatCard("LABOR HOURS", totalLabor.ToString("F1"), "Hours billed", AccentPurple, "\uE823");
-            var avgCard = CreateStatCard("AVG $/OPERATION", avgOpsPerExport.ToString("C2"), "Per operation", AccentOrange, "\uE9D9");
+            var opsCard = CreateStatCard("TOTAL OPERATIONS", totalOps.ToString("N0"), "Operations exported", AccentBlue, "\uE8B8", totalOps, "N0");
+            var valueCard = CreateStatCard("TOTAL VALUE", totalPrice.ToString("C0"), "Dollar amount", AccentGreen, "\uE8D4", (double)totalPrice, "C0");
+            var laborCard = CreateStatCard("LABOR HOURS", totalLabor.ToString("F1"), "Hours billed", AccentPurple, "\uE823", (double)totalLabor, "F1");
+            var avgCard = CreateStatCard("AVG $/OPERATION", avgOpsPerExport.ToString("C2"), "Per operation", AccentOrange, "\uE9D9", (double)avgOpsPerExport, "C2");
 
             Grid.SetColumn(opsCard, 0);
             Grid.SetColumn(valueCard, 2);
@@ -6793,9 +6733,9 @@ namespace McStudDesktop.Views
             summaryRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var totalCard = CreateStatCard("PDFs EXPORTED", pdfStats.TotalExports.ToString(),
-                "Total exports", AccentRed, "\uE8A5");
+                "Total exports", AccentRed, "\uE8A5", pdfStats.TotalExports, "N0");
             var pagesCard = CreateStatCard("TOTAL PAGES", pdfStats.TotalPages.ToString(),
-                "Pages generated", AccentPurple, "\uE8C4");
+                "Pages generated", AccentPurple, "\uE8C4", pdfStats.TotalPages, "N0");
             var sizeCard = CreateStatCard("TOTAL SIZE", pdfStats.FormattedSize,
                 "Data exported", AccentCyan, "\uE8B7");
 
@@ -7481,6 +7421,162 @@ namespace McStudDesktop.Views
         {
             RefreshUserList();
             RefreshStats();
+        }
+
+        #endregion
+
+        #region Chart Helpers
+
+        private void DrawChartAxes(Canvas canvas, double plotL, double plotT, double plotR, double plotB, double maxVal, string yFormat, int gridlines = 4)
+        {
+            var plotH = plotB - plotT;
+            for (int i = 0; i <= gridlines; i++)
+            {
+                var y = plotB - (plotH * i / gridlines);
+                var val = maxVal * i / gridlines;
+                canvas.Children.Add(new Line { X1 = plotL, Y1 = y, X2 = plotR, Y2 = y, Stroke = new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)), StrokeThickness = 1 });
+                var label = new TextBlock { Text = val.ToString(yFormat), FontSize = 9, Foreground = new SolidColorBrush(Color.FromArgb(100, 255, 255, 255)), TextAlignment = TextAlignment.Right, Width = 40 };
+                Canvas.SetLeft(label, plotL - 45);
+                Canvas.SetTop(label, y - 7);
+                canvas.Children.Add(label);
+            }
+            canvas.Children.Add(new Line { X1 = plotL, Y1 = plotT, X2 = plotL, Y2 = plotB, Stroke = new SolidColorBrush(Color.FromArgb(50, 255, 255, 255)), StrokeThickness = 1 });
+            canvas.Children.Add(new Line { X1 = plotL, Y1 = plotB, X2 = plotR, Y2 = plotB, Stroke = new SolidColorBrush(Color.FromArgb(50, 255, 255, 255)), StrokeThickness = 1 });
+        }
+
+        private void DrawChartDateLabels(Canvas canvas, List<DailyStats> data, double plotL, double plotB, double xStep, int maxLabels = 7)
+        {
+            if (data.Count <= 1) return;
+            int interval = Math.Max(1, (int)Math.Ceiling((double)data.Count / maxLabels));
+            for (int i = 0; i < data.Count; i += interval)
+            {
+                var x = plotL + i * xStep;
+                var label = new TextBlock { Text = data[i].Date.ToString("MMM dd"), FontSize = 9, Foreground = new SolidColorBrush(Color.FromArgb(100, 255, 255, 255)) };
+                Canvas.SetLeft(label, x - 18);
+                Canvas.SetTop(label, plotB + 6);
+                canvas.Children.Add(label);
+            }
+        }
+
+        private void AnimateColumnHeight(Border col, double targetHeight, int delayMs = 0, int durationMs = 500)
+        {
+            if (targetHeight <= 0) return;
+            col.Height = 0;
+
+            void StartAnimation()
+            {
+                var startTime = DateTime.UtcNow;
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+                timer.Tick += (s, e) =>
+                {
+                    var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    var t = Math.Min(elapsed / durationMs, 1.0);
+                    var progress = 1 - Math.Pow(1 - t, 3);
+                    col.Height = targetHeight * progress;
+                    if (t >= 1.0) { col.Height = targetHeight; timer.Stop(); }
+                };
+                timer.Start();
+            }
+
+            if (delayMs <= 0) StartAnimation();
+            else
+            {
+                var delayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(delayMs) };
+                delayTimer.Tick += (s, e) => { delayTimer.Stop(); StartAnimation(); };
+                delayTimer.Start();
+            }
+        }
+
+        #endregion
+
+        #region Animations
+
+        private void AnimateCountUp(TextBlock target, double endValue, string format, int durationMs = 800)
+        {
+            if (endValue == 0) return;
+            target.Text = (0.0).ToString(format);
+            var startTime = DateTime.UtcNow;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            timer.Tick += (s, e) =>
+            {
+                var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                var t = Math.Min(elapsed / durationMs, 1.0);
+                var progress = 1 - Math.Pow(1 - t, 3);
+                target.Text = (endValue * progress).ToString(format);
+                if (t >= 1.0)
+                {
+                    target.Text = endValue.ToString(format);
+                    timer.Stop();
+                }
+            };
+            timer.Start();
+        }
+
+        private void AnimateBarWidth(Border bar, double targetWidth, int delayMs = 0, int durationMs = 500)
+        {
+            if (targetWidth <= 0) return;
+            bar.Width = 0;
+
+            void StartAnimation()
+            {
+                var startTime = DateTime.UtcNow;
+                var animTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+                animTimer.Tick += (s, e) =>
+                {
+                    var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    var t = Math.Min(elapsed / durationMs, 1.0);
+                    var progress = 1 - Math.Pow(1 - t, 3);
+                    bar.Width = targetWidth * progress;
+                    if (t >= 1.0)
+                    {
+                        bar.Width = targetWidth;
+                        animTimer.Stop();
+                    }
+                };
+                animTimer.Start();
+            }
+
+            if (delayMs <= 0)
+            {
+                StartAnimation();
+            }
+            else
+            {
+                var delayTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(delayMs) };
+                delayTimer.Tick += (s, e) =>
+                {
+                    delayTimer.Stop();
+                    StartAnimation();
+                };
+                delayTimer.Start();
+            }
+        }
+
+        private void AddSparkline(StackPanel parent, List<double> dataPoints, Color color, double width = 50, double height = 16)
+        {
+            if (dataPoints.Count < 2) return;
+            var canvas = new Canvas { Width = width, Height = height, Margin = new Thickness(0, 2, 0, 0) };
+            var polyline = new Polyline
+            {
+                Stroke = new SolidColorBrush(color),
+                StrokeThickness = 1.5,
+                Opacity = 0.7
+            };
+
+            var maxVal = dataPoints.Max();
+            var minVal = dataPoints.Min();
+            var range = maxVal - minVal;
+            if (range == 0) range = 1;
+
+            for (int i = 0; i < dataPoints.Count; i++)
+            {
+                var x = (double)i / (dataPoints.Count - 1) * width;
+                var y = height - ((dataPoints[i] - minVal) / range) * (height - 2) - 1;
+                polyline.Points.Add(new Windows.Foundation.Point(x, y));
+            }
+
+            canvas.Children.Add(polyline);
+            parent.Children.Add(canvas);
         }
 
         #endregion

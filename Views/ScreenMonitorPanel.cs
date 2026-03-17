@@ -901,6 +901,14 @@ namespace McStudDesktop.Views
                 });
             }
 
+            // Similar estimate comparison bar
+            if (hasOps && result != null)
+            {
+                var similarBar = BuildSimilarEstimateBar(result, snapshot);
+                if (similarBar != null)
+                    _analysisContentStack.Children.Add(similarBar);
+            }
+
             // If no data at all, show placeholder
             if (!hasOps && !hasCoaching)
             {
@@ -1167,6 +1175,130 @@ namespace McStudDesktop.Views
                     return canonical;
             }
             return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(partName.ToLowerInvariant());
+        }
+
+        private Border? BuildSimilarEstimateBar(ScreenOcrResult result, CoachingSnapshot? snapshot)
+        {
+            try
+            {
+                var db = EstimateHistoryDatabase.Instance;
+                var allEstimates = db.GetAllEstimates();
+                if (allEstimates.Count == 0) return null;
+
+                // Collect detected part names as damage zones
+                var detectedZones = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var op in result.DetectedOperations)
+                {
+                    if (string.IsNullOrEmpty(op.PartName)) continue;
+                    var normalized = NormalizePartName(op.PartName);
+                    if (normalized != "Unknown") detectedZones.Add(normalized);
+                }
+                if (detectedZones.Count == 0) return null;
+
+                // Find estimates with overlapping damage zones
+                var matches = allEstimates.Where(e =>
+                {
+                    if (e.DNA.DamageZones.Count == 0) return false;
+                    var overlap = e.DNA.DamageZones.Count(z =>
+                        detectedZones.Any(d =>
+                            z.Contains(d, StringComparison.OrdinalIgnoreCase) ||
+                            d.Contains(z, StringComparison.OrdinalIgnoreCase)));
+                    return overlap >= Math.Min(2, detectedZones.Count);
+                }).ToList();
+
+                // Also try vehicle keyword matching if few zone matches
+                if (matches.Count < 2 && !string.IsNullOrEmpty(snapshot?.VehicleInfo))
+                {
+                    var vehicleWords = snapshot.VehicleInfo.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Where(w => w.Length > 2).ToArray();
+                    if (vehicleWords.Length >= 2)
+                    {
+                        var vehicleMatches = allEstimates.Where(e =>
+                        {
+                            if (string.IsNullOrEmpty(e.VehicleInfo)) return false;
+                            var wordHits = vehicleWords.Count(w =>
+                                e.VehicleInfo.Contains(w, StringComparison.OrdinalIgnoreCase));
+                            return wordHits >= 2;
+                        }).ToList();
+                        // Merge without duplicates
+                        var existingIds = matches.Select(m => m.Id).ToHashSet();
+                        matches.AddRange(vehicleMatches.Where(m => !existingIds.Contains(m.Id)));
+                    }
+                }
+
+                if (matches.Count == 0) return null;
+
+                var avgTotal = (decimal)matches.Average(e => (double)e.GrandTotal);
+                var avgLines = (int)matches.Average(e => e.LineItems.Count);
+                var vehicleLabel = !string.IsNullOrEmpty(snapshot?.VehicleInfo) ? snapshot.VehicleInfo : "";
+                var damageLabel = string.Join(", ", detectedZones.Take(3));
+                var contextLabel = !string.IsNullOrEmpty(vehicleLabel)
+                    ? $"{vehicleLabel}, {damageLabel}"
+                    : damageLabel;
+
+                var bar = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 28, 40, 52)),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(12, 8, 12, 8),
+                    Margin = new Thickness(0, 0, 0, 6),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(255, 45, 70, 95)),
+                    BorderThickness = new Thickness(1)
+                };
+
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var icon = new TextBlock
+                {
+                    Text = "\u2261",
+                    FontSize = 16,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 160, 230)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 10, 0)
+                };
+                Grid.SetColumn(icon, 0);
+                grid.Children.Add(icon);
+
+                var text = new TextBlock
+                {
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 170, 200, 235)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+
+                var run1 = new Microsoft.UI.Xaml.Documents.Run { Text = $"{matches.Count} similar estimate{(matches.Count != 1 ? "s" : "")}" };
+                var run2 = new Microsoft.UI.Xaml.Documents.Run
+                {
+                    Text = !string.IsNullOrEmpty(contextLabel) ? $" ({contextLabel})" : "",
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 150, 180))
+                };
+                var run3 = new Microsoft.UI.Xaml.Documents.Run
+                {
+                    Text = $" — avg ${avgTotal:N0} | avg {avgLines} lines",
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+                };
+                text.Inlines.Add(run1);
+                text.Inlines.Add(run2);
+                text.Inlines.Add(run3);
+
+                Grid.SetColumn(text, 1);
+                grid.Children.Add(text);
+
+                bar.Child = grid;
+
+                var tooltip = new ToolTip { Content = "Search the History tab in Estimate Builder for details" };
+                ToolTipService.SetToolTip(bar, tooltip);
+
+                return bar;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Similar estimate bar error: {ex.Message}");
+                return null;
+            }
         }
 
         private Border BuildCoachingSuggestionCard(McstudDesktop.Models.CoachingSuggestion suggestion)
