@@ -299,18 +299,23 @@
       ]
     },
     "import-tab": {
-      "title": "Import Tab Help",
-      "description": "Import and analyze existing estimates to find missing items.",
+      "title": "Import Tab — Estimate Analyzer",
+      "description": "Upload or paste an existing estimate so McStud can read it, find what's missing, and learn patterns for next time.",
       "steps": [
-        "1. Paste estimate text or upload PDF",
-        "2. Tool parses the estimate automatically",
-        "3. Review suggested missing items",
-        "4. Add items to your export clipboard"
+        "1. Upload a PDF (drag-drop or browse) OR paste estimate text from CCC (Ctrl+A → Ctrl+C → Ctrl+V) and hit Parse",
+        "2. Parsed lines appear in green — every part, operation, labor hour, and dollar amount the parser found",
+        "3. Click 'Build Operation Lines' to get suggested missing ops for THIS estimate (nothing is saved)",
+        "4. Click 'Learn from This' to teach McStud the patterns (e.g. Front Bumper + Replace → typical ops) for FUTURE estimates",
+        "5. Check the purple Suggestions panel for items the knowledge base flagged as missing (adhesion promoter, blend, flex additive, etc.)",
+        "6. Use 'Add High Priority' to grab critical suggestions, or select individual items"
       ],
       "tips": [
-        "Works with CCC estimate PDFs",
-        "Checks against knowledge base for missed items",
-        "Great for supplement review"
+        "Works with CCC ONE, Mitchell, and Audatex estimate formats",
+        "Drag multiple PDFs at once for batch learning",
+        "Shorthand is auto-normalized: LT→Left, Frt→Front, Bpr→Bumper, R&I→Remove & Install",
+        "Quality score tells you if an estimate looks like an outlier — you can still learn from it",
+        "Learned data shows up in the Learned tab where you can search and review patterns",
+        "Great for supplement review — paste the original and see what was missed"
       ]
     },
     "chat-tab": {
@@ -473,18 +478,25 @@
       ]
     },
     "screen-ocr-subtab": {
-      "title": "Screen OCR Monitor Help",
-      "description": "Capture and read text from your screen to quickly import estimate data.",
+      "title": "Screen OCR Monitor",
+      "description": "Watches your CCC ONE or Mitchell window in real time, reads the estimate via OCR, and coaches you on what's missing — like having a senior estimator looking over your shoulder.",
       "steps": [
-        "1. Click 'Start Capture' to begin monitoring",
-        "2. Select the screen area to read",
-        "3. Captured text is parsed for operations",
-        "4. Send results to Chat or Build Estimate"
+        "1. Open your estimate in CCC ONE or Mitchell so the line items are visible",
+        "2. Click 'Start' — the monitor captures your screen every few seconds and reads the text",
+        "3. 'Estimate Analysis' shows the parts and operations it detected, grouped by part",
+        "4. 'Live Coaching' scores your estimate (A+ to F) and flags missing operations by priority (Critical, High, Medium, Low)",
+        "5. 'Potential Recovery' shows the dollar amount you may be leaving on the table",
+        "6. 'Similar Estimates' finds past jobs like this one so you can compare what you wrote before",
+        "7. Use 'Feed to Chat' to send the captured data to the AI assistant for questions",
+        "8. Use 'Copy' to grab the coaching suggestions as text"
       ],
       "tips": [
-        "Works with CCC ONE, Mitchell, and other estimating platforms",
-        "Position the capture area over the operations list",
-        "Use 'Feed to Chat' to ask questions about captured data"
+        "Navigate to the estimate LINES page in CCC — the monitor reads line items, not the summary page",
+        "The coaching score updates live as you add operations — watch it improve in real time",
+        "Critical/High missing items (pre-scan, post-scan, OEM research) are the most commonly underbilled",
+        "Add custom SOP items via the gear icon to flag shop-specific operations",
+        "Works best when the full operations list is visible — scroll through CCC slowly if needed",
+        "The monitor only READS your screen — it never types or modifies anything in CCC"
       ]
     }
   },

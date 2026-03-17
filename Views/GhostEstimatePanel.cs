@@ -53,28 +53,59 @@ namespace McStudDesktop.Views
         // Events
         public event EventHandler<GhostOperation>? OnOperationAccepted;
 
-        // Category display order
-        private static readonly string[] CategoryOrder = new[]
+        // CCC section display order
+        private static readonly string[] SectionOrder = new[]
         {
-            "Part Operations", "Body Operations", "Refinish Operations",
-            "Scanning", "Calibration", "Structural", "Frame Operations",
-            "SRS Operations", "Cover Car Operations", "Mechanical Operations", "SOP Operations"
+            "FRONT BUMPER & GRILLE", "REAR BUMPER",
+            "FRONT LAMPS", "REAR LAMPS",
+            "RADIATOR SUPPORT",
+            "HOOD",
+            "FENDER",
+            "FRONT DOOR", "REAR DOOR",
+            "QUARTER PANEL",
+            "PILLARS, ROCKER & FLOOR",
+            "ROOF",
+            "TRUNK / DECKLID",
+            "GLASS",
+            "FRAME",
+            "RESTRAINT SYSTEMS",
+            "ELECTRICAL",
+            "INSTRUMENT PANEL",
+            "VEHICLE DIAGNOSTICS",
+            "MECHANICAL",
+            "MISCELLANEOUS OPERATIONS"
         };
 
-        // Category colors
-        private static readonly Dictionary<string, Color> CategoryColors = new()
+        // Section colors — part sections (blue), structural (red), diagnostics (green), electrical (yellow), misc (gray)
+        private static readonly Dictionary<string, Color> SectionColors = new()
         {
-            ["Part Operations"] = Color.FromArgb(255, 100, 180, 255),
-            ["Body Operations"] = Color.FromArgb(255, 255, 180, 100),
-            ["Refinish Operations"] = Color.FromArgb(255, 180, 130, 255),
-            ["Scanning"] = Color.FromArgb(255, 100, 220, 180),
-            ["Calibration"] = Color.FromArgb(255, 100, 220, 180),
-            ["Structural"] = Color.FromArgb(255, 255, 130, 130),
-            ["Frame Operations"] = Color.FromArgb(255, 255, 130, 130),
-            ["SRS Operations"] = Color.FromArgb(255, 255, 100, 100),
-            ["Cover Car Operations"] = Color.FromArgb(255, 255, 200, 80),
-            ["Mechanical Operations"] = Color.FromArgb(255, 130, 200, 255),
-            ["SOP Operations"] = Color.FromArgb(255, 200, 200, 130),
+            // Part sections — blue tones
+            ["FRONT BUMPER & GRILLE"] = Color.FromArgb(255, 100, 180, 255),
+            ["REAR BUMPER"] = Color.FromArgb(255, 100, 180, 255),
+            ["FRONT LAMPS"] = Color.FromArgb(255, 130, 190, 255),
+            ["REAR LAMPS"] = Color.FromArgb(255, 130, 190, 255),
+            ["RADIATOR SUPPORT"] = Color.FromArgb(255, 100, 170, 240),
+            ["HOOD"] = Color.FromArgb(255, 100, 180, 255),
+            ["FENDER"] = Color.FromArgb(255, 100, 180, 255),
+            ["FRONT DOOR"] = Color.FromArgb(255, 100, 180, 255),
+            ["REAR DOOR"] = Color.FromArgb(255, 100, 180, 255),
+            ["QUARTER PANEL"] = Color.FromArgb(255, 100, 180, 255),
+            ["ROOF"] = Color.FromArgb(255, 100, 180, 255),
+            ["TRUNK / DECKLID"] = Color.FromArgb(255, 100, 180, 255),
+            ["GLASS"] = Color.FromArgb(255, 130, 200, 240),
+            ["INSTRUMENT PANEL"] = Color.FromArgb(255, 130, 190, 255),
+            // Structural — red tones
+            ["PILLARS, ROCKER & FLOOR"] = Color.FromArgb(255, 255, 130, 130),
+            ["FRAME"] = Color.FromArgb(255, 255, 130, 130),
+            ["RESTRAINT SYSTEMS"] = Color.FromArgb(255, 255, 100, 100),
+            // Diagnostics — green
+            ["VEHICLE DIAGNOSTICS"] = Color.FromArgb(255, 100, 220, 180),
+            // Electrical — yellow
+            ["ELECTRICAL"] = Color.FromArgb(255, 255, 200, 80),
+            // Mechanical — blue-green
+            ["MECHANICAL"] = Color.FromArgb(255, 130, 200, 255),
+            // Misc — gray
+            ["MISCELLANEOUS OPERATIONS"] = Color.FromArgb(255, 180, 185, 190),
         };
 
         public GhostEstimatePanel()
@@ -349,9 +380,8 @@ namespace McStudDesktop.Views
             {
                 Width = 200,
                 FontSize = 12,
-                Items = { "All Categories", "Part Operations", "Body Operations", "Refinish Operations",
-                          "Scanning/Calibration", "Structural/Frame", "SRS Operations",
-                          "Cover Car Operations", "Mechanical Operations", "SOP Operations" },
+                Items = { "All Sections", "Body Panels", "Structural / Frame",
+                          "Diagnostics", "Electrical", "Mechanical", "Misc Operations" },
                 SelectedIndex = 0
             };
             _categoryFilter.SelectionChanged += FilterChanged;
@@ -595,10 +625,10 @@ namespace McStudDesktop.Views
             // Build warnings/tips
             BuildWarningsAndTips(result);
 
-            // Group operations by category and display
+            // Group operations by CCC section and display
             var grouped = filteredOps
-                .GroupBy(o => o.Category)
-                .OrderBy(g => Array.IndexOf(CategoryOrder, g.Key) is int idx && idx >= 0 ? idx : 99);
+                .GroupBy(o => !string.IsNullOrEmpty(o.Section) ? o.Section : o.Category)
+                .OrderBy(g => Array.IndexOf(SectionOrder, g.Key) is int idx && idx >= 0 ? idx : 99);
 
             foreach (var group in grouped)
             {
@@ -986,7 +1016,7 @@ namespace McStudDesktop.Views
 
         private Border CreateCategorySection(string category, List<GuidanceOperation> operations)
         {
-            var catColor = CategoryColors.GetValueOrDefault(category, Color.FromArgb(255, 150, 155, 160));
+            var catColor = SectionColors.GetValueOrDefault(category, Color.FromArgb(255, 150, 155, 160));
             var isCollapsed = _collapsedCategories.GetValueOrDefault(category, false);
 
             var sectionBorder = new Border
@@ -1754,21 +1784,27 @@ namespace McStudDesktop.Views
         {
             var ops = allOps.AsEnumerable();
 
-            // Category filter
+            // Section filter
             var catIndex = _categoryFilter?.SelectedIndex ?? 0;
             if (catIndex > 0)
             {
+                var bodyPanelSections = new HashSet<string>
+                {
+                    "FRONT BUMPER & GRILLE", "REAR BUMPER", "FRONT LAMPS", "REAR LAMPS",
+                    "RADIATOR SUPPORT", "HOOD", "FENDER", "FRONT DOOR", "REAR DOOR",
+                    "QUARTER PANEL", "ROOF", "TRUNK / DECKLID", "GLASS", "INSTRUMENT PANEL"
+                };
+
+                var section = !string.IsNullOrEmpty(ops.FirstOrDefault()?.Section) ? "Section" : "Category";
+
                 ops = catIndex switch
                 {
-                    1 => ops.Where(o => o.Category == "Part Operations"),
-                    2 => ops.Where(o => o.Category == "Body Operations"),
-                    3 => ops.Where(o => o.Category == "Refinish Operations"),
-                    4 => ops.Where(o => o.Category == "Scanning" || o.Category == "Calibration"),
-                    5 => ops.Where(o => o.Category == "Structural" || o.Category == "Frame Operations"),
-                    6 => ops.Where(o => o.Category == "SRS Operations"),
-                    7 => ops.Where(o => o.Category == "Cover Car Operations"),
-                    8 => ops.Where(o => o.Category == "Mechanical Operations"),
-                    9 => ops.Where(o => o.Category == "SOP Operations"),
+                    1 => ops.Where(o => bodyPanelSections.Contains(o.Section)),                          // Body Panels
+                    2 => ops.Where(o => o.Section == "PILLARS, ROCKER & FLOOR" || o.Section == "FRAME" || o.Section == "RESTRAINT SYSTEMS"), // Structural / Frame
+                    3 => ops.Where(o => o.Section == "VEHICLE DIAGNOSTICS"),                             // Diagnostics
+                    4 => ops.Where(o => o.Section == "ELECTRICAL"),                                      // Electrical
+                    5 => ops.Where(o => o.Section == "MECHANICAL"),                                      // Mechanical
+                    6 => ops.Where(o => o.Section == "MISCELLANEOUS OPERATIONS"),                        // Misc
                     _ => ops
                 };
             }
@@ -1797,8 +1833,8 @@ namespace McStudDesktop.Views
             var sb = new StringBuilder();
 
             var grouped = operations
-                .GroupBy(o => o.Category)
-                .OrderBy(g => Array.IndexOf(CategoryOrder, g.Key) is int idx && idx >= 0 ? idx : 99);
+                .GroupBy(o => !string.IsNullOrEmpty(o.Section) ? o.Section : o.Category)
+                .OrderBy(g => Array.IndexOf(SectionOrder, g.Key) is int idx && idx >= 0 ? idx : 99);
 
             foreach (var group in grouped)
             {

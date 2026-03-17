@@ -128,13 +128,15 @@ namespace McStudDesktop.Services
             var refinishEstimate = _mining.GetExpectedLaborTime(canonical, "refinish", vehicleType);
 
             // Create primary operation
+            var primaryCat = DetermineCategory(canonical);
             var primaryOp = new SmartGhostOperation
             {
                 PartName = canonical,
                 OperationType = operation,
                 Description = BuildDescription(recognition, operation),
                 Side = recognition.Side,
-                Category = DetermineCategory(canonical),
+                Category = primaryCat,
+                Section = MapToCCCSection(canonical, primaryCat),
 
                 // Use LEARNED values if available, otherwise mark as estimated
                 LaborHours = laborEstimate.HasData ? laborEstimate.Mean : EstimateFallbackLabor(canonical, operation),
@@ -180,6 +182,7 @@ namespace McStudDesktop.Services
                     Description = BuildRIDescription(ri.PartName, side),
                     Side = side,
                     Category = "R&I",
+                    Section = MapToCCCSection(ri.PartName),
                     LaborHours = laborEstimate.HasData ? laborEstimate.Mean : 0.3m,
                     LaborConfidence = ri.Confidence,
                     LaborSource = laborEstimate.HasData ? "learned" : "estimated",
@@ -214,12 +217,14 @@ namespace McStudDesktop.Services
                         assoc.AssociatedOperation,
                         vehicleType);
 
+                    var coCategory = DetermineCategory(assoc.AssociatedPart);
                     result.Operations.Add(new SmartGhostOperation
                     {
                         PartName = assoc.AssociatedPart,
                         OperationType = assoc.AssociatedOperation,
                         Description = BuildDescription(assoc.AssociatedPart, assoc.AssociatedOperation),
-                        Category = DetermineCategory(assoc.AssociatedPart),
+                        Category = coCategory,
+                        Section = MapToCCCSection(assoc.AssociatedPart, coCategory),
                         LaborHours = laborEstimate.HasData ? laborEstimate.Mean : 0.5m,
                         LaborConfidence = assoc.CoOccurrenceRate,
                         LaborSource = laborEstimate.HasData ? "learned" : "co-occurrence",
@@ -282,6 +287,7 @@ namespace McStudDesktop.Services
                         OperationType = "blend",
                         Description = $"Blend {FormatPartName(adjacent)} (color match)",
                         Category = "Refinish",
+                        Section = MapToCCCSection(adjacent),
                         RefinishHours = blendHours,
                         RefinishConfidence = blendEstimate.HasData ? blendEstimate.Confidence : 0.6,
                         OverallConfidence = 0.7,
@@ -296,45 +302,61 @@ namespace McStudDesktop.Services
         private void AddStandardOperations(SmartGhostResult result, SmartGhostInput input)
         {
             // Pre/Post scan - use config scanning method (flat rate or labor hours)
-            var preScanEstimate = _mining.GetExpectedLaborTime("pre_repair_scan", "mechanical", null);
-            var postScanEstimate = _mining.GetExpectedLaborTime("post_repair_scan", "mechanical", null);
+            // Only add if not already present from co-occurring operations or other paths
+            var hasPreScan = result.Operations.Any(o =>
+                o.PartName != null && o.PartName.Contains("pre", StringComparison.OrdinalIgnoreCase) &&
+                (o.Category == "Scanning" || o.PartName.Contains("scan", StringComparison.OrdinalIgnoreCase)));
+            var hasPostScan = result.Operations.Any(o =>
+                o.PartName != null && o.PartName.Contains("post", StringComparison.OrdinalIgnoreCase) &&
+                (o.Category == "Scanning" || o.PartName.Contains("scan", StringComparison.OrdinalIgnoreCase)));
+
             var scanConfig = _ghostConfig.GetEffectiveScanning();
 
-            var preScanHours = preScanEstimate.HasData ? preScanEstimate.Mean : scanConfig.LaborHours;
-            var preScanPrice = preScanEstimate.HasData ? 0m : scanConfig.Price;
-
-            result.Operations.Add(new SmartGhostOperation
+            if (!hasPreScan)
             {
-                PartName = "pre_repair_scan",
-                OperationType = preScanPrice > 0 ? "sublet" : "mechanical",
-                Description = "Pre-Repair Diagnostic Scan",
-                Category = "Scanning",
-                LaborHours = preScanHours,
-                Price = preScanPrice,
-                LaborConfidence = preScanEstimate.HasData ? preScanEstimate.Confidence : 0.9,
-                LaborSource = preScanEstimate.HasData ? "learned" :
-                    (preScanPrice > 0 ? "shop_flat_rate" : "industry_standard"),
-                OverallConfidence = 0.95,
-                ReasonIncluded = "Required for modern vehicles - OEM procedure"
-            });
+                var preScanEstimate = _mining.GetExpectedLaborTime("pre_repair_scan", "mechanical", null);
+                var preScanHours = preScanEstimate.HasData ? preScanEstimate.Mean : scanConfig.LaborHours;
+                var preScanPrice = preScanEstimate.HasData ? 0m : scanConfig.Price;
 
-            var postScanHours = postScanEstimate.HasData ? postScanEstimate.Mean : scanConfig.LaborHours;
-            var postScanPrice = postScanEstimate.HasData ? 0m : scanConfig.Price;
+                result.Operations.Add(new SmartGhostOperation
+                {
+                    PartName = "pre_repair_scan",
+                    OperationType = preScanPrice > 0 ? "sublet" : "mechanical",
+                    Description = "Pre-Repair Diagnostic Scan",
+                    Category = "Scanning",
+                    Section = "VEHICLE DIAGNOSTICS",
+                    LaborHours = preScanHours,
+                    Price = preScanPrice,
+                    LaborConfidence = preScanEstimate.HasData ? preScanEstimate.Confidence : 0.9,
+                    LaborSource = preScanEstimate.HasData ? "learned" :
+                        (preScanPrice > 0 ? "shop_flat_rate" : "industry_standard"),
+                    OverallConfidence = 0.95,
+                    ReasonIncluded = "Required for modern vehicles - OEM procedure"
+                });
+            }
 
-            result.Operations.Add(new SmartGhostOperation
+            if (!hasPostScan)
             {
-                PartName = "post_repair_scan",
-                OperationType = postScanPrice > 0 ? "sublet" : "mechanical",
-                Description = "Post-Repair Diagnostic Scan",
-                Category = "Scanning",
-                LaborHours = postScanHours,
-                Price = postScanPrice,
-                LaborConfidence = postScanEstimate.HasData ? postScanEstimate.Confidence : 0.9,
-                LaborSource = postScanEstimate.HasData ? "learned" :
-                    (postScanPrice > 0 ? "shop_flat_rate" : "industry_standard"),
-                OverallConfidence = 0.95,
-                ReasonIncluded = "Required for modern vehicles - OEM procedure"
-            });
+                var postScanEstimate = _mining.GetExpectedLaborTime("post_repair_scan", "mechanical", null);
+                var postScanHours = postScanEstimate.HasData ? postScanEstimate.Mean : scanConfig.LaborHours;
+                var postScanPrice = postScanEstimate.HasData ? 0m : scanConfig.Price;
+
+                result.Operations.Add(new SmartGhostOperation
+                {
+                    PartName = "post_repair_scan",
+                    OperationType = postScanPrice > 0 ? "sublet" : "mechanical",
+                    Description = "Post-Repair Diagnostic Scan",
+                    Category = "Scanning",
+                    Section = "VEHICLE DIAGNOSTICS",
+                    LaborHours = postScanHours,
+                    Price = postScanPrice,
+                    LaborConfidence = postScanEstimate.HasData ? postScanEstimate.Confidence : 0.9,
+                    LaborSource = postScanEstimate.HasData ? "learned" :
+                        (postScanPrice > 0 ? "shop_flat_rate" : "industry_standard"),
+                    OverallConfidence = 0.95,
+                    ReasonIncluded = "Required for modern vehicles - OEM procedure"
+                });
+            }
 
             // ADAS calibration if relevant parts
             var adasParts = new[] { "windshield", "front_bumper_cover", "grille", "mirror", "headlight" };
@@ -348,6 +370,7 @@ namespace McStudDesktop.Services
                     OperationType = "sublet",
                     Description = "ADAS Calibration (Camera/Radar)",
                     Category = "Calibration",
+                    Section = "VEHICLE DIAGNOSTICS",
                     Price = adasEstimate.HasData ? adasEstimate.Mean * 100 : 350m, // Sublet pricing
                     OverallConfidence = 0.8,
                     ReasonIncluded = "ADAS-equipped components affected"
@@ -366,6 +389,7 @@ namespace McStudDesktop.Services
                     OperationType = "frame",
                     Description = "Measure/Document Vehicle Structure",
                     Category = "Frame",
+                    Section = "FRAME",
                     LaborHours = measureEstimate.HasData ? measureEstimate.Mean : 1.0m,
                     OverallConfidence = 0.9,
                     ReasonIncluded = "Structural components affected - measurement required"
@@ -473,6 +497,66 @@ namespace McStudDesktop.Services
             if (partName.Contains("scan"))
                 return "Scanning";
             return "Part";
+        }
+
+        private static string MapToCCCSection(string partName, string category = "")
+        {
+            var lower = (partName ?? "").ToLowerInvariant();
+
+            if (lower.Contains("scan") || lower.Contains("diagnostic") || lower.Contains("adas") || lower.Contains("calibration"))
+                return "VEHICLE DIAGNOSTICS";
+            if (lower.Contains("battery") || lower.Contains("electronic reset") || lower.Contains("electrical"))
+                return "ELECTRICAL";
+            if (lower.Contains("restraint") || lower.Contains("air bag") || lower.Contains("airbag") || lower.Contains("srs"))
+                return "RESTRAINT SYSTEMS";
+            if (lower.Contains("frame") || lower.Contains("subframe") || lower.Contains("rail") || lower.Contains("apron"))
+                return "FRAME";
+            if (lower.Contains("front bumper") || lower.Contains("grille") || lower.Contains("front fascia"))
+                return "FRONT BUMPER & GRILLE";
+            if (lower.Contains("rear bumper") || lower.Contains("rear fascia"))
+                return "REAR BUMPER";
+            if (lower.Contains("headlamp") || lower.Contains("headlight") || lower.Contains("head lamp") || lower.Contains("head light") || lower.Contains("fog light") || lower.Contains("fog lamp"))
+                return "FRONT LAMPS";
+            if (lower.Contains("taillamp") || lower.Contains("taillight") || lower.Contains("tail light") || lower.Contains("tail lamp"))
+                return "REAR LAMPS";
+            if (lower.Contains("radiator support") || lower.Contains("core support"))
+                return "RADIATOR SUPPORT";
+            if (lower.Contains("hood"))
+                return "HOOD";
+            if (lower.Contains("fender"))
+                return "FENDER";
+            if (lower.Contains("front door"))
+                return "FRONT DOOR";
+            if (lower.Contains("rear door"))
+                return "REAR DOOR";
+            if (lower.Contains("door"))
+                return "FRONT DOOR";
+            if (lower.Contains("mirror"))
+                return "FRONT DOOR";
+            if (lower.Contains("quarter"))
+                return "QUARTER PANEL";
+            if (lower.Contains("pillar") || lower.Contains("rocker") || lower.Contains("floor pan"))
+                return "PILLARS, ROCKER & FLOOR";
+            if (lower.Contains("roof") || lower.Contains("sunroof"))
+                return "ROOF";
+            if (lower.Contains("trunk") || lower.Contains("decklid") || lower.Contains("deck lid") || lower.Contains("liftgate") || lower.Contains("lift gate"))
+                return "TRUNK / DECKLID";
+            if (lower.Contains("windshield") || lower.Contains("glass"))
+                return "GLASS";
+            if (lower.Contains("dash") || lower.Contains("instrument panel"))
+                return "INSTRUMENT PANEL";
+            if (lower.Contains("radiator") || lower.Contains("condenser") || lower.Contains("suspension") || lower.Contains("steering") || lower.Contains("engine") || lower.Contains("wheel"))
+                return "MECHANICAL";
+            if (lower.Contains("bumper"))
+                return "FRONT BUMPER & GRILLE";
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                if (category == "Scanning" || category == "Calibration") return "VEHICLE DIAGNOSTICS";
+                if (category == "Frame" || category == "Structural") return "FRAME";
+            }
+
+            return "MISCELLANEOUS OPERATIONS";
         }
 
         private string BuildDescription(PartRecognitionResult recognition, string operation)
@@ -640,6 +724,7 @@ namespace McStudDesktop.Services
         public string Description { get; set; } = "";
         public string Side { get; set; } = "";
         public string Category { get; set; } = "";
+        public string Section { get; set; } = "";
 
         public decimal LaborHours { get; set; }
         public double LaborConfidence { get; set; }

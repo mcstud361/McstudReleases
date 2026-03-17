@@ -948,6 +948,11 @@ namespace McStudDesktop.Views
                 foreach (var op in result!.DetectedOperations)
                 {
                     var partName = NormalizePartName(op.PartName);
+                    // Skip garbage part names: purely numeric/price, operation type labels, or too short
+                    if (string.IsNullOrWhiteSpace(partName) ||
+                        System.Text.RegularExpressions.Regex.IsMatch(partName, @"^\$?\d[\d,.\s]*$") ||
+                        partName.Length < 3)
+                        continue;
                     if (!partGroups.ContainsKey(partName))
                     {
                         partGroups[partName] = new List<OcrDetectedOperation>();

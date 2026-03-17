@@ -1,22 +1,23 @@
 {
   "id": "in-process-quality-control",
   "title": "In-Process Quality Control",
-  "description": "Ultimate Collision comprehensive quality control checklist for OEM certification compliance",
-  "version": "1.0",
-  "shopName": "Ultimate Collision",
+  "description": "Comprehensive in-process quality control checklist for OEM certification compliance",
+  "version": "2.0",
+  "shopName": "",
   "sections": [
     {
       "id": "repair-info",
       "title": "Repair Info",
       "icon": "Document",
       "items": [
-        { "id": "info-1", "text": "Insurance Company", "required": true },
-        { "id": "info-2", "text": "DFR Date", "required": true },
-        { "id": "info-3", "text": "Blueprinter", "required": true },
-        { "id": "info-4", "text": "Supplement Date", "required": false },
-        { "id": "info-5", "text": "Parts Ordered", "required": true },
-        { "id": "info-6", "text": "Parts Ordered Date", "required": true },
-        { "id": "info-7", "text": "Technician Assigned", "required": true }
+        { "id": "info-1", "text": "RO#", "required": true },
+        { "id": "info-2", "text": "Insurance Company", "required": false },
+        { "id": "info-3", "text": "Self-Pay: Yes/No", "required": false },
+        { "id": "info-4", "text": "DFR Date", "required": true },
+        { "id": "info-5", "text": "Blueprinter", "required": true },
+        { "id": "info-6", "text": "Supplement Date", "required": false },
+        { "id": "info-7", "text": "Parts Ordered", "required": true },
+        { "id": "info-8", "text": "Parts Ordered Date", "required": true }
       ]
     },
     {
@@ -24,6 +25,7 @@
       "title": "Body/Structural",
       "icon": "Box",
       "items": [
+        { "id": "body-0", "text": "Technician Assigned", "required": true },
         { "id": "body-1", "text": "RO Received", "required": true },
         { "id": "body-2", "text": "Vehicle Pre-Scanned", "required": true },
         { "id": "body-3", "text": "DFR (Disassembly for Repair)", "required": true },
@@ -41,7 +43,8 @@
         { "id": "body-15", "text": "Proper Operation: Hood, Trunk", "required": true },
         { "id": "body-16", "text": "Adhesive Materials Applied as per OEM", "required": true },
         { "id": "body-17", "text": "Panel Gaps within Specs", "required": true },
-        { "id": "body-18", "text": "Post Scan", "required": true }
+        { "id": "body-18", "text": "Post Scan", "required": true },
+        { "id": "body-19", "text": "Technician Sign Off", "required": true }
       ]
     },
     {
@@ -49,6 +52,7 @@
       "title": "Mechanical/Electrical",
       "icon": "Truck",
       "items": [
+        { "id": "mech-0", "text": "Technician Assigned", "required": true },
         { "id": "mech-1", "text": "Parts Replaced/Repaired as per RO", "required": true },
         { "id": "mech-2", "text": "Belts, Hoses, Clamps Operational", "required": true },
         { "id": "mech-3", "text": "AC System Charged", "required": false },
@@ -66,7 +70,8 @@
         { "id": "mech-15", "text": "Suspension Parts Replaced", "required": false },
         { "id": "mech-16", "text": "Wheel Alignment", "required": true },
         { "id": "mech-17", "text": "Steering Angle Sensor", "required": true },
-        { "id": "mech-18", "text": "Test Drive", "required": true }
+        { "id": "mech-18", "text": "Test Drive", "required": true },
+        { "id": "mech-19", "text": "Technician Sign Off", "required": true }
       ]
     },
     {
@@ -74,13 +79,15 @@
       "title": "Refinish",
       "icon": "Paint",
       "items": [
+        { "id": "ref-0", "text": "Technician Assigned", "required": true },
         { "id": "ref-1", "text": "Panels Refinished per RO", "required": true },
         { "id": "ref-2", "text": "Corrosion Protection", "required": true },
         { "id": "ref-3", "text": "Seam Sealer", "required": true },
         { "id": "ref-4", "text": "Proper Color Match", "required": true },
         { "id": "ref-5", "text": "Undercoating Applied", "required": true },
         { "id": "ref-6", "text": "Refinish Jambs/Underside", "required": true },
-        { "id": "ref-7", "text": "Chip Guard", "required": false }
+        { "id": "ref-7", "text": "Chip Guard", "required": false },
+        { "id": "ref-8", "text": "Technician Sign Off", "required": true }
       ]
     },
     {
@@ -96,7 +103,8 @@
         { "id": "detail-6", "text": "Touch Up Vehicle", "required": true },
         { "id": "detail-7", "text": "Trunk Clean", "required": true },
         { "id": "detail-8", "text": "No Parts in Vehicle", "required": true },
-        { "id": "detail-9", "text": "Spare Tire Compartment Clean", "required": true }
+        { "id": "detail-9", "text": "Spare Tire Compartment Clean", "required": true },
+        { "id": "detail-10", "text": "Detail Complete", "required": true }
       ]
     },
     {
@@ -104,15 +112,14 @@
       "title": "QC Inspection",
       "icon": "Shield",
       "items": [
-        { "id": "qc-1", "text": "Body/Structural QC Complete", "required": true },
-        { "id": "qc-2", "text": "Body QC Issues Documented", "required": false },
-        { "id": "qc-3", "text": "Body QC Issues Corrected", "required": false },
-        { "id": "qc-4", "text": "Mechanical/Electrical QC Complete", "required": true },
-        { "id": "qc-5", "text": "Mechanical QC Issues Documented", "required": false },
-        { "id": "qc-6", "text": "Mechanical QC Issues Corrected", "required": false },
-        { "id": "qc-7", "text": "Refinish/Detail QC Complete", "required": true },
-        { "id": "qc-8", "text": "Refinish QC Issues Documented", "required": false },
-        { "id": "qc-9", "text": "Refinish QC Issues Corrected", "required": false }
+        { "id": "qc-1", "text": "Body/Structural - QC Issues", "required": false },
+        { "id": "qc-2", "text": "Body/Structural - Issues Corrected", "required": false },
+        { "id": "qc-3", "text": "Mechanical/Electrical - QC Issues", "required": false },
+        { "id": "qc-4", "text": "Mechanical/Electrical - Issues Corrected", "required": false },
+        { "id": "qc-5", "text": "Refinish - QC Issues", "required": false },
+        { "id": "qc-6", "text": "Refinish - Issues Corrected", "required": false },
+        { "id": "qc-7", "text": "Detail - QC Issues", "required": false },
+        { "id": "qc-8", "text": "Detail - Issues Corrected", "required": false }
       ]
     },
     {
@@ -120,15 +127,16 @@
       "title": "ADAS Systems",
       "icon": "Target",
       "items": [
-        { "id": "adas-1", "text": "ADAS Equipped: Confirmed Yes/No", "required": true },
-        { "id": "adas-2", "text": "Camera (Front) - Calibration Required", "required": false },
-        { "id": "adas-3", "text": "Camera (Rear) - Calibration Required", "required": false },
-        { "id": "adas-4", "text": "Blind Spot Monitor (BSM) - Calibration Required", "required": false },
-        { "id": "adas-5", "text": "Lane Departure Warning - Calibration Required", "required": false },
-        { "id": "adas-6", "text": "Lane Keep Assist (LKA) - Calibration Required", "required": false },
-        { "id": "adas-7", "text": "Collision Avoidance - Calibration Required", "required": false },
-        { "id": "adas-8", "text": "Radar - Calibration Required", "required": false },
-        { "id": "adas-9", "text": "All ADAS Calibrations Completed", "required": true }
+        { "id": "adas-1", "text": "ADAS Equipped: Yes/No", "required": true },
+        { "id": "adas-2", "text": "ADAS Think (system used)", "required": false },
+        { "id": "adas-3", "text": "Camera (Front) - Calibration Required", "required": false },
+        { "id": "adas-4", "text": "Camera (Rear) - Calibration Required", "required": false },
+        { "id": "adas-5", "text": "Blind Spot Monitor (BSM) - Calibration Required", "required": false },
+        { "id": "adas-6", "text": "Lane Departure Warning - Calibration Required", "required": false },
+        { "id": "adas-7", "text": "Lane Keep Assist (LKA) - Calibration Required", "required": false },
+        { "id": "adas-8", "text": "Collision Avoidance - Calibration Required", "required": false },
+        { "id": "adas-9", "text": "Radar - Calibration Required", "required": false },
+        { "id": "adas-10", "text": "All ADAS Calibrations Completed", "required": true }
       ]
     },
     {
@@ -137,10 +145,10 @@
       "icon": "Warning",
       "items": [
         { "id": "ev-1", "text": "Vehicle Charged", "required": false },
-        { "id": "ev-2", "text": "Service Mode Entered/Exited", "required": false },
-        { "id": "ev-3", "text": "Calibration(s) Completed", "required": false },
-        { "id": "ev-4", "text": "Software Update Installed", "required": false },
-        { "id": "ev-5", "text": "Radar Calibrated", "required": false },
+        { "id": "ev-2", "text": "Calibration(s) Completed", "required": false },
+        { "id": "ev-3", "text": "Software Update Installed", "required": false },
+        { "id": "ev-4", "text": "Radar Calibrated", "required": false },
+        { "id": "ev-5", "text": "Service Mode Entered/Exited", "required": false },
         { "id": "ev-6", "text": "Auto Pilot System Checked", "required": false }
       ]
     }

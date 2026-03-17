@@ -184,10 +184,12 @@ namespace McstudDesktop.Services
         {
             "WORKFILE", "Save Filter", "Frame Save and Print", "Advisor", "ECIT",
             "Estimate Properties", "Rates and Rules", "Delete Estimate",
-            "Repairable Total Loss", "threshold", "Preliminary Estimate",
-            "Lines MOTOR", "Other Charg", "Ext. Price", "Part Cod",
-            "Search for Parts", "Checkout", "Ins ur ance", "Es tin",
-            "Rental Estim", "Attachments", "Ev ents", "Fo rms"
+            "Repairable Total Loss", "Repairable", "Total Loss", "threshold",
+            "Preliminary Estimate", "Lines MOTOR", "Other Charg", "Ext. Price",
+            "Part Cod", "Search for Parts", "Checkout", "Diagnostics Checkout",
+            "Ins ur ance", "Es tin", "Rental Estim", "Attachments",
+            "Ev ents", "Fo rms", "Recy opt", "OEM Recond", "compare PDR",
+            "Section • Operations", "Tire Part", "Re finish", "• Search"
         };
 
         // CCC section headers — lines matching these are skipped during operation parsing
@@ -579,12 +581,28 @@ namespace McstudDesktop.Services
                     // Description too short (<3 chars) → garbage
                     if (desc.Length > 0 && desc.Length < 3)
                         continue;
+                    // Description is purely numeric or a price (e.g., "21.68", "$4,972.77") → garbage
+                    if (Regex.IsMatch(desc, @"^\$?\d[\d,.\s]*$"))
+                        continue;
+                    // Description equals an operation type keyword (e.g., "Replace", "Repair") → UI label, not a part
+                    if (_cccOperationCodes.Any(op => desc.Equals(op, StringComparison.OrdinalIgnoreCase)) ||
+                        desc.Equals("Replace", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Equals("Repair", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Equals("Refinish", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Equals("Blend", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Equals("R&I", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Equals("Overhaul", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     // Contains UI text that slipped through
                     if (desc.Contains("threshold", StringComparison.OrdinalIgnoreCase) ||
-                        desc.Contains("preliminary estimate", StringComparison.OrdinalIgnoreCase))
+                        desc.Contains("preliminary estimate", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("repairable", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("total loss", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("diagnostics", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("checkout", StringComparison.OrdinalIgnoreCase))
                         continue;
-                    // Single short word (<4 chars) that isn't a known part → garbage (e.g., "able")
-                    if (!desc.Contains(' ') && desc.Length < 4 &&
+                    // Single short word (<5 chars) that isn't a known part → garbage (e.g., "able", "Rpr")
+                    if (!desc.Contains(' ') && desc.Length < 5 &&
                         !_knownParts.Any(kp => kp.CanonicalName.Equals(desc, StringComparison.OrdinalIgnoreCase)))
                         continue;
 

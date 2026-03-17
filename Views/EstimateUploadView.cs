@@ -717,17 +717,33 @@ namespace McStudDesktop.Views
 
             var helpText = new TextBlock
             {
-                Text = "SMART Import Features:\n" +
-                       "• Auto-detects estimate source (CCC ONE, Mitchell, Audatex)\n" +
-                       "• Normalizes abbreviations (LT→Left, Frt→Front, Bpr→Bumper)\n" +
-                       "• Identifies additional operations (#): Adhesion Promoter, Flex Additive, De-Nib, etc.\n" +
-                       "• Links additional ops to their parent parts automatically\n" +
-                       "• Learns patterns: \"Front Bumper + Replace\" → typical operations\n\n" +
-                       "How to use:\n" +
-                       "1. Upload PDF or paste estimate text from CCC (Ctrl+A → Ctrl+C → Ctrl+V)\n" +
-                       "2. Review parsed parts and operations\n" +
-                       "3. Click 'Learn from This' to train the system\n" +
-                       "4. Future estimates will auto-suggest based on learned patterns",
+                Text = "WHAT THIS TAB DOES\n" +
+                       "Feed it an estimate (PDF or pasted text) and it reads every line — parts, labor,\n" +
+                       "refinish, additional ops — so you can analyze it, learn from it, or build new lines.\n\n" +
+                       "STEP BY STEP\n" +
+                       "1. GET THE ESTIMATE IN\n" +
+                       "   • PDF: Click \"Upload Estimate Files\" or drag-drop the file onto the box above.\n" +
+                       "   • Paste: Open the estimate in CCC ONE, Ctrl+A to select all, Ctrl+C to copy,\n" +
+                       "     then Ctrl+V into the paste box above. Hit \"Parse Pasted Text\".\n" +
+                       "   • Batch: Drop multiple PDFs at once to learn from a stack of estimates.\n\n" +
+                       "2. REVIEW PARSED LINES\n" +
+                       "   Once parsed, every part and operation shows up in the green \"Parsed Lines\" section.\n" +
+                       "   The parser auto-detects CCC ONE, Mitchell, or Audatex format and normalizes\n" +
+                       "   shorthand (LT→Left, Frt→Front, Bpr→Bumper, R&I→Remove & Install, etc.).\n\n" +
+                       "3. CHOOSE WHAT TO DO WITH IT\n" +
+                       "   • \"Build Operation Lines\" — Generates suggested operations for THIS estimate\n" +
+                       "     right now. Uses the knowledge base to find ops you might be missing.\n" +
+                       "     Nothing is saved — just gives you lines you can copy into CCC.\n" +
+                       "   • \"Learn from This\" — Saves the patterns from this estimate for the FUTURE.\n" +
+                       "     Next time you see \"Front Bumper + Replace\", McStud remembers what ops\n" +
+                       "     usually go with it. Data goes to the Learned tab for searching later.\n\n" +
+                       "4. SMART SUGGESTIONS (appears after parsing)\n" +
+                       "   If the knowledge base spots missing items (adhesion promoter, flex additive,\n" +
+                       "   blend operations, etc.) they show up in the purple Suggestions panel.\n" +
+                       "   Hit \"Add High Priority\" to grab the important ones, or cherry-pick individually.\n\n" +
+                       "5. QUALITY SCORE (appears after parsing)\n" +
+                       "   Shows how complete/consistent the estimate looks. Outlier estimates can still\n" +
+                       "   be learned from — just check the \"Include outliers\" box if you want to keep them.",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
                 TextWrapping = TextWrapping.Wrap,

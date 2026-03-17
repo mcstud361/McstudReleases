@@ -3,7 +3,7 @@
   "title": "Driveable vs Non-Drivable Vehicle Check",
   "description": "Quick safety checklist to determine if a vehicle is safe to drive",
   "version": "1.0",
-  "shopName": "Ultimate Collision Repair",
+  "shopName": "",
   "sections": [
     {
       "id": "lighting",

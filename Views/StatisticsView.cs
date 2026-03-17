@@ -70,6 +70,22 @@ namespace McStudDesktop.Views
         private ComboBox? _chartItemCombo;
         private StackPanel? _chartsContainer;
 
+        // Interactive chart state
+        private Grid? _interactiveChartContainer;
+        private ScaleTransform? _chartScaleTransform;
+        private TranslateTransform? _chartTranslateTransform;
+        private double _chartZoomLevel = 1.0;
+        private double _chartPanX = 0, _chartPanY = 0;
+        private bool _chartIsDragging = false;
+        private Windows.Foundation.Point _chartLastPointerPosition;
+        private TextBlock? _chartZoomLabel;
+        private bool _chartIsExpanded = false;
+        private Border? _chartExpandContainer;
+        private StackPanel? _chartSeriesPanel;
+        private string _currentChartKey = "";
+        private bool _isSeriesToggleRefresh = false;
+        private Dictionary<string, bool> _chartSeriesVisibility = new();
+
         public StatisticsView()
         {
             _exportStats = new ExportStatisticsService();
@@ -3039,7 +3055,20 @@ namespace McStudDesktop.Views
         private void RefreshSelectedChart()
         {
             if (_chartsContainer == null) return;
+
+            // Save view state if this is a series toggle refresh
+            (double zoom, double panX, double panY) savedState = (1.0, 0, 0);
+            if (_isSeriesToggleRefresh)
+                savedState = SaveChartViewState();
+
             _chartsContainer.Children.Clear();
+
+            // Reset interactive chart key when switching charts
+            if (!_isSeriesToggleRefresh && _currentChartKey != _selectedChart)
+            {
+                _currentChartKey = _selectedChart;
+                _chartSeriesVisibility = GetDefaultSeriesVisibility(_selectedChart);
+            }
 
             var dailyStats = _exportStats.GetDailyBreakdownByUser(_currentUserId).Take(14).Reverse().ToList();
             var hourlyActivity = _exportStats.GetHourlyActivity(_currentUserId, GetSelectedPeriod());
@@ -3072,8 +3101,345 @@ namespace McStudDesktop.Views
 
             if (chart != null)
             {
+                // Wrap all charts except 3d_heatmap (has own controls) and streak_stats (pure stats)
+                if (_selectedChart != "3d_heatmap" && _selectedChart != "streak_stats" && chart is Border chartBorder)
+                {
+                    chart = WrapChartInteractive(chartBorder, _selectedChart);
+                }
                 _chartsContainer.Children.Add(chart);
             }
+
+            // Restore view state after series toggle refresh
+            if (_isSeriesToggleRefresh)
+            {
+                RestoreChartViewState(savedState);
+                _isSeriesToggleRefresh = false;
+            }
+        }
+
+        // === Interactive Chart Wrapper ===
+
+        private Border WrapChartInteractive(Border innerChart, string chartKey)
+        {
+            var outerStack = new StackPanel { Spacing = 0 };
+
+            // Toolbar row
+            var toolbar = BuildChartToolbar();
+            outerStack.Children.Add(toolbar);
+
+            // Series toggle panel
+            _chartSeriesPanel = BuildSeriesTogglePanel(chartKey);
+            if (_chartSeriesPanel.Children.Count > 0)
+                outerStack.Children.Add(_chartSeriesPanel);
+
+            // Interaction container with clip
+            var clipBorder = new Border
+            {
+                CornerRadius = new CornerRadius(0, 0, 10, 10),
+                Background = new SolidColorBrush(Colors.Transparent)
+            };
+
+            _interactiveChartContainer = new Grid
+            {
+                Background = new SolidColorBrush(Colors.Transparent),
+                RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5)
+            };
+
+            var transformGroup = new TransformGroup();
+            _chartScaleTransform = new ScaleTransform { ScaleX = 1, ScaleY = 1 };
+            _chartTranslateTransform = new TranslateTransform { X = 0, Y = 0 };
+            transformGroup.Children.Add(_chartScaleTransform);
+            transformGroup.Children.Add(_chartTranslateTransform);
+            innerChart.RenderTransform = transformGroup;
+            innerChart.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5);
+
+            _interactiveChartContainer.Children.Add(innerChart);
+
+            // Wire pointer events
+            _interactiveChartContainer.PointerPressed += OnChartPointerPressed;
+            _interactiveChartContainer.PointerMoved += OnChartPointerMoved;
+            _interactiveChartContainer.PointerReleased += OnChartPointerReleased;
+            _interactiveChartContainer.PointerCaptureLost += OnChartPointerCaptureLost;
+            _interactiveChartContainer.PointerWheelChanged += OnChartPointerWheelChanged;
+
+            clipBorder.Child = _interactiveChartContainer;
+            outerStack.Children.Add(clipBorder);
+
+            _chartExpandContainer = new Border
+            {
+                Background = new SolidColorBrush(CardBg),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(0),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+                BorderThickness = new Thickness(1),
+                MaxWidth = 620,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Child = outerStack
+            };
+
+            // Remove border styling from inner chart since outer handles it
+            innerChart.BorderThickness = new Thickness(0);
+            innerChart.CornerRadius = new CornerRadius(0, 0, 10, 10);
+
+            return _chartExpandContainer;
+        }
+
+        private StackPanel BuildChartToolbar()
+        {
+            var bar = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Padding = new Thickness(12, 8, 12, 8),
+                Background = new SolidColorBrush(Color.FromArgb(255, 25, 25, 25))
+            };
+
+            // Zoom out
+            var zoomOutBtn = Create3DControlButton("\uE71F", "Zoom Out");
+            zoomOutBtn.Click += (s, e) => AdjustChartZoom(-0.2);
+            bar.Children.Add(zoomOutBtn);
+
+            // Zoom label
+            _chartZoomLabel = new TextBlock
+            {
+                Text = "100%",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
+                Width = 40,
+                TextAlignment = TextAlignment.Center
+            };
+            bar.Children.Add(_chartZoomLabel);
+
+            // Zoom in
+            var zoomInBtn = Create3DControlButton("\uE710", "Zoom In");
+            zoomInBtn.Click += (s, e) => AdjustChartZoom(0.2);
+            bar.Children.Add(zoomInBtn);
+
+            bar.Children.Add(new Border { Width = 12 }); // Spacer
+
+            // Expand/Shrink toggle
+            var expandBtn = Create3DControlButton("\uE740", "Expand / Shrink");
+            expandBtn.Click += (s, e) => ToggleChartExpand();
+            bar.Children.Add(expandBtn);
+
+            bar.Children.Add(new Border { Width = 12 }); // Spacer
+
+            // Reset
+            var resetBtn = Create3DControlButton("\uE72C", "Reset View");
+            resetBtn.Click += (s, e) => ResetChartView();
+            bar.Children.Add(resetBtn);
+
+            // Hint text
+            bar.Children.Add(new Border { Width = 12 });
+            bar.Children.Add(new TextBlock
+            {
+                Text = "Scroll to zoom \u2022 Drag to pan",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            return bar;
+        }
+
+        private StackPanel BuildSeriesTogglePanel(string chartKey)
+        {
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 12,
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30))
+            };
+
+            var seriesMap = GetDefaultSeriesVisibility(chartKey);
+            if (seriesMap.Count == 0) return panel;
+
+            // Series color mapping
+            var colorMap = new Dictionary<string, Color>
+            {
+                { "Body Labor", AccentBlue },
+                { "Refinish", AccentPurple },
+                { "Export Ops", AccentBlue },
+                { "Import Ops", AccentGreen },
+                { "Export Value", AccentGreen },
+                { "Import Value", AccentOrange },
+                { "Operations", AccentCyan },
+                { "Exports", AccentOrange }
+            };
+
+            foreach (var kvp in _chartSeriesVisibility)
+            {
+                var seriesName = kvp.Key;
+                var isVisible = kvp.Value;
+                var color = colorMap.ContainsKey(seriesName) ? colorMap[seriesName] : AccentBlue;
+
+                var cb = new CheckBox
+                {
+                    Content = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 4,
+                        Children =
+                        {
+                            new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(2), Background = new SolidColorBrush(color), VerticalAlignment = VerticalAlignment.Center },
+                            new TextBlock { Text = seriesName, FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)) }
+                        }
+                    },
+                    IsChecked = isVisible,
+                    MinWidth = 0,
+                    Padding = new Thickness(4, 2, 4, 2)
+                };
+
+                var capturedName = seriesName;
+                cb.Checked += (s, e) => { _chartSeriesVisibility[capturedName] = true; _isSeriesToggleRefresh = true; RefreshSelectedChart(); };
+                cb.Unchecked += (s, e) => { _chartSeriesVisibility[capturedName] = false; _isSeriesToggleRefresh = true; RefreshSelectedChart(); };
+                panel.Children.Add(cb);
+            }
+
+            return panel;
+        }
+
+        private Dictionary<string, bool> GetDefaultSeriesVisibility(string chartKey)
+        {
+            return chartKey switch
+            {
+                "labor_chart" => new Dictionary<string, bool> { { "Body Labor", true }, { "Refinish", true } },
+                "operations_trend" => new Dictionary<string, bool> { { "Export Ops", true }, { "Import Ops", false } },
+                "value_trend" => new Dictionary<string, bool> { { "Export Value", true }, { "Import Value", false } },
+                "peak_hours" => new Dictionary<string, bool> { { "Operations", true }, { "Exports", false } },
+                _ => new Dictionary<string, bool>()
+            };
+        }
+
+        // === Chart Pointer Interaction Handlers ===
+
+        private void OnChartPointerWheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            var point = e.GetCurrentPoint(_interactiveChartContainer);
+            var delta = point.Properties.MouseWheelDelta;
+            AdjustChartZoom(delta > 0 ? 0.15 : -0.15);
+            e.Handled = true;
+        }
+
+        private void OnChartPointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            if (_interactiveChartContainer == null) return;
+            _chartIsDragging = true;
+            _chartLastPointerPosition = e.GetCurrentPoint(_interactiveChartContainer).Position;
+            _interactiveChartContainer.CapturePointer(e.Pointer);
+            e.Handled = true;
+        }
+
+        private void OnChartPointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            if (!_chartIsDragging || _interactiveChartContainer == null || _chartTranslateTransform == null) return;
+
+            var currentPos = e.GetCurrentPoint(_interactiveChartContainer).Position;
+            var deltaX = currentPos.X - _chartLastPointerPosition.X;
+            var deltaY = currentPos.Y - _chartLastPointerPosition.Y;
+
+            _chartPanX += deltaX;
+            _chartPanY += deltaY;
+
+            var maxPan = 300 * _chartZoomLevel;
+            _chartPanX = Math.Clamp(_chartPanX, -maxPan, maxPan);
+            _chartPanY = Math.Clamp(_chartPanY, -maxPan, maxPan);
+
+            _chartTranslateTransform.X = _chartPanX;
+            _chartTranslateTransform.Y = _chartPanY;
+
+            _chartLastPointerPosition = currentPos;
+            e.Handled = true;
+        }
+
+        private void OnChartPointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            _chartIsDragging = false;
+            if (_interactiveChartContainer != null)
+                _interactiveChartContainer.ReleasePointerCapture(e.Pointer);
+            e.Handled = true;
+        }
+
+        private void OnChartPointerCaptureLost(object sender, PointerRoutedEventArgs e)
+        {
+            _chartIsDragging = false;
+        }
+
+        private void AdjustChartZoom(double delta)
+        {
+            _chartZoomLevel = Math.Clamp(_chartZoomLevel + delta, 0.5, 4.0);
+            if (_chartScaleTransform != null)
+            {
+                _chartScaleTransform.ScaleX = _chartZoomLevel;
+                _chartScaleTransform.ScaleY = _chartZoomLevel;
+            }
+            if (_chartZoomLabel != null)
+                _chartZoomLabel.Text = $"{(int)(_chartZoomLevel * 100)}%";
+        }
+
+        private void ResetChartView()
+        {
+            _chartZoomLevel = 1.0;
+            _chartPanX = 0;
+            _chartPanY = 0;
+
+            if (_chartScaleTransform != null)
+            {
+                _chartScaleTransform.ScaleX = 1;
+                _chartScaleTransform.ScaleY = 1;
+            }
+            if (_chartTranslateTransform != null)
+            {
+                _chartTranslateTransform.X = 0;
+                _chartTranslateTransform.Y = 0;
+            }
+            if (_chartZoomLabel != null)
+                _chartZoomLabel.Text = "100%";
+        }
+
+        private void ToggleChartExpand()
+        {
+            _chartIsExpanded = !_chartIsExpanded;
+            if (_chartExpandContainer != null)
+            {
+                if (_chartIsExpanded)
+                {
+                    _chartExpandContainer.MaxWidth = double.PositiveInfinity;
+                    _chartExpandContainer.HorizontalAlignment = HorizontalAlignment.Stretch;
+                }
+                else
+                {
+                    _chartExpandContainer.MaxWidth = 620;
+                    _chartExpandContainer.HorizontalAlignment = HorizontalAlignment.Center;
+                }
+            }
+        }
+
+        private (double zoom, double panX, double panY) SaveChartViewState()
+        {
+            return (_chartZoomLevel, _chartPanX, _chartPanY);
+        }
+
+        private void RestoreChartViewState((double zoom, double panX, double panY) state)
+        {
+            _chartZoomLevel = state.zoom;
+            _chartPanX = state.panX;
+            _chartPanY = state.panY;
+
+            if (_chartScaleTransform != null)
+            {
+                _chartScaleTransform.ScaleX = _chartZoomLevel;
+                _chartScaleTransform.ScaleY = _chartZoomLevel;
+            }
+            if (_chartTranslateTransform != null)
+            {
+                _chartTranslateTransform.X = _chartPanX;
+                _chartTranslateTransform.Y = _chartPanY;
+            }
+            if (_chartZoomLabel != null)
+                _chartZoomLabel.Text = $"{(int)(_chartZoomLevel * 100)}%";
         }
 
         // Enhanced Horizontal Bar Chart with animated bars
@@ -3281,7 +3647,11 @@ namespace McStudDesktop.Views
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
-                var maxVal = (double)Math.Max(items.Max(d => d.ExportLabor + d.ExportPaint), 1);
+                var showLabor = !_chartSeriesVisibility.ContainsKey("Body Labor") || _chartSeriesVisibility["Body Labor"];
+                var showRefinish = !_chartSeriesVisibility.ContainsKey("Refinish") || _chartSeriesVisibility["Refinish"];
+
+                var maxVal = (double)Math.Max(items.Max(d =>
+                    (showLabor ? d.ExportLabor : 0) + (showRefinish ? d.ExportPaint : 0)), 1);
                 DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N1");
 
                 double slotW = plotW / items.Count;
@@ -3291,8 +3661,8 @@ namespace McStudDesktop.Views
                 for (int i = 0; i < items.Count; i++)
                 {
                     var x = pL + i * slotW + gap / 2;
-                    var laborH = (double)items[i].ExportLabor / maxVal * plotH;
-                    var refinishH = (double)items[i].ExportPaint / maxVal * plotH;
+                    var laborH = showLabor ? (double)items[i].ExportLabor / maxVal * plotH : 0;
+                    var refinishH = showRefinish ? (double)items[i].ExportPaint / maxVal * plotH : 0;
 
                     // Stacked columns: refinish on top of labor
                     var colContainer = new Grid { Width = colW, Height = plotH };
@@ -3303,7 +3673,7 @@ namespace McStudDesktop.Views
                     var colStack = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
 
                     // Refinish (top)
-                    if (refinishH > 0)
+                    if (showRefinish && refinishH > 0)
                     {
                         colStack.Children.Add(new Border
                         {
@@ -3315,7 +3685,7 @@ namespace McStudDesktop.Views
                     }
 
                     // Labor (bottom)
-                    if (laborH > 0)
+                    if (showLabor && laborH > 0)
                     {
                         colStack.Children.Add(new Border
                         {
@@ -3566,47 +3936,88 @@ namespace McStudDesktop.Views
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
-                var maxVal = (double)Math.Max(data.Max(d => d.ExportOperations), 1);
+                var showExport = !_chartSeriesVisibility.ContainsKey("Export Ops") || _chartSeriesVisibility["Export Ops"];
+                var showImport = _chartSeriesVisibility.ContainsKey("Import Ops") && _chartSeriesVisibility["Import Ops"];
+
+                var maxVal = (double)Math.Max(
+                    Math.Max(showExport ? data.Max(d => d.ExportOperations) : 0,
+                             showImport ? data.Max(d => d.ImportOperations) : 0), 1);
                 DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N0");
 
-                var points = new List<Windows.Foundation.Point>();
                 double xStep = plotW / Math.Max(data.Count - 1, 1);
-                for (int i = 0; i < data.Count; i++)
-                    points.Add(new Windows.Foundation.Point(pL + i * xStep, pB - (data[i].ExportOperations / maxVal * plotH)));
 
-                // Area gradient fill
-                if (points.Count > 1)
+                // Export Ops line
+                if (showExport)
                 {
-                    var area = new Polygon();
-                    var pts = new PointCollection();
-                    pts.Add(new Windows.Foundation.Point(points[0].X, pB));
-                    foreach (var pt in points) pts.Add(pt);
-                    pts.Add(new Windows.Foundation.Point(points[^1].X, pB));
-                    area.Points = pts;
-                    area.Fill = new LinearGradientBrush
+                    var points = new List<Windows.Foundation.Point>();
+                    for (int i = 0; i < data.Count; i++)
+                        points.Add(new Windows.Foundation.Point(pL + i * xStep, pB - (data[i].ExportOperations / maxVal * plotH)));
+
+                    if (points.Count > 1)
                     {
-                        StartPoint = new Windows.Foundation.Point(0.5, 0),
-                        EndPoint = new Windows.Foundation.Point(0.5, 1),
-                        GradientStops = { new GradientStop { Color = Color.FromArgb(60, 0, 120, 215), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 0, 120, 215), Offset = 1 } }
-                    };
-                    canvas.Children.Add(area);
+                        var area = new Polygon();
+                        var pts = new PointCollection();
+                        pts.Add(new Windows.Foundation.Point(points[0].X, pB));
+                        foreach (var pt in points) pts.Add(pt);
+                        pts.Add(new Windows.Foundation.Point(points[^1].X, pB));
+                        area.Points = pts;
+                        area.Fill = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 0),
+                            EndPoint = new Windows.Foundation.Point(0.5, 1),
+                            GradientStops = { new GradientStop { Color = Color.FromArgb(60, 0, 120, 215), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 0, 120, 215), Offset = 1 } }
+                        };
+                        canvas.Children.Add(area);
+
+                        var polyline = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentBlue), StrokeLineJoin = PenLineJoin.Round };
+                        foreach (var pt in points) polyline.Points.Add(pt);
+                        canvas.Children.Add(polyline);
+                    }
+
+                    foreach (var pt in points)
+                    {
+                        var dot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentBlue), StrokeThickness = 2 };
+                        Canvas.SetLeft(dot, pt.X - 4);
+                        Canvas.SetTop(dot, pt.Y - 4);
+                        canvas.Children.Add(dot);
+                    }
                 }
 
-                // Line
-                if (points.Count > 1)
+                // Import Ops line
+                if (showImport)
                 {
-                    var polyline = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentBlue), StrokeLineJoin = PenLineJoin.Round };
-                    foreach (var pt in points) polyline.Points.Add(pt);
-                    canvas.Children.Add(polyline);
-                }
+                    var importPoints = new List<Windows.Foundation.Point>();
+                    for (int i = 0; i < data.Count; i++)
+                        importPoints.Add(new Windows.Foundation.Point(pL + i * xStep, pB - (data[i].ImportOperations / maxVal * plotH)));
 
-                // Dots
-                foreach (var pt in points)
-                {
-                    var dot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentBlue), StrokeThickness = 2 };
-                    Canvas.SetLeft(dot, pt.X - 4);
-                    Canvas.SetTop(dot, pt.Y - 4);
-                    canvas.Children.Add(dot);
+                    if (importPoints.Count > 1)
+                    {
+                        var importArea = new Polygon();
+                        var iPts = new PointCollection();
+                        iPts.Add(new Windows.Foundation.Point(importPoints[0].X, pB));
+                        foreach (var pt in importPoints) iPts.Add(pt);
+                        iPts.Add(new Windows.Foundation.Point(importPoints[^1].X, pB));
+                        importArea.Points = iPts;
+                        importArea.Fill = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 0),
+                            EndPoint = new Windows.Foundation.Point(0.5, 1),
+                            GradientStops = { new GradientStop { Color = Color.FromArgb(40, 0, 150, 80), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 0, 150, 80), Offset = 1 } }
+                        };
+                        canvas.Children.Add(importArea);
+
+                        var importLine = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentGreen), StrokeLineJoin = PenLineJoin.Round, StrokeDashArray = new DoubleCollection { 4, 2 } };
+                        foreach (var pt in importPoints) importLine.Points.Add(pt);
+                        canvas.Children.Add(importLine);
+                    }
+
+                    foreach (var pt in importPoints)
+                    {
+                        var dot = new Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentGreen), StrokeThickness = 2 };
+                        Canvas.SetLeft(dot, pt.X - 3.5);
+                        Canvas.SetTop(dot, pt.Y - 3.5);
+                        canvas.Children.Add(dot);
+                    }
                 }
 
                 DrawChartDateLabels(canvas, data, pL, pB, xStep);
@@ -3644,47 +4055,88 @@ namespace McStudDesktop.Views
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
-                var maxVal = (double)Math.Max(data.Max(d => d.ExportPrice), 1);
+                var showExportVal = !_chartSeriesVisibility.ContainsKey("Export Value") || _chartSeriesVisibility["Export Value"];
+                var showImportVal = _chartSeriesVisibility.ContainsKey("Import Value") && _chartSeriesVisibility["Import Value"];
+
+                var maxVal = (double)Math.Max(
+                    Math.Max(showExportVal ? data.Max(d => d.ExportPrice) : 0,
+                             showImportVal ? data.Max(d => d.ImportPrice) : 0), 1);
                 DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "C0");
 
-                var points = new List<Windows.Foundation.Point>();
                 double xStep = plotW / Math.Max(data.Count - 1, 1);
-                for (int i = 0; i < data.Count; i++)
-                    points.Add(new Windows.Foundation.Point(pL + i * xStep, pB - ((double)data[i].ExportPrice / maxVal * plotH)));
 
-                // Area gradient fill
-                if (points.Count > 1)
+                // Export Value line
+                if (showExportVal)
                 {
-                    var area = new Polygon();
-                    var pts = new PointCollection();
-                    pts.Add(new Windows.Foundation.Point(points[0].X, pB));
-                    foreach (var pt in points) pts.Add(pt);
-                    pts.Add(new Windows.Foundation.Point(points[^1].X, pB));
-                    area.Points = pts;
-                    area.Fill = new LinearGradientBrush
+                    var points = new List<Windows.Foundation.Point>();
+                    for (int i = 0; i < data.Count; i++)
+                        points.Add(new Windows.Foundation.Point(pL + i * xStep, pB - ((double)data[i].ExportPrice / maxVal * plotH)));
+
+                    if (points.Count > 1)
                     {
-                        StartPoint = new Windows.Foundation.Point(0.5, 0),
-                        EndPoint = new Windows.Foundation.Point(0.5, 1),
-                        GradientStops = { new GradientStop { Color = Color.FromArgb(60, 0, 150, 80), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 0, 150, 80), Offset = 1 } }
-                    };
-                    canvas.Children.Add(area);
+                        var area = new Polygon();
+                        var pts = new PointCollection();
+                        pts.Add(new Windows.Foundation.Point(points[0].X, pB));
+                        foreach (var pt in points) pts.Add(pt);
+                        pts.Add(new Windows.Foundation.Point(points[^1].X, pB));
+                        area.Points = pts;
+                        area.Fill = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 0),
+                            EndPoint = new Windows.Foundation.Point(0.5, 1),
+                            GradientStops = { new GradientStop { Color = Color.FromArgb(60, 0, 150, 80), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 0, 150, 80), Offset = 1 } }
+                        };
+                        canvas.Children.Add(area);
+
+                        var polyline = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentGreen), StrokeLineJoin = PenLineJoin.Round };
+                        foreach (var pt in points) polyline.Points.Add(pt);
+                        canvas.Children.Add(polyline);
+                    }
+
+                    foreach (var pt in points)
+                    {
+                        var dot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentGreen), StrokeThickness = 2 };
+                        Canvas.SetLeft(dot, pt.X - 4);
+                        Canvas.SetTop(dot, pt.Y - 4);
+                        canvas.Children.Add(dot);
+                    }
                 }
 
-                // Line
-                if (points.Count > 1)
+                // Import Value line
+                if (showImportVal)
                 {
-                    var polyline = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentGreen), StrokeLineJoin = PenLineJoin.Round };
-                    foreach (var pt in points) polyline.Points.Add(pt);
-                    canvas.Children.Add(polyline);
-                }
+                    var importPoints = new List<Windows.Foundation.Point>();
+                    for (int i = 0; i < data.Count; i++)
+                        importPoints.Add(new Windows.Foundation.Point(pL + i * xStep, pB - ((double)data[i].ImportPrice / maxVal * plotH)));
 
-                // Dots
-                foreach (var pt in points)
-                {
-                    var dot = new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentGreen), StrokeThickness = 2 };
-                    Canvas.SetLeft(dot, pt.X - 4);
-                    Canvas.SetTop(dot, pt.Y - 4);
-                    canvas.Children.Add(dot);
+                    if (importPoints.Count > 1)
+                    {
+                        var importArea = new Polygon();
+                        var iPts = new PointCollection();
+                        iPts.Add(new Windows.Foundation.Point(importPoints[0].X, pB));
+                        foreach (var pt in importPoints) iPts.Add(pt);
+                        iPts.Add(new Windows.Foundation.Point(importPoints[^1].X, pB));
+                        importArea.Points = iPts;
+                        importArea.Fill = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 0),
+                            EndPoint = new Windows.Foundation.Point(0.5, 1),
+                            GradientStops = { new GradientStop { Color = Color.FromArgb(40, 255, 150, 0), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 255, 150, 0), Offset = 1 } }
+                        };
+                        canvas.Children.Add(importArea);
+
+                        var importLine = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(AccentOrange), StrokeLineJoin = PenLineJoin.Round, StrokeDashArray = new DoubleCollection { 4, 2 } };
+                        foreach (var pt in importPoints) importLine.Points.Add(pt);
+                        canvas.Children.Add(importLine);
+                    }
+
+                    foreach (var pt in importPoints)
+                    {
+                        var dot = new Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentOrange), StrokeThickness = 2 };
+                        Canvas.SetLeft(dot, pt.X - 3.5);
+                        Canvas.SetTop(dot, pt.Y - 3.5);
+                        canvas.Children.Add(dot);
+                    }
                 }
 
                 DrawChartDateLabels(canvas, data, pL, pB, xStep);
@@ -3822,15 +4274,25 @@ namespace McStudDesktop.Views
             }
             else
             {
-                // Build full 24-hour array
+                var showOps = !_chartSeriesVisibility.ContainsKey("Operations") || _chartSeriesVisibility["Operations"];
+                var showExports = _chartSeriesVisibility.ContainsKey("Exports") && _chartSeriesVisibility["Exports"];
+
+                // Build full 24-hour arrays
                 var allHours = new int[24];
+                var allExports = new int[24];
                 foreach (var h in hourlyData)
+                {
                     if (h.Hour >= 0 && h.Hour < 24)
+                    {
                         allHours[h.Hour] = h.OperationCount;
+                        allExports[h.Hour] = h.ExportCount;
+                    }
+                }
 
                 // Find range with activity (pad 1 hour each side)
                 int firstHour = Array.FindIndex(allHours, c => c > 0);
                 int lastHour = Array.FindLastIndex(allHours, c => c > 0);
+                if (firstHour < 0) { firstHour = 8; lastHour = 17; }
                 firstHour = Math.Max(0, firstHour - 1);
                 lastHour = Math.Min(23, lastHour + 1);
                 int hourCount = lastHour - firstHour + 1;
@@ -3841,7 +4303,8 @@ namespace McStudDesktop.Views
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
-                var maxVal = (double)Math.Max(allHours.Max(), 1);
+                var maxVal = (double)Math.Max(
+                    Math.Max(showOps ? allHours.Max() : 0, showExports ? allExports.Max() : 0), 1);
                 DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N0");
 
                 double slotW = plotW / hourCount;
@@ -3853,38 +4316,65 @@ namespace McStudDesktop.Views
                 {
                     int hour = firstHour + i;
                     var x = pL + i * slotW + gap / 2;
-                    var targetH = allHours[hour] / maxVal * plotH;
-                    var intensity = allHours[hour] / maxVal;
-                    bool isPeak = hour == peakIdx;
 
-                    var colContainer = new Grid { Width = colW, Height = plotH };
-                    Canvas.SetLeft(colContainer, x);
-                    Canvas.SetTop(colContainer, pT);
-
-                    var col = new Border
+                    // Operations bars (main)
+                    if (showOps)
                     {
-                        Width = colW,
-                        Height = Math.Max(targetH, allHours[hour] > 0 ? 2 : 0),
-                        CornerRadius = new CornerRadius(2, 2, 0, 0),
-                        VerticalAlignment = VerticalAlignment.Bottom,
-                        Background = new LinearGradientBrush
+                        var targetH = allHours[hour] / maxVal * plotH;
+                        var intensity = allHours[hour] / maxVal;
+                        bool isPeak = hour == peakIdx;
+
+                        var colContainer = new Grid { Width = showExports ? colW * 0.55 : colW, Height = plotH };
+                        Canvas.SetLeft(colContainer, x);
+                        Canvas.SetTop(colContainer, pT);
+
+                        var col = new Border
                         {
-                            StartPoint = new Windows.Foundation.Point(0.5, 1),
-                            EndPoint = new Windows.Foundation.Point(0.5, 0),
-                            GradientStops = { new GradientStop { Color = AccentCyan, Offset = 0 }, new GradientStop { Color = InterpolateColor(AccentCyan, isPeak ? AccentOrange : AccentPurple, intensity), Offset = 1 } }
-                        }
-                    };
-                    colContainer.Children.Add(col);
-                    canvas.Children.Add(colContainer);
-                    if (targetH > 0) AnimateColumnHeight(col, Math.Max(targetH, 2), delayMs: i * 25);
+                            Width = showExports ? colW * 0.55 : colW,
+                            Height = Math.Max(targetH, allHours[hour] > 0 ? 2 : 0),
+                            CornerRadius = new CornerRadius(2, 2, 0, 0),
+                            VerticalAlignment = VerticalAlignment.Bottom,
+                            Background = new LinearGradientBrush
+                            {
+                                StartPoint = new Windows.Foundation.Point(0.5, 1),
+                                EndPoint = new Windows.Foundation.Point(0.5, 0),
+                                GradientStops = { new GradientStop { Color = AccentCyan, Offset = 0 }, new GradientStop { Color = InterpolateColor(AccentCyan, isPeak ? AccentOrange : AccentPurple, intensity), Offset = 1 } }
+                            }
+                        };
+                        colContainer.Children.Add(col);
+                        canvas.Children.Add(colContainer);
+                        if (targetH > 0) AnimateColumnHeight(col, Math.Max(targetH, 2), delayMs: i * 25);
 
-                    // Value above column for significant bars
-                    if (allHours[hour] > 0 && targetH > 20)
+                        if (allHours[hour] > 0 && targetH > 20)
+                        {
+                            var valLabel = new TextBlock { Text = allHours[hour].ToString(), FontSize = 8, Foreground = new SolidColorBrush(Colors.White), TextAlignment = TextAlignment.Center, Width = showExports ? colW * 0.55 : colW };
+                            Canvas.SetLeft(valLabel, x);
+                            Canvas.SetTop(valLabel, pB - targetH - 13);
+                            canvas.Children.Add(valLabel);
+                        }
+                    }
+
+                    // Exports overlay bars
+                    if (showExports)
                     {
-                        var valLabel = new TextBlock { Text = allHours[hour].ToString(), FontSize = 8, Foreground = new SolidColorBrush(Colors.White), TextAlignment = TextAlignment.Center, Width = colW };
-                        Canvas.SetLeft(valLabel, x);
-                        Canvas.SetTop(valLabel, pB - targetH - 13);
-                        canvas.Children.Add(valLabel);
+                        var exportH = allExports[hour] / maxVal * plotH;
+                        var exportW = showOps ? colW * 0.4 : colW;
+                        var exportX = showOps ? x + colW * 0.6 : x;
+
+                        var exportContainer = new Grid { Width = exportW, Height = plotH };
+                        Canvas.SetLeft(exportContainer, exportX);
+                        Canvas.SetTop(exportContainer, pT);
+
+                        var exportCol = new Border
+                        {
+                            Width = exportW,
+                            Height = Math.Max(exportH, allExports[hour] > 0 ? 2 : 0),
+                            CornerRadius = new CornerRadius(2, 2, 0, 0),
+                            VerticalAlignment = VerticalAlignment.Bottom,
+                            Background = new SolidColorBrush(Color.FromArgb(200, 255, 150, 0))
+                        };
+                        exportContainer.Children.Add(exportCol);
+                        canvas.Children.Add(exportContainer);
                     }
 
                     // Hour label

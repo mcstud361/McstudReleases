@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace McStudDesktop.Services
 {
@@ -179,6 +180,15 @@ namespace McStudDesktop.Services
 
             // Step 6: Add refinish operations
             AddRefinishOperations(result);
+
+            // Step 6.5: Clean descriptions, sanitize hours, and global deduplication
+            foreach (var op in result.Operations)
+            {
+                op.Description = CleanOperationDescription(op.Description);
+                op.PartName = CleanPartName(op.PartName);
+            }
+            SanitizeHours(result);
+            DeduplicateOperations(result);
 
             // Step 7: Calculate totals
             CalculateTotals(result);
@@ -384,6 +394,7 @@ namespace McStudDesktop.Services
                         PartName = op.PartName,
                         Description = op.Description,
                         Category = op.Category,
+                        Section = MapToCCCSection(op.PartName, op.Category),
                         Side = op.Side,
                         LaborHours = op.LaborHours,
                         RefinishHours = op.RefinishHours,
@@ -431,6 +442,10 @@ namespace McStudDesktop.Services
                                 _ => ""
                             };
 
+                            var kbCategory = rec.Category == "Diagnostic" ? "Scanning" :
+                                           rec.Category == "Refinish" ? "Refinish Operations" :
+                                           "Body Operations";
+
                             result.GuidanceOperations.Add(new GuidanceOperation
                             {
                                 OperationType = rec.Category switch
@@ -442,9 +457,8 @@ namespace McStudDesktop.Services
                                 },
                                 PartName = rec.Name.ToLower(),
                                 Description = $"{sideCode}{rec.Name}",
-                                Category = rec.Category == "Diagnostic" ? "Scanning" :
-                                           rec.Category == "Refinish" ? "Refinish Operations" :
-                                           "Body Operations",
+                                Category = kbCategory,
+                                Section = MapToCCCSection(panel.Name, kbCategory),
                                 Side = panel.Side,
                                 LaborHours = rec.LaborHours,
                                 Price = rec.IsMaterial ? rec.TypicalCost : 0,
@@ -483,13 +497,16 @@ namespace McStudDesktop.Services
                         var normalizedKey = NormalizeOperationKey(panel.Name, sug.Description);
                         if (seenOperations.Add(normalizedKey))
                         {
+                            var learnedCategory = sug.OperationType == "Rfn" || sug.OperationType == "Refinish" || sug.OperationType == "Blend"
+                                    ? "Refinish Operations" : "Body Operations";
+
                             result.GuidanceOperations.Add(new GuidanceOperation
                             {
                                 OperationType = sug.OperationType,
                                 PartName = panel.Name,
                                 Description = sug.Description,
-                                Category = sug.OperationType == "Rfn" || sug.OperationType == "Refinish" || sug.OperationType == "Blend"
-                                    ? "Refinish Operations" : "Body Operations",
+                                Category = learnedCategory,
+                                Section = MapToCCCSection(panel.Name, learnedCategory),
                                 Side = panel.Side,
                                 LaborHours = sug.LaborHours,
                                 RefinishHours = sug.RefinishHours,
@@ -524,7 +541,7 @@ namespace McStudDesktop.Services
             if (stats.TotalEstimatesLearned < 10)
                 result.ProTips.Add("Upload more estimates to unlock learned pattern suggestions.");
 
-            if (result.GuidanceOperations.Any(o => o.Category == "Scanning"))
+            if (result.GuidanceOperations.Any(o => o.Category == "Scanning" || o.Section == "VEHICLE DIAGNOSTICS"))
                 result.ProTips.Add("Pre/Post scans are required on most modern vehicles. Don't skip them.");
 
             if (result.GuidanceOperations.Any(o => o.PartName.Contains("quarter") || o.PartName.Contains("rocker")))
@@ -627,6 +644,7 @@ namespace McStudDesktop.Services
                         PartName = excelOp.Description.ToLower(),
                         Description = excelOp.Description,
                         Category = displayCategory,
+                        Section = MapExcelCategoryToSection(displayCategory),
                         LaborHours = laborHours,
                         RefinishHours = refinishHours,
                         Price = price,
@@ -690,8 +708,9 @@ namespace McStudDesktop.Services
         private List<AffectedPanel> DetectPanelsFromDescription(string description)
         {
             var panels = new List<AffectedPanel>();
+            var addedPanelKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // Common damage keywords and their associated panels
+            // Holistic damage patterns — match against full description since these are multi-panel events
             var damagePatterns = new Dictionary<string[], string[]>
             {
                 { new[] { "front end", "front hit", "front collision" }, new[] { "front bumper cover", "hood", "grille", "radiator support" } },
@@ -709,7 +728,7 @@ namespace McStudDesktop.Services
                 {
                     foreach (var panelName in pattern.Value)
                     {
-                        if (!panels.Any(p => p.Name == panelName))
+                        if (addedPanelKeys.Add(panelName))
                         {
                             panels.Add(new AffectedPanel
                             {
@@ -723,32 +742,57 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // Direct panel mentions
+            // Direct panel mentions — parse PER LINE to avoid cross-contamination
+            // e.g. "repair front bumper, repair left rear door" won't confuse front/rear
             var directPanels = new[]
             {
                 "bumper", "fender", "hood", "door", "quarter", "roof", "trunk",
-                "liftgate", "tailgate", "grille", "headlight", "tail light", "mirror"
+                "liftgate", "tailgate", "grille", "headlight", "tail light", "mirror",
+                "wheel", "rocker", "pillar"
             };
 
-            // Refinish-only keywords that indicate no body repair needed
             var refinishOnlyKeywords = new[] { "blend", "refinish", "paint", "clear coat", "clearcoat", "color match", "base coat", "basecoat" };
             var replaceKeywords = new[] { "replace", "new", "order" };
+            var riKeywords = new[] { "r&i", "r and i", "remove and install", "remove & install" };
 
-            foreach (var panel in directPanels)
+            // Split input into individual lines by comma, newline, semicolon
+            var lines = description.Split(new[] { ',', '\n', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Where(l => l.Length > 0)
+                .ToArray();
+
+            // If no delimiters found, treat whole description as one line
+            if (lines.Length == 0)
+                lines = new[] { description };
+
+            foreach (var line in lines)
             {
-                if (description.Contains(panel) && !panels.Any(p => p.Name.Contains(panel)))
+                foreach (var panel in directPanels)
                 {
-                    var fullName = GetFullPanelName(panel, description);
+                    if (!line.Contains(panel))
+                        continue;
+
+                    // Use THIS LINE's context for GetFullPanelName (not the full description)
+                    var fullName = GetFullPanelName(panel, line);
+
+                    // Build a dedup key that includes side context from this line
+                    var lineSide = DetectSideFromDescription(line);
+                    var dedupKey = $"{fullName}|{lineSide}";
+
+                    if (!addedPanelKeys.Add(dedupKey))
+                        continue; // Already added this exact panel+side
+
+                    // Also skip if we already have this panel name without side distinction
+                    if (panels.Any(p => p.Name == fullName && p.Side == lineSide))
+                        continue;
 
                     // Check context around this panel mention to determine operation type
                     var isRefinishOnly = false;
                     string? explicitOp = null;
 
-                    // Look for operation keywords near the panel name
-                    // e.g. "fender blend", "hood paint", "door replace"
                     foreach (var rk in refinishOnlyKeywords)
                     {
-                        if (description.Contains($"{panel} {rk}") || description.Contains($"{rk} {panel}"))
+                        if (line.Contains($"{panel} {rk}") || line.Contains($"{rk} {panel}") || line.Contains(rk))
                         {
                             isRefinishOnly = true;
                             explicitOp = rk == "blend" ? "Blend" : "Refinish";
@@ -756,12 +800,28 @@ namespace McStudDesktop.Services
                         }
                     }
 
-                    foreach (var rk in replaceKeywords)
+                    if (!isRefinishOnly)
                     {
-                        if (description.Contains($"{panel} {rk}") || description.Contains($"{rk} {panel}"))
+                        foreach (var rk in replaceKeywords)
                         {
-                            explicitOp = "Replace";
-                            break;
+                            if (line.Contains($"{panel} {rk}") || line.Contains($"{rk} {panel}") || line.Contains(rk))
+                            {
+                                explicitOp = "Replace";
+                                break;
+                            }
+                        }
+                    }
+
+                    // Check for R&I operation
+                    if (explicitOp == null && !isRefinishOnly)
+                    {
+                        foreach (var rk in riKeywords)
+                        {
+                            if (line.Contains(rk))
+                            {
+                                explicitOp = "R&I";
+                                break;
+                            }
                         }
                     }
 
@@ -769,8 +829,8 @@ namespace McStudDesktop.Services
                     {
                         Name = fullName,
                         ImpactZone = "direct mention",
-                        Severity = explicitOp == "Replace" ? "heavy" : DetectSeverityFromDescription(description),
-                        Side = DetectSideFromDescription(description),
+                        Severity = explicitOp == "Replace" ? "heavy" : DetectSeverityFromDescription(line),
+                        Side = lineSide,
                         RefinishOnly = isRefinishOnly,
                         ExplicitOperation = explicitOp
                     });
@@ -782,7 +842,7 @@ namespace McStudDesktop.Services
 
         private string GetFullPanelName(string shortName, string context)
         {
-            // Add position context
+            // Add position context — context should be the individual line, not full description
             var isRear = context.Contains("rear");
             var isFront = context.Contains("front");
 
@@ -790,9 +850,17 @@ namespace McStudDesktop.Services
             {
                 "bumper" => isRear ? "rear bumper cover" : "front bumper cover",
                 "door" when context.Contains("rear door") => "rear door",
+                "door" when isRear => "rear door",
                 "door" => "front door",
                 "light" when isRear => "tail light",
                 "light" => "headlight",
+                "wheel" when isRear => "rear wheel",
+                "wheel" => isFront ? "front wheel" : "wheel",
+                "rocker" => "rocker panel",
+                "pillar" when context.Contains("a-pillar") || context.Contains("a pillar") => "a-pillar",
+                "pillar" when context.Contains("b-pillar") || context.Contains("b pillar") => "b-pillar",
+                "pillar" when context.Contains("c-pillar") || context.Contains("c pillar") => "c-pillar",
+                "pillar" => "a-pillar",
                 _ => shortName
             };
         }
@@ -1152,46 +1220,59 @@ namespace McStudDesktop.Services
                 o.PartName.Contains("spoiler"));
 
             // Add scan operations — use config scanning method (flat rate or labor hours)
+            // Only add if not already present from other paths (learned co-occurrence, similar estimates, etc.)
             if (result.Operations.Count > 0)
             {
+                var hasPreScan = result.Operations.Any(o =>
+                    o.PartName != null && o.PartName.Contains("pre", StringComparison.OrdinalIgnoreCase) &&
+                    (o.Category == "Scanning" || o.PartName.Contains("scan", StringComparison.OrdinalIgnoreCase)));
+                var hasPostScan = result.Operations.Any(o =>
+                    o.PartName != null && o.PartName.Contains("post", StringComparison.OrdinalIgnoreCase) &&
+                    (o.Category == "Scanning" || o.PartName.Contains("scan", StringComparison.OrdinalIgnoreCase)));
+
                 var scanConfig = _ghostConfig.GetEffectiveScanning();
-                var learnedPreScan = GetLearnedSubletOrLaborTime("pre-repair scan", "Mech", 0m);
-                var learnedPostScan = GetLearnedSubletOrLaborTime("post-repair scan", "Mech", 0m);
 
-                // Use learned data if available, otherwise use config
-                var preScanHours = learnedPreScan > 0 ? learnedPreScan : scanConfig.LaborHours;
-                var preScanPrice = learnedPreScan > 0 ? 0m : scanConfig.Price;
-                var preScanSource = learnedPreScan > 0 ? "Learned from uploaded estimates" :
-                    (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
-
-                result.Operations.Add(new GhostOperation
+                if (!hasPreScan)
                 {
-                    OperationType = preScanPrice > 0 ? "Sublet" : "Mech",
-                    PartName = "pre-repair scan",
-                    Description = "Pre-Repair Diagnostic Scan",
-                    Category = "Scanning",
-                    LaborHours = preScanHours,
-                    Price = preScanPrice,
-                    Confidence = 0.95,
-                    Source = preScanSource
-                });
+                    var learnedPreScan = GetLearnedSubletOrLaborTime("pre-repair scan", "Mech", 0m);
+                    var preScanHours = learnedPreScan > 0 ? learnedPreScan : scanConfig.LaborHours;
+                    var preScanPrice = learnedPreScan > 0 ? 0m : scanConfig.Price;
+                    var preScanSource = learnedPreScan > 0 ? "Learned from uploaded estimates" :
+                        (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
 
-                var postScanHours = learnedPostScan > 0 ? learnedPostScan : scanConfig.LaborHours;
-                var postScanPrice = learnedPostScan > 0 ? 0m : scanConfig.Price;
-                var postScanSource = learnedPostScan > 0 ? "Learned from uploaded estimates" :
-                    (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
+                    result.Operations.Add(new GhostOperation
+                    {
+                        OperationType = preScanPrice > 0 ? "Sublet" : "Mech",
+                        PartName = "pre-repair scan",
+                        Description = "Pre-Repair Diagnostic Scan",
+                        Category = "Scanning",
+                        LaborHours = preScanHours,
+                        Price = preScanPrice,
+                        Confidence = 0.95,
+                        Source = preScanSource
+                    });
+                }
 
-                result.Operations.Add(new GhostOperation
+                if (!hasPostScan)
                 {
-                    OperationType = postScanPrice > 0 ? "Sublet" : "Mech",
-                    PartName = "post-repair scan",
-                    Description = "Post-Repair Diagnostic Scan",
-                    Category = "Scanning",
-                    LaborHours = postScanHours,
-                    Price = postScanPrice,
-                    Confidence = 0.95,
-                    Source = postScanSource
-                });
+                    var learnedPostScan = GetLearnedSubletOrLaborTime("post-repair scan", "Mech", 0m);
+                    var postScanHours = learnedPostScan > 0 ? learnedPostScan : scanConfig.LaborHours;
+                    var postScanPrice = learnedPostScan > 0 ? 0m : scanConfig.Price;
+                    var postScanSource = learnedPostScan > 0 ? "Learned from uploaded estimates" :
+                        (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
+
+                    result.Operations.Add(new GhostOperation
+                    {
+                        OperationType = postScanPrice > 0 ? "Sublet" : "Mech",
+                        PartName = "post-repair scan",
+                        Description = "Post-Repair Diagnostic Scan",
+                        Category = "Scanning",
+                        LaborHours = postScanHours,
+                        Price = postScanPrice,
+                        Confidence = 0.95,
+                        Source = postScanSource
+                    });
+                }
             }
 
             // Add ADAS calibrations if needed — use learned pricing if available
@@ -2106,6 +2187,139 @@ namespace McStudDesktop.Services
             return "Part Operations";
         }
 
+        /// <summary>
+        /// Maps a part name (and optional category) to a CCC estimate section name.
+        /// </summary>
+        private static string MapToCCCSection(string partName, string category = "")
+        {
+            var lower = (partName ?? "").ToLowerInvariant();
+
+            // Scan/diagnostic operations
+            if (lower.Contains("scan") || lower.Contains("diagnostic") || lower.Contains("oem research") ||
+                lower.Contains("adas") || lower.Contains("calibration"))
+                return "VEHICLE DIAGNOSTICS";
+
+            // Electrical
+            if (lower.Contains("battery") || lower.Contains("electronic reset") || lower.Contains("electrical"))
+                return "ELECTRICAL";
+
+            // Restraint systems
+            if (lower.Contains("restraint") || lower.Contains("air bag") || lower.Contains("airbag") ||
+                lower.Contains("srs"))
+                return "RESTRAINT SYSTEMS";
+
+            // Frame/structural
+            if (lower.Contains("frame") || lower.Contains("subframe") || lower.Contains("rail") ||
+                lower.Contains("apron"))
+                return "FRAME";
+
+            // Front bumper / grille
+            if (lower.Contains("front bumper") || lower.Contains("grille") || lower.Contains("front fascia"))
+                return "FRONT BUMPER & GRILLE";
+
+            // Rear bumper
+            if (lower.Contains("rear bumper") || lower.Contains("rear fascia"))
+                return "REAR BUMPER";
+
+            // Lamps
+            if (lower.Contains("headlamp") || lower.Contains("headlight") || lower.Contains("head lamp") ||
+                lower.Contains("head light") || lower.Contains("fog light") || lower.Contains("fog lamp"))
+                return "FRONT LAMPS";
+            if (lower.Contains("taillamp") || lower.Contains("taillight") || lower.Contains("tail light") ||
+                lower.Contains("tail lamp"))
+                return "REAR LAMPS";
+
+            // Radiator support
+            if (lower.Contains("radiator support") || lower.Contains("core support"))
+                return "RADIATOR SUPPORT";
+
+            // Hood
+            if (lower.Contains("hood"))
+                return "HOOD";
+
+            // Fender
+            if (lower.Contains("fender"))
+                return "FENDER";
+
+            // Doors — check front/rear before generic door
+            if (lower.Contains("front door"))
+                return "FRONT DOOR";
+            if (lower.Contains("rear door"))
+                return "REAR DOOR";
+            if (lower.Contains("door"))
+                return "FRONT DOOR"; // Default generic door to front
+
+            // Mirror → door section
+            if (lower.Contains("mirror"))
+                return "FRONT DOOR";
+
+            // Quarter panel
+            if (lower.Contains("quarter"))
+                return "QUARTER PANEL";
+
+            // Pillars, rocker, floor
+            if (lower.Contains("pillar") || lower.Contains("rocker") || lower.Contains("floor pan"))
+                return "PILLARS, ROCKER & FLOOR";
+
+            // Roof
+            if (lower.Contains("roof") || lower.Contains("sunroof"))
+                return "ROOF";
+
+            // Trunk / decklid / liftgate
+            if (lower.Contains("trunk") || lower.Contains("decklid") || lower.Contains("deck lid") ||
+                lower.Contains("liftgate") || lower.Contains("lift gate"))
+                return "TRUNK / DECKLID";
+
+            // Glass
+            if (lower.Contains("windshield") || lower.Contains("glass") || lower.Contains("back glass"))
+                return "GLASS";
+
+            // Instrument panel / dash
+            if (lower.Contains("dash") || lower.Contains("instrument panel"))
+                return "INSTRUMENT PANEL";
+
+            // Mechanical parts
+            if (lower.Contains("radiator") || lower.Contains("condenser") || lower.Contains("suspension") ||
+                lower.Contains("steering") || lower.Contains("engine") || lower.Contains("wheel"))
+                return "MECHANICAL";
+
+            // Bumper fallback (generic "bumper" without front/rear)
+            if (lower.Contains("bumper"))
+                return "FRONT BUMPER & GRILLE";
+
+            // Category-based fallbacks
+            if (!string.IsNullOrEmpty(category))
+            {
+                if (category == "Scanning" || category == "Calibration")
+                    return "VEHICLE DIAGNOSTICS";
+                if (category == "SRS Operations")
+                    return "RESTRAINT SYSTEMS";
+                if (category == "Cover Car Operations" || category == "SOP Operations")
+                    return "MISCELLANEOUS OPERATIONS";
+                if (category == "Mechanical Operations")
+                    return "MECHANICAL";
+                if (category == "Frame Operations" || category == "Structural")
+                    return "FRAME";
+            }
+
+            return "MISCELLANEOUS OPERATIONS";
+        }
+
+        /// <summary>
+        /// Maps an Excel sheet display category directly to its CCC section.
+        /// </summary>
+        private static string MapExcelCategoryToSection(string displayCategory)
+        {
+            return displayCategory switch
+            {
+                "SRS Operations" => "RESTRAINT SYSTEMS",
+                "Cover Car Operations" => "MISCELLANEOUS OPERATIONS",
+                "SOP Operations" => "MISCELLANEOUS OPERATIONS",
+                "Mechanical Operations" => "MECHANICAL",
+                _ => "MISCELLANEOUS OPERATIONS"
+            };
+        }
+
         private bool OperationsMatch(GhostOperation op1, GhostOperation op2)
         {
             // Fuzzy match on part name and operation type
@@ -2150,6 +2364,188 @@ namespace McStudDesktop.Services
         private string ToTitleCase(string input)
         {
             return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(input.ToLower());
+        }
+
+        /// <summary>
+        /// Clean operation descriptions: strip CCC line prefixes, part numbers, trailing metadata.
+        /// </summary>
+        private string CleanOperationDescription(string desc)
+        {
+            if (string.IsNullOrWhiteSpace(desc)) return desc;
+
+            // Strip CCC line prefixes (5+ digit codes like "900500")
+            desc = Regex.Replace(desc, @"^\d{5,}\s*", "");
+
+            // Strip side codes at start (L, R, LT, RT) followed by space — but only if standalone
+            // Don't strip if it's part of a word like "Left"
+            desc = Regex.Replace(desc, @"^(LT|RT|L|R)\s+", "", RegexOptions.IgnoreCase);
+
+            // Strip part numbers (6+ mixed alphanumeric like "0008388910" or "AB12CD34")
+            desc = Regex.Replace(desc, @"\b\d{6,}\b", "");
+            desc = Regex.Replace(desc, @"\b[A-Z0-9]{8,}\b", "");
+
+            // Strip trailing CCC metadata markers: "Refinish*", "0.3*", "Existing", "New", "Yes"
+            desc = Regex.Replace(desc, @"\s+\d+\.?\d*\*", "");  // "0.3*"
+            desc = Regex.Replace(desc, @"\s*\*\s*", " ");        // standalone "*"
+            desc = Regex.Replace(desc, @"\s+(Existing|New|Yes)\s*$", "", RegexOptions.IgnoreCase);
+
+            // Clean up extra whitespace
+            desc = Regex.Replace(desc, @"\s{2,}", " ").Trim();
+
+            return desc;
+        }
+
+        /// <summary>
+        /// Clean part name: strip part numbers and CCC codes but preserve meaningful text.
+        /// </summary>
+        private string CleanPartName(string partName)
+        {
+            if (string.IsNullOrWhiteSpace(partName)) return partName;
+
+            // Strip numeric part numbers (6+ digits)
+            partName = Regex.Replace(partName, @"\b\d{6,}\b", "");
+            // Strip mixed alphanumeric codes (8+ chars)
+            partName = Regex.Replace(partName, @"\b[A-Z0-9]{8,}\b", "");
+            // Clean whitespace
+            partName = Regex.Replace(partName, @"\s{2,}", " ").Trim();
+
+            return partName;
+        }
+
+        /// <summary>
+        /// Sanitize hours to prevent absurd learned values.
+        /// Caps hours by operation category to reasonable maximums.
+        /// </summary>
+        private void SanitizeHours(GhostEstimateResult result)
+        {
+            var sopMiscPatterns = new[] { "hazmat", "hazardous", "disposal", "mask", "clean", "glass cleaner", "protect", "cover car", "tape" };
+
+            foreach (var op in result.Operations)
+            {
+                var partLower = op.PartName?.ToLower() ?? "";
+                var descLower = op.Description?.ToLower() ?? "";
+                var opTypeLower = op.OperationType?.ToLower() ?? "";
+                var combined = $"{partLower} {descLower}";
+
+                // SOP/misc operations: max 1.5h
+                if (sopMiscPatterns.Any(p => combined.Contains(p)))
+                {
+                    if (op.LaborHours > 1.5m) op.LaborHours = 1.5m;
+                    if (op.RefinishHours > 1.5m) op.RefinishHours = 1.5m;
+                    // Cap SOP prices at $50 (unless it's a part/material sublet)
+                    if (op.Price > 50m && opTypeLower != "sublet") op.Price = 50m;
+                }
+                // R&I operations: max 5.0h
+                else if (opTypeLower == "r&i")
+                {
+                    if (op.LaborHours > 5.0m) op.LaborHours = 5.0m;
+                }
+                // Blend operations: max 4.0h
+                else if (opTypeLower == "blend")
+                {
+                    if (op.RefinishHours > 4.0m) op.RefinishHours = 4.0m;
+                }
+                // Refinish operations: max 8.0h
+                else if (opTypeLower == "rfn" || opTypeLower == "refinish" || opTypeLower == "paint")
+                {
+                    if (op.RefinishHours > 8.0m) op.RefinishHours = 8.0m;
+                }
+                // Repair body operations: max 15.0h
+                else if (opTypeLower == "rpr" || opTypeLower == "repair")
+                {
+                    if (op.LaborHours > 15.0m) op.LaborHours = 15.0m;
+                }
+
+                // Absolute cap: no single operation > 20h
+                if (op.LaborHours > 20.0m) op.LaborHours = 20.0m;
+                if (op.RefinishHours > 20.0m) op.RefinishHours = 20.0m;
+            }
+        }
+
+        /// <summary>
+        /// Global deduplication across all operation-adding paths.
+        /// Normalizes by PartName + OperationType + Side and keeps highest confidence on collision.
+        /// Also caps scans to max 1 Pre-Scan + 1 Post-Scan.
+        /// </summary>
+        private void DeduplicateOperations(GhostEstimateResult result)
+        {
+            var dedupMap = new Dictionary<string, GhostOperation>(StringComparer.OrdinalIgnoreCase);
+            var dedupedList = new List<GhostOperation>();
+
+            foreach (var op in result.Operations)
+            {
+                var normPart = NormalizePart(op.PartName);
+                var normOp = NormalizeOp(op.OperationType);
+                var key = $"{normPart}|{normOp}|{op.Side}";
+
+                if (dedupMap.TryGetValue(key, out var existing))
+                {
+                    // Keep the one with higher confidence
+                    if (op.Confidence > existing.Confidence)
+                    {
+                        dedupedList.Remove(existing);
+                        dedupMap[key] = op;
+                        dedupedList.Add(op);
+                    }
+                    // else skip the duplicate
+                }
+                else
+                {
+                    dedupMap[key] = op;
+                    dedupedList.Add(op);
+                }
+            }
+
+            // Cap scans: max 1 Pre-Scan + 1 Post-Scan
+            var preScans = dedupedList.Where(o => IsScanOp(o, "pre")).ToList();
+            var postScans = dedupedList.Where(o => IsScanOp(o, "post")).ToList();
+
+            if (preScans.Count > 1)
+            {
+                var keep = preScans.OrderByDescending(o => o.Confidence).First();
+                foreach (var dup in preScans.Where(o => o != keep))
+                    dedupedList.Remove(dup);
+            }
+            if (postScans.Count > 1)
+            {
+                var keep = postScans.OrderByDescending(o => o.Confidence).First();
+                foreach (var dup in postScans.Where(o => o != keep))
+                    dedupedList.Remove(dup);
+            }
+
+            result.Operations = dedupedList;
+        }
+
+        private static string NormalizePart(string? partName)
+        {
+            if (string.IsNullOrWhiteSpace(partName)) return "";
+            return partName.ToLower().Trim()
+                .Replace("-", " ").Replace("_", " ")
+                .Replace("  ", " ");
+        }
+
+        private static string NormalizeOp(string? opType)
+        {
+            if (string.IsNullOrWhiteSpace(opType)) return "";
+            var op = opType.ToLower().Trim();
+            return op switch
+            {
+                "repl" => "replace",
+                "rpr" => "repair",
+                "rfn" or "refinish" => "refinish",
+                _ => op
+            };
+        }
+
+        private static bool IsScanOp(GhostOperation op, string preOrPost)
+        {
+            var partLower = op.PartName?.ToLower() ?? "";
+            var descLower = op.Description?.ToLower() ?? "";
+            var isScan = op.Category == "Scanning" ||
+                         partLower.Contains("scan") ||
+                         descLower.Contains("scan");
+            if (!isScan) return false;
+            return partLower.Contains(preOrPost) || descLower.Contains(preOrPost);
         }
 
         #endregion
@@ -2209,6 +2605,7 @@ namespace McStudDesktop.Services
         public string PartName { get; set; } = "";
         public string Description { get; set; } = "";
         public string Category { get; set; } = "";
+        public string Section { get; set; } = "";
         public string Side { get; set; } = "";
 
         public decimal LaborHours { get; set; }
