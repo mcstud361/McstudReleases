@@ -44,10 +44,10 @@ namespace McStudDesktop.Views
         private static readonly Color SectionBg = Color.FromArgb(255, 35, 35, 35);
 
         // Chart dimensions
-        private const double ChartWidth = 340;
-        private const double ChartHeight = 180;
-        private const double BarMaxWidth = 280;
-        private const double ColumnMaxHeight = 140;
+        private const double ChartWidth = 600;
+        private const double ChartHeight = 300;
+        private const double BarMaxWidth = 500;
+        private const double ColumnMaxHeight = 240;
 
         // 3D Heatmap interactive state
         private Canvas? _3dHeatmapCanvas;
@@ -79,7 +79,7 @@ namespace McStudDesktop.Views
         private bool _chartIsDragging = false;
         private Windows.Foundation.Point _chartLastPointerPosition;
         private TextBlock? _chartZoomLabel;
-        private bool _chartIsExpanded = false;
+        private bool _chartIsExpanded = true;
         private Border? _chartExpandContainer;
         private StackPanel? _chartSeriesPanel;
         private string _currentChartKey = "";
@@ -3172,8 +3172,8 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(0),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
                 BorderThickness = new Thickness(1),
-                MaxWidth = 620,
-                HorizontalAlignment = HorizontalAlignment.Center,
+                MaxWidth = double.PositiveInfinity,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 Child = outerStack
             };
 
@@ -3551,7 +3551,7 @@ namespace McStudDesktop.Views
             else
             {
                 var items = data.TakeLast(10).ToList();
-                const double cW = 540, cH = 280, pL = 55, pR = 530, pT = 15, pB = 235;
+                const double cW = 900, cH = 400, pL = 65, pR = 880, pT = 20, pB = 350;
                 var plotW = pR - pL;
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
@@ -3642,7 +3642,7 @@ namespace McStudDesktop.Views
                 var items = data.Where(d => d.ExportLabor > 0 || d.ExportPaint > 0).TakeLast(10).ToList();
                 if (items.Count == 0) items = data.TakeLast(10).ToList();
 
-                const double cW = 540, cH = 280, pL = 55, pR = 530, pT = 15, pB = 235;
+                const double cW = 900, cH = 400, pL = 65, pR = 880, pT = 20, pB = 350;
                 var plotW = pR - pL;
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
@@ -3778,11 +3778,11 @@ namespace McStudDesktop.Views
             else
             {
                 var chartGrid = new Grid();
-                chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
+                chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300) });
                 chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
                 // Pie chart canvas
-                var pieCanvas = new Canvas { Width = 160, Height = 160 };
+                var pieCanvas = new Canvas { Width = 260, Height = 260 };
                 var categories = new[]
                 {
                     (breakdown.LaborPercent, AccentBlue, "Labor", breakdown.LaborDollars),
@@ -3795,7 +3795,7 @@ namespace McStudDesktop.Views
                 foreach (var (percent, color, name, value) in categories)
                 {
                     if (percent <= 0) continue;
-                    var segment = CreatePieSegment(80, 80, 70, startAngle, percent * 3.6, color);
+                    var segment = CreatePieSegment(130, 130, 115, startAngle, percent * 3.6, color);
                     pieCanvas.Children.Add(segment);
                     startAngle += percent * 3.6;
                 }
@@ -3803,12 +3803,12 @@ namespace McStudDesktop.Views
                 // Center donut hole
                 var centerCircle = new Ellipse
                 {
-                    Width = 70,
-                    Height = 70,
+                    Width = 110,
+                    Height = 110,
                     Fill = new SolidColorBrush(CardBg)
                 };
-                Canvas.SetLeft(centerCircle, 45);
-                Canvas.SetTop(centerCircle, 45);
+                Canvas.SetLeft(centerCircle, 75);
+                Canvas.SetTop(centerCircle, 75);
                 pieCanvas.Children.Add(centerCircle);
 
                 // Total in center
@@ -3816,22 +3816,22 @@ namespace McStudDesktop.Views
                 totalStack.Children.Add(new TextBlock
                 {
                     Text = "Total",
-                    FontSize = 9,
+                    FontSize = 11,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
                     HorizontalAlignment = HorizontalAlignment.Center
                 });
                 totalStack.Children.Add(new TextBlock
                 {
                     Text = breakdown.TotalDollars.ToString("C0"),
-                    FontSize = 13,
+                    FontSize = 16,
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                     Foreground = new SolidColorBrush(Colors.White),
                     HorizontalAlignment = HorizontalAlignment.Center
                 });
 
                 var totalBorder = new Border { Child = totalStack };
-                Canvas.SetLeft(totalBorder, 52);
-                Canvas.SetTop(totalBorder, 68);
+                Canvas.SetLeft(totalBorder, 90);
+                Canvas.SetTop(totalBorder, 110);
                 pieCanvas.Children.Add(totalBorder);
 
                 Grid.SetColumn(pieCanvas, 0);
@@ -3931,7 +3931,7 @@ namespace McStudDesktop.Views
             }
             else
             {
-                const double cW = 540, cH = 260, pL = 55, pR = 530, pT = 15, pB = 220;
+                const double cW = 900, cH = 380, pL = 65, pR = 880, pT = 20, pB = 330;
                 var plotW = pR - pL;
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
@@ -4050,7 +4050,7 @@ namespace McStudDesktop.Views
             }
             else
             {
-                const double cW = 540, cH = 260, pL = 55, pR = 530, pT = 15, pB = 220;
+                const double cW = 900, cH = 380, pL = 65, pR = 880, pT = 20, pB = 330;
                 var plotW = pR - pL;
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
@@ -4194,7 +4194,7 @@ namespace McStudDesktop.Views
                 {
                     stack.Children.Add(new TextBlock { Text = "Daily Average Value", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)), Margin = new Thickness(0, 8, 0, 0) });
 
-                    const double cW = 540, cH = 180, pL = 55, pR = 530, pT = 10, pB = 145;
+                    const double cW = 900, cH = 300, pL = 65, pR = 880, pT = 15, pB = 255;
                     var plotW = pR - pL;
                     var plotH = pB - pT;
                     var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
@@ -4298,7 +4298,7 @@ namespace McStudDesktop.Views
                 int hourCount = lastHour - firstHour + 1;
                 if (hourCount < 6) { firstHour = Math.Max(0, firstHour - 2); lastHour = Math.Min(23, lastHour + 2); hourCount = lastHour - firstHour + 1; }
 
-                const double cW = 540, cH = 260, pL = 55, pR = 530, pT = 15, pB = 220;
+                const double cW = 900, cH = 380, pL = 65, pR = 880, pT = 20, pB = 330;
                 var plotW = pR - pL;
                 var plotH = pB - pT;
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
@@ -4632,11 +4632,11 @@ namespace McStudDesktop.Views
             else
             {
                 var chartGrid = new Grid();
-                chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+                chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300) });
                 chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
                 // Pie chart visual (using concentric circles to simulate pie)
-                var pieCanvas = new Canvas { Width = 150, Height = 150 };
+                var pieCanvas = new Canvas { Width = 260, Height = 260 };
                 var categories = new[]
                 {
                     (breakdown.LaborPercent, AccentBlue, "Labor"),
@@ -4649,7 +4649,7 @@ namespace McStudDesktop.Views
                 foreach (var (percent, color, name) in categories)
                 {
                     if (percent <= 0) continue;
-                    var segment = CreatePieSegment(75, 75, 60, startAngle, percent * 3.6, color);
+                    var segment = CreatePieSegment(130, 130, 115, startAngle, percent * 3.6, color);
                     pieCanvas.Children.Add(segment);
                     startAngle += percent * 3.6;
                 }
@@ -4657,22 +4657,22 @@ namespace McStudDesktop.Views
                 // Center circle (donut effect)
                 var center = new Ellipse
                 {
-                    Width = 60, Height = 60,
+                    Width = 110, Height = 110,
                     Fill = new SolidColorBrush(CardBg)
                 };
-                Canvas.SetLeft(center, 45);
-                Canvas.SetTop(center, 45);
+                Canvas.SetLeft(center, 75);
+                Canvas.SetTop(center, 75);
                 pieCanvas.Children.Add(center);
 
                 // Total in center
                 var totalText = new TextBlock
                 {
                     Text = breakdown.TotalDollars.ToString("C0"),
-                    FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                     Foreground = new SolidColorBrush(Colors.White)
                 };
-                Canvas.SetLeft(totalText, 55);
-                Canvas.SetTop(totalText, 67);
+                Canvas.SetLeft(totalText, 95);
+                Canvas.SetTop(totalText, 115);
                 pieCanvas.Children.Add(totalText);
 
                 Grid.SetColumn(pieCanvas, 0);
@@ -5530,8 +5530,8 @@ namespace McStudDesktop.Views
             stack.Children.Add(controlBar);
 
             // === INTERACTIVE CANVAS CONTAINER ===
-            var canvasHeight = 300;
-            var canvasWidth = 600;
+            var canvasHeight = 450;
+            var canvasWidth = 900;
 
             // Clip container to prevent overflow
             var clipContainer = new Border

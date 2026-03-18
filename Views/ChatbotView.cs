@@ -78,6 +78,7 @@ public class ChatbotView : UserControl
 
     // Event to navigate to Export tab with operations loaded
     public event EventHandler? OnNavigateToExport;
+    public event EventHandler? OnNavigateToReference;
 
     // Static instance for cross-view messaging
     public static ChatbotView? Instance { get; private set; }
@@ -164,6 +165,7 @@ public class ChatbotView : UserControl
         // Ghost Estimate Comparison (hidden initially)
         _ghostEstimatePanel = new GhostEstimatePanel { Visibility = Visibility.Collapsed };
         _ghostEstimatePanel.OnOperationAccepted += GhostEstimatePanel_OnOperationAccepted;
+        _ghostEstimatePanel.OnNavigateToReference += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
         _chatContent.Children.Add(_ghostEstimatePanel);
 
         // Screen OCR Monitor (hidden initially)
@@ -171,6 +173,7 @@ public class ChatbotView : UserControl
         _screenMonitorPanel.OnFeedToChat += ScreenMonitorPanel_OnFeedToChat;
         _screenMonitorPanel.OnLoadToBuilder += ScreenMonitorPanel_OnLoadToBuilder;
         _screenMonitorPanel.OnNavigateToExport += (s, e) => OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+        _screenMonitorPanel.OnNavigateToReference += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
         _chatContent.Children.Add(_screenMonitorPanel);
 
         // Floating help button for sub-tabs

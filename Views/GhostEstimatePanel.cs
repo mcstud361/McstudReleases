@@ -52,6 +52,7 @@ namespace McStudDesktop.Views
 
         // Events
         public event EventHandler<GhostOperation>? OnOperationAccepted;
+        public event EventHandler? OnNavigateToReference;
 
         // CCC section display order
         private static readonly string[] SectionOrder = new[]
@@ -135,6 +136,9 @@ namespace McStudDesktop.Views
 
             // 1. Header
             mainStack.Children.Add(CreateHeader());
+
+            // Reference tab banner
+            mainStack.Children.Add(CreateReferenceTabBanner());
 
             // 2. Input Section (kept as-is: vehicle, damage desc, severity, diagram)
             mainStack.Children.Add(CreateInputSection());
@@ -226,6 +230,52 @@ namespace McStudDesktop.Views
             panel.Children.Add(descriptionPanel);
 
             return panel;
+        }
+
+        private Border CreateReferenceTabBanner()
+        {
+            var banner = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 45, 60)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 90, 120)),
+                BorderThickness = new Thickness(1)
+            };
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            row.Children.Add(new FontIcon
+            {
+                Glyph = "\uE82D",
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255))
+            });
+
+            var linkText = new TextBlock
+            {
+                Text = "P-Pages, DEG inquiries, and supporting documents for these operations are available on the Reference tab",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 180, 220)),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            row.Children.Add(linkText);
+
+            var goBtn = new Button
+            {
+                Content = "Open Reference Tab",
+                FontSize = 11,
+                Padding = new Thickness(10, 4, 10, 4),
+                Background = new SolidColorBrush(Color.FromArgb(255, 40, 70, 100)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)),
+                CornerRadius = new CornerRadius(4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            goBtn.Click += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
+            row.Children.Add(goBtn);
+
+            banner.Child = row;
+            return banner;
         }
 
         private Border CreateInputSection()
@@ -1311,6 +1361,7 @@ namespace McStudDesktop.Views
                         TextWrapping = TextWrapping.Wrap
                     });
                 }
+
 
                 if (op.LearnedFrequency > 0)
                 {

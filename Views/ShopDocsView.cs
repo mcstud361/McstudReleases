@@ -2250,9 +2250,12 @@ namespace McStudDesktop.Views
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100))
                 });
 
+                var isDriveableChecklist = _currentChecklist?.Id == "driveable-checklist";
                 statusPanel.Children.Add(new TextBlock
                 {
-                    Text = "Vehicle should NOT be driven — required items not confirmed",
+                    Text = isDriveableChecklist
+                        ? "Vehicle should NOT be driven — required items not confirmed"
+                        : "INCOMPLETE — required items not checked off yet",
                     FontSize = 10,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100)),
@@ -2390,6 +2393,7 @@ namespace McStudDesktop.Views
                     }
                 }
 
+                var isDriveable = _currentChecklist?.Id == "driveable-checklist";
                 if (allRequiredChecked)
                 {
                     statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 20, 50, 30));
@@ -2398,7 +2402,9 @@ namespace McStudDesktop.Views
                     var text = (TextBlock)panel.Children[1];
                     icon.Glyph = "\uE73E";
                     icon.Foreground = new SolidColorBrush(AccentGreen);
-                    text.Text = "PASS — All required items confirmed";
+                    text.Text = isDriveable
+                        ? "PASS — Vehicle is safe to drive"
+                        : "PASS — All required items confirmed";
                     text.Foreground = new SolidColorBrush(AccentGreen);
                 }
                 else
@@ -2409,7 +2415,9 @@ namespace McStudDesktop.Views
                     var text = (TextBlock)panel.Children[1];
                     icon.Glyph = "\uE7BA";
                     icon.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
-                    text.Text = "Vehicle should NOT be driven — required items not confirmed";
+                    text.Text = isDriveable
+                        ? "Vehicle should NOT be driven — required items not confirmed"
+                        : "INCOMPLETE — required items not checked off yet";
                     text.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
                 }
             }

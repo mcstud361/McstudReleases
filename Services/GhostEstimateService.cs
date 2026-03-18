@@ -557,17 +557,18 @@ namespace McStudDesktop.Services
         {
             var part = partName.ToLower().Trim().Replace("-", " ").Replace("  ", " ");
             var op = operationName.ToLower().Trim().Replace("-", " ").Replace("  ", " ");
+            var combined = $"{part} {op}";
 
-            // Normalize scan variants to canonical keys
-            if (part.Contains("pre") && (part.Contains("scan") || op.Contains("scan")))
+            // Normalize scan variants to canonical keys — check both part and op fields
+            if (combined.Contains("pre") && combined.Contains("scan"))
                 return "pre scan|scan";
-            if (part.Contains("post") && (part.Contains("scan") || op.Contains("scan")))
+            if (combined.Contains("post") && combined.Contains("scan"))
                 return "post scan|scan";
-            if ((part.Contains("diagnostic scan") || op.Contains("diagnostic scan")) && !part.Contains("post"))
+            if (combined.Contains("diagnostic scan"))
                 return "pre scan|scan";
 
             // Normalize ADAS calibration variants
-            if (part.Contains("adas") || part.Contains("calibrat") || op.Contains("calibrat"))
+            if (combined.Contains("adas") || combined.Contains("calibrat"))
                 return "adas calibration|calibration";
 
             return $"{part}|{op}";

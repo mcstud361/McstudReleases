@@ -69,6 +69,7 @@ namespace McStudDesktop.Views
         public event EventHandler<ScreenOcrResult>? OnFeedToChat;
         public event EventHandler<ScreenOcrResult>? OnLoadToBuilder;
         public event EventHandler? OnNavigateToExport;
+        public event EventHandler? OnNavigateToReference;
 
         public ScreenMonitorPanel()
         {
@@ -96,6 +97,7 @@ namespace McStudDesktop.Views
             var mainStack = new StackPanel { Spacing = 20 };
 
             mainStack.Children.Add(CreateHeader());
+            mainStack.Children.Add(CreateReferenceTabBanner());
             mainStack.Children.Add(CreateControlsSection());
             mainStack.Children.Add(CreateStatusSection());
             mainStack.Children.Add(CreateEstimateAnalysisSection());
@@ -149,6 +151,54 @@ namespace McStudDesktop.Views
             });
 
             return headerPanel;
+        }
+
+        private Border CreateReferenceTabBanner()
+        {
+            var banner = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 45, 60)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 90, 120)),
+                BorderThickness = new Thickness(1)
+            };
+
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+
+            row.Children.Add(new FontIcon
+            {
+                Glyph = "\uE82D",
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 160, 220))
+            });
+
+            row.Children.Add(new TextBlock
+            {
+                Text = "P-Pages, DEG inquiries, and supporting documents for detected operations are available on the Reference tab.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 220)),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var goBtn = new Button
+            {
+                Content = "Open Reference Tab",
+                FontSize = 11,
+                Padding = new Thickness(10, 4, 10, 4),
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 70, 90)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 190, 240)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 70, 100, 140)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4)
+            };
+            goBtn.Click += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
+            row.Children.Add(goBtn);
+
+            banner.Child = row;
+            return banner;
         }
 
         // === CONTROLS ===

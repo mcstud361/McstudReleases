@@ -1287,6 +1287,7 @@ namespace McStudDesktop.Views
             // Chat view takes remaining space
             _chatbotView = new ChatbotView();
             _chatbotView.OnNavigateToExport += (s, e) => SelectTab(0); // Navigate to Export tab
+            _chatbotView.OnNavigateToReference += (s, e) => SelectTab(4); // Navigate to Reference tab
             Grid.SetRow(_chatbotView, 1);
             chatContent.Children.Add(_chatbotView);
 
