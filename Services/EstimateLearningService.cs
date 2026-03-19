@@ -1097,11 +1097,41 @@ namespace McStudDesktop.Services
             var matches = new List<PatternMatch>();
             var normalizedLine = NormalizeLineItem(estimateLine);
             var extracted = ExtractLineComponents(estimateLine);
+            var extractedPartNorm = NormalizePartNameForMatching(extracted.PartName);
+
+            // Fast path: try exact pattern key lookup first
+            var directKey = $"{extracted.PartName?.ToLowerInvariant()}|{extracted.OperationType?.ToLowerInvariant()}";
+            if (_database.Patterns.TryGetValue(directKey, out var directMatch))
+            {
+                return new List<PatternMatch>
+                {
+                    new PatternMatch
+                    {
+                        Pattern = directMatch,
+                        MatchScore = 1.0,
+                        SourceLine = estimateLine,
+                        ExtractedData = extracted
+                    }
+                };
+            }
+
+            // Pre-filter: only score patterns whose part name shares words with the input
+            var inputWords = (extractedPartNorm ?? normalizedLine)
+                .Split(' ', '_').Where(w => w.Length > 2).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var pattern in _database.Patterns.Values)
             {
+                // Quick reject: skip patterns with no part name overlap
+                if (inputWords.Count > 0 && !string.IsNullOrEmpty(pattern.PartName))
+                {
+                    var patternPartNorm = NormalizePartNameForMatching(pattern.PartName);
+                    var patternWords = patternPartNorm.Split('_').Where(w => w.Length > 2);
+                    if (!patternWords.Any(pw => inputWords.Contains(pw)))
+                        continue;
+                }
+
                 var score = CalculateMatchScore(normalizedLine, extracted, pattern);
-                if (score > 0.3) // Minimum 30% match
+                if (score > 0.3)
                 {
                     matches.Add(new PatternMatch
                     {
@@ -1110,6 +1140,10 @@ namespace McStudDesktop.Services
                         SourceLine = estimateLine,
                         ExtractedData = extracted
                     });
+
+                    // Early exit: if we found a near-perfect match, stop searching
+                    if (score >= 0.85)
+                        break;
                 }
             }
 

@@ -32,6 +32,7 @@ namespace McstudDesktop.Services
         private static readonly Regex _hoursPattern = new(@"(\d+\.?\d*)\s*(?:hrs?|hours?|labor)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _refinishPattern = new(@"(\d+\.?\d*)\s*(?:ref|refinish|paint)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _qtyPattern = new(@"qty[:\s]*(\d+)|(\d+)\s*(?:ea|each|x\s)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex _vinPattern = new(@"\b([A-HJ-NPR-Z0-9]{17})\b", RegexOptions.Compiled);
 
         public event EventHandler<string>? StatusChanged;
 
@@ -125,6 +126,11 @@ namespace McstudDesktop.Services
                 // Detect changes from previous capture
                 result.HasChanges = _previousRawText == null || !string.Equals(_previousRawText, result.RawText, StringComparison.Ordinal);
                 _previousRawText = result.RawText;
+
+                // Extract VIN if present
+                var vinMatch = _vinPattern.Match(result.RawText);
+                if (vinMatch.Success)
+                    result.DetectedVin = vinMatch.Groups[1].Value;
 
                 StatusChanged?.Invoke(this, $"OCR complete: {result.LineCount} lines, {result.OperationCount} operations");
             }

@@ -41,6 +41,9 @@ namespace McstudDesktop.Services
         private string _lastSourceWindow = "";
         private string? _vehicleInfo;
         private string? _customerName;
+        private string? _trackedVin;
+        private int _accumulatedOpsOrder = 0;
+        private readonly Dictionary<string, int> _opInsertionOrder = new(StringComparer.OrdinalIgnoreCase);
 
         private const int DebounceMs = 500;
 
@@ -85,11 +88,8 @@ namespace McstudDesktop.Services
             _debounceCts = null;
             _isRunning = false;
             _lastContentHash = "";
-            _accumulatedOps.Clear();
-            _accumulatedRawText.Clear();
             _lastSourceWindow = "";
-            _vehicleInfo = null;
-            _customerName = null;
+            ResetAccumulatedState();
             CoachingStateChanged?.Invoke(this, false);
             Debug.WriteLine("[LiveCoaching] Stopped");
         }
@@ -102,6 +102,40 @@ namespace McstudDesktop.Services
         public void ResetDismissals()
         {
             lock (_lock) { _dismissedIds.Clear(); }
+        }
+
+        public IReadOnlyList<ParsedEstimateLine> AccumulatedOperations =>
+            _accumulatedOps
+                .OrderBy(kvp => _opInsertionOrder.GetValueOrDefault(kvp.Key, int.MaxValue))
+                .Select(kvp => kvp.Value)
+                .ToList();
+
+        public FocusedPartContext? DetectFocusedPart(ScreenOcrResult result)
+        {
+            var topPart = result.DetectedOperations
+                .Where(op => !string.IsNullOrWhiteSpace(op.PartName))
+                .GroupBy(op => op.PartName, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault();
+            if (topPart == null) return null;
+            return new FocusedPartContext { PartName = topPart.Key, OperationType = topPart.First().OperationType };
+        }
+
+        public void ResetVehicle()
+        {
+            ResetAccumulatedState();
+            lock (_lock) { _dismissedIds.Clear(); }
+        }
+
+        private void ResetAccumulatedState()
+        {
+            _accumulatedOps.Clear();
+            _accumulatedRawText.Clear();
+            _opInsertionOrder.Clear();
+            _accumulatedOpsOrder = 0;
+            _vehicleInfo = null;
+            _customerName = null;
+            _trackedVin = null;
         }
 
         private void OnOcrResultReady(object? sender, ScreenOcrResult result)
@@ -150,13 +184,21 @@ namespace McstudDesktop.Services
                 if (!string.IsNullOrEmpty(lastApp))
                 {
                     Debug.WriteLine($"[LiveCoaching] App changed from \"{lastApp}\" to \"{currentApp}\" — resetting accumulated data");
-                    _accumulatedOps.Clear();
-                    _accumulatedRawText.Clear();
-                    _vehicleInfo = null;
-                    _customerName = null;
+                    ResetAccumulatedState();
                 }
             }
             _lastSourceWindow = sourceWindow;
+
+            // VIN-based vehicle change detection
+            if (!string.IsNullOrEmpty(result.DetectedVin))
+            {
+                if (_trackedVin != null && !_trackedVin.Equals(result.DetectedVin, StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine($"[LiveCoaching] VIN changed from \"{_trackedVin}\" to \"{result.DetectedVin}\" — resetting accumulated data");
+                    ResetAccumulatedState();
+                }
+                _trackedVin = result.DetectedVin;
+            }
 
             // Accumulate structured operations from this capture
             if (result.DetectedOperations != null)
@@ -164,6 +206,8 @@ namespace McstudDesktop.Services
                 foreach (var op in result.DetectedOperations)
                 {
                     var key = $"{op.Description}|{op.PartName}|{op.OperationType}".ToLowerInvariant();
+                    if (!_opInsertionOrder.ContainsKey(key))
+                        _opInsertionOrder[key] = _accumulatedOpsOrder++;
                     _accumulatedOps[key] = new ParsedEstimateLine
                     {
                         RawLine = op.RawLine,
@@ -362,6 +406,7 @@ namespace McstudDesktop.Services
             suggestions = capped;
 
             var confirmedCount = suggestions.Count(s => s.IsConfirmedOnEstimate);
+            var focusedPart = DetectFocusedPart(result);
             var snapshot = new CoachingSnapshot
             {
                 Suggestions = suggestions,
@@ -372,6 +417,8 @@ namespace McstudDesktop.Services
                 PotentialRecovery = scoringResult.PotentialCostRecovery + scoringResult.PotentialLaborRecovery,
                 VehicleInfo = _vehicleInfo,
                 CustomerName = _customerName,
+                VIN = _trackedVin,
+                FocusedPart = focusedPart,
                 Timestamp = DateTime.Now
             };
 

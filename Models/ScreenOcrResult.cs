@@ -42,6 +42,7 @@ public class ScreenOcrResult
     public OcrEstimateSource EstimateSource { get; set; } = OcrEstimateSource.Unknown;
     public bool HasChanges { get; set; }
     public string? ErrorMessage { get; set; }
+    public string? DetectedVin { get; set; }
 
     public int OperationCount => DetectedOperations.Count;
     public int LineCount => Lines.Count;

@@ -37,6 +37,7 @@ namespace McStudDesktop.Views
         private Button? _uploadButton;
         private Button? _learnButton;
         private Button? _buildLinesButton;
+        private Button? _clearButton;
         private Button? _publishButton;
         private Button? _exportBaselineButton;
         private TextBox? _pasteArea;
@@ -479,10 +480,31 @@ namespace McStudDesktop.Views
                 "Remembers what manual ops you added for each part type.\n" +
                 "Data appears in the 'Learned' tab for searching later.");
 
-            // Add both buttons to a panel
+            // Clear button
+            _clearButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE74D", FontSize = 14 },
+                        new TextBlock { Text = "Clear", FontSize = 12 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 100, 40, 40)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(16, 8, 16, 8),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            _clearButton.Click += ClearButton_Click;
+
+            // Add buttons to a panel
             var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal };
             buttonsPanel.Children.Add(_buildLinesButton);
             buttonsPanel.Children.Add(_learnButton);
+            buttonsPanel.Children.Add(_clearButton);
             Grid.SetColumn(buttonsPanel, 2);
             resultsHeader.Children.Add(buttonsPanel);
 
@@ -1540,6 +1562,17 @@ namespace McStudDesktop.Views
                 ShowProgress(false);
                 _buildLinesButton!.IsEnabled = true;
             }
+        }
+
+        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        {
+            _parsedLines.Clear();
+            _parsedItemsList!.Items.Clear();
+            _resultsSection!.Visibility = Visibility.Collapsed;
+            _qualitySection!.Visibility = Visibility.Collapsed;
+            _suggestionsSection!.Visibility = Visibility.Collapsed;
+            ShowProgress(false);
+            ShowStatus("Cleared. Drop or paste a new estimate to start over.");
         }
 
         private async void LearnButton_Click(object sender, RoutedEventArgs e)

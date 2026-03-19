@@ -40,6 +40,14 @@ namespace McstudDesktop.Models
         public decimal PotentialRecovery { get; set; }
         public string? VehicleInfo { get; set; }
         public string? CustomerName { get; set; }
+        public string? VIN { get; set; }
+        public FocusedPartContext? FocusedPart { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
+    }
+
+    public class FocusedPartContext
+    {
+        public string PartName { get; set; } = "";
+        public string OperationType { get; set; } = "";
     }
 }

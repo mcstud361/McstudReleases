@@ -39,6 +39,14 @@ namespace McStudDesktop.Views
         private Border? _issuesSection;
         private TextBlock? _issuesTitleText;
 
+        // Estimate breakdown (categorized ops from upload)
+        private StackPanel? _breakdownContainer;
+        private Border? _breakdownSection;
+
+        // Grading criteria
+        private Border? _criteriaSection;
+        private StackPanel? _criteriaContent;
+
         // Action buttons
         private Button? _addAllCriticalButton;
         private Button? _addSelectedButton;
@@ -289,6 +297,78 @@ namespace McStudDesktop.Views
             _issuesSection.Child = issuesStack;
             mainStack.Children.Add(_issuesSection);
 
+            // === ESTIMATE BREAKDOWN BY CATEGORY ===
+            _breakdownSection = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 33, 40)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12),
+                Visibility = Visibility.Collapsed
+            };
+            var breakdownStack = new StackPanel { Spacing = 8 };
+            breakdownStack.Children.Add(new TextBlock
+            {
+                Text = "YOUR ESTIMATE BY CATEGORY",
+                FontSize = 10,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+            var breakdownScroll = new ScrollViewer
+            {
+                MaxHeight = 350,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            _breakdownContainer = new StackPanel { Spacing = 6 };
+            breakdownScroll.Content = _breakdownContainer;
+            breakdownStack.Children.Add(breakdownScroll);
+            _breakdownSection.Child = breakdownStack;
+            mainStack.Children.Add(_breakdownSection);
+
+            // === GRADING CRITERIA (always visible) ===
+            _criteriaSection = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 33, 40)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12)
+            };
+            var criteriaStack = new StackPanel { Spacing = 6 };
+            var criteriaHeader = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE946", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)) },
+                        new TextBlock
+                        {
+                            Text = "GRADING CRITERIA",
+                            FontSize = 10,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140))
+                        }
+                    }
+                },
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left
+            };
+            _criteriaContent = new StackPanel { Spacing = 4, Visibility = Visibility.Collapsed };
+            criteriaHeader.Click += (s, e) =>
+            {
+                _criteriaContent.Visibility = _criteriaContent.Visibility == Visibility.Visible
+                    ? Visibility.Collapsed : Visibility.Visible;
+            };
+            BuildCriteriaContent();
+            criteriaStack.Children.Add(criteriaHeader);
+            criteriaStack.Children.Add(_criteriaContent);
+            _criteriaSection.Child = criteriaStack;
+            mainStack.Children.Add(_criteriaSection);
+
             mainBorder.Child = mainStack;
             Content = mainBorder;
         }
@@ -361,6 +441,9 @@ namespace McStudDesktop.Views
 
             // Update issues list
             UpdateIssuesList(result.Issues);
+
+            // Update estimate breakdown
+            UpdateEstimateBreakdown(result.CategorizedLines);
 
             // Show/hide fix button based on critical items
             _addAllCriticalButton!.Visibility = (result.CriticalCount + result.HighCount) > 0
@@ -626,6 +709,220 @@ namespace McStudDesktop.Views
 
         #endregion
 
+        #region Criteria & Breakdown
+
+        private void BuildCriteriaContent()
+        {
+            if (_criteriaContent == null) return;
+
+            var criteria = new (string Name, Color Color, string[] Checks)[]
+            {
+                ("Diagnostics", Color.FromArgb(255, 200, 150, 255), new[]
+                {
+                    "Pre-repair diagnostic scan (OEM requirement)",
+                    "Post-repair diagnostic scan (verify no new codes)",
+                    "Triggered when: body panel work or estimate > $2,500"
+                }),
+                ("Calibrations", Color.FromArgb(255, 248, 81, 73), new[]
+                {
+                    "ADAS camera calibration after windshield R&R",
+                    "Sensor calibration after radar/camera R&R",
+                    "4-wheel alignment after suspension work"
+                }),
+                ("Materials", Color.FromArgb(255, 150, 200, 255), new[]
+                {
+                    "Corrosion protection on structural panel replacement",
+                    "Weld-thru primer for welded joints",
+                    "Seam sealer at panel joints",
+                    "Flex additive for plastic panels (bumpers/fascia)",
+                    "Adhesion promoter for bare plastic"
+                }),
+                ("Blend", Color.FromArgb(255, 255, 200, 100), new[]
+                {
+                    "Adjacent panel blend for color match",
+                    "Checked for: hood, fender, door, quarter, bumper, roof, deck/trunk"
+                }),
+                ("R&I", Color.FromArgb(255, 100, 200, 150), new[]
+                {
+                    "R&I fog lamps, sensors, cameras on bumper work",
+                    "R&I mirror, handle, trim on door work",
+                    "R&I tail light, fuel door on quarter panel work",
+                    "R&I hood insulator, struts on hood work",
+                    "R&I fender liner, tire/wheel on fender work"
+                }),
+                ("Refinish", Color.FromArgb(255, 100, 180, 255), new[]
+                {
+                    "3-stage/tri-coat additional paint time",
+                    "Checked when: pearl or tri-coat paint detected"
+                }),
+                ("Electrical", Color.FromArgb(255, 255, 200, 50), new[]
+                {
+                    "Battery disconnect/reconnect for structural welding",
+                    "Protects vehicle electronics from welding current"
+                })
+            };
+
+            foreach (var (name, color, checks) in criteria)
+            {
+                var catBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 40, 48)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 2, 0, 0)
+                };
+
+                var catStack = new StackPanel { Spacing = 2 };
+
+                catStack.Children.Add(new TextBlock
+                {
+                    Text = name,
+                    FontSize = 11,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(color)
+                });
+
+                foreach (var check in checks)
+                {
+                    catStack.Children.Add(new TextBlock
+                    {
+                        Text = $"  \u2022 {check}",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                catBorder.Child = catStack;
+                _criteriaContent.Children.Add(catBorder);
+            }
+        }
+
+        private void UpdateEstimateBreakdown(List<CategorizedEstimateLine> categorizedLines)
+        {
+            if (_breakdownContainer == null || _breakdownSection == null) return;
+
+            _breakdownContainer.Children.Clear();
+
+            if (categorizedLines.Count == 0)
+            {
+                _breakdownSection.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var grouped = categorizedLines
+                .GroupBy(l => l.Category)
+                .OrderBy(g => g.Key);
+
+            foreach (var group in grouped)
+            {
+                var catColor = GetBreakdownCategoryColor(group.Key);
+
+                // Category header with count
+                var headerStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                headerStack.Children.Add(new Border
+                {
+                    Background = new SolidColorBrush(catColor),
+                    CornerRadius = new CornerRadius(3),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Child = new TextBlock
+                    {
+                        Text = group.Key.ToUpperInvariant(),
+                        FontSize = 9,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Colors.White)
+                    }
+                });
+                headerStack.Children.Add(new TextBlock
+                {
+                    Text = $"{group.Count()} operation{(group.Count() != 1 ? "s" : "")}",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                _breakdownContainer.Children.Add(headerStack);
+
+                // List operations in this category
+                foreach (var line in group)
+                {
+                    var lineGrid = new Grid { Margin = new Thickness(12, 1, 0, 1) };
+                    lineGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) }); // Op type
+                    lineGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Part/desc
+                    lineGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) }); // Hours
+                    lineGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) }); // Price
+
+                    var opText = new TextBlock
+                    {
+                        Text = line.OperationType,
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
+                    };
+                    Grid.SetColumn(opText, 0);
+                    lineGrid.Children.Add(opText);
+
+                    var partText = new TextBlock
+                    {
+                        Text = !string.IsNullOrEmpty(line.PartName) ? line.PartName : line.Description,
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    Grid.SetColumn(partText, 1);
+                    lineGrid.Children.Add(partText);
+
+                    var totalHours = line.LaborHours + line.RefinishHours;
+                    if (totalHours > 0)
+                    {
+                        var hoursText = new TextBlock
+                        {
+                            Text = $"{totalHours:F1}h",
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                            HorizontalAlignment = HorizontalAlignment.Right
+                        };
+                        Grid.SetColumn(hoursText, 2);
+                        lineGrid.Children.Add(hoursText);
+                    }
+
+                    if (line.Price > 0)
+                    {
+                        var priceText = new TextBlock
+                        {
+                            Text = $"${line.Price:N0}",
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100)),
+                            HorizontalAlignment = HorizontalAlignment.Right
+                        };
+                        Grid.SetColumn(priceText, 3);
+                        lineGrid.Children.Add(priceText);
+                    }
+
+                    _breakdownContainer.Children.Add(lineGrid);
+                }
+            }
+
+            _breakdownSection.Visibility = Visibility.Visible;
+        }
+
+        private Color GetBreakdownCategoryColor(string category)
+        {
+            return category switch
+            {
+                "Diagnostics" => Color.FromArgb(255, 140, 100, 200),
+                "Calibrations" => Color.FromArgb(255, 200, 60, 60),
+                "Materials" => Color.FromArgb(255, 100, 150, 200),
+                "Blend" => Color.FromArgb(255, 200, 160, 60),
+                "R&I" => Color.FromArgb(255, 70, 160, 110),
+                "Refinish" => Color.FromArgb(255, 70, 140, 210),
+                "Electrical" => Color.FromArgb(255, 200, 160, 40),
+                "Mechanical" => Color.FromArgb(255, 160, 160, 160),
+                "Body/Structural" => Color.FromArgb(255, 100, 160, 220),
+                _ => Color.FromArgb(255, 120, 120, 120)
+            };
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private string GenerateReport(EstimateScoringResult result)
@@ -682,6 +979,29 @@ namespace McStudDesktop.Views
                             lines.Add($"     Why: {issue.WhyNeeded}");
                         if (!string.IsNullOrEmpty(issue.TriggeredBy))
                             lines.Add($"     Triggered by: {issue.TriggeredBy}");
+                    }
+                }
+            }
+
+            // Estimate breakdown by category
+            if (result.CategorizedLines.Count > 0)
+            {
+                lines.Add("");
+                lines.Add("─────────────────────────────────────────────");
+                lines.Add("ESTIMATE BREAKDOWN BY CATEGORY");
+                lines.Add("─────────────────────────────────────────────");
+
+                foreach (var catGroup in result.CategorizedLines.GroupBy(l => l.Category).OrderBy(g => g.Key))
+                {
+                    lines.Add("");
+                    lines.Add($"[{catGroup.Key}] ({catGroup.Count()} ops)");
+                    foreach (var op in catGroup)
+                    {
+                        var hours = (op.LaborHours + op.RefinishHours) > 0
+                            ? $" | {op.LaborHours + op.RefinishHours:F1} hr"
+                            : "";
+                        var price = op.Price > 0 ? $" | ${op.Price:N0}" : "";
+                        lines.Add($"  {op.OperationType,-8} {op.PartName}{hours}{price}");
                     }
                 }
             }
@@ -782,6 +1102,8 @@ namespace McStudDesktop.Views
             _categoryGrid!.Children.Clear();
             _issuesContainer!.Children.Clear();
             _issuesSection!.Visibility = Visibility.Collapsed;
+            _breakdownContainer!.Children.Clear();
+            _breakdownSection!.Visibility = Visibility.Collapsed;
             _addAllCriticalButton!.Visibility = Visibility.Collapsed;
         }
     }

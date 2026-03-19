@@ -61,6 +61,9 @@ namespace McStudDesktop.Services
             // Calculate estimate total
             result.EstimateTotal = lines.Sum(l => l.Price);
 
+            // Categorize estimate lines for the report card
+            result.CategorizedLines = CategorizeEstimateLines(lines);
+
             // Run all scoring checks
             CheckOperationChains(lines, result);
             CheckBlendOperations(lines, result);
@@ -838,6 +841,101 @@ namespace McStudDesktop.Services
 
         #endregion
 
+        #region Estimate Line Categorization
+
+        private List<CategorizedEstimateLine> CategorizeEstimateLines(List<ParsedEstimateLine> lines)
+        {
+            var categorized = new List<CategorizedEstimateLine>();
+
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrWhiteSpace(line.PartName) && string.IsNullOrWhiteSpace(line.Description))
+                    continue;
+
+                var partLower = (line.PartName ?? "").ToLowerInvariant();
+                var descLower = (line.Description ?? "").ToLowerInvariant();
+                var opLower = (line.OperationType ?? "").ToLowerInvariant();
+                var combined = $"{partLower} {descLower}";
+
+                string category = ClassifyLineCategory(combined, opLower, line);
+
+                categorized.Add(new CategorizedEstimateLine
+                {
+                    PartName = line.PartName ?? "",
+                    OperationType = line.OperationType ?? "",
+                    Description = line.Description ?? "",
+                    LaborHours = line.LaborHours,
+                    RefinishHours = line.RefinishHours,
+                    Price = line.Price,
+                    Category = category
+                });
+            }
+
+            return categorized;
+        }
+
+        private string ClassifyLineCategory(string combined, string opLower, ParsedEstimateLine line)
+        {
+            // Diagnostics
+            if (combined.Contains("scan") || combined.Contains("diagnostic"))
+                return "Diagnostics";
+
+            // Calibrations
+            if (combined.Contains("calibrat") || combined.Contains("adas") || combined.Contains("alignment"))
+                return "Calibrations";
+
+            // Blend
+            if (opLower.Contains("blend") || combined.Contains("blend"))
+                return "Blend";
+
+            // R&I
+            if (opLower.Contains("r&i") || opLower.Contains("r & i") || combined.Contains("remove and install") ||
+                combined.Contains("r&i") || combined.Contains("remove & install"))
+                return "R&I";
+
+            // Materials
+            if (combined.Contains("flex additive") || combined.Contains("adhesion promoter") ||
+                combined.Contains("corrosion") || combined.Contains("seam seal") ||
+                combined.Contains("weld-thru") || combined.Contains("weld thru") ||
+                combined.Contains("cavity wax") || combined.Contains("primer") ||
+                combined.Contains("material") || combined.Contains("paint supplies") ||
+                combined.Contains("masking") || combined.Contains("sandpaper") ||
+                combined.Contains("tack cloth"))
+                return "Materials";
+
+            // Refinish
+            if (line.RefinishHours > 0 || opLower.Contains("rfn") || opLower.Contains("refinish") ||
+                combined.Contains("denib") || combined.Contains("de-nib") ||
+                combined.Contains("buff") || combined.Contains("rub-out") ||
+                combined.Contains("feather") || combined.Contains("block sand") ||
+                combined.Contains("clear coat") || combined.Contains("tri-coat") ||
+                combined.Contains("3-stage") || combined.Contains("color sand"))
+                return "Refinish";
+
+            // Electrical
+            if (combined.Contains("battery") || combined.Contains("wiring") ||
+                combined.Contains("electrical") || combined.Contains("module") ||
+                combined.Contains("sensor") && !combined.Contains("calibrat"))
+                return "Electrical";
+
+            // Mechanical / Sublet
+            if (combined.Contains("alignment") || combined.Contains("suspension") ||
+                combined.Contains("strut") || combined.Contains("control arm") ||
+                combined.Contains("sublet"))
+                return "Mechanical";
+
+            // Body/Structural (default for repair/replace operations)
+            if (opLower.Contains("rpr") || opLower.Contains("repair") ||
+                opLower.Contains("rpl") || opLower.Contains("replace") ||
+                opLower.Contains("new") || opLower.Contains("overhaul") ||
+                line.LaborHours > 0)
+                return "Body/Structural";
+
+            return "Other";
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private CommonlyMissedData? LoadCommonlyMissedItems()
@@ -963,6 +1061,7 @@ namespace McStudDesktop.Services
 
         public List<ScoringIssue> Issues { get; set; } = new();
         public Dictionary<string, int> CategoryScores { get; set; } = new();
+        public List<CategorizedEstimateLine> CategorizedLines { get; set; } = new();
 
         public int CriticalCount { get; set; }
         public int HighCount { get; set; }
@@ -971,6 +1070,17 @@ namespace McStudDesktop.Services
 
         public decimal PotentialLaborRecovery { get; set; }
         public decimal PotentialCostRecovery { get; set; }
+    }
+
+    public class CategorizedEstimateLine
+    {
+        public string PartName { get; set; } = "";
+        public string OperationType { get; set; } = "";
+        public string Description { get; set; } = "";
+        public decimal LaborHours { get; set; }
+        public decimal RefinishHours { get; set; }
+        public decimal Price { get; set; }
+        public string Category { get; set; } = "";
     }
 
     public class ScoringIssue
