@@ -327,19 +327,12 @@ namespace McStudDesktop.Services
             var rows = new List<string>();
             foreach (var op in operations)
             {
-                // CCCInsertService expects Excel-like format with leading zeros:
-                // 0  0  0  0  0  0  OpType  0  Description  0  Qty  Price  0  0  0  Labor  0  Refinish
                 var row = string.Join("\t",
-                    "0", "0", "0", "0", "0", "0",
                     op.OperationType,
-                    "0",
                     op.Description,
-                    "0",
                     op.Quantity.ToString(),
                     op.Price > 0 ? op.Price.ToString("F2") : "0",
-                    "0", "0", "0",
                     op.LaborHours > 0 ? op.LaborHours.ToString("F1") : "0",
-                    "0",
                     op.RefinishHours > 0 ? op.RefinishHours.ToString("F1") : "0"
                 );
                 rows.Add(row);

@@ -729,25 +729,7 @@ namespace McStudDesktop.Services
                 switch (targetSystem)
                 {
                     case "CCC Desktop":
-                        // Full format with placeholder zeros for CCC Desktop paste
-                        // 0  0  0  0  0  0  OpType  0  Description  0  Qty  Price  0  0  0  Labor  0  Refinish
-                        line = string.Join("\t",
-                            "0", "0", "0", "0", "0", "0",
-                            opType,
-                            "0",
-                            op.Description,
-                            "0",
-                            qty,
-                            price,
-                            "0", "0", "0",
-                            labor,
-                            "0",
-                            refinish
-                        );
-                        break;
-
                     case "CCC Web":
-                        // Simpler format for CCC Web
                         line = $"{opType}\t{op.Description}\t{qty}\t{price}\t{labor}\t{refinish}";
                         break;
 
@@ -803,22 +785,6 @@ namespace McStudDesktop.Services
                 switch (targetSystem)
                 {
                     case "CCC Desktop":
-                        // Full format with placeholder zeros for CCC Desktop paste
-                        line = string.Join("\t",
-                            "0", "0", "0", "0", "0", "0",
-                            opType,
-                            "0",
-                            op.Name,
-                            "0",
-                            qty,
-                            price,
-                            "0", "0", "0",
-                            labor,
-                            "0",
-                            refinish
-                        );
-                        break;
-
                     case "CCC Web":
                         line = $"{opType}\t{op.Name}\t{qty}\t{price}\t{labor}\t{refinish}";
                         break;

@@ -1067,25 +1067,7 @@ namespace McStudDesktop.Views
                 switch (system)
                 {
                     case "CCC Desktop":
-                        // CCC Desktop Full Format with placeholder zeros (Excel-like for paste)
-                        // 0  0  0  0  0  0  OpType  0  Description  0  Qty  Price  0  0  0  Labor  0  Refinish
-                        line = string.Join("\t",
-                            "0", "0", "0", "0", "0", "0",
-                            opType,
-                            "0",
-                            item.Name,
-                            "0",
-                            qty,
-                            string.IsNullOrEmpty(price) ? "0" : price,
-                            "0", "0", "0",
-                            string.IsNullOrEmpty(labor) ? "0" : labor,
-                            "0",
-                            string.IsNullOrEmpty(paint) ? "0" : paint
-                        );
-                        break;
-
                     case "CCC Web":
-                        // CCC Web - simpler format
                         line = $"{opType}\t{item.Name}\t{qty}\t{price}\t{labor}\t{paint}";
                         break;
 
