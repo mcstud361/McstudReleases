@@ -179,9 +179,11 @@ namespace McstudDesktop.Services
         // Bare decimal pattern for hours detection (0.1–50, not preceded by $)
         private static readonly Regex _bareDecimalPattern = new(@"(?<!\$)\b(\d{1,2}\.\d{1,2})\b", RegexOptions.Compiled);
 
-        // CCC ONE toolbar / UI chrome strings — any OCR line containing one of these is skipped
-        private static readonly HashSet<string> _cccUiChrome = new(StringComparer.OrdinalIgnoreCase)
+        // UI chrome strings — any OCR line containing one of these is skipped.
+        // Covers CCC ONE desktop, CCC Web (browser), Mitchell, email clients, and common apps.
+        private static readonly HashSet<string> _uiChromePatterns = new(StringComparer.OrdinalIgnoreCase)
         {
+            // ── CCC ONE Desktop ──
             "WORKFILE", "Save Filter", "Frame Save and Print", "Advisor", "ECIT",
             "Estimate Properties", "Rates and Rules", "Delete Estimate",
             "Repairable Total Loss", "Repairable", "Total Loss", "threshold",
@@ -189,7 +191,49 @@ namespace McstudDesktop.Services
             "Part Cod", "Search for Parts", "Checkout", "Diagnostics Checkout",
             "Ins ur ance", "Es tin", "Rental Estim", "Attachments",
             "Ev ents", "Fo rms", "Recy opt", "OEM Recond", "compare PDR",
-            "Section • Operations", "Tire Part", "Re finish", "• Search"
+            "Section • Operations", "Tire Part", "Re finish", "• Search",
+            // CCC ONE legend/abbreviation definitions
+            "D&R=", "HSS=", "HSLA=", "UHSS=", "SMC=", "TPO=", "ABS=", "PPO=",
+            "Disconnect and Reconnect", "High Strength Steel",
+            // CCC ONE diagram/parts views
+            "Front View", "Rear View", "Side View", "Exploded View", "Top View", "Bottom View",
+            "Undercarriage View", "Parts Diagram", "Parts List", "Interactive Diagram",
+            "Diagram Database", "Select Part", "Part Catalog", "Illustration",
+            // CCC ONE additional UI
+            "Photo Gallery", "Photos & Documents", "Assignment Sheet", "Supplement",
+            "Profile Menu", "User Settings", "Log Out", "Sign Out",
+
+            // ── CCC Web (browser-based) ──
+            "New Tab", "Bookmarks", "Extensions", "Downloads", "History",
+            "Ctrl+", "Alt+", "Address bar", "Search or type", "google.com",
+            "Chrome Web Store", "Edge Add-ons",
+            "caborneone.com", "Welcome to CCC", "My Assignments", "Dashboard",
+            "Open Assignment", "Close Assignment", "Refresh", "Navigation Menu",
+            "Notifications", "Help Center", "Support Chat", "Release Notes",
+            "Print Preview", "Page Setup", "Zoom",
+
+            // ── Mitchell Desktop/Cloud UI ──
+            "Mitchell Cloud Estimating", "Mitchell International", "Mitchell WorkCenter",
+            "UltraMate", "Repair Center",
+            "Estimate Summary", "Estimate Manager", "Create New Estimate",
+            "Open Estimate", "Close Estimate", "Print Estimate",
+            "Parts Source", "Part Number Lookup", "Collision Estimating Guide",
+            "CEG", "Guide Page", "Procedure Page", "P-Pages",
+            "Rate Lookup", "Labor Rate", "Material Rate",
+            "Database Version", "Vehicle Selection", "Select Vehicle",
+            "Vehicle ID", "Decode VIN", "VIN Decode",
+            "Quick Add", "Paste from Clipboard", "Import from",
+            "Total Loss Evaluation", "Salvage", "Prior Damage",
+            "Assignment Manager", "Claim Manager",
+            "Mitchell Diagnostics", "asTech", "Opus IVS",
+
+            // ── Email / communication apps ──
+            "Inbox", "Sent Items", "Drafts", "Compose", "Reply All", "Forward",
+            "Junk Email", "Deleted Items", "Archive", "Flagged",
+            "Subject:", "From:", "To:", "Cc:", "Bcc:",
+            "@gmail.com", "@outlook.com", "@yahoo.com", "@hotmail.com",
+            "@aol.com", "@icloud.com",
+            "Microsoft Teams", "Slack", "Zoom Meeting"
         };
 
         // CCC section headers — lines matching these are skipped during operation parsing
@@ -552,8 +596,8 @@ namespace McstudDesktop.Services
                 if (string.IsNullOrWhiteSpace(text) || text.Length < 5)
                     continue;
 
-                // Skip CCC UI chrome / toolbar text
-                if (_cccUiChrome.Any(chrome => text.Contains(chrome, StringComparison.OrdinalIgnoreCase)))
+                // Skip UI chrome / toolbar text (CCC, Mitchell, browser, email)
+                if (_uiChromePatterns.Any(chrome => text.Contains(chrome, StringComparison.OrdinalIgnoreCase)))
                     continue;
 
                 // Skip lines that are purely section headers (no operation codes or numerics mixed in).
@@ -562,6 +606,22 @@ namespace McstudDesktop.Services
                 var headerCandidate = Regex.Replace(text, @"^\d+\s*", "").Trim();
                 if (_cccSectionHeaders.Contains(headerCandidate) && !_cccOperationCodes.Any(op =>
                     text.Contains(op, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                // Skip CCC/Mitchell legend text (e.g., "D&R=Disconnect and Reconnect. HSS=High Strength Steel.")
+                if (Regex.IsMatch(text, @"\b\w{1,6}=\w{2,}.*\b\w{1,6}=\w{2,}"))
+                    continue;
+
+                // Skip lines containing email addresses — not estimate data
+                if (Regex.IsMatch(text, @"\w+@\w+\.\w{2,}"))
+                    continue;
+
+                // Skip lines containing URLs
+                if (Regex.IsMatch(text, @"https?://|www\.\w+\.\w+"))
+                    continue;
+
+                // Skip lines >150 chars — estimate lines are typically short; long lines are OCR paragraph noise
+                if (text.Length > 150)
                     continue;
 
                 OcrDetectedOperation? operation = source switch
@@ -600,6 +660,18 @@ namespace McstudDesktop.Services
                         desc.Contains("total loss", StringComparison.OrdinalIgnoreCase) ||
                         desc.Contains("diagnostics", StringComparison.OrdinalIgnoreCase) ||
                         desc.Contains("checkout", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    // Description contains abbreviation definition (single ABBR=Something)
+                    if (Regex.IsMatch(desc, @"\b\w{1,5}=\w{3,}"))
+                        continue;
+                    // Description looks like a file path or URL
+                    if (desc.Contains("\\") || desc.Contains("://") || desc.Contains("www."))
+                        continue;
+                    // Description contains navigation text
+                    if (desc.Contains("click here", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("log in", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("sign in", StringComparison.OrdinalIgnoreCase) ||
+                        desc.Contains("password", StringComparison.OrdinalIgnoreCase))
                         continue;
                     // Single short word (<5 chars) that isn't a known part → garbage (e.g., "able", "Rpr")
                     if (!desc.Contains(' ') && desc.Length < 5 &&
