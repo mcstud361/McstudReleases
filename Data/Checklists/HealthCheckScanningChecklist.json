@@ -61,7 +61,7 @@
     },
     {
       "id": "access-additional",
-      "title": "Access / R&I (NOT INCLUDED - Bill Separately)",
+      "title": "Access / R&I (NOT INCLUDED)",
       "icon": "Remove",
       "items": [
         {
@@ -73,7 +73,7 @@
     },
     {
       "id": "verification-specs",
-      "title": "System Verification (NOT INCLUDED - Bill Separately)",
+      "title": "System Verification (NOT INCLUDED)",
       "icon": "Verify",
       "items": [
         {
@@ -95,7 +95,7 @@
     },
     {
       "id": "dtc-research",
-      "title": "DTC Research (NOT INCLUDED - Bill Separately)",
+      "title": "DTC Research (NOT INCLUDED)",
       "icon": "Research",
       "items": [
         {
@@ -134,7 +134,7 @@
     },
     {
       "id": "calibrations",
-      "title": "Calibrations & Resets (NOT INCLUDED - Bill Each)",
+      "title": "Calibrations & Resets (NOT INCLUDED)",
       "icon": "Calibrate",
       "items": [
         {
@@ -193,7 +193,7 @@
     },
     {
       "id": "post-scan",
-      "title": "Post-Repair Scan (NOT INCLUDED - Bill Separately)",
+      "title": "Post-Repair Scan (NOT INCLUDED)",
       "icon": "PostScan",
       "items": [
         {

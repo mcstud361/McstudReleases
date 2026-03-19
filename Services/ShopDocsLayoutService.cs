@@ -69,6 +69,20 @@ public class ShopDocsLayoutService
                 var config = JsonSerializer.Deserialize<ShopDocsLayoutConfig>(json, GetJsonOptions());
                 if (config != null && config.Widgets.Count > 0)
                 {
+                    // Migrate old "Labor Rates" title to "Dealer Information"
+                    var laborWidget = config.Widgets.FirstOrDefault(w => w.Id == "labor-rates");
+                    if (laborWidget != null && laborWidget.Title == "Labor Rates")
+                    {
+                        laborWidget.Title = "Dealer Information";
+                        laborWidget.Description = "Dealer contacts, labor rates & parts info";
+                        try
+                        {
+                            var json2 = JsonSerializer.Serialize(config, GetJsonOptions());
+                            File.WriteAllText(_configPath, json2);
+                        }
+                        catch { }
+                    }
+
                     System.Diagnostics.Debug.WriteLine($"[ShopDocsLayout] Loaded {config.Widgets.Count} widgets from config");
                     return config;
                 }
@@ -102,9 +116,9 @@ public class ShopDocsLayoutService
                 new WidgetEntry
                 {
                     Id = "labor-rates",
-                    Title = "Labor Rates",
+                    Title = "Dealer Information",
                     Icon = "\uE8D4",
-                    Description = "Shop labor rate calculator",
+                    Description = "Dealer contacts, labor rates & parts info",
                     WidgetType = WidgetType.LaborRates,
                     IsBuiltIn = true,
                     IsVisible = true,

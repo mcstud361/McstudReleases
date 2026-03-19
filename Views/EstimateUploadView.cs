@@ -80,6 +80,10 @@ namespace McStudDesktop.Views
         // Parsed data
         private List<ParsedEstimateLine> _parsedLines = new();
 
+        // Learning summary
+        private Border? _learningSummarySection;
+        private StackPanel? _learningSummaryContent;
+
         // Drag and drop
         private Border? _uploadDropZone;
         private TextBlock? _dropZoneText;
@@ -105,6 +109,7 @@ namespace McStudDesktop.Views
         private void UpdateUIForLicenseTier()
         {
             bool canTrain = _learningService.CanTrain;
+            bool canTrainStandard = _learningService.CanTrainStandard;
 
             // Show/hide client mode banner
             if (_clientModeBanner != null)
@@ -112,7 +117,7 @@ namespace McStudDesktop.Views
                 _clientModeBanner.Visibility = canTrain ? Visibility.Collapsed : Visibility.Visible;
             }
 
-            // Update learn button state
+            // Update learn button state and label based on tier
             if (_learnButton != null)
             {
                 _learnButton.IsEnabled = canTrain;
@@ -131,18 +136,28 @@ namespace McStudDesktop.Views
                     _learnButton.Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60));
                     ToolTipService.SetToolTip(_learnButton, "Client licenses cannot train the learning system. Contact admin for shop license.");
                 }
+                else if (canTrainStandard)
+                {
+                    // Admin: imports go to standard knowledge
+                    ToolTipService.SetToolTip(_learnButton, "Admin: Imported estimates train the STANDARD knowledge base for all users.");
+                }
+                else
+                {
+                    // Shop: imports go to personal only
+                    ToolTipService.SetToolTip(_learnButton, "Your imported estimates are saved to your personal learning data.");
+                }
             }
 
-            // Show/hide publish button (only for trainers)
+            // Show/hide publish button (Admin only — they build the standard)
             if (_publishButton != null)
             {
-                _publishButton.Visibility = canTrain ? Visibility.Visible : Visibility.Collapsed;
+                _publishButton.Visibility = canTrainStandard ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            // Show/hide publish knowledge button (Shop/Admin)
+            // Show/hide publish knowledge button (Admin only)
             if (_exportBaselineButton != null)
             {
-                _exportBaselineButton.Visibility = _learningService.CurrentTier != LicenseTier.Client
+                _exportBaselineButton.Visibility = canTrainStandard
                     ? Visibility.Visible : Visibility.Collapsed;
             }
         }
@@ -705,6 +720,21 @@ namespace McStudDesktop.Views
             };
             mainStack.Children.Add(_statusText);
 
+
+            // === LEARNING SUMMARY (hidden until learn completes) ===
+            _learningSummarySection = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 20, 35, 25)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16),
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 12, 0, 0),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 140, 80)),
+                BorderThickness = new Thickness(1)
+            };
+            _learningSummaryContent = new StackPanel { Spacing = 8 };
+            _learningSummarySection.Child = _learningSummaryContent;
+            mainStack.Children.Add(_learningSummarySection);
 
             // === HELP TEXT ===
             var helpBorder = new Border
@@ -1554,8 +1584,8 @@ namespace McStudDesktop.Views
 
                 await Task.Run(() =>
                 {
-                    // Learn manual line patterns
-                    _learningService.LearnManualLinePatterns(_parsedLines);
+                    // Learn manual line patterns (routed to personal file for imports)
+                    _learningService.LearnManualLinePatterns(_parsedLines, fromImport: true);
 
                     // Build and learn operation patterns
                     var trainingData = new EstimateTrainingData
@@ -1600,22 +1630,26 @@ namespace McStudDesktop.Views
                 // Mark quality record as used for training
                 _currentQualityRecord.WasUsedForTraining = true;
 
-                // Notify health service
-                _healthService.OnTrainingCompleted(
-                    _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName)),
-                    1
-                );
-
-                UpdateStats();
-
                 var parts = _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                 var manual = _parsedLines.Count(p => p.IsManualLine);
+
+                // Record learn event for Stats tab charts
+                new ExportStatisticsService().RecordLearn(parts, manual, estimateTotal);
+
+                // Notify health service
+                _healthService.OnTrainingCompleted(parts, 1);
+
+                // Build detailed learning summary before clearing
+                BuildLearningSummary(_parsedLines, estimateTotal, _currentQualityRecord);
+
+                UpdateStats();
 
                 var qualityNote = _qualityService.IsBootstrapMode()
                     ? " (Bootstrap mode)"
                     : $" (Quality: {_currentQualityRecord.QualityScore}/100)";
 
-                ShowStatus($"Learned from estimate (${estimateTotal:N0}): {parts} parts, {manual} operations{qualityNote}", isSuccess: true);
+                var destination = _learningService.CanTrainStandard ? "standard" : "personal";
+                ShowStatus($"Learned to {destination} (${estimateTotal:N0}): {parts} parts, {manual} operations{qualityNote}", isSuccess: true);
 
                 // Notify listeners about training completion
                 OnTrainingCompleted?.Invoke(this, new TrainingCompletedEventArgs
@@ -1635,6 +1669,7 @@ namespace McStudDesktop.Views
                 _pasteArea!.Text = "";
                 _resultsSection!.Visibility = Visibility.Collapsed;
                 _qualitySection!.Visibility = Visibility.Collapsed;
+                _suggestionsSection!.Visibility = Visibility.Collapsed;
                 _currentQualityRecord = null;
             }
             catch (Exception ex)
@@ -1918,6 +1953,248 @@ namespace McStudDesktop.Views
                 isSuccess ? Color.FromArgb(255, 100, 220, 150) :
                 Color.FromArgb(255, 180, 180, 180)
             );
+        }
+
+        private void BuildLearningSummary(List<ParsedEstimateLine> parsedLines, decimal estimateTotal, EstimateQualityRecord? quality)
+        {
+            if (_learningSummaryContent == null || _learningSummarySection == null) return;
+            _learningSummaryContent.Children.Clear();
+
+            var stats = _learningService.GetStatistics();
+            var accentGreen = Color.FromArgb(255, 100, 200, 130);
+            var dimText = Color.FromArgb(255, 160, 160, 160);
+            var brightText = Color.FromArgb(255, 230, 230, 230);
+
+            // Header
+            var headerStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            headerStack.Children.Add(new FontIcon { Glyph = "\uE73E", FontSize = 18, Foreground = new SolidColorBrush(accentGreen) });
+            headerStack.Children.Add(new TextBlock
+            {
+                Text = "LEARNING COMPLETE",
+                FontSize = 15,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            if (quality != null)
+            {
+                headerStack.Children.Add(new TextBlock
+                {
+                    Text = $"Quality: {quality.QualityScore}/100",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(dimText),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 0, 0)
+                });
+            }
+
+            // Dismiss button
+            var dismissBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE711", FontSize = 10 },
+                Width = 24, Height = 24, Padding = new Thickness(0),
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            dismissBtn.Click += (s, e) => { _learningSummarySection.Visibility = Visibility.Collapsed; };
+
+            var headerRow = new Grid();
+            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Grid.SetColumn(headerStack, 0);
+            Grid.SetColumn(dismissBtn, 1);
+            headerRow.Children.Add(headerStack);
+            headerRow.Children.Add(dismissBtn);
+            _learningSummaryContent.Children.Add(headerRow);
+
+            // Estimate value
+            _learningSummaryContent.Children.Add(new TextBlock
+            {
+                Text = $"Estimate value: {estimateTotal:C0}",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(accentGreen),
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+
+            // === PARTS LEARNED ===
+            var partLines = parsedLines.Where(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName)).ToList();
+            if (partLines.Count > 0)
+            {
+                _learningSummaryContent.Children.Add(CreateSummarySubheader($"Parts Learned ({partLines.Count})"));
+
+                var partsGrid = new Grid { Margin = new Thickness(8, 0, 0, 0) };
+                partsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                partsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                partsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                partsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                int row = 0;
+                // Column headers
+                partsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var colHeaders = new[] { "Part", "Operation", "Labor", "Price" };
+                for (int c = 0; c < colHeaders.Length; c++)
+                {
+                    var hdr = new TextBlock
+                    {
+                        Text = colHeaders[c],
+                        FontSize = 10,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(dimText),
+                        Margin = new Thickness(0, 0, 12, 4)
+                    };
+                    Grid.SetColumn(hdr, c);
+                    Grid.SetRow(hdr, 0);
+                    partsGrid.Children.Add(hdr);
+                }
+                row++;
+
+                foreach (var part in partLines.Take(20))
+                {
+                    partsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                    var nameText = new TextBlock { Text = part.PartName, FontSize = 11, Foreground = new SolidColorBrush(brightText), Margin = new Thickness(0, 0, 12, 2), TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 200 };
+                    Grid.SetColumn(nameText, 0); Grid.SetRow(nameText, row);
+                    partsGrid.Children.Add(nameText);
+
+                    var opText = new TextBlock { Text = part.OperationType, FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 255)), Margin = new Thickness(0, 0, 12, 2) };
+                    Grid.SetColumn(opText, 1); Grid.SetRow(opText, row);
+                    partsGrid.Children.Add(opText);
+
+                    var laborStr = part.LaborHours > 0 ? $"{part.LaborHours:N1}h" : "-";
+                    if (part.RefinishHours > 0) laborStr += $" +{part.RefinishHours:N1}r";
+                    var laborText = new TextBlock { Text = laborStr, FontSize = 11, Foreground = new SolidColorBrush(dimText), Margin = new Thickness(0, 0, 12, 2) };
+                    Grid.SetColumn(laborText, 2); Grid.SetRow(laborText, row);
+                    partsGrid.Children.Add(laborText);
+
+                    var priceText = new TextBlock { Text = part.Price > 0 ? part.Price.ToString("C0") : "-", FontSize = 11, Foreground = new SolidColorBrush(accentGreen), Margin = new Thickness(0, 0, 0, 2) };
+                    Grid.SetColumn(priceText, 3); Grid.SetRow(priceText, row);
+                    partsGrid.Children.Add(priceText);
+
+                    row++;
+                }
+
+                if (partLines.Count > 20)
+                {
+                    partsGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    var moreText = new TextBlock { Text = $"+{partLines.Count - 20} more parts", FontSize = 10, Foreground = new SolidColorBrush(dimText), FontStyle = Windows.UI.Text.FontStyle.Italic, Margin = new Thickness(0, 4, 0, 0) };
+                    Grid.SetRow(moreText, row);
+                    partsGrid.Children.Add(moreText);
+                }
+
+                _learningSummaryContent.Children.Add(partsGrid);
+            }
+
+            // === MANUAL OPS LEARNED ===
+            var manualLines = parsedLines.Where(p => p.IsManualLine).ToList();
+            if (manualLines.Count > 0)
+            {
+                _learningSummaryContent.Children.Add(CreateSummarySubheader($"Additional Operations Learned ({manualLines.Count})"));
+
+                // Group manual lines by their parent part
+                ParsedEstimateLine? currentParent = null;
+                var grouped = new List<(string parent, List<ParsedEstimateLine> ops)>();
+                var currentOps = new List<ParsedEstimateLine>();
+
+                foreach (var line in parsedLines)
+                {
+                    if (!line.IsManualLine && !string.IsNullOrEmpty(line.PartName))
+                    {
+                        if (currentParent != null && currentOps.Count > 0)
+                            grouped.Add(($"{currentParent.PartName} ({currentParent.OperationType})", new List<ParsedEstimateLine>(currentOps)));
+                        currentParent = line;
+                        currentOps.Clear();
+                    }
+                    else if (line.IsManualLine && currentParent != null)
+                    {
+                        currentOps.Add(line);
+                    }
+                }
+                if (currentParent != null && currentOps.Count > 0)
+                    grouped.Add(($"{currentParent.PartName} ({currentParent.OperationType})", new List<ParsedEstimateLine>(currentOps)));
+
+                var opsStack = new StackPanel { Spacing = 6, Margin = new Thickness(8, 0, 0, 0) };
+                foreach (var (parent, ops) in grouped.Take(15))
+                {
+                    var parentText = new TextBlock
+                    {
+                        Text = parent,
+                        FontSize = 11,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(brightText)
+                    };
+                    opsStack.Children.Add(parentText);
+
+                    foreach (var op in ops)
+                    {
+                        var opRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(16, 0, 0, 0) };
+                        opRow.Children.Add(new TextBlock { Text = "#", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 180, 80)), VerticalAlignment = VerticalAlignment.Center });
+                        opRow.Children.Add(new TextBlock { Text = op.Description ?? op.RawLine, FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 120)), TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 300 });
+
+                        if (op.LaborHours > 0)
+                            opRow.Children.Add(new TextBlock { Text = $"{op.LaborHours:N1}h", FontSize = 10, Foreground = new SolidColorBrush(dimText) });
+                        if (op.Price > 0)
+                            opRow.Children.Add(new TextBlock { Text = op.Price.ToString("C0"), FontSize = 10, Foreground = new SolidColorBrush(accentGreen) });
+
+                        opsStack.Children.Add(opRow);
+                    }
+                }
+
+                if (grouped.Count > 15)
+                    opsStack.Children.Add(new TextBlock { Text = $"+{grouped.Count - 15} more groups", FontSize = 10, Foreground = new SolidColorBrush(dimText), FontStyle = Windows.UI.Text.FontStyle.Italic });
+
+                _learningSummaryContent.Children.Add(opsStack);
+            }
+
+            // === TOTALS BAR ===
+            var totalsBar = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 25, 45, 30)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            var totalsStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24 };
+            totalsStack.Children.Add(CreateTotalsStat("Estimates", stats.EstimatesImported.ToString()));
+            totalsStack.Children.Add(CreateTotalsStat("Parts", stats.TotalPatterns.ToString()));
+            totalsStack.Children.Add(CreateTotalsStat("Operations", stats.TotalManualLinePatterns.ToString()));
+            totalsStack.Children.Add(CreateTotalsStat("Avg Value", stats.AverageEstimateValue.ToString("C0")));
+            totalsStack.Children.Add(CreateTotalsStat("Saved To", "Personal File"));
+            totalsBar.Child = totalsStack;
+            _learningSummaryContent.Children.Add(totalsBar);
+
+            _learningSummarySection.Visibility = Visibility.Visible;
+        }
+
+        private TextBlock CreateSummarySubheader(string text)
+        {
+            return new TextBlock
+            {
+                Text = text,
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 130)),
+                Margin = new Thickness(0, 8, 0, 4)
+            };
+        }
+
+        private StackPanel CreateTotalsStat(string label, string value)
+        {
+            var stack = new StackPanel { Spacing = 1 };
+            stack.Children.Add(new TextBlock
+            {
+                Text = value,
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Text = label,
+                FontSize = 9,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 130))
+            });
+            return stack;
         }
 
         private void PostTrainingSummaryToChat(int parts, int manual, decimal estimateTotal)

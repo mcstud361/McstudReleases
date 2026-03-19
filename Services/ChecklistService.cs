@@ -21,6 +21,11 @@ namespace McStudDesktop.Services
         private List<Checklist> _checklists = new();
         private readonly string _checklistsFolder;
 
+        /// <summary>
+        /// Number of underscores for the RO# blank line on printed PDFs.
+        /// </summary>
+        public int RoLineLength { get; set; } = 30;
+
         private ChecklistService()
         {
             _checklistsFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "Checklists");
@@ -195,7 +200,7 @@ namespace McStudDesktop.Services
     <div class='header'>
         <h1>{checklist.ShopName ?? "Shop Name"}</h1>
         <h2>{checklist.Title}</h2>
-        {(string.IsNullOrEmpty(roNumber) ? "<div class='ro-number'>RO # ________________</div>" : $"<div class='ro-number'>RO # {roNumber}</div>")}
+        {(string.IsNullOrEmpty(roNumber) ? $"<div class='ro-number'>RO # {new string('_', RoLineLength)}</div>" : $"<div class='ro-number'>RO # {roNumber}</div>")}
     </div>
 ";
 
@@ -253,33 +258,326 @@ namespace McStudDesktop.Services
                 Path.GetTempPath(),
                 $"checklist_{checklist.Id}_{DateTime.Now:yyyyMMddHHmmss}.pdf");
 
-            // Determine if we need compact mode (many sections = fit on one page)
-            var sectionCount = checklist.Sections?.Count ?? 0;
-            var totalItems = checklist.Sections?.Sum(s => s.Items?.Count ?? 0) ?? 0;
-            var isCompact = sectionCount > 6 || totalItems > 30;
-
             // Store checked items for use in content generation
             _currentCheckedItems = checkedItems ?? new HashSet<string>();
 
-            Document.Create(container =>
+            if (checklist.Id == "in-process-quality-control")
             {
-                container.Page(page =>
+                Document.Create(container =>
                 {
-                    page.Size(PageSizes.Letter);
-                    page.Margin(isCompact ? 0.25f : 0.4f, Unit.Inch);
-                    page.DefaultTextStyle(x => x.FontSize(isCompact ? 8 : 10).FontFamily("Arial"));
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.Letter);
+                        page.Margin(0.3f, Unit.Inch);
+                        page.DefaultTextStyle(x => x.FontSize(7).FontFamily("Arial"));
+                        page.Content().Element(c => ComposeQCLayout(c, checklist, roNumber));
+                    });
+                }).GeneratePdf(tempPath);
+            }
+            else
+            {
+                // Determine if we need compact mode (many sections = fit on one page)
+                var sectionCount = checklist.Sections?.Count ?? 0;
+                var totalItems = checklist.Sections?.Sum(s => s.Items?.Count ?? 0) ?? 0;
+                var isCompact = sectionCount > 6 || totalItems > 30;
 
-                    page.Header().Element(c => ComposeHeader(c, checklist, roNumber, isCompact));
-                    page.Content().Element(c => ComposeContent(c, checklist, isCompact));
-                    page.Footer().Element(c => ComposeFooter(c, checklist, isCompact));
-                });
-            }).GeneratePdf(tempPath);
+                Document.Create(container =>
+                {
+                    container.Page(page =>
+                    {
+                        page.Size(PageSizes.Letter);
+                        page.Margin(isCompact ? 0.25f : 0.4f, Unit.Inch);
+                        page.DefaultTextStyle(x => x.FontSize(isCompact ? 8 : 10).FontFamily("Arial"));
+
+                        page.Header().Element(c => ComposeHeader(c, checklist, roNumber, isCompact));
+                        page.Content().Element(c => ComposeContent(c, checklist, isCompact));
+                        page.Footer().Element(c => ComposeFooter(c, checklist, isCompact));
+                    });
+                }).GeneratePdf(tempPath);
+            }
 
             return tempPath;
         }
 
         // Store checked items during PDF generation
         private HashSet<string> _currentCheckedItems = new();
+
+        private void ComposeQCLayout(IContainer container, Checklist checklist, string? roNumber)
+        {
+            var sections = checklist.Sections ?? new List<ChecklistSection>();
+            int SectionIndex(string id) => sections.FindIndex(s => s.Id == id);
+            ChecklistSection? Section(string id) => sections.FirstOrDefault(s => s.Id == id);
+
+            const float fontSize = 7f;
+            const float headerFontSize = 8f;
+            const float titleFontSize = 11f;
+
+            container.Border(1).BorderColor(Colors.Black).Column(mainCol =>
+            {
+                // === TITLE ROW ===
+                mainCol.Item().BorderBottom(1).BorderColor(Colors.Black)
+                    .Background(Colors.Grey.Lighten3).Padding(6).AlignCenter()
+                    .Text(text =>
+                    {
+                        text.Span(string.IsNullOrEmpty(checklist.ShopName) ? "Quality Control" : $"{checklist.ShopName} Quality Control")
+                            .FontSize(titleFontSize).Bold();
+                    });
+
+                // === INFO ROW 1: RO#, Ins Co, Self-Pay ===
+                mainCol.Item().BorderBottom(1).BorderColor(Colors.Black).Padding(4).Row(row =>
+                {
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("RO#: ").FontSize(fontSize).Bold();
+                        text.Span(string.IsNullOrEmpty(roNumber) ? new string('_', RoLineLength) : roNumber).FontSize(fontSize);
+                    });
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("Ins Co: ").FontSize(fontSize).Bold();
+                        text.Span("____________").FontSize(fontSize);
+                    });
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("Self-Pay: ").FontSize(fontSize).Bold();
+                        text.Span("Y / N").FontSize(fontSize);
+                    });
+                });
+
+                // === INFO ROW 2: DFR Date, Blueprinter, Supplement Date, Parts Ordered ===
+                mainCol.Item().BorderBottom(1).BorderColor(Colors.Black).Padding(4).Row(row =>
+                {
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("DFR Date: ").FontSize(fontSize).Bold();
+                        text.Span("________").FontSize(fontSize);
+                    });
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("Blueprinter: ").FontSize(fontSize).Bold();
+                        text.Span("________").FontSize(fontSize);
+                    });
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("Supp Date: ").FontSize(fontSize).Bold();
+                        text.Span("________").FontSize(fontSize);
+                    });
+                    row.RelativeItem().Text(text =>
+                    {
+                        text.Span("Parts Ordered: ").FontSize(fontSize).Bold();
+                        text.Span("________").FontSize(fontSize);
+                    });
+                });
+
+                // === 4-COLUMN BODY ===
+                var columnDefs = new (string Title, ChecklistSection? Section, int Index)[]
+                {
+                    ("Body/Structural", Section("body-structural"), SectionIndex("body-structural")),
+                    ("Mechanical/Electrical", Section("mechanical-electrical"), SectionIndex("mechanical-electrical")),
+                    ("Refinish", Section("refinish"), SectionIndex("refinish")),
+                    ("Detail", Section("detail"), SectionIndex("detail"))
+                };
+
+                mainCol.Item().BorderBottom(1).BorderColor(Colors.Black).Table(table =>
+                {
+                    table.ColumnsDefinition(cols =>
+                    {
+                        cols.RelativeColumn();
+                        cols.RelativeColumn();
+                        cols.RelativeColumn();
+                        cols.RelativeColumn();
+                    });
+
+                    // Column headers
+                    foreach (var colDef in columnDefs)
+                    {
+                        table.Cell()
+                            .Border(0.5f).BorderColor(Colors.Black)
+                            .Background(Colors.Grey.Lighten2)
+                            .PaddingVertical(3).PaddingHorizontal(2)
+                            .AlignCenter()
+                            .Text(colDef.Title).FontSize(headerFontSize).Bold();
+                    }
+
+                    // Column items
+                    foreach (var colDef in columnDefs)
+                    {
+                        table.Cell()
+                            .BorderVertical(0.5f).BorderColor(Colors.Black)
+                            .Padding(2).Column(col =>
+                            {
+                                var items = colDef.Section?.Items ?? new List<ChecklistItem>();
+                                for (int i = 0; i < items.Count; i++)
+                                {
+                                    var item = items[i];
+                                    var itemKey = $"{colDef.Index}_{i}";
+                                    var isChecked = _currentCheckedItems.Contains(itemKey);
+
+                                    col.Item().PaddingVertical(0.5f).Text(text =>
+                                    {
+                                        if (isChecked)
+                                            text.Span("\u2713 ").FontSize(fontSize).Bold().FontColor(Colors.Green.Darken2);
+                                        else
+                                            text.Span("__ ").FontSize(6);
+                                        text.Span(item.Text ?? "").FontSize(fontSize);
+                                    });
+                                }
+                            });
+                    }
+                });
+
+                // === QC INSPECTION ===
+                mainCol.Item().BorderBottom(1).BorderColor(Colors.Black).Padding(4).Column(qcCol =>
+                {
+                    qcCol.Item().PaddingBottom(3).AlignCenter()
+                        .Text("QC Inspection").FontSize(headerFontSize).Bold();
+
+                    var qcItems = Section("qc-inspection")?.Items ?? new List<ChecklistItem>();
+                    var qcIdx = SectionIndex("qc-inspection");
+                    var depts = new[] { "Body/Structural", "Mech/Electrical", "Refinish", "Detail" };
+
+                    qcCol.Item().Table(qcTable =>
+                    {
+                        qcTable.ColumnsDefinition(cols =>
+                        {
+                            cols.ConstantColumn(85);   // department name
+                            cols.ConstantColumn(12);   // issue checkbox
+                            cols.ConstantColumn(35);   // "Issues"
+                            cols.RelativeColumn();     // "Describe: ___"
+                            cols.ConstantColumn(12);   // corrected checkbox
+                            cols.ConstantColumn(52);   // "Corrected"
+                        });
+
+                        for (int d = 0; d < depts.Length && d * 2 + 1 < qcItems.Count; d++)
+                        {
+                            var issueChecked = _currentCheckedItems.Contains($"{qcIdx}_{d * 2}");
+                            var correctedChecked = _currentCheckedItems.Contains($"{qcIdx}_{d * 2 + 1}");
+                            var dept = depts[d];
+                            var ic = issueChecked;
+                            var cc = correctedChecked;
+
+                            qcTable.Cell().PaddingVertical(1).Text($"{dept}:").FontSize(fontSize).Bold();
+                            qcTable.Cell().PaddingVertical(1).Text(text =>
+                            {
+                                if (ic) text.Span("\u2713").Bold().FontColor(Colors.Green.Darken2).FontSize(fontSize);
+                                else text.Span("__").FontSize(6);
+                            });
+                            qcTable.Cell().PaddingVertical(1).Text(" Issues").FontSize(fontSize);
+                            qcTable.Cell().PaddingVertical(1).Text("Describe: _______________").FontSize(fontSize);
+                            qcTable.Cell().PaddingVertical(1).Text(text =>
+                            {
+                                if (cc) text.Span("\u2713").Bold().FontColor(Colors.Green.Darken2).FontSize(fontSize);
+                                else text.Span("__").FontSize(6);
+                            });
+                            qcTable.Cell().PaddingVertical(1).Text(" Corrected").FontSize(fontSize);
+                        }
+                    });
+                });
+
+                // === ADAS ===
+                mainCol.Item().BorderBottom(1).BorderColor(Colors.Black).Padding(4).Column(adasCol =>
+                {
+                    var adasItems = Section("adas")?.Items ?? new List<ChecklistItem>();
+                    var adasIdx = SectionIndex("adas");
+
+                    // Header: ADAS Equipped + ADAS Think
+                    adasCol.Item().PaddingBottom(2).Text(text =>
+                    {
+                        text.Span("ADAS Systems").FontSize(headerFontSize).Bold();
+                    });
+
+                    adasCol.Item().PaddingBottom(2).Row(row =>
+                    {
+                        row.RelativeItem().Text(text =>
+                        {
+                            text.Span("ADAS Equipped: ").FontSize(fontSize).Bold();
+                            text.Span("Yes ___ No ___").FontSize(fontSize);
+                        });
+                        row.RelativeItem().Text(text =>
+                        {
+                            text.Span("ADAS Think: ").FontSize(fontSize).Bold();
+                            text.Span("____________").FontSize(fontSize);
+                        });
+                    });
+
+                    // Calibration items in 4-column grid
+                    // Row 1: Camera(Front)[2], Lane Departure[5], Camera(Rear)[3], Collision Avoid[7]
+                    // Row 2: Blind Spot[4], LKA[6], Radar[8], All Calibrated[9]
+                    var adasGridOrder = new[] { 2, 5, 3, 7, 4, 6, 8, 9 };
+
+                    adasCol.Item().Table(gridTable =>
+                    {
+                        gridTable.ColumnsDefinition(cols =>
+                        {
+                            cols.RelativeColumn();
+                            cols.RelativeColumn();
+                            cols.RelativeColumn();
+                            cols.RelativeColumn();
+                        });
+
+                        foreach (var idx in adasGridOrder)
+                        {
+                            if (idx < adasItems.Count)
+                            {
+                                var itemKey = $"{adasIdx}_{idx}";
+                                var isChecked = _currentCheckedItems.Contains(itemKey);
+                                var itemText = (adasItems[idx].Text ?? "").Replace(" - Calibration Required", "");
+
+                                gridTable.Cell().PaddingVertical(0.5f).Text(text =>
+                                {
+                                    if (isChecked)
+                                        text.Span("\u2713 ").Bold().FontColor(Colors.Green.Darken2).FontSize(fontSize);
+                                    else
+                                        text.Span("__ ").FontSize(6);
+                                    text.Span(itemText).FontSize(fontSize);
+                                });
+                            }
+                        }
+                    });
+                });
+
+                // === EV/HYBRID ===
+                mainCol.Item().Padding(4).Column(evCol =>
+                {
+                    var evItems = Section("ev-hybrid")?.Items ?? new List<ChecklistItem>();
+                    var evIdx = SectionIndex("ev-hybrid");
+
+                    evCol.Item().PaddingBottom(2)
+                        .Text(Section("ev-hybrid")?.Title ?? "EV/Hybrid")
+                        .FontSize(headerFontSize).Bold();
+
+                    // 3-column grid for EV items
+                    evCol.Item().Table(gridTable =>
+                    {
+                        gridTable.ColumnsDefinition(cols =>
+                        {
+                            cols.RelativeColumn();
+                            cols.RelativeColumn();
+                            cols.RelativeColumn();
+                        });
+
+                        for (int i = 0; i < evItems.Count; i++)
+                        {
+                            var itemKey = $"{evIdx}_{i}";
+                            var isChecked = _currentCheckedItems.Contains(itemKey);
+                            var itemText = evItems[i].Text ?? "";
+
+                            gridTable.Cell().PaddingVertical(0.5f).Text(text =>
+                            {
+                                if (isChecked)
+                                    text.Span("\u2713 ").Bold().FontColor(Colors.Green.Darken2).FontSize(fontSize);
+                                else
+                                    text.Span("__ ").FontSize(6);
+                                text.Span(itemText).FontSize(fontSize);
+                            });
+                        }
+                    });
+                });
+
+                // === VERSION ===
+                mainCol.Item().PaddingHorizontal(4).PaddingBottom(2).AlignRight()
+                    .Text($"v{checklist.Version ?? "1.0"}").FontSize(5).FontColor(Colors.Grey.Medium);
+            });
+        }
 
         private void ComposeHeader(IContainer container, Checklist checklist, string? roNumber, bool isCompact = false)
         {
@@ -300,7 +598,7 @@ namespace McStudDesktop.Services
                         row.ConstantItem(150).AlignRight().Text(text =>
                         {
                             text.Span("RO# ").FontSize(9).FontColor(Colors.Grey.Darken2);
-                            text.Span(string.IsNullOrEmpty(roNumber) ? "_________" : roNumber)
+                            text.Span(string.IsNullOrEmpty(roNumber) ? new string('_', RoLineLength) : roNumber)
                                 .FontSize(9).Bold().FontColor(Colors.Black);
                         });
                     });
@@ -318,13 +616,13 @@ namespace McStudDesktop.Services
                     // Title and RO number
                     column.Item().Background(Colors.Grey.Lighten4).Padding(10).Row(row =>
                     {
-                        row.RelativeItem().AlignLeft().Text(checklist.Title ?? "Checklist")
+                        row.ConstantItem(200).AlignLeft().Text(checklist.Title ?? "Checklist")
                             .FontSize(14).Bold();
 
                         row.RelativeItem().AlignRight().Text(text =>
                         {
                             text.Span("RO # ").FontSize(11);
-                            text.Span(string.IsNullOrEmpty(roNumber) ? "________________" : roNumber)
+                            text.Span(string.IsNullOrEmpty(roNumber) ? new string('_', RoLineLength) : roNumber)
                                 .FontSize(11).Bold().Underline();
                         });
                     });
@@ -566,7 +864,7 @@ namespace McStudDesktop.Services
         {
             var text = $"{checklist.ShopName ?? "Shop"}\n";
             text += $"{checklist.Title}\n";
-            text += $"RO # ________________\n";
+            text += $"RO # {new string('_', RoLineLength)}\n";
             text += new string('=', 50) + "\n\n";
 
             foreach (var section in checklist.Sections ?? new List<ChecklistSection>())

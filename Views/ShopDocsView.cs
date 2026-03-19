@@ -1603,6 +1603,48 @@ namespace McStudDesktop.Views
             };
             roStack.Children.Add(_roNumberBox);
 
+            // RO line length preview/editor
+            var roLineLabel = new TextBlock
+            {
+                Text = "Line:",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 0, 0)
+            };
+            roStack.Children.Add(roLineLabel);
+
+            var roLinePreview = new TextBlock
+            {
+                Text = new string('_', _checklistService.RoLineLength),
+                FontSize = 11,
+                Foreground = new SolidColorBrush(TextGray),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var roLineBox = new NumberBox
+            {
+                Value = _checklistService.RoLineLength,
+                Minimum = 5,
+                Maximum = 60,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                Width = 90,
+                FontSize = 11,
+                SmallChange = 5,
+                LargeChange = 10
+            };
+            roLineBox.ValueChanged += (s, args) =>
+            {
+                if (!double.IsNaN(args.NewValue))
+                {
+                    var len = (int)args.NewValue;
+                    _checklistService.RoLineLength = len;
+                    roLinePreview.Text = new string('_', len);
+                }
+            };
+            roStack.Children.Add(roLineBox);
+            roStack.Children.Add(roLinePreview);
+
             Grid.SetColumn(roStack, 1);
             grid.Children.Add(roStack);
 
@@ -2224,47 +2266,47 @@ namespace McStudDesktop.Views
 
             mainStack.Children.Add(itemsContainer);
 
-            // Per-section drivability status indicator
-            var hasRequired = section.Items?.Any(i => i.Required) ?? false;
-            if (hasRequired)
+            // Per-section status indicator (only for driveable checklist)
+            if (_currentChecklist?.Id == "driveable-checklist")
             {
-                var statusBorder = new Border
+                var hasRequired = section.Items?.Any(i => i.Required) ?? false;
+                if (hasRequired)
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30)),
-                    Padding = new Thickness(10, 6, 10, 6),
-                    Margin = new Thickness(0),
-                    CornerRadius = new CornerRadius(0, 0, 5, 5)
-                };
+                    var statusBorder = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30)),
+                        Padding = new Thickness(10, 6, 10, 6),
+                        Margin = new Thickness(0),
+                        CornerRadius = new CornerRadius(0, 0, 5, 5)
+                    };
 
-                var statusPanel = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    HorizontalAlignment = HorizontalAlignment.Center
-                };
+                    var statusPanel = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Spacing = 6,
+                        HorizontalAlignment = HorizontalAlignment.Center
+                    };
 
-                statusPanel.Children.Add(new FontIcon
-                {
-                    Glyph = "\uE7BA",
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100))
-                });
+                    statusPanel.Children.Add(new FontIcon
+                    {
+                        Glyph = "\uE7BA",
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100))
+                    });
 
-                var isDriveableChecklist = _currentChecklist?.Id == "driveable-checklist";
-                statusPanel.Children.Add(new TextBlock
-                {
-                    Text = isDriveableChecklist
-                        ? "Vehicle should NOT be driven — required items not confirmed"
-                        : "INCOMPLETE — required items not checked off yet",
-                    FontSize = 10,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100)),
-                    VerticalAlignment = VerticalAlignment.Center
-                });
+                    statusPanel.Children.Add(new TextBlock
+                    {
+                        Text = "Vehicle should NOT be driven — required items not confirmed",
+                        FontSize = 10,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100)),
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
 
-                statusBorder.Child = statusPanel;
-                mainStack.Children.Add(statusBorder);
-                _sectionStatusIndicators[sectionIndex] = statusBorder;
+                    statusBorder.Child = statusPanel;
+                    mainStack.Children.Add(statusBorder);
+                    _sectionStatusIndicators[sectionIndex] = statusBorder;
+                }
             }
 
             border.Child = mainStack;
@@ -2377,48 +2419,46 @@ namespace McStudDesktop.Views
                 _progressBar.Value = checkedCount;
             }
 
-            // Update per-section drivability status indicators
-            for (int si = 0; si < _currentChecklist.Sections.Count; si++)
+            // Update per-section drivability status indicators (driveable checklist only)
+            if (_currentChecklist.Id == "driveable-checklist")
             {
-                if (!_sectionStatusIndicators.TryGetValue(si, out var statusBorder)) continue;
-
-                var sectionItems = _currentChecklist.Sections[si].Items ?? new List<ChecklistItem>();
-                var allRequiredChecked = true;
-                for (int ii = 0; ii < sectionItems.Count; ii++)
+                for (int si = 0; si < _currentChecklist.Sections.Count; si++)
                 {
-                    if (sectionItems[ii].Required && !_checkedItems.Contains($"{si}_{ii}"))
+                    if (!_sectionStatusIndicators.TryGetValue(si, out var statusBorder)) continue;
+
+                    var sectionItems = _currentChecklist.Sections[si].Items ?? new List<ChecklistItem>();
+                    var allRequiredChecked = true;
+                    for (int ii = 0; ii < sectionItems.Count; ii++)
                     {
-                        allRequiredChecked = false;
-                        break;
+                        if (sectionItems[ii].Required && !_checkedItems.Contains($"{si}_{ii}"))
+                        {
+                            allRequiredChecked = false;
+                            break;
+                        }
                     }
-                }
 
-                var isDriveable = _currentChecklist?.Id == "driveable-checklist";
-                if (allRequiredChecked)
-                {
-                    statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 20, 50, 30));
-                    var panel = (StackPanel)statusBorder.Child;
-                    var icon = (FontIcon)panel.Children[0];
-                    var text = (TextBlock)panel.Children[1];
-                    icon.Glyph = "\uE73E";
-                    icon.Foreground = new SolidColorBrush(AccentGreen);
-                    text.Text = isDriveable
-                        ? "PASS — Vehicle is safe to drive"
-                        : "PASS — All required items confirmed";
-                    text.Foreground = new SolidColorBrush(AccentGreen);
-                }
-                else
-                {
-                    statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30));
-                    var panel = (StackPanel)statusBorder.Child;
-                    var icon = (FontIcon)panel.Children[0];
-                    var text = (TextBlock)panel.Children[1];
-                    icon.Glyph = "\uE7BA";
-                    icon.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
-                    text.Text = isDriveable
-                        ? "Vehicle should NOT be driven — required items not confirmed"
-                        : "INCOMPLETE — required items not checked off yet";
-                    text.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
+                    if (allRequiredChecked)
+                    {
+                        statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 20, 50, 30));
+                        var panel = (StackPanel)statusBorder.Child;
+                        var icon = (FontIcon)panel.Children[0];
+                        var text = (TextBlock)panel.Children[1];
+                        icon.Glyph = "\uE73E";
+                        icon.Foreground = new SolidColorBrush(AccentGreen);
+                        text.Text = "PASS — Vehicle is safe to drive";
+                        text.Foreground = new SolidColorBrush(AccentGreen);
+                    }
+                    else
+                    {
+                        statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30));
+                        var panel = (StackPanel)statusBorder.Child;
+                        var icon = (FontIcon)panel.Children[0];
+                        var text = (TextBlock)panel.Children[1];
+                        icon.Glyph = "\uE7BA";
+                        icon.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
+                        text.Text = "Vehicle should NOT be driven — required items not confirmed";
+                        text.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
+                    }
                 }
             }
         }

@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
 using Windows.UI;
 using System.Threading.Tasks;
+using McStudDesktop.Services;
 
 namespace McStudDesktop.Views
 {
@@ -43,16 +44,17 @@ namespace McStudDesktop.Views
                 Spacing = 4,
                 Margin = new Thickness(0, 0, 0, 6)
             };
+            var userName = ShopDocsSettingsService.Instance.GetSettings().UserName ?? "";
             headerPanel.Children.Add(new TextBlock
             {
-                Text = "McStud Tool",
+                Text = string.IsNullOrWhiteSpace(userName) ? "McStud Tool" : $"Welcome, {userName}!",
                 FontSize = 26,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(AccentBlue)
             });
             headerPanel.Children.Add(new TextBlock
             {
-                Text = "Your estimating co-pilot",
+                Text = string.IsNullOrWhiteSpace(userName) ? "Your estimating co-pilot" : "McStud Tool — Your estimating co-pilot",
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 150, 170)),
                 FontStyle = Windows.UI.Text.FontStyle.Italic

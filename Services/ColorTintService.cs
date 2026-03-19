@@ -168,26 +168,116 @@ public class ColorTintService
             .ToList();
     }
 
-    private string GetCategory(string? partNumber)
+    public static string GetCategory(string? partNumber)
     {
         if (string.IsNullOrEmpty(partNumber)) return "Other";
 
+        // Standox Effect Tints
         if (partNumber.StartsWith("11-LE") || partNumber.StartsWith("11-LR"))
             return "Standox Effect Tints";
+        // Standox Pearls/Effects
         if (partNumber.StartsWith("11-E"))
             return "Standox Pearls/Effects";
-        if (partNumber.StartsWith("90-"))
-            return "Special Colors";
+
+        // Glasurit Basecoat Tints
         if (partNumber.StartsWith("100-B"))
             return "Basecoat Tints";
+        // Glasurit Effect Pearls
         if (partNumber.StartsWith("100-E"))
             return "Effect Pearls";
-        if (partNumber.StartsWith("100-M"))
-            return "Metallic/Mixing";
+        // Glasurit Interior Colors
         if (partNumber.StartsWith("100-IC"))
             return "Interior Colors";
-        if (partNumber.StartsWith("100-MB") || partNumber.StartsWith("100-MPT"))
+        // Glasurit Blending/Additives
+        if (partNumber.StartsWith("100-MB") || partNumber.StartsWith("100-MPT") || partNumber.StartsWith("100-M50X"))
             return "Blending/Additives";
+        // Glasurit Metallic/Mixing
+        if (partNumber.StartsWith("100-M"))
+            return "Metallic/Mixing";
+
+        // Tinting Bases (22- series)
+        if (partNumber.StartsWith("22-"))
+            return "Tinting Bases";
+        // Solventborne Color (55- series)
+        if (partNumber.StartsWith("55-"))
+            return "Solventborne Color";
+        // Ready-Mix Color (80- series)
+        if (partNumber.StartsWith("80-"))
+            return "Ready-Mix Color";
+        // Waterborne Basecoat (90- series)
+        if (partNumber.StartsWith("90-"))
+            return "Waterborne Basecoat";
+        // Pearl Effects (93- series)
+        if (partNumber.StartsWith("93-"))
+            return "Pearl Effects";
+        // Special Effects (98- series)
+        if (partNumber.StartsWith("98-"))
+            return "Special Effects";
+
+        // UV Primers (151- series)
+        if (partNumber.StartsWith("151-"))
+            return "UV Primers";
+        // Primer Surfacer (176- series)
+        if (partNumber.StartsWith("176-"))
+            return "Primer Surfacer";
+        // Etching Primer (283- series)
+        if (partNumber.StartsWith("283-"))
+            return "Etching Primer";
+        // Primers & Sealers (285- series)
+        if (partNumber.StartsWith("285-"))
+            return "Primers & Sealers";
+
+        // Reducers & Blenders (352- series)
+        if (partNumber.StartsWith("352-"))
+            return "Reducers & Blenders";
+        // Activators (355- series)
+        if (partNumber.StartsWith("355-"))
+            return "Activators";
+        // Metal Cleaner (360- series)
+        if (partNumber.StartsWith("360-"))
+            return "Cleaners";
+        // Additives (522- series)
+        if (partNumber.StartsWith("522-"))
+            return "Additives";
+        // Cleaners (541- series)
+        if (partNumber.StartsWith("541-"))
+            return "Cleaners";
+
+        // CV Primer (568- series)
+        if (partNumber.StartsWith("568-"))
+            return "CV Primer";
+        // Etch Activator (583- series)
+        if (partNumber.StartsWith("583-"))
+            return "Activators";
+        // Basecoat Activator (590- series)
+        if (partNumber.StartsWith("590-"))
+            return "Activators";
+
+        // Waterbased Cleaners (700- series)
+        if (partNumber.StartsWith("700-"))
+            return "Cleaners";
+        // Epoxy Primers (801- series)
+        if (partNumber.StartsWith("801-"))
+            return "Epoxy Primers";
+        // Body Fillers (839- series)
+        if (partNumber.StartsWith("839-"))
+            return "Body Fillers";
+
+        // Clearcoats (923- series)
+        if (partNumber.StartsWith("923-"))
+            return "Clearcoats";
+        // Hardeners (929- series)
+        if (partNumber.StartsWith("929-"))
+            return "Hardeners";
+        // Plastic Primers (934- series)
+        if (partNumber.StartsWith("934-"))
+            return "Plastic Primers";
+        // Hardener Paste (948- series)
+        if (partNumber.StartsWith("948-"))
+            return "Hardeners";
+        // Epoxy Activators (965- series)
+        if (partNumber.StartsWith("965-"))
+            return "Activators";
 
         return "Other";
     }

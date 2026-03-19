@@ -3266,7 +3266,8 @@ namespace McStudDesktop.Views
                 { "Export Value", AccentGreen },
                 { "Import Value", AccentOrange },
                 { "Operations", AccentCyan },
-                { "Exports", AccentOrange }
+                { "Exports", AccentOrange },
+                { "Learned", Color.FromArgb(255, 255, 200, 50) }
             };
 
             foreach (var kvp in _chartSeriesVisibility)
@@ -3306,9 +3307,9 @@ namespace McStudDesktop.Views
             return chartKey switch
             {
                 "labor_chart" => new Dictionary<string, bool> { { "Body Labor", true }, { "Refinish", true } },
-                "operations_trend" => new Dictionary<string, bool> { { "Export Ops", true }, { "Import Ops", false } },
+                "operations_trend" => new Dictionary<string, bool> { { "Export Ops", true }, { "Import Ops", false }, { "Learned", false } },
                 "value_trend" => new Dictionary<string, bool> { { "Export Value", true }, { "Import Value", false } },
-                "peak_hours" => new Dictionary<string, bool> { { "Operations", true }, { "Exports", false } },
+                "peak_hours" => new Dictionary<string, bool> { { "Operations", true }, { "Exports", false }, { "Learned", false } },
                 _ => new Dictionary<string, bool>()
             };
         }
@@ -3938,10 +3939,12 @@ namespace McStudDesktop.Views
 
                 var showExport = !_chartSeriesVisibility.ContainsKey("Export Ops") || _chartSeriesVisibility["Export Ops"];
                 var showImport = _chartSeriesVisibility.ContainsKey("Import Ops") && _chartSeriesVisibility["Import Ops"];
+                var showLearned = _chartSeriesVisibility.ContainsKey("Learned") && _chartSeriesVisibility["Learned"];
 
                 var maxVal = (double)Math.Max(
-                    Math.Max(showExport ? data.Max(d => d.ExportOperations) : 0,
-                             showImport ? data.Max(d => d.ImportOperations) : 0), 1);
+                    Math.Max(Math.Max(showExport ? data.Max(d => d.ExportOperations) : 0,
+                             showImport ? data.Max(d => d.ImportOperations) : 0),
+                             showLearned ? data.Max(d => d.LearnOperations) : 0), 1);
                 DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N0");
 
                 double xStep = plotW / Math.Max(data.Count - 1, 1);
@@ -4014,6 +4017,44 @@ namespace McStudDesktop.Views
                     foreach (var pt in importPoints)
                     {
                         var dot = new Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(AccentGreen), StrokeThickness = 2 };
+                        Canvas.SetLeft(dot, pt.X - 3.5);
+                        Canvas.SetTop(dot, pt.Y - 3.5);
+                        canvas.Children.Add(dot);
+                    }
+                }
+
+                // Learned line
+                var learnedColor = Color.FromArgb(255, 255, 200, 50);
+                if (showLearned)
+                {
+                    var learnPoints = new List<Windows.Foundation.Point>();
+                    for (int i = 0; i < data.Count; i++)
+                        learnPoints.Add(new Windows.Foundation.Point(pL + i * xStep, pB - (data[i].LearnOperations / maxVal * plotH)));
+
+                    if (learnPoints.Count > 1)
+                    {
+                        var learnArea = new Polygon();
+                        var lPts = new PointCollection();
+                        lPts.Add(new Windows.Foundation.Point(learnPoints[0].X, pB));
+                        foreach (var pt in learnPoints) lPts.Add(pt);
+                        lPts.Add(new Windows.Foundation.Point(learnPoints[^1].X, pB));
+                        learnArea.Points = lPts;
+                        learnArea.Fill = new LinearGradientBrush
+                        {
+                            StartPoint = new Windows.Foundation.Point(0.5, 0),
+                            EndPoint = new Windows.Foundation.Point(0.5, 1),
+                            GradientStops = { new GradientStop { Color = Color.FromArgb(40, 255, 200, 50), Offset = 0 }, new GradientStop { Color = Color.FromArgb(5, 255, 200, 50), Offset = 1 } }
+                        };
+                        canvas.Children.Add(learnArea);
+
+                        var learnLine = new Polyline { StrokeThickness = 2.5, Stroke = new SolidColorBrush(learnedColor), StrokeLineJoin = PenLineJoin.Round, StrokeDashArray = new DoubleCollection { 6, 3 } };
+                        foreach (var pt in learnPoints) learnLine.Points.Add(pt);
+                        canvas.Children.Add(learnLine);
+                    }
+
+                    foreach (var pt in learnPoints)
+                    {
+                        var dot = new Ellipse { Width = 7, Height = 7, Fill = new SolidColorBrush(CardBg), Stroke = new SolidColorBrush(learnedColor), StrokeThickness = 2 };
                         Canvas.SetLeft(dot, pt.X - 3.5);
                         Canvas.SetTop(dot, pt.Y - 3.5);
                         canvas.Children.Add(dot);
@@ -4276,16 +4317,19 @@ namespace McStudDesktop.Views
             {
                 var showOps = !_chartSeriesVisibility.ContainsKey("Operations") || _chartSeriesVisibility["Operations"];
                 var showExports = _chartSeriesVisibility.ContainsKey("Exports") && _chartSeriesVisibility["Exports"];
+                var showLearnedPeak = _chartSeriesVisibility.ContainsKey("Learned") && _chartSeriesVisibility["Learned"];
 
                 // Build full 24-hour arrays
                 var allHours = new int[24];
                 var allExports = new int[24];
+                var allLearns = new int[24];
                 foreach (var h in hourlyData)
                 {
                     if (h.Hour >= 0 && h.Hour < 24)
                     {
                         allHours[h.Hour] = h.OperationCount;
                         allExports[h.Hour] = h.ExportCount;
+                        allLearns[h.Hour] = h.LearnCount;
                     }
                 }
 
@@ -4304,18 +4348,23 @@ namespace McStudDesktop.Views
                 var canvas = new Canvas { Width = cW, Height = cH, HorizontalAlignment = HorizontalAlignment.Center };
 
                 var maxVal = (double)Math.Max(
-                    Math.Max(showOps ? allHours.Max() : 0, showExports ? allExports.Max() : 0), 1);
+                    Math.Max(Math.Max(showOps ? allHours.Max() : 0, showExports ? allExports.Max() : 0),
+                             showLearnedPeak ? allLearns.Max() : 0), 1);
                 DrawChartAxes(canvas, pL, pT, pR, pB, maxVal, "N0");
 
+                // Calculate bar widths based on how many series are visible
+                int visibleSeries = (showOps ? 1 : 0) + (showExports ? 1 : 0) + (showLearnedPeak ? 1 : 0);
                 double slotW = plotW / hourCount;
                 double colW = slotW * 0.7;
                 double gap = slotW * 0.3;
+                double seriesW = visibleSeries > 1 ? colW / visibleSeries : colW;
                 int peakIdx = peakHour?.Hour ?? -1;
 
                 for (int i = 0; i < hourCount; i++)
                 {
                     int hour = firstHour + i;
                     var x = pL + i * slotW + gap / 2;
+                    int seriesIdx = 0;
 
                     // Operations bars (main)
                     if (showOps)
@@ -4324,13 +4373,13 @@ namespace McStudDesktop.Views
                         var intensity = allHours[hour] / maxVal;
                         bool isPeak = hour == peakIdx;
 
-                        var colContainer = new Grid { Width = showExports ? colW * 0.55 : colW, Height = plotH };
-                        Canvas.SetLeft(colContainer, x);
+                        var colContainer = new Grid { Width = seriesW, Height = plotH };
+                        Canvas.SetLeft(colContainer, x + seriesIdx * seriesW);
                         Canvas.SetTop(colContainer, pT);
 
                         var col = new Border
                         {
-                            Width = showExports ? colW * 0.55 : colW,
+                            Width = seriesW,
                             Height = Math.Max(targetH, allHours[hour] > 0 ? 2 : 0),
                             CornerRadius = new CornerRadius(2, 2, 0, 0),
                             VerticalAlignment = VerticalAlignment.Bottom,
@@ -4347,27 +4396,26 @@ namespace McStudDesktop.Views
 
                         if (allHours[hour] > 0 && targetH > 20)
                         {
-                            var valLabel = new TextBlock { Text = allHours[hour].ToString(), FontSize = 8, Foreground = new SolidColorBrush(Colors.White), TextAlignment = TextAlignment.Center, Width = showExports ? colW * 0.55 : colW };
-                            Canvas.SetLeft(valLabel, x);
+                            var valLabel = new TextBlock { Text = allHours[hour].ToString(), FontSize = 8, Foreground = new SolidColorBrush(Colors.White), TextAlignment = TextAlignment.Center, Width = seriesW };
+                            Canvas.SetLeft(valLabel, x + seriesIdx * seriesW);
                             Canvas.SetTop(valLabel, pB - targetH - 13);
                             canvas.Children.Add(valLabel);
                         }
+                        seriesIdx++;
                     }
 
                     // Exports overlay bars
                     if (showExports)
                     {
                         var exportH = allExports[hour] / maxVal * plotH;
-                        var exportW = showOps ? colW * 0.4 : colW;
-                        var exportX = showOps ? x + colW * 0.6 : x;
 
-                        var exportContainer = new Grid { Width = exportW, Height = plotH };
-                        Canvas.SetLeft(exportContainer, exportX);
+                        var exportContainer = new Grid { Width = seriesW, Height = plotH };
+                        Canvas.SetLeft(exportContainer, x + seriesIdx * seriesW);
                         Canvas.SetTop(exportContainer, pT);
 
                         var exportCol = new Border
                         {
-                            Width = exportW,
+                            Width = seriesW,
                             Height = Math.Max(exportH, allExports[hour] > 0 ? 2 : 0),
                             CornerRadius = new CornerRadius(2, 2, 0, 0),
                             VerticalAlignment = VerticalAlignment.Bottom,
@@ -4375,6 +4423,29 @@ namespace McStudDesktop.Views
                         };
                         exportContainer.Children.Add(exportCol);
                         canvas.Children.Add(exportContainer);
+                        seriesIdx++;
+                    }
+
+                    // Learned bars
+                    if (showLearnedPeak)
+                    {
+                        var learnH = allLearns[hour] / maxVal * plotH;
+
+                        var learnContainer = new Grid { Width = seriesW, Height = plotH };
+                        Canvas.SetLeft(learnContainer, x + seriesIdx * seriesW);
+                        Canvas.SetTop(learnContainer, pT);
+
+                        var learnCol = new Border
+                        {
+                            Width = seriesW,
+                            Height = Math.Max(learnH, allLearns[hour] > 0 ? 2 : 0),
+                            CornerRadius = new CornerRadius(2, 2, 0, 0),
+                            VerticalAlignment = VerticalAlignment.Bottom,
+                            Background = new SolidColorBrush(Color.FromArgb(200, 255, 200, 50))
+                        };
+                        learnContainer.Children.Add(learnCol);
+                        canvas.Children.Add(learnContainer);
+                        seriesIdx++;
                     }
 
                     // Hour label

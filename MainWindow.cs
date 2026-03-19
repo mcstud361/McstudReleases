@@ -33,7 +33,8 @@ public sealed class MainWindow : Window
 
     public MainWindow()
     {
-        Title = "McStud Tool";
+        var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName ?? "";
+        Title = string.IsNullOrWhiteSpace(shopName) ? "McStud Tool" : $"{shopName} — McStud Tool";
 
         // Set up the window
         var hWnd = WindowNative.GetWindowHandle(this);
@@ -180,7 +181,8 @@ public sealed class MainWindow : Window
     {
         if (_contentGrid == null) return;
 
-        Title = "McStud Tool";
+        var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName ?? "";
+        Title = string.IsNullOrWhiteSpace(shopName) ? "McStud Tool" : $"{shopName} — McStud Tool";
 
         // Resize back to compact tool window in bottom-right
         var hWnd = WindowNative.GetWindowHandle(this);

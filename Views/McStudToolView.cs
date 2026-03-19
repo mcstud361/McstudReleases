@@ -158,6 +158,13 @@ namespace McStudDesktop.Views
         private Border? _updateBanner;
         private UpdateInfo? _pendingUpdateInfo;
 
+        // Status bar
+        private TextBlock? _statusBarVersion;
+        private TextBlock? _statusBarToast;
+        private TextBlock? _statusBarClipboard;
+        private TextBlock? _statusBarLastExport;
+        private DispatcherTimer? _toastTimer;
+
         public McStudToolView()
         {
             _exportService = new ClipboardExportService();
@@ -172,7 +179,7 @@ namespace McStudDesktop.Views
             _virtualClipboard = VirtualClipboardService.Instance;
 
             // Subscribe to virtual clipboard changes
-            _virtualClipboard.OperationsChanged += (s, e) => DispatcherQueue?.TryEnqueue(() => UpdateClipboardSummary());
+            _virtualClipboard.OperationsChanged += (s, e) => DispatcherQueue?.TryEnqueue(() => { UpdateClipboardSummary(); UpdateStatusBarClipboard(); });
 
             // Subscribe to smart paste events
             _smartPasteService.StatusChanged += (s, msg) => DispatcherQueue?.TryEnqueue(() => UpdateStatusMessage(msg));
@@ -239,12 +246,12 @@ namespace McStudDesktop.Views
             {
                 new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Your virtual clipboard. Copy lines from Excel and McStud reads them automatically. Hit the CCC or Mitchell button and it types everything into the estimating platform for you.\n\nTip: Look for the ? button in the top-right corner for detailed help on any tab.", TabIndex = 0 },
                 new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Ask the AI assistant any estimating questions. Get help with procedures, guidelines, and best practices.", TabIndex = 1 },
-                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDF estimates for analysis. The tool will parse operations, identify references, and help you review the estimate. Hit the ? for more details.", TabIndex = 2 },
-                new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Track your export statistics — see how many operations you've exported, which platforms you use most, and your activity over time. Hit the ? for more details.", TabIndex = 3 },
+                new TourStep { Target = _guideTabButton!, Icon = "\uE82D", Title = "Guide", Description = "Step-by-step MET guides to help you through common estimating tasks and procedures. Hit the ? for more details.", TabIndex = 2 },
+                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDF estimates for analysis. The tool will parse operations, identify references, and help you review the estimate. Hit the ? for more details.", TabIndex = 3 },
                 new TourStep { Target = _referenceTabButton!, Icon = "\uE82D", Title = "Reference", Description = "Access Definitions, DEG Inquiries, P-Pages, and Procedures all in one place. Search and queue references for PDF export. Hit the ? for more details.", TabIndex = 4 },
                 new TourStep { Target = _settingsTabButton!, Icon = "\uE713", Title = "Settings", Description = "Manage app settings, check for updates, view version info, and configure text-to-speech voice.", TabIndex = 5 },
-                new TourStep { Target = _guideTabButton!, Icon = "\uE82D", Title = "Guide", Description = "Step-by-step MET guides to help you through common estimating tasks and procedures. Hit the ? for more details.", TabIndex = 6 },
-                new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Access checklists, invoices, and shop documents. Create custom checklists and export them to PDF. Hit the ? for more details.", TabIndex = 7 }
+                new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Access checklists, invoices, and shop documents. Create custom checklists and export them to PDF. Hit the ? for more details.", TabIndex = 6 },
+                new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Track your export statistics — see how many operations you've exported, which platforms you use most, and your activity over time. Hit the ? for more details.", TabIndex = 7 }
             };
 
             var overlay = new SpotlightTourOverlay(steps, SelectTab);
@@ -341,6 +348,7 @@ namespace McStudDesktop.Views
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Update banner
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Tab header
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Tab content
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Status bar
 
             // === UPDATE BANNER (hidden by default) ===
             _updateBanner = CreateUpdateBanner();
@@ -359,33 +367,34 @@ namespace McStudDesktop.Views
                 _tabHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             }
 
+            // Tab order: Export first, then alphabetical
             _exportTabButton = CreateTabButton("Export", "\uE8C8", 0);
             _chatTabButton = CreateTabButton("Chat", "\uE8BD", 1);
-            _importTabButton = CreateTabButton("Import", "\uE8E5", 2);
-            _statsTabButton = CreateTabButton("Stats", "\uE9D9", 3);
+            _guideTabButton = CreateTabButton("Guide", "\uE82D", 2); // Book icon
+            _importTabButton = CreateTabButton("Import", "\uE8E5", 3);
             _referenceTabButton = CreateTabButton("Reference", "\uE82D", 4);
             AttachPdfQueueBadge(_referenceTabButton);
             _settingsTabButton = CreateTabButton("Settings", "\uE713", 5); // Gear icon
-            _guideTabButton = CreateTabButton("Guide", "\uE82D", 6); // Book icon
-            _shopDocsTabButton = CreateTabButton("Shop Docs", "\uE8A5", 7); // Document icon
+            _shopDocsTabButton = CreateTabButton("Shop Docs", "\uE8A5", 6); // Document icon
+            _statsTabButton = CreateTabButton("Stats", "\uE9D9", 7);
 
             Grid.SetColumn(_exportTabButton, 0);
             Grid.SetColumn(_chatTabButton, 1);
-            Grid.SetColumn(_importTabButton, 2);
-            Grid.SetColumn(_statsTabButton, 3);
+            Grid.SetColumn(_guideTabButton, 2);
+            Grid.SetColumn(_importTabButton, 3);
             Grid.SetColumn(_referenceTabButton, 4);
             Grid.SetColumn(_settingsTabButton, 5);
-            Grid.SetColumn(_guideTabButton, 6);
-            Grid.SetColumn(_shopDocsTabButton, 7);
+            Grid.SetColumn(_shopDocsTabButton, 6);
+            Grid.SetColumn(_statsTabButton, 7);
 
             _tabHeader.Children.Add(_exportTabButton);
             _tabHeader.Children.Add(_chatTabButton);
+            _tabHeader.Children.Add(_guideTabButton);
             _tabHeader.Children.Add(_importTabButton);
-            _tabHeader.Children.Add(_statsTabButton);
             _tabHeader.Children.Add(_referenceTabButton);
             _tabHeader.Children.Add(_settingsTabButton);
-            _tabHeader.Children.Add(_guideTabButton);
             _tabHeader.Children.Add(_shopDocsTabButton);
+            _tabHeader.Children.Add(_statsTabButton);
 
             // Window snap buttons (half / quarter / compact)
             var snapStack = new StackPanel
@@ -445,14 +454,19 @@ namespace McStudDesktop.Views
             mainGrid.Children.Add(_tabContent);
 
             // Build all tab contents
-            BuildExportTab();
-            BuildChatTab();
-            BuildImportTab();
-            BuildStatsTab();
-            BuildReferenceTab();
-            BuildSettingsTab();
-            BuildGuideTab();
-            BuildShopDocsTab();
+            BuildExportTab();       // 0
+            BuildChatTab();         // 1
+            BuildGuideTab();        // 2
+            BuildImportTab();       // 3
+            BuildReferenceTab();    // 4
+            BuildSettingsTab();     // 5
+            BuildShopDocsTab();     // 6
+            BuildStatsTab();        // 7
+
+            // === STATUS BAR ===
+            var statusBar = BuildStatusBar();
+            Grid.SetRow(statusBar, 3);
+            mainGrid.Children.Add(statusBar);
 
             // Show first tab by default
             SelectTab(0);
@@ -978,15 +992,15 @@ namespace McStudDesktop.Views
             // Update tab button styles
             UpdateTabButtonStyle(_exportTabButton, 0);
             UpdateTabButtonStyle(_chatTabButton, 1);
-            UpdateTabButtonStyle(_importTabButton, 2);
-            UpdateTabButtonStyle(_statsTabButton, 3);
+            UpdateTabButtonStyle(_guideTabButton, 2);
+            UpdateTabButtonStyle(_importTabButton, 3);
             UpdateTabButtonStyle(_referenceTabButton, 4);
             UpdateTabButtonStyle(_settingsTabButton, 5);
-            UpdateTabButtonStyle(_guideTabButton, 6);
-            UpdateTabButtonStyle(_shopDocsTabButton, 7);
+            UpdateTabButtonStyle(_shopDocsTabButton, 6);
+            UpdateTabButtonStyle(_statsTabButton, 7);
 
             // Refresh stats view when selected
-            if (tabIndex == 3 && _statisticsView != null)
+            if (tabIndex == 7 && _statisticsView != null)
             {
                 _statisticsView.Refresh();
             }
@@ -1002,6 +1016,9 @@ namespace McStudDesktop.Views
                     element.Visibility = index == tabIndex ? Visibility.Visible : Visibility.Collapsed;
                 }
             }
+
+            // Auto-focus primary control for the selected tab
+            DispatcherQueue?.TryEnqueue(() => FocusPrimaryControl(tabIndex));
         }
 
         private void UpdateTabButtonStyle(Border? button, int tabIndex)
@@ -1298,7 +1315,7 @@ namespace McStudDesktop.Views
         {
             var importContent = new Grid
             {
-                Tag = 2,
+                Tag = 3,
                 Visibility = Visibility.Collapsed
             };
 
@@ -1384,7 +1401,7 @@ namespace McStudDesktop.Views
         {
             var statsContent = new Grid
             {
-                Tag = 3,
+                Tag = 7,
                 Visibility = Visibility.Collapsed
             };
             statsContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -1553,12 +1570,21 @@ namespace McStudDesktop.Views
             });
             shopNameStack.Children.Add(new TextBlock
             {
-                Text = "Your shop name appears on checklists and shop documents",
+                Text = "Your shop and user info appears on checklists, documents, and throughout the app",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
             });
 
             var shopDocsSettings = ShopDocsSettingsService.Instance.GetSettings();
+
+            // Shop name label
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Shop Name",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                Margin = new Thickness(0, 4, 0, 0)
+            });
             var shopNameBox = new TextBox
             {
                 PlaceholderText = "Enter your body shop name",
@@ -1572,8 +1598,36 @@ namespace McStudDesktop.Views
                 var settings = ShopDocsSettingsService.Instance.GetSettings();
                 settings.ShopName = shopNameBox.Text?.Trim() ?? "";
                 ShopDocsSettingsService.Instance.SaveSettings(settings);
+                // Update window title bar live
+                var name = settings.ShopName;
+                if (McstudDesktop.App.MainWindow != null)
+                    McstudDesktop.App.MainWindow.Title = string.IsNullOrWhiteSpace(name) ? "McStud Tool" : $"{name} — McStud Tool";
             };
             shopNameStack.Children.Add(shopNameBox);
+
+            // Username label
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Your Name",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+            var userNameBox = new TextBox
+            {
+                PlaceholderText = "Enter your name",
+                Text = shopDocsSettings.UserName ?? "",
+                FontSize = 13,
+                Width = 350,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            userNameBox.LostFocus += (s, e) =>
+            {
+                var settings = ShopDocsSettingsService.Instance.GetSettings();
+                settings.UserName = userNameBox.Text?.Trim() ?? "";
+                ShopDocsSettingsService.Instance.SaveSettings(settings);
+            };
+            shopNameStack.Children.Add(userNameBox);
 
             shopNameCard.Child = shopNameStack;
             mainStack.Children.Add(shopNameCard);
@@ -2062,7 +2116,7 @@ namespace McStudDesktop.Views
         {
             var guideContent = new Grid
             {
-                Tag = 6,
+                Tag = 2,
                 Visibility = Visibility.Collapsed
             };
             guideContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -2090,7 +2144,7 @@ namespace McStudDesktop.Views
         {
             var shopDocsContent = new Grid
             {
-                Tag = 7,
+                Tag = 6,
                 Visibility = Visibility.Collapsed
             };
             shopDocsContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -3539,11 +3593,18 @@ namespace McStudDesktop.Views
 
             _statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 0, 100, 50));
             _statusBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 0, 220, 100));
-            _statusIcon.Text = "✓";
+            _statusIcon.Text = "\u2713";
             _statusText.Text = "Export Complete!";
             _statusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 255, 150));
             _countText.Text = $"{count} operations typed into {target}";
             _countText.Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200));
+
+            ShowToast($"\u2713 {count} ops exported to {target}");
+            if (_statusBarLastExport != null)
+            {
+                _statusBarLastExport.Text = $"Last export: {DateTime.Now:h:mm tt}";
+                _statusBarLastExport.Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140));
+            }
         }
 
         private void UpdateStatusError(string message)
@@ -3552,11 +3613,135 @@ namespace McStudDesktop.Views
 
             _statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 100, 30, 30));
             _statusBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 255, 80, 80));
-            _statusIcon.Text = "✗";
+            _statusIcon.Text = "\u2717";
             _statusText.Text = "Error!";
             _statusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
             _countText.Text = message;
             _countText.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 150, 150));
+
+            ShowToast("\u2717 " + message, isError: true);
+        }
+
+        // === STATUS BAR ===
+
+        private Border BuildStatusBar()
+        {
+            var bar = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Padding = new Thickness(10, 3, 10, 3),
+                Height = 24
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            _statusBarVersion = new TextBlock
+            {
+                Text = UpdateService.GetVersionString(),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 90, 90, 90)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(_statusBarVersion, 0);
+
+            _statusBarToast = new TextBlock
+            {
+                Text = "",
+                FontSize = 10,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(_statusBarToast, 1);
+
+            _statusBarClipboard = new TextBlock
+            {
+                Text = "Clipboard empty",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 90, 90, 90)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 12, 0)
+            };
+            Grid.SetColumn(_statusBarClipboard, 2);
+
+            _statusBarLastExport = new TextBlock
+            {
+                Text = "",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 90, 90, 90)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(_statusBarLastExport, 3);
+
+            grid.Children.Add(_statusBarVersion);
+            grid.Children.Add(_statusBarToast);
+            grid.Children.Add(_statusBarClipboard);
+            grid.Children.Add(_statusBarLastExport);
+
+            bar.Child = grid;
+            return bar;
+        }
+
+        private void UpdateStatusBarClipboard()
+        {
+            if (_statusBarClipboard == null) return;
+            int count = _virtualClipboard.Count;
+            if (count > 0)
+            {
+                _statusBarClipboard.Text = $"{count} ops ready";
+                _statusBarClipboard.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100));
+            }
+            else
+            {
+                _statusBarClipboard.Text = "Clipboard empty";
+                _statusBarClipboard.Foreground = new SolidColorBrush(Color.FromArgb(255, 90, 90, 90));
+            }
+        }
+
+        private void ShowToast(string message, bool isError = false)
+        {
+            if (_statusBarToast == null) return;
+
+            _statusBarToast.Text = message;
+            if (isError)
+                _statusBarToast.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 90, 90));
+            else if (message.StartsWith("\u2713") || message.StartsWith("\u2714")) // checkmark
+                _statusBarToast.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 120));
+            else
+                _statusBarToast.Foreground = new SolidColorBrush(Colors.White);
+
+            // Reset or start timer
+            if (_toastTimer == null)
+            {
+                _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                _toastTimer.Tick += (s, e) =>
+                {
+                    _toastTimer.Stop();
+                    if (_statusBarToast != null) _statusBarToast.Text = "";
+                };
+            }
+            _toastTimer.Stop();
+            _toastTimer.Start();
+        }
+
+        private void FocusPrimaryControl(int tabIndex)
+        {
+            switch (tabIndex)
+            {
+                case 0: // Export - focus the CCC button
+                    _cccButton?.Focus(FocusState.Programmatic);
+                    break;
+                case 1: // Chat - focus the chat input
+                    _chatbotView?.FocusInput();
+                    break;
+                // 2 Guide, 3 Import, 4 Reference, 5 Settings, 6 ShopDocs, 7 Stats - no specific focus
+            }
         }
 
         private void SpeedCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -35,6 +35,9 @@ namespace McStudDesktop.Services
         // License state - set by UI when checking license
         private LicenseTier _currentTier = LicenseTier.Shop; // Default to Shop for dev
 
+        // When true, AddTrainingExample skips SaveDatabase() calls (batch import handles save at the end)
+        private bool _suppressIntermediateSaves;
+
         /// <summary>
         /// Set the current license tier (called by UI after license check)
         /// </summary>
@@ -45,9 +48,15 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
-        /// Check if current license allows training/learning
+        /// Check if current license allows training/learning (Shop or Admin)
         /// </summary>
         public bool CanTrain => _currentTier == LicenseTier.Shop || _currentTier == LicenseTier.Admin;
+
+        /// <summary>
+        /// Check if current license allows writing to the STANDARD knowledge base.
+        /// Only Admin can contribute to the standard — Shop users' imports go to personal only.
+        /// </summary>
+        public bool CanTrainStandard => _currentTier == LicenseTier.Admin;
 
         /// <summary>
         /// Get current license tier
@@ -202,10 +211,32 @@ namespace McStudDesktop.Services
                 System.Diagnostics.Debug.WriteLine($"[Learning] Error loading user knowledge: {ex.Message}");
             }
 
-            // 3. Migrate to Smart Learning format if needed
+            // 3. Merge personal import learning on top (always loaded in Shop mode)
+            try
+            {
+                if (File.Exists(_personalKnowledgePath))
+                {
+                    var personalJson = File.ReadAllText(_personalKnowledgePath);
+                    if (!string.IsNullOrWhiteSpace(personalJson) && personalJson.Trim() != "null")
+                    {
+                        var personalDb = JsonSerializer.Deserialize<LearnedPatternDatabase>(personalJson);
+                        if (personalDb != null)
+                        {
+                            MergeDatabases(db, personalDb);
+                            System.Diagnostics.Debug.WriteLine($"[Learning] Merged PERSONAL import learning: now {db.Patterns.Count} patterns");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Learning] Error loading personal import learning: {ex.Message}");
+            }
+
+            // 4. Migrate to Smart Learning format if needed
             db = MigrateToSmartLearning(db);
 
-            // 4. Normalize operation type keys in ManualLinePatterns (one-time migration)
+            // 5. Normalize operation type keys in ManualLinePatterns (one-time migration)
             MigrateManualLinePatternKeys(db);
 
             return db;
@@ -627,6 +658,72 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Save import-learned data to the personal file only.
+        /// Loads the existing personal DB, merges current _database changes into it, and saves.
+        /// This keeps imported patterns isolated from the base/shop knowledge.
+        /// </summary>
+        private void SaveToPersonalFile()
+        {
+            try
+            {
+                // Load existing personal DB (or start fresh)
+                var personalDb = new LearnedPatternDatabase();
+                if (File.Exists(_personalKnowledgePath))
+                {
+                    var existingJson = File.ReadAllText(_personalKnowledgePath);
+                    if (!string.IsNullOrWhiteSpace(existingJson) && existingJson.Trim() != "null")
+                    {
+                        var loaded = JsonSerializer.Deserialize<LearnedPatternDatabase>(existingJson);
+                        if (loaded != null) personalDb = loaded;
+                    }
+                }
+
+                // Merge current in-memory database into personal
+                // This picks up the new training examples, patterns, co-occurrences, and manual line patterns
+                MergeDatabases(personalDb, _database);
+
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+                var json = JsonSerializer.Serialize(personalDb, options);
+
+                if (string.IsNullOrWhiteSpace(json) || json == "null")
+                {
+                    System.Diagnostics.Debug.WriteLine("[Learning] WARNING: Personal serialization produced null/empty - SKIPPED");
+                    return;
+                }
+
+                // Backup before overwrite
+                if (File.Exists(_personalKnowledgePath))
+                {
+                    var existingContent = File.ReadAllText(_personalKnowledgePath);
+                    if (!string.IsNullOrWhiteSpace(existingContent) && existingContent != "null" && existingContent.Length > 10)
+                    {
+                        File.WriteAllText(_personalKnowledgePath + ".backup", existingContent);
+                    }
+                }
+
+                File.WriteAllText(_personalKnowledgePath, json);
+                System.Diagnostics.Debug.WriteLine($"[Learning] Saved import learning to PERSONAL file: {personalDb.Patterns.Count} patterns");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Learning] Error saving to personal file: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Load a standalone copy of the personal-only database (imported patterns).
+        /// Used by the Learned tab to show "My Imports" view separately.
+        /// </summary>
+        public LearnedPatternDatabase GetPersonalOnlyDatabase()
+        {
+            return LoadDatabaseForMode(LearningMode.Personal);
+        }
+
+        /// <summary>
         /// Replace the current database with a cleaned/rebuilt version.
         /// Creates a timestamped backup before replacing.
         /// </summary>
@@ -716,13 +813,20 @@ namespace McStudDesktop.Services
             // Update or create pattern
             UpdatePatternFromExample(example);
 
-            SaveDatabase();
+            // Skip intermediate saves during batch imports (save happens at the end of LearnFromEstimate)
+            if (!_suppressIntermediateSaves)
+                SaveDatabase();
         }
 
         /// <summary>
         /// Learn from a complete estimate with mapped operations.
-        /// Now includes full context linking to P-Pages, DEG, and IncludedNotIncluded data.
+        /// Includes full context linking to P-Pages, DEG, and IncludedNotIncluded data.
         /// REQUIRES Shop or Admin license tier.
+        ///
+        /// SAVE ROUTING:
+        /// - Admin + Source="Import" → saves to standard (user knowledge) file — builds the baseline
+        /// - Shop  + Source="Import" → saves to personal file only — user's own learning
+        /// - Any non-import source    → saves via SaveDatabase() to current mode's file
         /// </summary>
         /// <returns>True if learning was successful, false if blocked by license</returns>
         public bool LearnFromEstimate(EstimateTrainingData trainingData)
@@ -734,32 +838,46 @@ namespace McStudDesktop.Services
                 return false;
             }
 
+            bool isImport = trainingData.Source == "Import";
+            bool goesToPersonal = isImport && !CanTrainStandard; // Shop users → personal only
+
             trainingData.DateTrained = DateTime.Now;
             trainingData.Id = Guid.NewGuid().ToString();
 
-            foreach (var mapping in trainingData.LineMappings)
+            // Suppress per-example saves during batch import — we do one save at the end
+            _suppressIntermediateSaves = true;
+            try
             {
-                var example = new TrainingExample
+                foreach (var mapping in trainingData.LineMappings)
                 {
-                    EstimateLine = mapping.RawLine,
-                    PartName = mapping.PartName,
-                    OperationType = mapping.OperationType,
-                    RepairHours = mapping.RepairHours,
-                    RefinishHours = mapping.RefinishHours,
-                    Price = mapping.Price,
-                    GeneratedOperations = mapping.GeneratedOperations,
-                    Source = trainingData.Source,
-                    VehicleInfo = trainingData.VehicleInfo,
-                    // Add full context references
-                    LinkedPPageRef = FindPPageReference(mapping.PartName, mapping.OperationType),
-                    LinkedIncludedNotIncludedRef = FindIncludedNotIncludedReference(mapping.PartName, mapping.OperationType),
-                    LinkedDEGRef = FindDEGReference(mapping.PartName, mapping.OperationType)
-                };
+                    var example = new TrainingExample
+                    {
+                        EstimateLine = mapping.RawLine,
+                        PartName = mapping.PartName,
+                        OperationType = mapping.OperationType,
+                        RepairHours = mapping.RepairHours,
+                        RefinishHours = mapping.RefinishHours,
+                        Price = mapping.Price,
+                        GeneratedOperations = mapping.GeneratedOperations,
+                        Source = trainingData.Source,
+                        VehicleInfo = trainingData.VehicleInfo,
+                        // Add full context references
+                        LinkedPPageRef = FindPPageReference(mapping.PartName, mapping.OperationType),
+                        LinkedIncludedNotIncludedRef = FindIncludedNotIncludedReference(mapping.PartName, mapping.OperationType),
+                        LinkedDEGRef = FindDEGReference(mapping.PartName, mapping.OperationType)
+                    };
 
-                AddTrainingExample(example);
+                    AddTrainingExample(example);
+                }
+            }
+            finally
+            {
+                _suppressIntermediateSaves = false;
             }
 
             // Build co-occurrence data from all operations in this estimate
+            // Deduplicate by PatternKey — multiple lines (labor + parts) can normalize to same key,
+            // which inflates TotalEstimateCount and TimesSeenTogether if not deduped
             var opsList = trainingData.LineMappings
                 .Where(m => !string.IsNullOrWhiteSpace(m.PartName))
                 .Select(m =>
@@ -770,13 +888,31 @@ namespace McStudDesktop.Services
                     return (PatternKey: patternKey, PartName: m.PartName, OperationType: m.OperationType,
                             LaborHours: m.RepairHours, RefinishHours: m.RefinishHours, Price: m.Price);
                 })
+                .GroupBy(o => o.PatternKey)
+                .Select(g => g.First())
                 .ToList();
             UpdateCoOccurrences(opsList);
 
             _database.TrainedEstimates.Add(trainingData);
-            SaveDatabase();
 
-            System.Diagnostics.Debug.WriteLine($"[Learning] Learned estimate with full context linking ({opsList.Count} ops for co-occurrence)");
+            // Route save to the correct file
+            if (goesToPersonal)
+            {
+                // Shop user import → personal file only (isolated from standard knowledge)
+                SaveToPersonalFile();
+                System.Diagnostics.Debug.WriteLine($"[Learning] Shop import → PERSONAL file ({opsList.Count} ops)");
+            }
+            else if (isImport && CanTrainStandard)
+            {
+                // Admin import → standard/user knowledge file (builds the baseline for all users)
+                SaveDatabase();
+                System.Diagnostics.Debug.WriteLine($"[Learning] Admin import → STANDARD file ({opsList.Count} ops)");
+            }
+            else
+            {
+                SaveDatabase();
+                System.Diagnostics.Debug.WriteLine($"[Learning] Learned estimate with full context linking ({opsList.Count} ops for co-occurrence)");
+            }
             return true;
         }
 
@@ -2026,7 +2162,7 @@ namespace McStudDesktop.Services
         /// REQUIRES Shop or Admin license tier.
         /// </summary>
         /// <returns>True if learning was successful, false if blocked by license</returns>
-        public bool LearnManualLinePatterns(List<ParsedEstimateLine> parsedLines)
+        public bool LearnManualLinePatterns(List<ParsedEstimateLine> parsedLines, bool fromImport = false)
         {
             // Check license tier
             if (!CanTrain)
@@ -2089,7 +2225,19 @@ namespace McStudDesktop.Services
 
             System.Diagnostics.Debug.WriteLine($"[Learning] ========== SUMMARY: {parentCount} parents, {manualCount} manual lines, {patternsCreated} patterns ==========");
 
-            SaveDatabase();
+            if (fromImport && !CanTrainStandard)
+            {
+                // Shop user import → personal file only
+                SaveToPersonalFile();
+                System.Diagnostics.Debug.WriteLine("[Learning] Manual line patterns → PERSONAL file (Shop import)");
+            }
+            else
+            {
+                // Admin import → standard file, or non-import → current mode file
+                SaveDatabase();
+                if (fromImport)
+                    System.Diagnostics.Debug.WriteLine("[Learning] Manual line patterns → STANDARD file (Admin import)");
+            }
             return true;
         }
 
@@ -2098,7 +2246,13 @@ namespace McStudDesktop.Services
         /// </summary>
         private void SaveManualLinePattern(ParsedEstimateLine parentPart, List<ParsedEstimateLine> manualLines)
         {
-            var patternKey = GenerateManualLinePatternKey(parentPart.PartName, parentPart.OperationType);
+            // Sanitize parent part name and infer operation type
+            var cleanPartName = SanitizeParentPartName(parentPart.PartName);
+            var opType = parentPart.OperationType;
+            if (string.IsNullOrEmpty(opType))
+                opType = InferOperationType("", cleanPartName);
+
+            var patternKey = GenerateManualLinePatternKey(cleanPartName, opType);
 
             if (_database.ManualLinePatterns.TryGetValue(patternKey, out var existingPattern))
             {
@@ -2108,7 +2262,11 @@ namespace McStudDesktop.Services
 
                 foreach (var manualLine in manualLines)
                 {
-                    var manualType = ExtractManualLineType(manualLine.Description, parentPart.PartName);
+                    var cleanDesc = SanitizeDescription(manualLine.Description);
+                    if (IsGarbagePattern(cleanDesc, cleanPartName))
+                        continue;
+
+                    var manualType = ExtractManualLineType(cleanDesc, cleanPartName);
 
                     var existingEntry = existingPattern.ManualLines
                         .FirstOrDefault(m => m.ManualLineType.Equals(manualType, StringComparison.OrdinalIgnoreCase));
@@ -2149,12 +2307,11 @@ namespace McStudDesktop.Services
                             existingEntry.LaborType = manualLine.LaborType;
 
                         // Track wording variations
-                        if (!string.IsNullOrEmpty(manualLine.Description))
+                        if (!string.IsNullOrEmpty(cleanDesc))
                         {
-                            var normalizedDesc = manualLine.Description.Trim();
-                            if (!existingEntry.WordingVariations.Contains(normalizedDesc, StringComparer.OrdinalIgnoreCase))
+                            if (!existingEntry.WordingVariations.Contains(cleanDesc, StringComparer.OrdinalIgnoreCase))
                             {
-                                existingEntry.WordingVariations.Add(normalizedDesc);
+                                existingEntry.WordingVariations.Add(cleanDesc);
                                 if (existingEntry.WordingVariations.Count > 10) // Keep max 10 variations
                                     existingEntry.WordingVariations.RemoveAt(0);
                             }
@@ -2172,8 +2329,8 @@ namespace McStudDesktop.Services
                     {
                         existingPattern.ManualLines.Add(new ManualLineEntry
                         {
-                            Description = manualLine.Description,
-                            ParentPartName = parentPart.PartName,
+                            Description = cleanDesc,
+                            ParentPartName = cleanPartName,
                             ManualLineType = manualType,
                             LaborUnits = manualLine.LaborHours,
                             RefinishUnits = manualLine.RefinishHours,
@@ -2189,7 +2346,7 @@ namespace McStudDesktop.Services
                             LaborType = manualLine.LaborType,
                             FirstSeen = DateTime.Now,
                             LastSeen = DateTime.Now,
-                            WordingVariations = string.IsNullOrEmpty(manualLine.Description) ? new() : new List<string> { manualLine.Description },
+                            WordingVariations = string.IsNullOrEmpty(cleanDesc) ? new() : new List<string> { cleanDesc },
                             SourceEstimates = string.IsNullOrEmpty(manualLine.SourceFile) ? new() : new List<string> { manualLine.SourceFile }
                         });
                     }
@@ -2202,16 +2359,19 @@ namespace McStudDesktop.Services
             }
             else
             {
-                // Create new pattern
-                var newPattern = new ManualLinePattern
+                // Filter out garbage lines before creating new pattern
+                var cleanLines = new List<ManualLineEntry>();
+                foreach (var ml in manualLines)
                 {
-                    ParentPartName = parentPart.PartName,
-                    ParentOperationType = parentPart.OperationType,
-                    ManualLines = manualLines.Select(ml => new ManualLineEntry
+                    var cleanDesc = SanitizeDescription(ml.Description);
+                    if (IsGarbagePattern(cleanDesc, cleanPartName))
+                        continue;
+
+                    cleanLines.Add(new ManualLineEntry
                     {
-                        Description = ml.Description,
-                        ParentPartName = parentPart.PartName,
-                        ManualLineType = ExtractManualLineType(ml.Description, parentPart.PartName),
+                        Description = cleanDesc,
+                        ParentPartName = cleanPartName,
+                        ManualLineType = ExtractManualLineType(cleanDesc, cleanPartName),
                         LaborUnits = ml.LaborHours,
                         RefinishUnits = ml.RefinishHours,
                         MinLaborUnits = ml.LaborHours,
@@ -2226,9 +2386,20 @@ namespace McStudDesktop.Services
                         LaborType = ml.LaborType,
                         FirstSeen = DateTime.Now,
                         LastSeen = DateTime.Now,
-                        WordingVariations = string.IsNullOrEmpty(ml.Description) ? new() : new List<string> { ml.Description },
+                        WordingVariations = string.IsNullOrEmpty(cleanDesc) ? new() : new List<string> { cleanDesc },
                         SourceEstimates = string.IsNullOrEmpty(ml.SourceFile) ? new() : new List<string> { ml.SourceFile }
-                    }).ToList(),
+                    });
+                }
+
+                if (cleanLines.Count == 0)
+                    return; // All lines were garbage, skip this pattern entirely
+
+                // Create new pattern
+                var newPattern = new ManualLinePattern
+                {
+                    ParentPartName = cleanPartName,
+                    ParentOperationType = opType,
+                    ManualLines = cleanLines,
                     ExampleCount = 1,
                     DateCreated = DateTime.Now,
                     LastUpdated = DateTime.Now,
@@ -2247,11 +2418,13 @@ namespace McStudDesktop.Services
         /// </summary>
         private string ExtractManualLineType(string description, string parentPartName)
         {
+            var sanitized = SanitizeDescription(description);
+
             if (string.IsNullOrEmpty(parentPartName))
-                return description.Trim();
+                return sanitized;
 
             // Remove parent part name from description
-            var result = description;
+            var result = sanitized;
             foreach (var variation in GetPartNameVariations(parentPartName))
             {
                 result = Regex.Replace(result, Regex.Escape(variation), "", RegexOptions.IgnoreCase);
@@ -2276,6 +2449,150 @@ namespace McStudDesktop.Services
             if (partName.Contains("bumper cover", StringComparison.OrdinalIgnoreCase))
                 yield return "bpr cvr";
         }
+
+        /// <summary>
+        /// Strip side indicators (LT/RT/LH/RH/Left/Right) from a part name for side-neutral matching.
+        /// "LT Fender" and "RT Fender" both become "Fender".
+        /// </summary>
+        private string StripSideIndicators(string partName)
+        {
+            var result = Regex.Replace(partName, @"\b(LT|RT|LH|RH|Left|Right)\b\s*", "", RegexOptions.IgnoreCase);
+            return result.Trim();
+        }
+
+        #region Data Sanitization
+
+        /// <summary>
+        /// Sanitize a manual line description before storing.
+        /// Strips Mitchell line codes, PDF artifacts, column fragments, and noise.
+        /// </summary>
+        private string SanitizeDescription(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description))
+                return "";
+
+            var result = description.Trim();
+
+            // Strip leading Mitchell line codes: 900500, 900501, S1, S01, AUTO prefixes
+            result = Regex.Replace(result, @"^(9\d{4,5}|S\d{1,2}|AUTO)\s+", "", RegexOptions.IgnoreCase);
+
+            // Strip leading single-letter column artifacts: "L ", "R " at start
+            result = Regex.Replace(result, @"^[LR]\s+", "", RegexOptions.IgnoreCase);
+
+            // Strip trailing estimate artifacts: * 0.3* Existing, *# Existing, * New, RMC $xxx, Yes, No
+            result = Regex.Replace(result, @"\*+\s*[\d.]*\*?\s*(Existing|New)\s*$", "", RegexOptions.IgnoreCase);
+            result = Regex.Replace(result, @"\*#\s*(Existing|New)\s*$", "", RegexOptions.IgnoreCase);
+            result = Regex.Replace(result, @"\s+RMC\s+\$[\d.,]+\s*$", "", RegexOptions.IgnoreCase);
+            result = Regex.Replace(result, @"\s+(Yes|No)\s*$", "", RegexOptions.IgnoreCase);
+
+            // Remove standalone asterisks and trailing numeric fragments like "0.3*"
+            result = Regex.Replace(result, @"\s*\d+\.?\d*\*", " ");
+            result = Regex.Replace(result, @"\*+", "");
+
+            // Strip trailing "Refinish" duplicates (e.g., "Refinish Refinish")
+            result = Regex.Replace(result, @"(\b(Refinish|Replace|Repair|Blend|R&I)\b)\s+\1", "$1", RegexOptions.IgnoreCase);
+
+            // Collapse multiple spaces
+            result = Regex.Replace(result, @"\s{2,}", " ");
+
+            // Trim leading/trailing punctuation
+            result = result.Trim(' ', '-', ',', '/', '.');
+
+            return result;
+        }
+
+        /// <summary>
+        /// Returns true for entries that should be skipped entirely (garbage data).
+        /// </summary>
+        private bool IsGarbagePattern(string description, string parentPartName)
+        {
+            if (string.IsNullOrWhiteSpace(description) || description.Length < 3)
+                return true;
+
+            // Description is mostly numeric or codes
+            var alphaChars = description.Count(c => char.IsLetter(c));
+            if (alphaChars < 3 || (double)alphaChars / description.Length < 0.3)
+                return true;
+
+            // Known non-operation markers
+            var garbageMarkers = new[] { "Price $", "CAPA=Certified", "Judgment Item", "CC Included",
+                "Betterment", "Prior Damage", "Customer Resp", "Deductible", "Tax", "Total Loss" };
+            foreach (var marker in garbageMarkers)
+            {
+                if (description.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            // ParentPartName looks like garbage
+            if (!string.IsNullOrEmpty(parentPartName))
+            {
+                if (parentPartName.Contains('$') || Regex.IsMatch(parentPartName, @"^\d"))
+                    return true;
+                // Sentence fragments: "Cover, and", "for Refinish", etc.
+                if (Regex.IsMatch(parentPartName, @"^(for|and|or|the|a|an|of)\s", RegexOptions.IgnoreCase))
+                    return true;
+                if (parentPartName.EndsWith(",", StringComparison.Ordinal) || parentPartName.EndsWith(" and", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Sanitize the parent part name by stripping section codes, operation code prefixes, and normalizing.
+        /// </summary>
+        private string SanitizeParentPartName(string partName)
+        {
+            if (string.IsNullOrWhiteSpace(partName))
+                return "";
+
+            var result = partName.Trim();
+
+            // Strip leading section codes: S01, S1, S02, etc.
+            result = Regex.Replace(result, @"^S\d{1,2}\s+", "", RegexOptions.IgnoreCase);
+
+            // Strip leading operation codes that got mixed into part name
+            result = Regex.Replace(result, @"^(Repl|Rpr|R&I|Blnd|Refn|O/H)\s+", "", RegexOptions.IgnoreCase);
+
+            // Strip trailing punctuation and fragments
+            result = result.Trim(' ', '-', ',', '/', '.');
+
+            // Title-case normalize, but preserve common auto body abbreviations
+            if (result.Length > 0)
+            {
+                result = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(result.ToLowerInvariant());
+                // Restore common abbreviations that ToTitleCase breaks
+                result = Regex.Replace(result, @"\bLt\b", "LT");
+                result = Regex.Replace(result, @"\bRt\b", "RT");
+                result = Regex.Replace(result, @"\bRr\b", "RR");
+                result = Regex.Replace(result, @"\bLh\b", "LH");
+                result = Regex.Replace(result, @"\bRh\b", "RH");
+                result = Regex.Replace(result, @"\bR&i\b", "R&I", RegexOptions.IgnoreCase);
+                result = Regex.Replace(result, @"\bO/h\b", "O/H", RegexOptions.IgnoreCase);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Infer operation type from description or part name when ParentOperationType is empty.
+        /// </summary>
+        private string InferOperationType(string description, string partName)
+        {
+            var combined = $"{description} {partName}";
+
+            // Check for operation type keywords (longer forms first)
+            if (Regex.IsMatch(combined, @"\b(Replace|Repl)\b", RegexOptions.IgnoreCase)) return "Replace";
+            if (Regex.IsMatch(combined, @"\b(Repair|Rpr)\b", RegexOptions.IgnoreCase)) return "Repair";
+            if (Regex.IsMatch(combined, @"\bR&I\b", RegexOptions.IgnoreCase)) return "R&I";
+            if (Regex.IsMatch(combined, @"\b(Refinish|Refn)\b", RegexOptions.IgnoreCase)) return "Refinish";
+            if (Regex.IsMatch(combined, @"\b(Blend|Blnd)\b", RegexOptions.IgnoreCase)) return "Blend";
+            if (Regex.IsMatch(combined, @"\bO/H\b", RegexOptions.IgnoreCase)) return "Overhaul";
+
+            return "";
+        }
+
+        #endregion
 
         /// <summary>
         /// Generate a key for manual line patterns
@@ -2329,12 +2646,34 @@ namespace McStudDesktop.Services
                     return pattern;
             }
 
+            // Try side-neutral match: "RT Fender" should find "LT Fender" data (same operations)
+            var sideNeutral = StripSideIndicators(partName);
+            if (sideNeutral != partName && !string.IsNullOrWhiteSpace(sideNeutral))
+            {
+                // Try all stored patterns with side stripped from both sides
+                foreach (var kvp in _database.ManualLinePatterns)
+                {
+                    var storedNeutral = StripSideIndicators(kvp.Value.ParentPartName ?? "");
+                    if (storedNeutral.Equals(sideNeutral, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Check operation type if specified
+                        if (operationType == null || string.IsNullOrEmpty(kvp.Value.ParentOperationType)
+                            || NormalizeOperationType(operationType) == NormalizeOperationType(kvp.Value.ParentOperationType))
+                            return kvp.Value;
+                    }
+                }
+            }
+
             // Try partial match - but only if part names are actually similar
             var partWords = partName.ToLowerInvariant().Split(new[] { ' ', '_' }, StringSplitOptions.RemoveEmptyEntries)
                 .ToHashSet();
 
             if (partWords.Count == 0)
                 return null;
+
+            // Side indicators aren't meaningful for matching — remove them from word comparison
+            var sideWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "lt", "rt", "lh", "rh", "left", "right" };
+            var partWordsNoSide = partWords.Where(w => !sideWords.Contains(w)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             ManualLinePattern? bestMatch = null;
             int bestScore = 0;
@@ -2344,15 +2683,17 @@ namespace McStudDesktop.Services
                 var storedPartName = kvp.Value.ParentPartName?.ToLowerInvariant() ?? "";
                 var storedWords = storedPartName.Split(new[] { ' ', '_' }, StringSplitOptions.RemoveEmptyEntries)
                     .ToHashSet();
+                var storedWordsNoSide = storedWords.Where(w => !sideWords.Contains(w)).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-                // Count overlapping words (include all words, not just 3+ char)
-                var overlap = partWords.Intersect(storedWords, StringComparer.OrdinalIgnoreCase).Count();
+                // Count overlapping non-side words
+                var overlap = partWordsNoSide.Intersect(storedWordsNoSide, StringComparer.OrdinalIgnoreCase).Count();
 
-                // Require all query words to match, or high overlap from stored side
-                if (overlap >= 1 && (overlap >= partWords.Count * 0.5 || overlap >= storedWords.Count * 0.5))
+                // Require meaningful overlap on the non-side words
+                if (overlap >= 1 && partWordsNoSide.Count > 0 && storedWordsNoSide.Count > 0
+                    && (overlap >= partWordsNoSide.Count * 0.5 || overlap >= storedWordsNoSide.Count * 0.5))
                 {
-                    // Prefer exact word count match to avoid "Fender" matching when "LT Fender" was searched
-                    var score = overlap * 100 + (partWords.Count == storedWords.Count ? 50 : 0);
+                    // Prefer matches where all non-side words match
+                    var score = overlap * 100 + (partWordsNoSide.Count == storedWordsNoSide.Count ? 50 : 0);
                     if (score > bestScore)
                     {
                         bestScore = score;
@@ -2376,6 +2717,104 @@ namespace McStudDesktop.Services
         /// Get count of manual line patterns
         /// </summary>
         public int ManualLinePatternCount => _database.ManualLinePatterns.Count;
+
+        /// <summary>
+        /// Re-process all existing stored patterns: sanitize descriptions, remove garbage,
+        /// clean part names, and infer operation types. One-time migration for existing data.
+        /// </summary>
+        public void ResanitizeAllPatterns()
+        {
+            var keysToRemove = new List<string>();
+            bool dataChanged = false;
+            int removed = 0;
+
+            foreach (var kvp in _database.ManualLinePatterns.ToList())
+            {
+                var pattern = kvp.Value;
+
+                // Sanitize parent part name
+                var cleanPartName = SanitizeParentPartName(pattern.ParentPartName);
+                if (cleanPartName != pattern.ParentPartName)
+                {
+                    pattern.ParentPartName = cleanPartName;
+                    dataChanged = true;
+                }
+
+                // Infer operation type if empty
+                if (string.IsNullOrEmpty(pattern.ParentOperationType))
+                {
+                    var inferred = InferOperationType("", pattern.ParentPartName);
+                    if (!string.IsNullOrEmpty(inferred))
+                    {
+                        pattern.ParentOperationType = inferred;
+                        dataChanged = true;
+                    }
+                }
+
+                // Sanitize each manual line entry
+                var cleanLines = new List<ManualLineEntry>();
+                foreach (var entry in pattern.ManualLines)
+                {
+                    var cleanDesc = SanitizeDescription(entry.Description);
+                    var cleanEntryPart = SanitizeParentPartName(entry.ParentPartName);
+
+                    if (cleanDesc != entry.Description || cleanEntryPart != entry.ParentPartName)
+                        dataChanged = true;
+
+                    entry.Description = cleanDesc;
+                    entry.ParentPartName = cleanEntryPart;
+
+                    if (IsGarbagePattern(entry.Description, entry.ParentPartName))
+                    {
+                        removed++;
+                        dataChanged = true;
+                        continue;
+                    }
+
+                    // Re-extract manual line type with clean description
+                    var cleanType = ExtractManualLineType(entry.Description, pattern.ParentPartName);
+                    if (cleanType != entry.ManualLineType)
+                    {
+                        entry.ManualLineType = cleanType;
+                        dataChanged = true;
+                    }
+
+                    // Sanitize wording variations
+                    var cleanVariations = entry.WordingVariations
+                        .Select(w => SanitizeDescription(w))
+                        .Where(w => !string.IsNullOrWhiteSpace(w))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    if (cleanVariations.Count != entry.WordingVariations.Count)
+                        dataChanged = true;
+                    entry.WordingVariations = cleanVariations;
+
+                    cleanLines.Add(entry);
+                }
+
+                if (cleanLines.Count == 0)
+                {
+                    keysToRemove.Add(kvp.Key);
+                    dataChanged = true;
+                }
+                else if (cleanLines.Count != pattern.ManualLines.Count)
+                {
+                    pattern.ManualLines = cleanLines;
+                    dataChanged = true;
+                }
+            }
+
+            foreach (var key in keysToRemove)
+            {
+                _database.ManualLinePatterns.Remove(key);
+            }
+
+            if (dataChanged)
+            {
+                SaveDatabase();
+                System.Diagnostics.Debug.WriteLine($"[Learning] Resanitized patterns: {removed} garbage entries removed, {keysToRemove.Count} empty patterns deleted");
+            }
+        }
 
         /// <summary>
         /// Search for manual operations by keyword (e.g., "scan", "weld", "DE-NIB", "cavity wax")
@@ -3390,7 +3829,7 @@ namespace McStudDesktop.Services
         /// <summary>
         /// Get operations that frequently co-occur with the given operation, sorted by rate descending.
         /// </summary>
-        public List<CoOccurrenceEntry> GetRelatedOperations(string partName, string operationType, int maxResults = 10)
+        public List<CoOccurrenceEntry> GetRelatedOperations(string partName, string operationType, int maxResults = 20)
         {
             _database.CoOccurrences ??= new Dictionary<string, CoOccurrenceRecord>();
 

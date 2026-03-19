@@ -365,6 +365,7 @@ namespace McStudDesktop.Services
     public class ShopDocsSettings
     {
         public string ShopName { get; set; } = "";
+        public string UserName { get; set; } = "";
         public string CustomDocsFolder { get; set; } = "";
         public bool UseCustomFolder { get; set; }
         public List<DocumentSource> DocumentSources { get; set; } = new();

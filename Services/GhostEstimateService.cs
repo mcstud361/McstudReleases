@@ -1196,29 +1196,22 @@ namespace McStudDesktop.Services
 
         private void AddRelatedOperations(GhostEstimateResult result, GhostEstimateInput input)
         {
-            var hasStructural = result.Operations.Any(o =>
-                o.PartName.Contains("pillar") ||
-                o.PartName.Contains("rail") ||
-                o.PartName.Contains("rocker") ||
-                o.PartName.Contains("apron"));
+            var engine = OperationRulesEngine.Instance;
 
-            var hasWeldedPanels = result.Operations.Any(o =>
-                o.PartName.Contains("quarter") ||
-                o.PartName.Contains("rocker") ||
-                o.PartName.Contains("pillar") ||
-                o.PartName.Contains("roof"));
+            // Build estimate context from the engine for structural/ADAS checks
+            var opTuples = result.Operations
+                .Where(o => !string.IsNullOrWhiteSpace(o.PartName))
+                .Select(o => (o.PartName, o.OperationType))
+                .ToList();
+            var estimateContext = engine.AnalyzeEstimateContext(opTuples);
+
+            var hasStructural = estimateContext.HasStructural;
 
             var hasADASComponents = result.Operations.Any(o =>
                 o.PartName.Contains("bumper") ||
                 o.PartName.Contains("grille") ||
                 o.PartName.Contains("windshield") ||
                 o.PartName.Contains("mirror"));
-
-            var hasPlasticParts = result.Operations.Any(o =>
-                o.PartName.Contains("bumper") ||
-                o.PartName.Contains("fascia") ||
-                o.PartName.Contains("valance") ||
-                o.PartName.Contains("spoiler"));
 
             // Add scan operations — use config scanning method (flat rate or labor hours)
             // Only add if not already present from other paths (learned co-occurrence, similar estimates, etc.)
@@ -1314,147 +1307,51 @@ namespace McStudDesktop.Services
                 });
             }
 
-            // Add WELDED PANEL operations — learned-first, fallback to MET times
-            if (hasWeldedPanels)
+            // Add material-aware operations via OperationRulesEngine
+            // This replaces the old hardcoded hasWeldedPanels/hasPlasticParts blocks
+            // and fixes the Cover Car bug (now triggers for ANY paint work, not just welded panels)
+            var addedOpNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Pre-populate with operations already on the estimate to avoid duplicates
+            foreach (var existingOp in result.Operations)
             {
-                var weldedCount = result.Operations.Count(o =>
-                    o.OperationType == "Replace" && (
-                    o.PartName.Contains("quarter") ||
-                    o.PartName.Contains("rocker") ||
-                    o.PartName.Contains("pillar")));
-
-                // E-Coat Removal
-                var ecoatRes = ResolveLaborTime("e-coat removal", "Body", result.VehicleType);
-                var ecoatHours = ecoatRes.HasLearnedData ? ecoatRes.Hours : 0.3m * Math.Max(1, weldedCount);
-                result.Operations.Add(new GhostOperation
-                {
-                    OperationType = "Body", PartName = "e-coat removal",
-                    Description = "Remove Factory E-Coat at Weld Flanges",
-                    Category = "Body Operations", LaborHours = ecoatHours,
-                    MinLaborHours = ecoatRes.HasLearnedData ? ecoatRes.MinHours : ecoatHours,
-                    MaxLaborHours = ecoatRes.HasLearnedData ? ecoatRes.MaxHours : ecoatHours,
-                    SampleCount = ecoatRes.SampleCount, LaborSource = ecoatRes.Source,
-                    Confidence = 0.90,
-                    Source = ecoatRes.HasLearnedData ? $"Learned from {ecoatRes.SampleCount} estimates" : "MET: Body Operations - DEG: protective coatings NOT INCLUDED"
-                });
-
-                // Weld-Through Primer
-                var wtpRes = ResolveLaborTime("weld-through primer", "Body", result.VehicleType);
-                var wtpHours = wtpRes.HasLearnedData ? wtpRes.Hours : 0.2m * Math.Max(1, weldedCount);
-                result.Operations.Add(new GhostOperation
-                {
-                    OperationType = "Body", PartName = "weld-through primer",
-                    Description = "Weld-Through Primer Application",
-                    Category = "Body Operations", LaborHours = wtpHours,
-                    MinLaborHours = wtpRes.HasLearnedData ? wtpRes.MinHours : wtpHours,
-                    MaxLaborHours = wtpRes.HasLearnedData ? wtpRes.MaxHours : wtpHours,
-                    SampleCount = wtpRes.SampleCount, LaborSource = wtpRes.Source,
-                    Confidence = 0.90,
-                    Source = wtpRes.HasLearnedData ? $"Learned from {wtpRes.SampleCount} estimates" : "MET: Body Operations - Mitchell CEG: NOT INCLUDED"
-                });
-
-                // Cover Vehicle from Weld Sparks
-                var coverRes = ResolveLaborTime("cover car", "Body", result.VehicleType);
-                var coverHours = coverRes.HasLearnedData ? coverRes.Hours : 0.5m;
-                result.Operations.Add(new GhostOperation
-                {
-                    OperationType = "Body", PartName = "cover car",
-                    Description = "Cover Vehicle from Weld Spark Damage",
-                    Category = "Body Operations", LaborHours = coverHours,
-                    MinLaborHours = coverRes.HasLearnedData ? coverRes.MinHours : coverHours,
-                    MaxLaborHours = coverRes.HasLearnedData ? coverRes.MaxHours : coverHours,
-                    SampleCount = coverRes.SampleCount, LaborSource = coverRes.Source,
-                    Confidence = 0.85,
-                    Source = coverRes.HasLearnedData ? $"Learned from {coverRes.SampleCount} estimates" : "DEG Inquiry 13434 - NOT INCLUDED"
-                });
-
-                // Seam Sealer
-                var sealerRes = ResolveLaborTime("seam sealer", "Body", result.VehicleType);
-                var sealerHours = sealerRes.HasLearnedData ? sealerRes.Hours : 0.3m * Math.Max(1, weldedCount);
-                result.Operations.Add(new GhostOperation
-                {
-                    OperationType = "Body", PartName = "seam sealer",
-                    Description = "Seam Sealer Application (Beyond Attachment Points)",
-                    Category = "Body Operations", LaborHours = sealerHours,
-                    MinLaborHours = sealerRes.HasLearnedData ? sealerRes.MinHours : sealerHours,
-                    MaxLaborHours = sealerRes.HasLearnedData ? sealerRes.MaxHours : sealerHours,
-                    SampleCount = sealerRes.SampleCount, LaborSource = sealerRes.Source,
-                    Confidence = 0.85,
-                    Source = sealerRes.HasLearnedData ? $"Learned from {sealerRes.SampleCount} estimates" : "DEG Inquiry 23010 - additional seam sealer NOT INCLUDED"
-                });
-
-                // Cavity Wax / Anti-Corrosion
-                var cavityRes = ResolveLaborTime("cavity wax", "Body", result.VehicleType);
-                var cavityHours = cavityRes.HasLearnedData ? cavityRes.Hours : 0.5m * Math.Max(1, weldedCount);
-                result.Operations.Add(new GhostOperation
-                {
-                    OperationType = "Body", PartName = "cavity wax",
-                    Description = "Cavity Wax / Anti-Corrosion Treatment",
-                    Category = "Body Operations", LaborHours = cavityHours,
-                    MinLaborHours = cavityRes.HasLearnedData ? cavityRes.MinHours : cavityHours,
-                    MaxLaborHours = cavityRes.HasLearnedData ? cavityRes.MaxHours : cavityHours,
-                    SampleCount = cavityRes.SampleCount, LaborSource = cavityRes.Source,
-                    Confidence = 0.90,
-                    Source = cavityRes.HasLearnedData ? $"Learned from {cavityRes.SampleCount} estimates" : "Mitchell CEG G31 - corrosion protection NOT INCLUDED"
-                });
+                if (!string.IsNullOrWhiteSpace(existingOp.PartName))
+                    addedOpNames.Add(existingOp.PartName);
             }
 
-            // Add PLASTIC PART operations — learned-first, fallback to formulas
-            if (hasPlasticParts)
+            foreach (var op in result.Operations.ToList())
             {
-                var plasticPanels = result.Operations.Where(o =>
-                    (o.OperationType == "Replace" || o.OperationType == "Refinish") &&
-                    (o.PartName.Contains("bumper") || o.PartName.Contains("fascia"))).ToList();
+                if (string.IsNullOrWhiteSpace(op.PartName)) continue;
 
-                if (plasticPanels.Any())
+                var suggestions = engine.GetSuggestedOperations(op.PartName, op.OperationType);
+                foreach (var suggestion in suggestions)
                 {
-                    var totalRefinishHours = plasticPanels.Sum(p => p.RefinishHours > 0 ? p.RefinishHours : 2.5m);
+                    // Dedup: skip if this operation name was already added
+                    if (!addedOpNames.Add(suggestion.Name)) continue;
 
-                    // Adhesion Promoter
-                    var adhRes = ResolveLaborTime("adhesion promoter", "Paint", result.VehicleType);
-                    var adhesionHours = adhRes.HasLearnedData ? adhRes.Hours : Math.Min(0.5m, Math.Max(0.2m, totalRefinishHours * 0.10m));
+                    // Use learned data first, fall back to engine defaults
+                    var isPaintOp = suggestion.OperationType == "Paint";
+                    var resolved = ResolveLaborTime(suggestion.Name, suggestion.OperationType, result.VehicleType);
+                    var hours = resolved.HasLearnedData ? resolved.Hours : suggestion.DefaultHours;
+
                     result.Operations.Add(new GhostOperation
                     {
-                        OperationType = "Paint", PartName = "adhesion promoter",
-                        Description = "Adhesion Promoter (Plastic Parts)",
-                        Category = "Refinish Operations", RefinishHours = adhesionHours,
-                        SampleCount = adhRes.SampleCount, LaborSource = adhRes.Source,
-                        Confidence = 0.95,
-                        Source = adhRes.HasLearnedData ? $"Learned from {adhRes.SampleCount} estimates" : "Mitchell CEG Section 22 - plastic NOT INCLUDED"
-                    });
-
-                    // Flex Additive
-                    var flexRes = ResolveLaborTime("flex additive", "Paint", result.VehicleType);
-                    var flexHours = flexRes.HasLearnedData ? flexRes.Hours : 0.2m;
-                    result.Operations.Add(new GhostOperation
-                    {
-                        OperationType = "Paint", PartName = "flex additive",
-                        Description = "Flex Additive (First Large Plastic Part)",
-                        Category = "Refinish Operations", RefinishHours = flexHours,
-                        SampleCount = flexRes.SampleCount, LaborSource = flexRes.Source,
-                        Confidence = 0.95,
-                        Source = flexRes.HasLearnedData ? $"Learned from {flexRes.SampleCount} estimates" : "MET: Part Operations - flexible paint NOT INCLUDED"
+                        OperationType = suggestion.OperationType,
+                        PartName = suggestion.Name,
+                        Description = suggestion.Description,
+                        Category = suggestion.Category,
+                        LaborHours = isPaintOp ? 0m : hours,
+                        RefinishHours = isPaintOp ? hours : 0m,
+                        MinLaborHours = resolved.HasLearnedData ? resolved.MinHours : (isPaintOp ? 0m : hours),
+                        MaxLaborHours = resolved.HasLearnedData ? resolved.MaxHours : (isPaintOp ? 0m : hours),
+                        SampleCount = resolved.SampleCount,
+                        LaborSource = resolved.Source,
+                        Confidence = resolved.HasLearnedData ? resolved.Confidence : 0.90,
+                        Source = resolved.HasLearnedData
+                            ? $"Learned from {resolved.SampleCount} estimates"
+                            : suggestion.Source
                     });
                 }
-            }
-
-            // Add corrosion protection for all replaced panels
-            var replacedPanels = result.Operations.Where(o => o.OperationType == "Replace").ToList();
-            if (replacedPanels.Any() && !hasWeldedPanels)
-            {
-                var corrRes = ResolveLaborTime("corrosion protection", "Body", result.VehicleType);
-                var corrHours = corrRes.HasLearnedData ? corrRes.Hours : 0.2m * replacedPanels.Count;
-                result.Operations.Add(new GhostOperation
-                {
-                    OperationType = "Body", PartName = "corrosion protection",
-                    Description = "Corrosion Protection - Hem Flanges",
-                    Category = "Body Operations", LaborHours = corrHours,
-                    MinLaborHours = corrRes.HasLearnedData ? corrRes.MinHours : corrHours,
-                    MaxLaborHours = corrRes.HasLearnedData ? corrRes.MaxHours : corrHours,
-                    SampleCount = corrRes.SampleCount, LaborSource = corrRes.Source,
-                    Confidence = 0.90,
-                    Source = corrRes.HasLearnedData ? $"Learned from {corrRes.SampleCount} estimates" : "Mitchell CEG G31 - hem flange protection NOT INCLUDED"
-                });
             }
         }
 
@@ -1565,41 +1462,87 @@ namespace McStudDesktop.Services
                 });
             }
 
-            // Feather, Prime & Block for REPAIR panels
-            if (hasRepairPanels)
+            // Per-panel refinish operations (Buff, DE-NIB, Feather Edge) using actual hours
             {
-                var repairPanelCount = result.Operations.Count(o => o.OperationType == "Repair");
-                var fpbRes = ResolveLaborTime("feather prime block", "Paint", "");
-                var fpbHours = fpbRes.HasLearnedData ? fpbRes.Hours : 0.5m * repairPanelCount;
-                result.Operations.Add(new GhostOperation
-                {
-                    OperationType = "Paint", PartName = "feather prime block",
-                    Description = "Feather, Prime & Block (Repair Panels)",
-                    Category = "Refinish Operations", RefinishHours = fpbHours,
-                    MinRefinishHours = fpbRes.HasLearnedData ? fpbRes.MinHours : fpbHours,
-                    MaxRefinishHours = fpbRes.HasLearnedData ? fpbRes.MaxHours : fpbHours,
-                    SampleCount = fpbRes.SampleCount, LaborSource = fpbRes.Source,
-                    Confidence = 0.90,
-                    Source = fpbRes.HasLearnedData ? $"Learned from {fpbRes.SampleCount} estimates" : "Mitchell CEG Section 28 - NOT INCLUDED"
-                });
-            }
+                var engine = OperationRulesEngine.Instance;
+                var addedRefinishOps = new Dictionary<string, GhostOperation>(StringComparer.OrdinalIgnoreCase);
+                bool isFirstPanel = true;
 
-            // DE-NIB if refinishing
-            if (panelsNeedingRefinish.Any())
-            {
-                var denibRes = ResolveLaborTime("denib", "Paint", "");
-                var denibHours = denibRes.HasLearnedData ? denibRes.Hours : 0.3m;
-                result.Operations.Add(new GhostOperation
+                foreach (var panel in panelsNeedingRefinish)
                 {
-                    OperationType = "Paint", PartName = "denib",
-                    Description = "DE-NIB & Polish",
-                    Category = "Refinish Operations", RefinishHours = denibHours,
-                    MinRefinishHours = denibRes.HasLearnedData ? denibRes.MinHours : denibHours,
-                    MaxRefinishHours = denibRes.HasLearnedData ? denibRes.MaxHours : denibHours,
-                    SampleCount = denibRes.SampleCount, LaborSource = denibRes.Source,
-                    Confidence = 0.85,
-                    Source = denibRes.HasLearnedData ? $"Learned from {denibRes.SampleCount} estimates" : "MET: Part Operations - denib NOT INCLUDED"
-                });
+                    // Get this panel's actual refinish and repair hours from already-generated operations
+                    var panelOps = result.Operations.Where(o =>
+                        o.PartName.Equals(panel, StringComparison.OrdinalIgnoreCase)).ToList();
+                    var panelRefinishHours = panelOps
+                        .Where(o => o.OperationType == "Rfn" || o.OperationType == "Refinish" || o.OperationType == "Blend")
+                        .Sum(o => o.RefinishHours);
+                    var panelRepairHours = panelOps
+                        .Where(o => o.OperationType == "Repair")
+                        .Sum(o => o.LaborHours);
+                    var panelOpType = panelOps.FirstOrDefault()?.OperationType ?? "Replace";
+
+                    var refinishSuggestions = engine.GetRefinishSuggestedOperations(
+                        panel, panelOpType, panelRefinishHours, panelRepairHours, isFirstPanel);
+
+                    foreach (var suggestion in refinishSuggestions)
+                    {
+                        var key = suggestion.Name;
+
+                        // Learned data check: if learned data exists for this op, use it instead
+                        var resolved = ResolveLaborTime(key, "Paint", result.VehicleType);
+                        if (resolved.HasLearnedData)
+                        {
+                            // Only add once with learned hours (not per-panel)
+                            if (addedRefinishOps.ContainsKey(key)) continue;
+                            var op = new GhostOperation
+                            {
+                                OperationType = "Paint",
+                                PartName = key,
+                                Description = suggestion.Description,
+                                Category = "Refinish Operations",
+                                RefinishHours = resolved.Hours,
+                                MinRefinishHours = resolved.MinHours,
+                                MaxRefinishHours = resolved.MaxHours,
+                                SampleCount = resolved.SampleCount,
+                                LaborSource = resolved.Source,
+                                Confidence = 0.90,
+                                Source = $"Learned from {resolved.SampleCount} estimates"
+                            };
+                            addedRefinishOps[key] = op;
+                            result.Operations.Add(op);
+                        }
+                        else
+                        {
+                            // Use calculated percentage hours — accumulate per panel
+                            if (addedRefinishOps.TryGetValue(key, out var existing))
+                            {
+                                existing.RefinishHours += suggestion.DefaultHours;
+                                existing.MinRefinishHours += suggestion.DefaultHours;
+                                existing.MaxRefinishHours += suggestion.DefaultHours;
+                            }
+                            else
+                            {
+                                var op = new GhostOperation
+                                {
+                                    OperationType = "Paint",
+                                    PartName = key,
+                                    Description = suggestion.Description,
+                                    Category = "Refinish Operations",
+                                    RefinishHours = suggestion.DefaultHours,
+                                    MinRefinishHours = suggestion.DefaultHours,
+                                    MaxRefinishHours = suggestion.DefaultHours,
+                                    SampleCount = 0,
+                                    LaborSource = "fallback",
+                                    Confidence = 0.85,
+                                    Source = suggestion.Source
+                                };
+                                addedRefinishOps[key] = op;
+                                result.Operations.Add(op);
+                            }
+                        }
+                    }
+                    isFirstPanel = false;
+                }
             }
 
             // Add overlap deduction note for multiple adjacent panels

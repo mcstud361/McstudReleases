@@ -200,6 +200,9 @@ namespace McstudDesktop.Services
             // 2. Excel Tool suggestions (from shop's estimating tool data)
             var excelSuggestions = GetExcelToolSuggestions(parsedLines);
 
+            // 2.5 Rules Engine suggestions (material + op-type aware)
+            var rulesSuggestions = GetRulesEngineSuggestions(parsedLines);
+
             // 3. Knowledge Base suggestions (missing ops detection)
             var kbSuggestions = GetKnowledgeBaseSuggestions(parsedLines);
 
@@ -236,6 +239,17 @@ namespace McstudDesktop.Services
                 seenKeys.Add(key);
                 excel.Id = key;
                 suggestions.Add(excel);
+            }
+
+            // 2.5. Rules Engine suggestions (High — material + operation-type aware)
+            foreach (var rule in rulesSuggestions)
+            {
+                var key = NormalizeKey(rule.Category, rule.Title);
+                if (seenKeys.Contains(key)) continue;
+                if (IsFuzzyDuplicate(key, seenKeys)) continue;
+                seenKeys.Add(key);
+                rule.Id = key;
+                suggestions.Add(rule);
             }
 
             // 3. Knowledge Base suggestions (High — structural/procedural requirements)
@@ -420,7 +434,8 @@ namespace McstudDesktop.Services
             var combined = lowerRaw + " " + opsText;
 
             var hasRefinish = _refinishKeywords.Any(kw => combined.Contains(kw)) ||
-                              structuredOps.Any(o => o.RefinishHours > 0);
+                              structuredOps.Any(o => o.RefinishHours > 0) ||
+                              structuredOps.Any(o => OperationRulesEngine.Instance.InvolvesPaint(o.OperationType));
             var hasAdas = _adasKeywords.Any(kw => combined.Contains(kw));
             var hasEnoughOps = structuredOps.Count >= 3;
 
@@ -523,7 +538,7 @@ namespace McstudDesktop.Services
                 var queryResult = learningService.QueryOperationsForPart(op.PartName, op.OperationType);
                 foreach (var suggested in queryResult.SuggestedOperations)
                 {
-                    if (suggested.Confidence < 0.4 || suggested.TimesUsed < 2) continue;
+                    if (suggested.Confidence < 0.2 || suggested.TimesUsed < 1) continue;
                     if (string.IsNullOrWhiteSpace(suggested.OperationType)) continue;
                     var key = $"{suggested.PartName}|{suggested.OperationType}".ToLowerInvariant();
                     if (!seenKeys.Add(key)) continue;
@@ -537,7 +552,9 @@ namespace McstudDesktop.Services
                         Description = !string.IsNullOrEmpty(suggested.Description) ? suggested.Description : $"Commonly done with {op.OperationType} {op.PartName}.",
                         WhyNeeded = $"Found in {suggested.TimesUsed} past estimates ({suggested.Confidence:P0} of the time) when {op.OperationType} {op.PartName} is present.",
                         Category = !string.IsNullOrEmpty(suggested.Category) ? suggested.Category : "Learned Patterns",
-                        Severity = suggested.Confidence >= 0.7 ? CoachingSeverity.High : CoachingSeverity.Medium,
+                        Severity = suggested.Confidence >= 0.85 ? CoachingSeverity.Critical
+                                 : suggested.Confidence >= 0.5 ? CoachingSeverity.High
+                                 : CoachingSeverity.Medium,
                         TriggeredBy = op.PartName,
                         EstimatedCost = sugCost,
                         LaborHours = suggested.TypicalLaborHours,
@@ -549,7 +566,7 @@ namespace McstudDesktop.Services
                 var related = learningService.GetRelatedOperations(op.PartName, op.OperationType ?? "Replace");
                 foreach (var coOp in related)
                 {
-                    if (coOp.TimesSeenTogether < 2) continue;
+                    if (coOp.TimesSeenTogether < 1) continue;
                     // Skip co-occurrences with no operation type — those are parts, not labor
                     if (string.IsNullOrWhiteSpace(coOp.OperationType)) continue;
                     if (!_validOpTypes.Contains(coOp.OperationType.Trim())) continue;
@@ -563,9 +580,11 @@ namespace McstudDesktop.Services
                     {
                         Title = $"{coOp.OperationType} {coOp.PartName}".Trim(),
                         Description = $"Co-occurs with {op.OperationType} {op.PartName} in past estimates.",
-                        WhyNeeded = $"Seen together {coOp.TimesSeenTogether} times in uploaded estimates.",
+                        WhyNeeded = $"Present in {coOp.CoOccurrenceRate:P0} of estimates with {op.OperationType} {op.PartName}.",
                         Category = "Learned Patterns",
-                        Severity = coOp.CoOccurrenceRate >= 0.7 ? CoachingSeverity.High : CoachingSeverity.Medium,
+                        Severity = coOp.CoOccurrenceRate >= 0.85 ? CoachingSeverity.Critical
+                                 : coOp.CoOccurrenceRate >= 0.5 ? CoachingSeverity.High
+                                 : CoachingSeverity.Medium,
                         TriggeredBy = op.PartName,
                         EstimatedCost = coOpCost,
                         LaborHours = coOp.AvgLaborHours,
@@ -622,6 +641,121 @@ namespace McstudDesktop.Services
                     LaborHours = laborHours,
                     Source = "Excel Tool"
                 });
+            }
+
+            return suggestions;
+        }
+
+        /// <summary>
+        /// Queries the OperationRulesEngine for material-aware operation suggestions.
+        /// Classifies each part by material type and suggests operations based on
+        /// material + operation type (e.g., plastic → adhesion promoter, welded → e-coat).
+        /// </summary>
+        private List<CoachingSuggestion> GetRulesEngineSuggestions(List<ParsedEstimateLine> structuredOps)
+        {
+            var engine = OperationRulesEngine.Instance;
+            var learningService = EstimateLearningService.Instance;
+            var suggestions = new List<CoachingSuggestion>();
+            var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var op in structuredOps)
+            {
+                if (string.IsNullOrWhiteSpace(op.PartName)) continue;
+
+                var suggested = engine.GetSuggestedOperations(op.PartName, op.OperationType);
+                foreach (var s in suggested)
+                {
+                    if (!seenNames.Add(s.Name)) continue;
+
+                    // Check if this operation is already on the estimate
+                    var alreadyOnEstimate = structuredOps.Any(e =>
+                        e.PartName != null && e.PartName.Contains(s.Name, StringComparison.OrdinalIgnoreCase));
+                    if (alreadyOnEstimate) continue;
+
+                    // Use learned data from uploaded estimates when available
+                    var learnedStats = learningService.GetOperationStats(s.Name);
+                    var hasLearned = learnedStats.TotalOccurrences > 0 && learnedStats.AvgLaborHours > 0;
+                    var hours = hasLearned ? (decimal)learnedStats.AvgLaborHours : s.DefaultHours;
+                    var dataSource = "Rules Engine";
+
+                    if (hasLearned)
+                    {
+                        dataSource = $"Rules Engine + Learned ({learnedStats.TotalOccurrences} estimates)";
+                    }
+                    else
+                    {
+                        // Fall back to Excel tool data if no learned data
+                        var excelLookup = _excelProvider.LookupForGhost(s.Name, s.OperationType);
+                        if (excelLookup.Found)
+                        {
+                            var excelHours = excelLookup.LaborHours + excelLookup.RefinishHours;
+                            if (excelHours > 0)
+                                hours = excelHours;
+                            dataSource = $"Rules Engine + Excel Tool ({excelLookup.SheetName})";
+                        }
+                    }
+
+                    var cost = ComputeCostFromHours(hours, s.Name, s.OperationType);
+
+                    suggestions.Add(new CoachingSuggestion
+                    {
+                        Title = s.Name,
+                        Description = s.Description + " — " + s.WhyNeeded,
+                        WhyNeeded = s.WhyNeeded,
+                        Category = s.Category,
+                        Severity = CoachingSeverity.High,
+                        TriggeredBy = op.PartName,
+                        EstimatedCost = cost,
+                        LaborHours = hours,
+                        Source = dataSource
+                    });
+                }
+            }
+
+            // Second pass: percentage-based refinish operations (Buff, DE-NIB, Feather Edge)
+            bool isFirstPanel = true;
+            var addedRefinishOps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var op in structuredOps)
+            {
+                if (string.IsNullOrWhiteSpace(op.PartName)) continue;
+                if (!engine.InvolvesPaint(op.OperationType)) continue;
+
+                var refinishSuggestions = engine.GetRefinishSuggestedOperations(
+                    op.PartName, op.OperationType, op.RefinishHours, op.LaborHours, isFirstPanel);
+
+                foreach (var s in refinishSuggestions)
+                {
+                    if (!addedRefinishOps.Add(s.Name)) continue; // show once
+
+                    // Skip if already on estimate
+                    if (structuredOps.Any(e => e.PartName != null &&
+                        e.PartName.Contains(s.Name, StringComparison.OrdinalIgnoreCase))) continue;
+
+                    // Use learned data if available, else formula hours
+                    var learnedStats = learningService.GetOperationStats(s.Name);
+                    var hasLearned = learnedStats.TotalOccurrences > 0 && learnedStats.AvgLaborHours > 0;
+                    var hours = hasLearned ? (decimal)learnedStats.AvgLaborHours : s.DefaultHours;
+                    var dataSource = hasLearned
+                        ? $"Rules Engine + Learned ({learnedStats.TotalOccurrences} estimates)"
+                        : "Rules Engine (percentage formula)";
+
+                    var cost = ComputeCostFromHours(hours, s.Name, s.OperationType);
+
+                    suggestions.Add(new CoachingSuggestion
+                    {
+                        Title = s.Name,
+                        Description = s.Description + " — " + s.WhyNeeded,
+                        WhyNeeded = s.WhyNeeded,
+                        Category = s.Category,
+                        Severity = CoachingSeverity.High,
+                        TriggeredBy = op.PartName,
+                        EstimatedCost = cost,
+                        LaborHours = hours,
+                        Source = dataSource
+                    });
+                }
+                isFirstPanel = false;
             }
 
             return suggestions;
@@ -764,7 +898,8 @@ namespace McstudDesktop.Services
             "r&i", "r/i", "r+i", "ri", "overhaul", "o/h", "align", "algn",
             "sublet", "subl", "inspect", "scan", "calibrate", "calibration",
             "diagnostic", "setup", "test", "check", "verify", "clean", "wash",
-            "mask", "cover", "tint", "prime", "block", "sand"
+            "mask", "cover", "tint", "prime", "block", "sand",
+            "add", "additional", "cost", "adjust", "aim"
         };
 
         /// <summary>

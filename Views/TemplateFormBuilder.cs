@@ -50,9 +50,12 @@ public class TemplateFormBuilder : UserControl
 
     private ShopDocTemplate? _currentTemplate;
     private bool _isEditMode;
+    private bool _showingUserTemplates;
 
     // UI Elements
     private ComboBox? _templateSelector;
+    private Button? _templatesTabBtn;
+    private Button? _myTemplatesTabBtn;
     private Button? _makeCopyButton;
     private Button? _editButton;
     private Button? _saveButton;
@@ -134,30 +137,48 @@ public class TemplateFormBuilder : UserControl
 
         var headerStack = new StackPanel { Spacing = 12 };
 
+        // Tab buttons row (Templates vs My Templates)
+        var tabRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5 };
+
+        _templatesTabBtn = new Button
+        {
+            Content = "\U0001F4CB Templates",
+            Padding = new Thickness(15, 6, 15, 6),
+            Background = new SolidColorBrush(AccentBlue),
+            Foreground = new SolidColorBrush(Colors.White),
+            FontSize = 12
+        };
+        _templatesTabBtn.Click += (s, e) => SwitchTemplateTab(false);
+        tabRow.Children.Add(_templatesTabBtn);
+
+        _myTemplatesTabBtn = new Button
+        {
+            Content = "\u2B50 My Templates",
+            Padding = new Thickness(15, 6, 15, 6),
+            Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+            Foreground = new SolidColorBrush(Colors.White),
+            FontSize = 12
+        };
+        _myTemplatesTabBtn.Click += (s, e) => SwitchTemplateTab(true);
+        tabRow.Children.Add(_myTemplatesTabBtn);
+
+        headerStack.Children.Add(tabRow);
+
         // Template selection row
         var selectorRow = new Grid();
         selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         // Template dropdown
-        var selectorStack = new StackPanel { Spacing = 4 };
-        selectorStack.Children.Add(new TextBlock
-        {
-            Text = "Template",
-            FontSize = 11,
-            Foreground = new SolidColorBrush(TextGray)
-        });
-
         _templateSelector = new ComboBox
         {
             MinWidth = 300,
             PlaceholderText = "Select a template..."
         };
         _templateSelector.SelectionChanged += OnTemplateSelectionChanged;
-        selectorStack.Children.Add(_templateSelector);
 
-        Grid.SetColumn(selectorStack, 0);
-        selectorRow.Children.Add(selectorStack);
+        Grid.SetColumn(_templateSelector, 0);
+        selectorRow.Children.Add(_templateSelector);
 
         // Action buttons
         var buttonsStack = new StackPanel
@@ -254,60 +275,71 @@ public class TemplateFormBuilder : UserControl
         return headerCard;
     }
 
+    private void SwitchTemplateTab(bool showUser)
+    {
+        _showingUserTemplates = showUser;
+
+        if (_templatesTabBtn != null)
+        {
+            _templatesTabBtn.Background = new SolidColorBrush(
+                showUser ? Color.FromArgb(255, 50, 50, 50) : AccentBlue);
+        }
+        if (_myTemplatesTabBtn != null)
+        {
+            _myTemplatesTabBtn.Background = new SolidColorBrush(
+                showUser ? AccentBlue : Color.FromArgb(255, 50, 50, 50));
+        }
+
+        LoadTemplates();
+    }
+
     private void LoadTemplates()
     {
         if (_templateSelector == null) return;
 
         _templateSelector.Items.Clear();
 
-        // Add originals
-        var originals = _templateService.GetOriginalTemplates(_docType);
-        if (originals.Any())
+        if (_showingUserTemplates)
         {
-            _templateSelector.Items.Add(new ComboBoxItem
+            var userTemplates = _templateService.GetUserTemplates(_docType);
+            if (userTemplates.Any())
             {
-                Content = "— ORIGINAL TEMPLATES —",
-                IsEnabled = false,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(AccentBlue)
-            });
-
+                foreach (var template in userTemplates)
+                {
+                    _templateSelector.Items.Add(new ComboBoxItem
+                    {
+                        Content = template.Name,
+                        Tag = template
+                    });
+                }
+            }
+            else
+            {
+                _templateSelector.Items.Add(new ComboBoxItem
+                {
+                    Content = "(No custom templates yet)",
+                    Tag = null,
+                    IsEnabled = false
+                });
+            }
+        }
+        else
+        {
+            var originals = _templateService.GetOriginalTemplates(_docType);
             foreach (var template in originals)
             {
                 _templateSelector.Items.Add(new ComboBoxItem
                 {
-                    Content = $"  {template.Name}",
-                    Tag = template
-                });
-            }
-        }
-
-        // Add user templates
-        var userTemplates = _templateService.GetUserTemplates(_docType);
-        if (userTemplates.Any())
-        {
-            _templateSelector.Items.Add(new ComboBoxItem
-            {
-                Content = "— MY TEMPLATES —",
-                IsEnabled = false,
-                FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(AccentGreen)
-            });
-
-            foreach (var template in userTemplates)
-            {
-                _templateSelector.Items.Add(new ComboBoxItem
-                {
-                    Content = $"  {template.Name}",
+                    Content = template.Name,
                     Tag = template
                 });
             }
         }
 
         // Auto-select first template
-        if (_templateSelector.Items.Count > 1)
+        if (_templateSelector.Items.Count > 0)
         {
-            _templateSelector.SelectedIndex = 1;
+            _templateSelector.SelectedIndex = 0;
         }
     }
 

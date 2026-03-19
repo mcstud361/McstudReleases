@@ -228,6 +228,7 @@ public class ChatbotView : UserControl
 
         var headerStack = new StackPanel { Spacing = 8 };
 
+        var userName = ShopDocsSettingsService.Instance.GetSettings().UserName ?? "";
         var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         titleRow.Children.Add(new TextBlock
         {
@@ -236,7 +237,9 @@ public class ChatbotView : UserControl
         });
         titleRow.Children.Add(new TextBlock
         {
-            Text = "McStud Estimating Assistant",
+            Text = string.IsNullOrWhiteSpace(userName)
+                ? "McStud Estimating Assistant"
+                : $"Hey {userName}, let's build an estimate",
             FontSize = 22,
             FontWeight = Microsoft.UI.Text.FontWeights.Bold,
             Foreground = new SolidColorBrush(Colors.White)
@@ -245,7 +248,9 @@ public class ChatbotView : UserControl
 
         headerStack.Children.Add(new TextBlock
         {
-            Text = "Your AI-powered partner for comprehensive collision estimates. Ask questions, build operations, or explore the tabs above for specialized tools.",
+            Text = string.IsNullOrWhiteSpace(userName)
+                ? "Your AI-powered partner for comprehensive collision estimates. Ask questions, build operations, or explore the tabs above for specialized tools."
+                : "Ask questions, build operations, or explore the tabs above for specialized tools.",
             FontSize = 13,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 190, 200)),
             TextWrapping = TextWrapping.Wrap
@@ -791,7 +796,7 @@ public class ChatbotView : UserControl
 
         // Tab labels
         _chatTabButton = CreateTabButton("\uD83D\uDCAC Chat", "Ask questions", 0, true);
-        _estimateBuilderTabButton = CreateTabButton("\uD83D\uDCCB Estimate Builder", "Browse & build", 1, false);
+        _estimateBuilderTabButton = CreateTabButton("\uD83D\uDCCB Learned", "Look up operations", 1, false);
         _ghostTabButton = CreateTabButton("\uD83D\uDC7B Ghost Compare", "AI training", 2, false);
         _screenMonitorTabButton = CreateTabButton("\uD83D\uDDA5 Screen OCR", "Monitor screen", 3, false);
 
@@ -2016,6 +2021,14 @@ public class ChatbotView : UserControl
             McStudDesktop.Services.EstimatePersistenceHelper.PersistAndMine(
                 McStudDesktop.Services.EstimatePersistenceHelper.ConvertFromOcr(ocrResult));
         }
+    }
+
+    /// <summary>
+    /// Focuses the chat input box programmatically.
+    /// </summary>
+    public void FocusInput()
+    {
+        _inputBox?.Focus(FocusState.Programmatic);
     }
 
     private void AddOperationActionButtons()

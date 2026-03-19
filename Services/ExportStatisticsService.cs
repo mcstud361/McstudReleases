@@ -89,6 +89,30 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Record a LEARN event (estimate trained/learned from Import tab)
+        /// </summary>
+        public void RecordLearn(int partsLearned, int manualOpsLearned, decimal estimateValue)
+        {
+            lock (_lock)
+            {
+                var record = new TransactionRecord
+                {
+                    Timestamp = DateTime.Now,
+                    Type = TransactionType.Learn,
+                    UserId = GetCurrentUserId(),
+                    Source = "Import",
+                    OperationCount = partsLearned + manualOpsLearned,
+                    TotalPrice = estimateValue,
+                    TotalLabor = 0,
+                    TotalPaint = 0
+                };
+
+                _data.Transactions.Add(record);
+                SaveStats();
+            }
+        }
+
+        /// <summary>
         /// Get IMPORT statistics for a period
         /// </summary>
         public PeriodStats GetImportStats(StatsPeriod period)
@@ -121,6 +145,7 @@ namespace McStudDesktop.Services
             }
 
             var exportsList = exports.ToList();
+            var learns = FilterByPeriod(_data.Transactions.Where(t => t.Type == TransactionType.Learn), period).ToList();
 
             return new CombinedStats
             {
@@ -140,6 +165,10 @@ namespace McStudDesktop.Services
                 ExportPrice = exportsList.Sum(r => r.TotalPrice),
                 ExportLabor = exportsList.Sum(r => r.TotalLabor),
                 ExportPaint = exportsList.Sum(r => r.TotalPaint),
+
+                // Learn totals
+                LearnCount = learns.Count,
+                LearnOperations = learns.Sum(r => r.OperationCount),
 
                 // Target breakdown (always show all targets)
                 CCCDesktopOps = FilterByPeriod(_data.Transactions.Where(t => t.Type == TransactionType.Export && t.Target == "CCC Desktop"), period).Sum(r => r.OperationCount),
@@ -208,7 +237,9 @@ namespace McStudDesktop.Services
                     ImportLabor = g.Where(t => t.Type == TransactionType.Import).Sum(t => t.TotalLabor),
                     ExportLabor = g.Where(t => t.Type == TransactionType.Export).Sum(t => t.TotalLabor),
                     ImportPaint = g.Where(t => t.Type == TransactionType.Import).Sum(t => t.TotalPaint),
-                    ExportPaint = g.Where(t => t.Type == TransactionType.Export).Sum(t => t.TotalPaint)
+                    ExportPaint = g.Where(t => t.Type == TransactionType.Export).Sum(t => t.TotalPaint),
+                    LearnCount = g.Count(t => t.Type == TransactionType.Learn),
+                    LearnOperations = g.Where(t => t.Type == TransactionType.Learn).Sum(t => t.OperationCount)
                 })
                 .OrderByDescending(d => d.Date)
                 .ToList();
@@ -315,7 +346,9 @@ namespace McStudDesktop.Services
                     ImportLabor = g.Where(t => t.Type == TransactionType.Import).Sum(t => t.TotalLabor),
                     ExportLabor = g.Where(t => t.Type == TransactionType.Export).Sum(t => t.TotalLabor),
                     ImportPaint = g.Where(t => t.Type == TransactionType.Import).Sum(t => t.TotalPaint),
-                    ExportPaint = g.Where(t => t.Type == TransactionType.Export).Sum(t => t.TotalPaint)
+                    ExportPaint = g.Where(t => t.Type == TransactionType.Export).Sum(t => t.TotalPaint),
+                    LearnCount = g.Count(t => t.Type == TransactionType.Learn),
+                    LearnOperations = g.Where(t => t.Type == TransactionType.Learn).Sum(t => t.OperationCount)
                 })
                 .OrderByDescending(d => d.Date)
                 .ToList();
@@ -435,6 +468,7 @@ namespace McStudDesktop.Services
             }
 
             var exportsList = exports.ToList();
+            var learns = FilterByPeriod(baseTransactions.Where(t => t.Type == TransactionType.Learn), period).ToList();
 
             return new CombinedStats
             {
@@ -452,6 +486,9 @@ namespace McStudDesktop.Services
                 ExportPrice = exportsList.Sum(r => r.TotalPrice),
                 ExportLabor = exportsList.Sum(r => r.TotalLabor),
                 ExportPaint = exportsList.Sum(r => r.TotalPaint),
+
+                LearnCount = learns.Count,
+                LearnOperations = learns.Sum(r => r.OperationCount),
 
                 CCCDesktopOps = FilterByPeriod(baseTransactions.Where(t => t.Type == TransactionType.Export && t.Target == "CCC Desktop"), period).Sum(r => r.OperationCount),
                 CCCWebOps = FilterByPeriod(baseTransactions.Where(t => t.Type == TransactionType.Export && t.Target == "CCC Web"), period).Sum(r => r.OperationCount),
@@ -971,19 +1008,24 @@ namespace McStudDesktop.Services
         /// </summary>
         public List<HourlyActivity> GetHourlyActivity(string userId, StatsPeriod period)
         {
-            var transactions = FilterByPeriod(
+            var exportTransactions = FilterByPeriod(
                 _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                period).ToList();
+            var learnTransactions = FilterByPeriod(
+                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Learn),
                 period).ToList();
 
             var hourlyGroups = Enumerable.Range(0, 24)
                 .Select(hour =>
                 {
-                    var hourTransactions = transactions.Where(t => t.Timestamp.Hour == hour).ToList();
+                    var hourExports = exportTransactions.Where(t => t.Timestamp.Hour == hour).ToList();
+                    var hourLearns = learnTransactions.Where(t => t.Timestamp.Hour == hour).ToList();
                     return new HourlyActivity
                     {
                         Hour = hour,
-                        ExportCount = hourTransactions.Count,
-                        OperationCount = hourTransactions.Sum(t => t.OperationCount)
+                        ExportCount = hourExports.Count,
+                        OperationCount = hourExports.Sum(t => t.OperationCount),
+                        LearnCount = hourLearns.Sum(t => t.OperationCount)
                     };
                 })
                 .ToList();
@@ -1437,7 +1479,8 @@ namespace McStudDesktop.Services
     public enum TransactionType
     {
         Import,  // Data read from clipboard (into McStud)
-        Export   // Data sent to CCC/Mitchell (out of McStud)
+        Export,  // Data sent to CCC/Mitchell (out of McStud)
+        Learn    // Estimate learned/trained from Import tab
     }
 
     public enum StatsPeriod
@@ -1523,6 +1566,10 @@ namespace McStudDesktop.Services
         public decimal ExportLabor { get; set; }
         public decimal ExportPaint { get; set; }
 
+        // Learn totals (estimates learned/trained)
+        public int LearnCount { get; set; }
+        public int LearnOperations { get; set; }
+
         // Target breakdown (operations by target)
         public int CCCDesktopOps { get; set; }
         public int CCCWebOps { get; set; }
@@ -1570,6 +1617,10 @@ namespace McStudDesktop.Services
         public decimal ExportPrice { get; set; }
         public decimal ExportLabor { get; set; }
         public decimal ExportPaint { get; set; }
+
+        // Learn totals
+        public int LearnCount { get; set; }
+        public int LearnOperations { get; set; }
 
         public string FormattedDate => Date.ToString("MMM dd");
         public string DayOfWeek => Date.ToString("ddd");
@@ -1776,6 +1827,7 @@ namespace McStudDesktop.Services
         public int Hour { get; set; }  // 0-23
         public int ExportCount { get; set; }
         public int OperationCount { get; set; }
+        public int LearnCount { get; set; }
 
         public string FormattedHour => Hour switch
         {

@@ -8,7 +8,7 @@ using System.Text.Json;
 namespace McStudDesktop.Services
 {
     /// <summary>
-    /// Labor Rates Service - Manages dealer/shop labor rates
+    /// Dealer Information Service - Manages dealer contacts, labor rates, and parts info
     /// Data is stored in AppData/Local to persist through app updates
     /// </summary>
     public class LaborRatesService
@@ -18,6 +18,7 @@ namespace McStudDesktop.Services
 
         private LaborRatesData _data;
         private readonly string _dataFilePath;
+        private readonly string _legacyFilePath;
 
         public event EventHandler? DataChanged;
 
@@ -33,7 +34,23 @@ namespace McStudDesktop.Services
                 Directory.CreateDirectory(appDataPath);
             }
 
-            _dataFilePath = Path.Combine(appDataPath, "LaborRates.json");
+            _dataFilePath = Path.Combine(appDataPath, "DealerInfo.json");
+            _legacyFilePath = Path.Combine(appDataPath, "LaborRates.json");
+
+            // Migrate old file if new one doesn't exist
+            if (!File.Exists(_dataFilePath) && File.Exists(_legacyFilePath))
+            {
+                try
+                {
+                    File.Copy(_legacyFilePath, _dataFilePath);
+                    System.Diagnostics.Debug.WriteLine("[LaborRates] Migrated LaborRates.json → DealerInfo.json");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[LaborRates] Migration error: {ex.Message}");
+                }
+            }
+
             _data = LoadData();
 
             System.Diagnostics.Debug.WriteLine($"[LaborRates] Data file: {_dataFilePath}");
@@ -51,7 +68,20 @@ namespace McStudDesktop.Services
                     {
                         PropertyNameCaseInsensitive = true
                     });
-                    return data ?? new LaborRatesData();
+
+                    if (data != null)
+                    {
+                        // Legacy migration: move old single Phone field into PhoneNumbers list
+                        foreach (var dealer in data.Dealers)
+                        {
+                            if (!string.IsNullOrEmpty(dealer.Phone) && dealer.PhoneNumbers.Count == 0)
+                            {
+                                dealer.PhoneNumbers.Add(dealer.Phone);
+                                dealer.Phone = null;
+                            }
+                        }
+                        return data;
+                    }
                 }
             }
             catch (Exception ex)
@@ -59,7 +89,61 @@ namespace McStudDesktop.Services
                 System.Diagnostics.Debug.WriteLine($"[LaborRates] Error loading: {ex.Message}");
             }
 
-            return new LaborRatesData();
+            // First run - seed example dealer
+            var freshData = new LaborRatesData();
+            freshData.Dealers.Add(CreateExampleDealer());
+            return freshData;
+        }
+
+        private DealerLaborRate CreateExampleDealer()
+        {
+            return new DealerLaborRate
+            {
+                Id = Guid.NewGuid().ToString(),
+                DealerName = "Example Ford Dealership",
+                Manufacturer = "Ford",
+                IsExample = true,
+                Address = "1234 Motor Way",
+                City = "Springfield",
+                State = "IL",
+                Zip = "62701",
+                PhoneNumbers = new List<string> { "(555) 123-4567", "(555) 123-4568" },
+                Emails = new List<string> { "parts@exampleford.com" },
+                Contacts = new List<DealerContact>
+                {
+                    new DealerContact
+                    {
+                        Name = "John Smith",
+                        Role = "Parts Manager",
+                        PhoneNumbers = new List<string> { "(555) 123-4568" },
+                        Emails = new List<string> { "john@exampleford.com" }
+                    },
+                    new DealerContact
+                    {
+                        Name = "Jane Doe",
+                        Role = "Delivery Driver",
+                        PhoneNumbers = new List<string> { "(555) 123-4569" },
+                        Emails = new List<string>()
+                    }
+                },
+                PartsDiscountPercent = 25,
+                Returns = new ReturnsInfo { AcceptsReturns = true, ReturnsNote = "Within 30 days with receipt" },
+                Delivery = new DeliveryInfo
+                {
+                    DeliversParts = true,
+                    DeliveryNote = "Mon-Fri only",
+                    DeliveryTime = "10:00 AM",
+                    RunsPerDay = 2
+                },
+                MechLaborRate = 85.00m,
+                BodyLaborRate = 72.00m,
+                PaintLaborRate = 68.00m,
+                FrameLaborRate = 90.00m,
+                GlassLaborRate = 65.00m,
+                Notes = "This is an example dealer to show how the feature works. Feel free to edit or delete it.",
+                DateAdded = DateTime.Now,
+                DateUpdated = DateTime.Now
+            };
         }
 
         private void SaveData()
@@ -88,21 +172,36 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
-        /// Search dealers by name or manufacturer
+        /// Search dealers by name, manufacturer, address, phone, email, or contact info
         /// </summary>
         public List<DealerLaborRate> Search(string query)
         {
             if (string.IsNullOrWhiteSpace(query))
                 return GetAllDealers();
 
-            var queryLower = query.ToLowerInvariant();
+            var q = query.ToLowerInvariant();
             return _data.Dealers
                 .Where(d =>
-                    (d.DealerName?.ToLowerInvariant().Contains(queryLower) == true) ||
-                    (d.Manufacturer?.ToLowerInvariant().Contains(queryLower) == true) ||
-                    (d.Notes?.ToLowerInvariant().Contains(queryLower) == true))
+                    Contains(d.DealerName, q) ||
+                    Contains(d.Manufacturer, q) ||
+                    Contains(d.Notes, q) ||
+                    Contains(d.Address, q) ||
+                    Contains(d.City, q) ||
+                    Contains(d.State, q) ||
+                    d.PhoneNumbers.Any(p => p.ToLowerInvariant().Contains(q)) ||
+                    d.Emails.Any(e => e.ToLowerInvariant().Contains(q)) ||
+                    d.Contacts.Any(c =>
+                        Contains(c.Name, q) ||
+                        Contains(c.Role, q) ||
+                        c.PhoneNumbers.Any(p => p.ToLowerInvariant().Contains(q)) ||
+                        c.Emails.Any(e => e.ToLowerInvariant().Contains(q))))
                 .OrderBy(d => d.DealerName)
                 .ToList();
+        }
+
+        private static bool Contains(string? value, string query)
+        {
+            return value?.ToLowerInvariant().Contains(query) == true;
         }
 
         /// <summary>
@@ -153,6 +252,16 @@ namespace McStudDesktop.Services
             {
                 existing.DealerName = dealer.DealerName;
                 existing.Manufacturer = dealer.Manufacturer;
+                existing.Address = dealer.Address;
+                existing.City = dealer.City;
+                existing.State = dealer.State;
+                existing.Zip = dealer.Zip;
+                existing.PhoneNumbers = dealer.PhoneNumbers;
+                existing.Emails = dealer.Emails;
+                existing.Contacts = dealer.Contacts;
+                existing.PartsDiscountPercent = dealer.PartsDiscountPercent;
+                existing.Returns = dealer.Returns;
+                existing.Delivery = dealer.Delivery;
                 existing.BodyLaborRate = dealer.BodyLaborRate;
                 existing.MechLaborRate = dealer.MechLaborRate;
                 existing.PaintLaborRate = dealer.PaintLaborRate;
@@ -160,6 +269,7 @@ namespace McStudDesktop.Services
                 existing.GlassLaborRate = dealer.GlassLaborRate;
                 existing.Phone = dealer.Phone;
                 existing.Notes = dealer.Notes;
+                existing.IsExample = dealer.IsExample;
                 existing.DateUpdated = DateTime.Now;
 
                 SaveData();
@@ -252,17 +362,63 @@ namespace McStudDesktop.Services
         public List<DealerLaborRate> Dealers { get; set; } = new();
     }
 
+    public class DealerContact
+    {
+        public string? Name { get; set; }
+        public string? Role { get; set; }
+        public List<string> PhoneNumbers { get; set; } = new();
+        public List<string> Emails { get; set; } = new();
+    }
+
+    public class DeliveryInfo
+    {
+        public bool DeliversParts { get; set; }
+        public string? DeliveryNote { get; set; }
+        public string? DeliveryTime { get; set; }
+        public int RunsPerDay { get; set; }
+    }
+
+    public class ReturnsInfo
+    {
+        public bool AcceptsReturns { get; set; }
+        public string? ReturnsNote { get; set; }
+    }
+
     public class DealerLaborRate
     {
         public string? Id { get; set; }
         public string? DealerName { get; set; }
         public string? Manufacturer { get; set; }
+        public bool IsExample { get; set; }
+
+        // Location
+        public string? Address { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? Zip { get; set; }
+
+        // Contact info (dealer-level)
+        public List<string> PhoneNumbers { get; set; } = new();
+        public List<string> Emails { get; set; } = new();
+
+        // Contact people
+        public List<DealerContact> Contacts { get; set; } = new();
+
+        // Parts info
+        public decimal PartsDiscountPercent { get; set; }
+        public ReturnsInfo Returns { get; set; } = new();
+        public DeliveryInfo Delivery { get; set; } = new();
+
+        // Labor rates
         public decimal BodyLaborRate { get; set; }
         public decimal MechLaborRate { get; set; }
         public decimal PaintLaborRate { get; set; }
         public decimal FrameLaborRate { get; set; }
         public decimal GlassLaborRate { get; set; }
+
+        // Legacy field - kept for deserialization of old data
         public string? Phone { get; set; }
+
         public string? Notes { get; set; }
         public DateTime DateAdded { get; set; }
         public DateTime DateUpdated { get; set; }
