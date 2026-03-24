@@ -69,6 +69,22 @@ namespace McstudDesktop.Services
             "OEM research", "electronic reset"
         };
 
+        // Must-have / shop-operation canonical names — these get op type "Rpr" when context detection
+        // can't determine one (misc charges sections often lack standard op-type keywords nearby)
+        private static readonly HashSet<string> _mustHaveCanonicalNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "cover and protect electrical connections",
+            "charge and maintain battery during ADAS",
+            "simulate full fluids for ADAS calibrations",
+            "check and adjust tire pressure for ADAS calibrations",
+            "remove customer belongings for ADAS calibrations",
+            "mask and protect removed components",
+            "steering wheel cover, seat cover, and floor mat",
+            "clean for delivery", "glass cleaner", "parts disposal",
+            "hazardous waste", "misc hardware", "test battery condition",
+            "battery support"
+        };
+
         // CCC modifier/add-on sub-line patterns — these are NOT standalone operations.
         // They modify the preceding parent panel line (e.g., "Add for Clear Coat" under a Quarter Panel Replace).
         private static readonly Regex _cccModifierPattern = new(
@@ -203,8 +219,8 @@ namespace McstudDesktop.Services
                 bitmap.Save(memoryStream, ImageFormat.Bmp);
                 memoryStream.Position = 0;
 
-                // Wrap in IRandomAccessStream
-                var randomAccessStream = new InMemoryRandomAccessStream();
+                // Wrap in IRandomAccessStream (using ensures COM stream is released each OCR cycle)
+                using var randomAccessStream = new InMemoryRandomAccessStream();
                 using (var writer = new DataWriter(randomAccessStream.GetOutputStreamAt(0)))
                 {
                     writer.WriteBytes(memoryStream.ToArray());
@@ -462,6 +478,15 @@ namespace McstudDesktop.Services
             ("dynamic systems", "dynamic systems verification"),
             ("systems verification", "dynamic systems verification"),
             ("setup scan tool", "setup scan tool"), ("scan tool setup", "setup scan tool"),
+            ("simulate full fluids", "simulate full fluids for ADAS calibrations"),
+            ("full fluids adas", "simulate full fluids for ADAS calibrations"),
+            ("simulate fluids adas", "simulate full fluids for ADAS calibrations"),
+            ("check and adjust tire pressure", "check and adjust tire pressure for ADAS calibrations"),
+            ("adjust tire pressure", "check and adjust tire pressure for ADAS calibrations"),
+            ("tire pressure adas", "check and adjust tire pressure for ADAS calibrations"),
+            ("check tire pressure", "check and adjust tire pressure for ADAS calibrations"),
+            ("remove customer belongings", "remove customer belongings for ADAS calibrations"),
+            ("customer belongings", "remove customer belongings for ADAS calibrations"),
             ("steering angle reset", "steering angle reset"),
             ("aim headlamp", "aim headlamps"), ("aim headlamps", "aim headlamps"),
             ("headlamp aiming", "aim headlamps"),
@@ -482,8 +507,17 @@ namespace McstudDesktop.Services
             ("memory saver", "memory saver"), ("ks-100", "memory saver"),
             ("keep alive", "memory saver"), ("keep-alive", "memory saver"),
             ("battery support", "battery support"), ("battery maintainer", "battery support"),
+            ("battery tender", "battery support"),
             ("electronic reset", "electronic reset"), ("electronic module reset", "electronic reset"),
             ("ecm reset", "electronic reset"), ("ecu reset", "electronic reset"),
+            ("cover and protect electrical", "cover and protect electrical connections"),
+            ("cover electrical connections", "cover and protect electrical connections"),
+            ("protect electrical connections", "cover and protect electrical connections"),
+            ("protect electrical", "cover and protect electrical connections"),
+            ("charge and maintain battery", "charge and maintain battery during ADAS"),
+            ("charge maintain battery", "charge and maintain battery during ADAS"),
+            ("maintain battery adas", "charge and maintain battery during ADAS"),
+            ("charge battery adas", "charge and maintain battery during ADAS"),
 
             // ── Surface prep & paint materials ──
             ("adhesion promoter", "adhesion promoter"), ("ad pro", "adhesion promoter"),
@@ -532,6 +566,9 @@ namespace McstudDesktop.Services
             ("spot repair", "spot repair"),
 
             // ── Masking & protection ──
+            ("mask and protect removed", "mask and protect removed components"),
+            ("mask protect removed", "mask and protect removed components"),
+            ("protect removed components", "mask and protect removed components"),
             ("mask and protect", "mask & protect"), ("mask & protect", "mask & protect"),
             ("masking", "mask & protect"), ("mask for", "mask & protect"),
             ("tape for", "mask & protect"),
@@ -613,6 +650,10 @@ namespace McstudDesktop.Services
             ("oem position", "OEM research"), ("oem position statement", "OEM research"),
             ("misc hardware", "misc hardware"), ("miscellaneous hardware", "misc hardware"),
             ("misc. hardware", "misc hardware"),
+            ("steering wheel cover, seat cover, and floor mat", "steering wheel cover, seat cover, and floor mat"),
+            ("steering wheel cover, seat cover", "steering wheel cover, seat cover, and floor mat"),
+            ("seat cover, and floor mat", "steering wheel cover, seat cover, and floor mat"),
+            ("seat cover and floor mat", "steering wheel cover, seat cover, and floor mat"),
             ("seat cover", "protective covers"), ("floor mat cover", "protective covers"),
             ("steering wheel cover", "protective covers"), ("protective cover", "protective covers"),
             ("glass cleaner", "glass cleaner"), ("windshield cleaner", "glass cleaner"),
@@ -883,6 +924,10 @@ namespace McstudDesktop.Services
                     // often misclassifies these (e.g., "pre-repair scan" → "Repair" due to "repair" substring)
                     if (_diagnosticCanonicalNames.Contains(canonical))
                         opType = "Sublet";
+                    // Default op type for must-have/shop operations that appear in misc-charges sections
+                    // without standard op-type keywords nearby — prevents LiveCoachingService filtering
+                    else if (string.IsNullOrEmpty(opType) && _mustHaveCanonicalNames.Contains(canonical))
+                        opType = "Rpr";
 
                     operations.Add(new OcrDetectedOperation
                     {

@@ -41,11 +41,15 @@ namespace McStudDesktop.Services
         #region Word Boundary Helpers
 
         private static readonly Regex _vehicleInfoPattern = new(@"(19|20)\d{2}\s+\w+\s+\w+", RegexOptions.Compiled);
+        private static readonly HashSet<string> _fuzzyStopWords = new() { "and", "for", "the", "during", "with", "from" };
+
+        // Cache compiled word-boundary regexes to avoid re-creating them in hot loops
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> _wordBoundaryCache = new();
 
         /// <summary>
         /// Word-boundary-aware keyword match.
         /// Keywords under 3 chars → exact token match (split on whitespace/punctuation).
-        /// Keywords 3+ chars → \b word-boundary regex.
+        /// Keywords 3+ chars → \b word-boundary regex (compiled + cached).
         /// </summary>
         public static bool IsWordMatch(string text, string keyword)
         {
@@ -62,8 +66,10 @@ namespace McStudDesktop.Services
                 return tokens.Any(t => t == kw);
             }
 
-            // Word-boundary regex for 3+ char keywords
-            return Regex.IsMatch(txt, @"\b" + Regex.Escape(kw) + @"\b");
+            // Word-boundary regex for 3+ char keywords — cached and compiled
+            var regex = _wordBoundaryCache.GetOrAdd(kw, k =>
+                new Regex(@"\b" + Regex.Escape(k) + @"\b", RegexOptions.Compiled));
+            return regex.IsMatch(txt);
         }
 
         /// <summary>
@@ -79,6 +85,15 @@ namespace McStudDesktop.Services
         #endregion
 
         #region Main Scoring Method
+
+        private static void RunCheck(Action check, string name)
+        {
+            try { check(); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ScoringService] {name} check failed: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// Score an estimate for completeness.
@@ -117,16 +132,16 @@ namespace McStudDesktop.Services
             // Categorize estimate lines for the report card
             result.CategorizedLines = CategorizeEstimateLines(lines);
 
-            // Run all scoring checks
-            CheckOperationChains(lines, result);
-            CheckBlendOperations(lines, result);
-            CheckMaterialOperations(lines, result);
-            CheckNotIncludedOperations(lines, result);
-            CheckRIOperations(lines, result);
-            CheckDiagnosticScans(lines, result);
-            CheckADASCalibrations(lines, result);
-            CheckGlobalRules(lines, result);
-            CheckMustHaves(lines, result);
+            // Run all scoring checks — each wrapped so one failure doesn't block the rest
+            RunCheck(() => CheckOperationChains(lines, result), "OperationChains");
+            RunCheck(() => CheckBlendOperations(lines, result), "BlendOperations");
+            RunCheck(() => CheckMaterialOperations(lines, result), "MaterialOperations");
+            RunCheck(() => CheckNotIncludedOperations(lines, result), "NotIncludedOperations");
+            RunCheck(() => CheckRIOperations(lines, result), "RIOperations");
+            RunCheck(() => CheckDiagnosticScans(lines, result), "DiagnosticScans");
+            RunCheck(() => CheckADASCalibrations(lines, result), "ADASCalibrations");
+            RunCheck(() => CheckGlobalRules(lines, result), "GlobalRules");
+            RunCheck(() => CheckMustHaves(lines, result), "MustHaves");
 
             // Calculate final score
             CalculateFinalScore(result);
@@ -879,15 +894,20 @@ namespace McStudDesktop.Services
         private void CheckMustHaves(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
             var mustHaves = GhostConfigService.Instance.GetMustHaves();
-            if (mustHaves == null || mustHaves.Count == 0) return;
+            if (mustHaves == null || mustHaves.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[MustHaves] No must-haves configured — skipping");
+                return;
+            }
+            System.Diagnostics.Debug.WriteLine($"[MustHaves] Checking {mustHaves.Count} must-haves against {lines.Count} parsed lines");
 
             foreach (var mh in mustHaves)
             {
                 if (!mh.Enabled || string.IsNullOrWhiteSpace(mh.Description)) continue;
 
-                // Skip junk entries (e.g., "Description" from header rows)
+                // Skip junk entries (e.g., "Description", "Setup" from header rows that leaked into config)
                 var descLower = mh.Description.ToLowerInvariant().Trim();
-                if (descLower is "description" or "category" or "operation" or "")
+                if (descLower is "description" or "category" or "operation" or "setup" or "")
                     continue;
 
                 // Count how many lines match this must-have using fuzzy word-based matching.
@@ -895,6 +915,8 @@ namespace McStudDesktop.Services
                 // hyphen/space differences ("Pre-Scan" matches "Pre-repair scan"),
                 // and parenthetical suffixes ("Color Tint (2-Stage)" matches "Color Tint").
                 int matchCount = lines.Count(l => MustHaveFuzzyMatch(descLower, l));
+
+                System.Diagnostics.Debug.WriteLine($"[MustHaves] '{mh.Description}': {matchCount}/{mh.MinCount} matches → {(matchCount >= mh.MinCount ? "PRESENT" : "MISSING")}");
 
                 if (matchCount < mh.MinCount)
                 {
@@ -943,11 +965,10 @@ namespace McStudDesktop.Services
                 return true;
 
             // 2. Word-based matching: extract significant words (3+ chars) and check overlap
-            var stopWords = new HashSet<string> { "and", "for", "the", "during", "with", "from" };
             var mhWords = normalizedMH.Split(new[] { ' ', ',', '(', ')' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(w => w.Length >= 3 && !stopWords.Contains(w)).ToList();
+                .Where(w => w.Length >= 3 && !_fuzzyStopWords.Contains(w)).ToList();
             var lineWords = normalizedLine.Split(new[] { ' ', ',', '(', ')' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(w => w.Length >= 3 && !stopWords.Contains(w)).ToHashSet();
+                .Where(w => w.Length >= 3 && !_fuzzyStopWords.Contains(w)).ToHashSet();
 
             if (mhWords.Count == 0) return false;
 

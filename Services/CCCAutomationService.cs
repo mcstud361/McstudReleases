@@ -94,7 +94,7 @@ namespace McstudDesktop.Services
                     // Check by process name
                     try
                     {
-                        var process = System.Diagnostics.Process.GetProcessById(processId);
+                        using var process = System.Diagnostics.Process.GetProcessById(processId);
                         foreach (var cccProcess in CCC_PROCESS_NAMES)
                         {
                             if (process.ProcessName.Contains(cccProcess, StringComparison.OrdinalIgnoreCase))
@@ -143,7 +143,7 @@ namespace McstudDesktop.Services
 
                     try
                     {
-                        var process = System.Diagnostics.Process.GetProcessById(processId);
+                        using var process = System.Diagnostics.Process.GetProcessById(processId);
                         processName = process.ProcessName;
                     }
                     catch { continue; }

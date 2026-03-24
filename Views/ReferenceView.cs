@@ -797,6 +797,19 @@ public sealed class ReferenceView : UserControl
         _generatePdfButton.Click += GeneratePdf_Click;
         buttonStack.Children.Add(_generatePdfButton);
 
+        // PDF Settings gear button
+        var settingsBtn = new Button
+        {
+            Padding = new Thickness(8, 6, 8, 6),
+            Background = new SolidColorBrush(Color.FromArgb(255, 70, 70, 70)),
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(4)
+        };
+        settingsBtn.Content = new FontIcon { Glyph = "\uE713", FontSize = 14, Foreground = new SolidColorBrush(Colors.White) };
+        ToolTipService.SetToolTip(settingsBtn, "PDF Export Settings");
+        settingsBtn.Click += OpenPdfSettings_Click;
+        buttonStack.Children.Add(settingsBtn);
+
         // Clear button
         var clearBtn = new Button
         {
@@ -952,6 +965,130 @@ public sealed class ReferenceView : UserControl
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[ReferenceView] PDF generation error: {ex.Message}");
+        }
+    }
+
+    private async void OpenPdfSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var configService = ReferenceExportConfigService.Instance;
+        var config = configService.Config;
+
+        // Clone current values so we can discard on cancel
+        var titleBox = new TextBox
+        {
+            Text = config.HeaderTitle,
+            Header = "Header Title",
+            PlaceholderText = "MET Reference Guide",
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        var subtitleBox = new TextBox
+        {
+            Text = config.HeaderSubtitle,
+            Header = "Header Subtitle",
+            PlaceholderText = "Collision Estimating Reference Documentation",
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        var showDateToggle = new ToggleSwitch
+        {
+            Header = "Show Date & Time",
+            IsOn = config.ShowDate,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var dateFormatBox = new TextBox
+        {
+            Text = config.DateFormat,
+            Header = "Date Format",
+            PlaceholderText = "MMMM dd, yyyy 'at' h:mm tt",
+            IsEnabled = config.ShowDate,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        showDateToggle.Toggled += (s, args) =>
+        {
+            dateFormatBox.IsEnabled = showDateToggle.IsOn;
+        };
+
+        var footerBox = new TextBox
+        {
+            Text = config.FooterText,
+            Header = "Footer Text",
+            PlaceholderText = "MET Reference Guide",
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        var showTocToggle = new ToggleSwitch
+        {
+            Header = "Show Table of Contents",
+            IsOn = config.ShowTableOfContents,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var showPageNumbersToggle = new ToggleSwitch
+        {
+            Header = "Show Page Numbers",
+            IsOn = config.ShowPageNumbers,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        // Reset to Defaults button
+        var resetButton = new HyperlinkButton
+        {
+            Content = "Reset to Defaults",
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        resetButton.Click += (s, args) =>
+        {
+            var defaults = new Services.ReferenceExportConfig();
+            titleBox.Text = defaults.HeaderTitle;
+            subtitleBox.Text = defaults.HeaderSubtitle;
+            showDateToggle.IsOn = defaults.ShowDate;
+            dateFormatBox.Text = defaults.DateFormat;
+            footerBox.Text = defaults.FooterText;
+            showTocToggle.IsOn = defaults.ShowTableOfContents;
+            showPageNumbersToggle.IsOn = defaults.ShowPageNumbers;
+        };
+
+        var contentPanel = new StackPanel
+        {
+            Width = 380,
+            Children =
+            {
+                titleBox,
+                subtitleBox,
+                showDateToggle,
+                dateFormatBox,
+                footerBox,
+                showTocToggle,
+                showPageNumbersToggle,
+                resetButton
+            }
+        };
+
+        var dialog = new ContentDialog
+        {
+            Title = "PDF Export Settings",
+            Content = contentPanel,
+            PrimaryButtonText = "Save",
+            SecondaryButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.XamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Primary)
+        {
+            config.HeaderTitle = titleBox.Text;
+            config.HeaderSubtitle = subtitleBox.Text;
+            config.ShowDate = showDateToggle.IsOn;
+            config.DateFormat = dateFormatBox.Text;
+            config.FooterText = footerBox.Text;
+            config.ShowTableOfContents = showTocToggle.IsOn;
+            config.ShowPageNumbers = showPageNumbersToggle.IsOn;
+            configService.SaveConfig();
         }
     }
 

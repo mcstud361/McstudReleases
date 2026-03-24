@@ -155,7 +155,7 @@ namespace McstudDesktop.Services
             GetWindowThreadProcessId(hWnd, out uint processId);
             try
             {
-                var process = Process.GetProcessById((int)processId);
+                using var process = Process.GetProcessById((int)processId);
                 return process.ProcessName.Equals("McstudDesktop", StringComparison.OrdinalIgnoreCase);
             }
             catch { return false; }
@@ -235,7 +235,7 @@ namespace McstudDesktop.Services
                 GetWindowThreadProcessId(hWnd, out uint processId);
                 try
                 {
-                    var process = Process.GetProcessById((int)processId);
+                    using var process = Process.GetProcessById((int)processId);
                     if (process.ProcessName.Equals("McstudDesktop", StringComparison.OrdinalIgnoreCase))
                         return true;
                 }

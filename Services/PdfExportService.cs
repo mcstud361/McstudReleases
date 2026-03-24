@@ -120,9 +120,10 @@ namespace McStudDesktop.Services
                 outputPath = Path.Combine(documentsPath, fileName);
             }
 
-            // Sort items alphabetically by term
-            var sortedItems = selectedItems
-                .OrderBy(i => i.Term ?? "", StringComparer.OrdinalIgnoreCase)
+            // Group items by category, then alphabetical within each group
+            var groupedItems = selectedItems
+                .GroupBy(i => i.Category ?? "Uncategorized")
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             // Create the PDF document
@@ -142,13 +143,23 @@ namespace McStudDesktop.Services
                         {
                             column.Spacing(15);
 
-                            // Summary
-                            column.Item().Element(e => ComposeSummaryFromItems(e, sortedItems));
-
-                            // Each selected item
-                            foreach (var item in sortedItems)
+                            // Table of Contents (conditionally shown)
+                            if (ReferenceExportConfigService.Instance.Config.ShowTableOfContents)
                             {
-                                column.Item().Element(e => ComposeItemDetail(e, item));
+                                column.Item().Element(e => ComposeTableOfContents(e, groupedItems));
+                            }
+
+                            // Items grouped by category
+                            foreach (var group in groupedItems)
+                            {
+                                // Category divider
+                                column.Item().Element(e => ComposeCategoryDivider(e, group.Key, group.Count()));
+
+                                // Items within this category
+                                foreach (var item in group.OrderBy(i => i.Term ?? "", StringComparer.OrdinalIgnoreCase))
+                                {
+                                    column.Item().Element(e => ComposeItemDetail(e, item));
+                                }
                             }
                         });
                     });
@@ -198,48 +209,91 @@ namespace McStudDesktop.Services
 
         private void ComposeHeader(IContainer container)
         {
+            var config = ReferenceExportConfigService.Instance.Config;
             container.Row(row =>
             {
                 row.RelativeItem().Column(col =>
                 {
-                    col.Item().Text("McStud Tool - Reference Documentation")
+                    col.Item().Text(config.HeaderTitle)
                         .FontSize(18)
                         .Bold()
                         .FontColor(Colors.Blue.Darken2);
 
-                    col.Item().Text($"Generated: {DateTime.Now:MMMM dd, yyyy 'at' h:mm tt}")
-                        .FontSize(9)
-                        .FontColor(Colors.Grey.Darken1);
+                    col.Item().Text(config.HeaderSubtitle)
+                        .FontSize(11)
+                        .FontColor(Colors.Blue.Darken1);
+
+                    if (config.ShowDate)
+                    {
+                        string dateStr;
+                        try { dateStr = DateTime.Now.ToString(config.DateFormat); }
+                        catch { dateStr = DateTime.Now.ToString("MMMM dd, yyyy 'at' h:mm tt"); }
+
+                        col.Item().PaddingTop(2).Text($"Generated: {dateStr}")
+                            .FontSize(9)
+                            .FontColor(Colors.Grey.Darken1);
+                    }
                 });
             });
         }
 
-        private void ComposeSummaryFromItems(IContainer container, List<PdfExportItem> items)
+        private void ComposeTableOfContents(IContainer container, List<IGrouping<string, PdfExportItem>> groupedItems)
         {
-            int pPages = items.Count(i => !string.IsNullOrEmpty(i.PPageRef));
-            int degInquiries = items.Count(i => !string.IsNullOrEmpty(i.DegInquiry));
-
-            container.Background(Colors.Grey.Lighten3).Padding(10).Column(col =>
+            container.Background(Colors.Grey.Lighten3).Padding(15).Column(col =>
             {
-                col.Item().Text("Document Summary").Bold().FontSize(12);
-                col.Item().PaddingTop(5).Row(row =>
-                {
-                    row.RelativeItem().Text($"Total Items: {items.Count}");
-                    row.RelativeItem().Text($"With P-Pages: {pPages}");
-                    row.RelativeItem().Text($"With DEG: {degInquiries}");
-                });
+                col.Item().Text("TABLE OF CONTENTS")
+                    .Bold()
+                    .FontSize(14)
+                    .FontColor(Colors.Blue.Darken2);
 
-                // List item names
-                col.Item().PaddingTop(8).Text("Included Items:").Bold().FontSize(10);
-                col.Item().PaddingTop(4).Text(string.Join(", ", items.Select(i => i.Term).OrderBy(t => t, StringComparer.OrdinalIgnoreCase)))
-                    .FontSize(9)
-                    .FontColor(Colors.Grey.Darken2);
+                col.Item().PaddingTop(10);
+
+                foreach (var group in groupedItems)
+                {
+                    // Category header with count
+                    col.Item().PaddingTop(6).Text($"{group.Key} ({group.Count()})")
+                        .Bold()
+                        .FontSize(11)
+                        .FontColor(Colors.Blue.Darken3);
+
+                    // Indented item list with clickable links
+                    foreach (var item in group.OrderBy(i => i.Term ?? "", StringComparer.OrdinalIgnoreCase))
+                    {
+                        var anchor = item.Id ?? item.Term ?? "Unknown";
+                        col.Item().PaddingLeft(15).PaddingTop(2).Row(row =>
+                        {
+                            row.RelativeItem().Text(text =>
+                            {
+                                text.Span("  ").FontSize(10);
+                                text.SectionLink(item.Term ?? "Unknown", anchor)
+                                    .FontSize(10)
+                                    .FontColor(Colors.Blue.Medium);
+                            });
+                        });
+                    }
+                }
+            });
+        }
+
+        private void ComposeCategoryDivider(IContainer container, string categoryName, int count)
+        {
+            container.Background(Colors.Blue.Darken3).Padding(10).Row(row =>
+            {
+                row.RelativeItem().Text($"{categoryName}")
+                    .Bold()
+                    .FontSize(13)
+                    .FontColor(Colors.White);
+
+                row.AutoItem().AlignRight().AlignMiddle().Text($"{count} item{(count != 1 ? "s" : "")}")
+                    .FontSize(10)
+                    .FontColor(Colors.Blue.Lighten3);
             });
         }
 
         private void ComposeItemDetail(IContainer container, PdfExportItem item)
         {
-            container.Column(col =>
+            var anchor = item.Id ?? item.Term ?? "Unknown";
+            container.Section(anchor).Column(col =>
             {
                 // Item header with term
                 col.Item().Background(Colors.Blue.Darken2).Padding(10).Row(row =>
@@ -370,15 +424,28 @@ namespace McStudDesktop.Services
 
         private void ComposeFooter(IContainer container)
         {
+            var config = ReferenceExportConfigService.Instance.Config;
             container.AlignCenter().Text(text =>
             {
-                text.Span("Page ");
-                text.CurrentPageNumber();
-                text.Span(" of ");
-                text.TotalPages();
-                text.Span(" | McStud Tool - Professional Estimating Reference")
-                    .FontSize(8)
-                    .FontColor(Colors.Grey.Darken1);
+                if (config.ShowPageNumbers)
+                {
+                    text.Span("Page ");
+                    text.CurrentPageNumber();
+                    text.Span(" of ");
+                    text.TotalPages();
+                    if (!string.IsNullOrEmpty(config.FooterText))
+                    {
+                        text.Span($" | {config.FooterText}")
+                            .FontSize(8)
+                            .FontColor(Colors.Grey.Darken1);
+                    }
+                }
+                else if (!string.IsNullOrEmpty(config.FooterText))
+                {
+                    text.Span(config.FooterText)
+                        .FontSize(8)
+                        .FontColor(Colors.Grey.Darken1);
+                }
             });
         }
 

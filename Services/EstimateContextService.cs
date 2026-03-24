@@ -261,8 +261,8 @@ namespace McStudDesktop.Services
                         if (d == opNorm) return true;
                         // Detected contains full must-have
                         if (d.Contains(opNorm)) return true;
-                        // Must-have contains detected, only if detected is >= 50% of must-have length
-                        if (opNorm.Contains(d) && d.Length >= opNorm.Length * 0.5)
+                        // Must-have contains detected, only if detected is >= 45% of must-have length
+                        if (opNorm.Contains(d) && d.Length >= opNorm.Length * 0.45)
                             return true;
 
                         // Proportional word overlap: 60% of must-have words for 3+ word descriptions,

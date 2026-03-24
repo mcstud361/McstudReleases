@@ -116,6 +116,7 @@ namespace McStudDesktop.Views
         private IntPtr _previousActiveWindow = IntPtr.Zero;
         private IntPtr _lastKnownForeground = IntPtr.Zero;
         private DispatcherTimer? _windowTracker;
+        private readonly System.Text.StringBuilder _windowTrackerSb = new(256);
 
         // Estimate Upload feature (now in Import tab)
         private EstimateUploadView? _estimateUploadView;
@@ -2564,9 +2565,9 @@ namespace McStudDesktop.Views
             _windowTracker.Tick += (s, e) =>
             {
                 var current = GetForegroundWindow();
-                var sb = new System.Text.StringBuilder(256);
-                GetWindowText(current, sb, 256);
-                string currentTitle = sb.ToString();
+                _windowTrackerSb.Clear();
+                GetWindowText(current, _windowTrackerSb, 256);
+                string currentTitle = _windowTrackerSb.ToString();
                 bool isOurWindow = currentTitle.Contains("McStud", StringComparison.OrdinalIgnoreCase);
 
                 // If user is in an external window (like CCC), continuously save cursor position
@@ -2590,8 +2591,9 @@ namespace McStudDesktop.Views
                         // McStud became active - LOCK the position now!
                         // This is the moment user clicked from CCC to McStud
                         // The cursor position from CCC is frozen here
-                        GetWindowText(_lastKnownForeground, sb, 256);
-                        string lastTitle = sb.ToString();
+                        _windowTrackerSb.Clear();
+                        GetWindowText(_lastKnownForeground, _windowTrackerSb, 256);
+                        string lastTitle = _windowTrackerSb.ToString();
                         if (!lastTitle.Contains("McStud", StringComparison.OrdinalIgnoreCase))
                         {
                             _previousActiveWindow = _lastKnownForeground;
@@ -2606,26 +2608,29 @@ namespace McStudDesktop.Views
             _windowTracker.Start();
         }
 
-        private void ClipboardTimer_Tick(object? sender, object e)
+        private async void ClipboardTimer_Tick(object? sender, object e)
         {
             try
             {
-                // Check clipboard for new Excel data
-                string? clipboardText = null;
-                var thread = new System.Threading.Thread(() =>
+                // Check clipboard for new Excel data (non-blocking — runs on thread pool)
+                string? clipboardText = await Task.Run(() =>
                 {
-                    try
+                    string? text = null;
+                    var thread = new System.Threading.Thread(() =>
                     {
-                        if (System.Windows.Forms.Clipboard.ContainsText())
+                        try
                         {
-                            clipboardText = System.Windows.Forms.Clipboard.GetText();
+                            if (System.Windows.Forms.Clipboard.ContainsText())
+                                text = System.Windows.Forms.Clipboard.GetText();
                         }
-                    }
-                    catch { }
+                        catch { }
+                    });
+                    thread.SetApartmentState(System.Threading.ApartmentState.STA);
+                    thread.Start();
+                    if (!thread.Join(200))
+                        return null; // Timed out — skip this cycle
+                    return text;
                 });
-                thread.SetApartmentState(System.Threading.ApartmentState.STA);
-                thread.Start();
-                thread.Join(200);
 
                 if (string.IsNullOrWhiteSpace(clipboardText)) return;
 
@@ -3305,21 +3310,23 @@ namespace McStudDesktop.Views
                 if (_mitchellButton != null) _mitchellButton.IsEnabled = false;
 
                 // Get raw clipboard data (full tab-separated rows from Excel)
-                string? clipboardText = null;
-                var thread = new System.Threading.Thread(() =>
+                string? clipboardText = await Task.Run(() =>
                 {
-                    try
+                    string? text = null;
+                    var thread = new System.Threading.Thread(() =>
                     {
-                        if (System.Windows.Forms.Clipboard.ContainsText())
+                        try
                         {
-                            clipboardText = System.Windows.Forms.Clipboard.GetText();
+                            if (System.Windows.Forms.Clipboard.ContainsText())
+                                text = System.Windows.Forms.Clipboard.GetText();
                         }
-                    }
-                    catch { }
+                        catch { }
+                    });
+                    thread.SetApartmentState(System.Threading.ApartmentState.STA);
+                    thread.Start();
+                    thread.Join(2000); // 2s timeout to avoid permanent freeze
+                    return text;
                 });
-                thread.SetApartmentState(System.Threading.ApartmentState.STA);
-                thread.Start();
-                thread.Join();
 
                 if (string.IsNullOrEmpty(clipboardText))
                 {
@@ -3540,7 +3547,7 @@ namespace McStudDesktop.Views
                     });
                     thread.SetApartmentState(System.Threading.ApartmentState.STA);
                     thread.Start();
-                    thread.Join();
+                    thread.Join(TimeSpan.FromSeconds(30)); // 30s timeout — avoids permanent freeze
                 });
 
                 // Record stats - assume CCC Desktop for hotkey

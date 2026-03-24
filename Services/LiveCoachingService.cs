@@ -89,6 +89,7 @@ namespace McstudDesktop.Services
 
             _screenMonitor.OcrResultReady -= OnOcrResultReady;
             _debounceCts?.Cancel();
+            _debounceCts?.Dispose();
             _debounceCts = null;
             _isRunning = false;
             _lastContentHash = "";
@@ -156,8 +157,9 @@ namespace McstudDesktop.Services
             if (hash == _lastContentHash) return;
             _lastContentHash = hash;
 
-            // Cancel any pending debounce
+            // Cancel and dispose any pending debounce
             _debounceCts?.Cancel();
+            _debounceCts?.Dispose();
             _debounceCts = new CancellationTokenSource();
             var token = _debounceCts.Token;
 
@@ -282,6 +284,14 @@ namespace McstudDesktop.Services
                 var catalogIdx = cleanedRaw.IndexOf("Add to Estimate", StringComparison.OrdinalIgnoreCase);
                 if (catalogIdx > 50)
                     cleanedRaw = cleanedRaw.Substring(0, catalogIdx);
+                // Cap accumulated text at 100KB to prevent unbounded growth over long sessions
+                if (_accumulatedRawText.Length > 100_000)
+                {
+                    // Keep the most recent half
+                    var recent = _accumulatedRawText.ToString(_accumulatedRawText.Length / 2, _accumulatedRawText.Length / 2);
+                    _accumulatedRawText.Clear();
+                    _accumulatedRawText.Append(recent);
+                }
                 _accumulatedRawText.AppendLine(cleanedRaw);
                 if (_vehicleInfo == null)
                     _vehicleInfo = ExtractVehicleInfo(cleanedRaw);

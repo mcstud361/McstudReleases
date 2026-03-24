@@ -1825,10 +1825,10 @@ namespace McStudDesktop.Views
                         if (d.Contains(opNorm)) return true;
 
                         // Check 3: Must-have contains detected text, BUT only if detected text
-                        // is at least 50% of the must-have length. Prevents short detected texts
+                        // is at least 45% of the must-have length. Prevents short detected texts
                         // like "adas calibration" from matching long must-haves like
                         // "simulate full fluids for adas calibrations".
-                        if (opNorm.Contains(d) && d.Length >= opNorm.Length * 0.5)
+                        if (opNorm.Contains(d) && d.Length >= opNorm.Length * 0.45)
                             return true;
 
                         // Check 4: Proportional word overlap — must-have words found in detected text
