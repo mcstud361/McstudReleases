@@ -7,6 +7,7 @@ using Windows.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using McStudDesktop.Services;
 
 namespace McStudDesktop.Views
@@ -37,6 +38,12 @@ namespace McStudDesktop.Views
         private TextBox? _overrideSearchBox;
         private StackPanel? _overrideListPanel;
 
+        // Custom operations
+        private StackPanel? _customOpsListPanel;
+
+        // Must-haves
+        private StackPanel? _mustHavesListPanel;
+
         // Category toggles
         private StackPanel? _categoryTogglesPanel;
 
@@ -58,8 +65,10 @@ namespace McStudDesktop.Views
             var scrollViewer = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                MaxHeight = 600
+                MaxHeight = 800
             };
+
+            this.MinWidth = 700;
 
             var mainStack = new StackPanel { Spacing = 16, Padding = new Thickness(16) };
 
@@ -69,10 +78,16 @@ namespace McStudDesktop.Views
             // Section 2: Scanning Config
             mainStack.Children.Add(BuildScanningSection());
 
-            // Section 3: Operation Overrides
+            // Section 3: Standard Operations (read-only, with override/disable)
             mainStack.Children.Add(BuildOperationOverridesSection());
 
-            // Section 4: Category Toggles
+            // Section 4: Your Custom Operations
+            mainStack.Children.Add(BuildCustomOperationsSection());
+
+            // Section 5: Must-Haves (required on every estimate)
+            mainStack.Children.Add(BuildMustHavesSection());
+
+            // Section 6: Category Toggles
             mainStack.Children.Add(BuildCategoryTogglesSection());
 
             // Bottom buttons
@@ -258,7 +273,7 @@ namespace McStudDesktop.Views
             var border = CreateSectionBorder();
             var stack = new StackPanel { Spacing = 10 };
 
-            stack.Children.Add(CreateSectionHeader("Operation Overrides", "\uE70F"));
+            stack.Children.Add(CreateSectionHeader("Customize Operations", "\uE70F"));
 
             // Search box
             _overrideSearchBox = new TextBox
@@ -274,7 +289,7 @@ namespace McStudDesktop.Views
             // Operation list (scrollable)
             var listScroll = new ScrollViewer
             {
-                MaxHeight = 250,
+                MaxHeight = 400,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
             _overrideListPanel = new StackPanel { Spacing = 2 };
@@ -286,7 +301,7 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(new TextBlock
             {
-                Text = "Override labor hours or disable operations. Changes apply to future estimates.",
+                Text = "Adjust labor hours or turn off operations you don't want in the ghost estimate.",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
                 FontStyle = Windows.UI.Text.FontStyle.Italic
@@ -301,6 +316,21 @@ namespace McStudDesktop.Views
             PopulateOverrideList(_overrideSearchBox?.Text ?? "");
         }
 
+        private static bool IsJunkExcelRow(ExcelOperation op)
+        {
+            if (string.IsNullOrWhiteSpace(op.Description)) return true;
+            var desc = op.Description.Trim();
+            // Navigation links, stat bars, emoji headers from Excel
+            if (desc.Contains("\U0001f517") || desc.Contains("\U0001f4ca") || desc.Contains("\U0001f4b2") ||
+                desc.Contains("\U0001f6e0") || desc.Contains("\U0001f3a8"))
+                return true;
+            if (desc.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase)) return true;
+            if (desc.StartsWith("\u25bc") || desc.StartsWith("\u25b2")) return true; // ▼▲ dropdown markers
+            // All zeros placeholder — no hours, no price, not a real operation
+            if (op.LaborHours == 0 && op.Price == 0 && op.RefinishHours == 0 && desc.Length < 3) return true;
+            return false;
+        }
+
         private void PopulateOverrideList(string searchText)
         {
             if (_overrideListPanel == null) return;
@@ -312,9 +342,13 @@ namespace McStudDesktop.Views
             foreach (var sheetName in _excelProvider.GetSheetNames())
             {
                 var ops = _excelProvider.GetSheetOperations(sheetName);
+
+                // Filter out Excel junk rows first
+                var cleanOps = ops.Where(o => !IsJunkExcelRow(o));
+
                 var filtered = string.IsNullOrEmpty(searchLower)
-                    ? ops.Take(10).ToList()  // Show first 10 per sheet when no search
-                    : ops.Where(o => o.Description?.ToLowerInvariant().Contains(searchLower) == true).ToList();
+                    ? cleanOps.Take(15).ToList()
+                    : cleanOps.Where(o => o.Description?.ToLowerInvariant().Contains(searchLower) == true).ToList();
 
                 if (!filtered.Any()) continue;
 
@@ -328,14 +362,13 @@ namespace McStudDesktop.Views
                     Margin = new Thickness(0, 6, 0, 2)
                 });
 
-                foreach (var op in filtered.Take(20))
+                foreach (var op in filtered.Take(25))
                 {
-                    if (string.IsNullOrWhiteSpace(op.Description)) continue;
                     _overrideListPanel.Children.Add(CreateOverrideRow(op));
                     count++;
-                    if (count >= 50) break;
+                    if (count >= 75) break;
                 }
-                if (count >= 50) break;
+                if (count >= 75) break;
             }
 
             if (count == 0)
@@ -453,6 +486,436 @@ namespace McStudDesktop.Views
 
             rowBorder.Child = grid;
             return rowBorder;
+        }
+
+        private Border BuildCustomOperationsSection()
+        {
+            var border = CreateSectionBorder();
+            var stack = new StackPanel { Spacing = 10 };
+
+            stack.Children.Add(CreateSectionHeader("Your Custom Operations", "\uE710"));
+
+            // Add button
+            var addButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE710", FontSize = 12 },
+                        new TextBlock { Text = "Add Operation", FontSize = 12 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 46, 120, 67)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6),
+                CornerRadius = new CornerRadius(4),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            addButton.Click += AddCustomOp_Click;
+            stack.Children.Add(addButton);
+
+            // Custom operations list
+            _customOpsListPanel = new StackPanel { Spacing = 4 };
+            stack.Children.Add(_customOpsListPanel);
+
+            PopulateCustomOpsList();
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Your custom operations are included in ghost estimates alongside the standard ones.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
+                FontStyle = Windows.UI.Text.FontStyle.Italic
+            });
+
+            border.Child = stack;
+            return border;
+        }
+
+        private void PopulateCustomOpsList()
+        {
+            if (_customOpsListPanel == null) return;
+            _customOpsListPanel.Children.Clear();
+
+            var customOps = _configService.GetCustomOperations();
+
+            if (customOps.Count == 0)
+            {
+                _customOpsListPanel.Children.Add(new TextBlock
+                {
+                    Text = "No custom operations yet. Click \"Add Operation\" to create one.",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 105, 110)),
+                    FontStyle = Windows.UI.Text.FontStyle.Italic,
+                    Margin = new Thickness(0, 4, 0, 4)
+                });
+                return;
+            }
+
+            foreach (var op in customOps)
+            {
+                _customOpsListPanel.Children.Add(CreateCustomOpRow(op));
+            }
+        }
+
+        private Border CreateCustomOpRow(GhostCustomOperation op)
+        {
+            var rowBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 38, 43, 52)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(10, 6, 10, 6),
+                Margin = new Thickness(0, 1, 0, 1),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 130, 80)),
+                BorderThickness = new Thickness(3, 0, 0, 0)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) }); // Category
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) }); // Hours
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) }); // Price
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) }); // Edit/Delete
+
+            // Description
+            var desc = new TextBlock
+            {
+                Text = op.Description,
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(desc, 0);
+            grid.Children.Add(desc);
+
+            // Category
+            var catLabel = op.Category switch
+            {
+                "B" => "Body",
+                "M" => "Mech",
+                "R" => "Refn",
+                "F" => "Frame",
+                _ => op.Category
+            };
+            var catText = new TextBlock
+            {
+                Text = catLabel,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            Grid.SetColumn(catText, 1);
+            grid.Children.Add(catText);
+
+            // Hours
+            var totalHours = op.LaborHours + op.RefinishHours;
+            var hoursText = new TextBlock
+            {
+                Text = totalHours > 0 ? $"{totalHours:F1}h" : "—",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            Grid.SetColumn(hoursText, 2);
+            grid.Children.Add(hoursText);
+
+            // Price
+            var priceText = new TextBlock
+            {
+                Text = op.Price > 0 ? $"${op.Price:F0}" : "—",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100)),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            Grid.SetColumn(priceText, 3);
+            grid.Children.Add(priceText);
+
+            // Edit + Delete buttons
+            var actionPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Right };
+
+            var editBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE70F", FontSize = 11 },
+                Padding = new Thickness(6, 3, 6, 3),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 60, 75)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 180, 220)),
+                CornerRadius = new CornerRadius(3),
+                MinWidth = 0
+            };
+            ToolTipService.SetToolTip(editBtn, "Edit");
+            var capturedOp = op;
+            editBtn.Click += (s, e) => EditCustomOp(capturedOp);
+            actionPanel.Children.Add(editBtn);
+
+            var deleteBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE74D", FontSize = 11 },
+                Padding = new Thickness(6, 3, 6, 3),
+                Background = new SolidColorBrush(Color.FromArgb(255, 75, 40, 40)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 120, 120)),
+                CornerRadius = new CornerRadius(3),
+                MinWidth = 0
+            };
+            ToolTipService.SetToolTip(deleteBtn, "Delete");
+            deleteBtn.Click += (s, e) =>
+            {
+                _configService.RemoveCustomOperation(capturedOp.Id);
+                PopulateCustomOpsList();
+            };
+            actionPanel.Children.Add(deleteBtn);
+
+            Grid.SetColumn(actionPanel, 4);
+            grid.Children.Add(actionPanel);
+
+            rowBorder.Opacity = op.Enabled ? 1.0 : 0.5;
+            rowBorder.Child = grid;
+            return rowBorder;
+        }
+
+        private async void AddCustomOp_Click(object sender, RoutedEventArgs e)
+        {
+            await ShowCustomOpDialog(null);
+        }
+
+        private async void EditCustomOp(GhostCustomOperation op)
+        {
+            await ShowCustomOpDialog(op);
+        }
+
+        private async Task ShowCustomOpDialog(GhostCustomOperation? existing)
+        {
+            bool isNew = existing == null;
+            var op = existing ?? new GhostCustomOperation();
+
+            var dialogStack = new StackPanel { Spacing = 12, MinWidth = 400 };
+
+            // Description
+            var descBox = new TextBox
+            {
+                Text = op.Description,
+                PlaceholderText = "Operation name (e.g., R&I Headliner)",
+                FontSize = 12,
+                Header = "Description"
+            };
+            dialogStack.Children.Add(descBox);
+
+            // Category
+            var catCombo = new ComboBox
+            {
+                Header = "Category",
+                FontSize = 12,
+                Width = 200,
+                Items = { "Body", "Mechanical", "Refinish", "Frame" },
+                SelectedIndex = op.Category switch
+                {
+                    "M" => 1,
+                    "R" => 2,
+                    "F" => 3,
+                    _ => 0
+                }
+            };
+            dialogStack.Children.Add(catCombo);
+
+            // Hours row
+            var hoursRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+            var laborBox = new NumberBox
+            {
+                Header = "Labor Hours",
+                Value = op.LaborHours > 0 ? (double)op.LaborHours : double.NaN,
+                PlaceholderText = "0.0",
+                Minimum = 0, Maximum = 100,
+                SmallChange = 0.1,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                Width = 130, FontSize = 12
+            };
+            hoursRow.Children.Add(laborBox);
+
+            var refinishBox = new NumberBox
+            {
+                Header = "Refinish Hours",
+                Value = op.RefinishHours > 0 ? (double)op.RefinishHours : double.NaN,
+                PlaceholderText = "0.0",
+                Minimum = 0, Maximum = 100,
+                SmallChange = 0.1,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                Width = 130, FontSize = 12
+            };
+            hoursRow.Children.Add(refinishBox);
+
+            var priceBox = new NumberBox
+            {
+                Header = "Price ($)",
+                Value = op.Price > 0 ? (double)op.Price : double.NaN,
+                PlaceholderText = "0.00",
+                Minimum = 0, Maximum = 10000,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                Width = 130, FontSize = 12
+            };
+            hoursRow.Children.Add(priceBox);
+            dialogStack.Children.Add(hoursRow);
+
+            var dialog = new ContentDialog
+            {
+                Title = isNew ? "Add Custom Operation" : "Edit Custom Operation",
+                Content = dialogStack,
+                PrimaryButtonText = isNew ? "Add" : "Save",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = ElementTheme.Dark
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                if (string.IsNullOrWhiteSpace(descBox.Text)) return;
+
+                op.Description = descBox.Text.Trim();
+                op.Category = catCombo.SelectedIndex switch
+                {
+                    1 => "M",
+                    2 => "R",
+                    3 => "F",
+                    _ => "B"
+                };
+                op.OperationType = op.Category switch
+                {
+                    "M" => "Mech",
+                    "R" => "Rfn",
+                    "F" => "Frame",
+                    _ => "Body"
+                };
+                op.LaborHours = !double.IsNaN(laborBox.Value) ? (decimal)laborBox.Value : 0;
+                op.RefinishHours = !double.IsNaN(refinishBox.Value) ? (decimal)refinishBox.Value : 0;
+                op.Price = !double.IsNaN(priceBox.Value) ? (decimal)priceBox.Value : 0;
+
+                if (isNew)
+                    _configService.AddCustomOperation(op);
+                else
+                    _configService.UpdateCustomOperation(op);
+
+                PopulateCustomOpsList();
+            }
+        }
+
+        private Border BuildMustHavesSection()
+        {
+            var border = CreateSectionBorder();
+            var stack = new StackPanel { Spacing = 10 };
+
+            stack.Children.Add(CreateSectionHeader("Must-Haves (Scoring Criteria)", "\uE73E"));
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Operations that should always be on every estimate. Configure these from the Must-Haves button on the Estimate Import scoring panel, or manage them here.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 185, 190)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            // Must-haves list (read-only display)
+            _mustHavesListPanel = new StackPanel { Spacing = 4 };
+            stack.Children.Add(_mustHavesListPanel);
+            PopulateMustHavesList();
+
+            border.Child = stack;
+            return border;
+        }
+
+        private void PopulateMustHavesList()
+        {
+            if (_mustHavesListPanel == null) return;
+            _mustHavesListPanel.Children.Clear();
+
+            var mustHaves = _configService.GetMustHaves();
+
+            if (mustHaves.Count == 0)
+            {
+                _mustHavesListPanel.Children.Add(new TextBlock
+                {
+                    Text = "No must-haves configured. Use the Must-Haves button on the Estimate Import scoring panel to select from SOP operations.",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 105, 110)),
+                    FontStyle = Windows.UI.Text.FontStyle.Italic,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 4, 0, 4)
+                });
+                return;
+            }
+
+            foreach (var mh in mustHaves.Where(m => m.Enabled))
+            {
+                var rowBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 38, 43, 52)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(0, 1, 0, 1),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(255, 180, 140, 50)),
+                    BorderThickness = new Thickness(3, 0, 0, 0)
+                };
+
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var desc = new TextBlock
+                {
+                    Text = mh.Description,
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Colors.White),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Grid.SetColumn(desc, 0);
+                grid.Children.Add(desc);
+
+                var detail = "";
+                if (mh.ExpectedPrice > 0) detail += $"${mh.ExpectedPrice:N0}  ";
+                if (mh.ExpectedHours > 0) detail += $"{mh.ExpectedHours:F1}h";
+                if (detail.Length > 0)
+                {
+                    var detailText = new TextBlock
+                    {
+                        Text = detail.Trim(),
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 180, 140)),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    };
+                    Grid.SetColumn(detailText, 1);
+                    grid.Children.Add(detailText);
+                }
+
+                var capturedMh = mh;
+                var deleteBtn = new Button
+                {
+                    Content = new FontIcon { Glyph = "\uE74D", FontSize = 10 },
+                    Padding = new Thickness(4, 2, 4, 2),
+                    Background = new SolidColorBrush(Color.FromArgb(255, 75, 40, 40)),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 120, 120)),
+                    CornerRadius = new CornerRadius(3),
+                    MinWidth = 0,
+                    Margin = new Thickness(8, 0, 0, 0)
+                };
+                deleteBtn.Click += (s, e) =>
+                {
+                    _configService.RemoveMustHave(capturedMh.Id);
+                    PopulateMustHavesList();
+                };
+                Grid.SetColumn(deleteBtn, 2);
+                grid.Children.Add(deleteBtn);
+
+                rowBorder.Child = grid;
+                _mustHavesListPanel.Children.Add(rowBorder);
+            }
         }
 
         private Border BuildCategoryTogglesSection()

@@ -27,12 +27,53 @@ namespace McstudDesktop.Services
         private OcrEngine? _ocrEngine;
         private string? _previousRawText;
 
+        // Common OCR misreads — applied to raw text before pattern matching
+        private static readonly (string Wrong, string Right)[] _ocrCorrections = new[]
+        {
+            ("batten,'", "battery"), ("batten,\"", "battery"), ("batten'", "battery"),
+            ("batten,", "battery"), ("batteiy", "battery"), ("batter,'", "battery"),
+            ("battey", "battery"), ("batt ery", "battery"),
+            ("bumpe r", "bumper"), ("bumpe,", "bumper"), ("bumper,", "bumper"),
+            ("electr onic", "electronic"), ("electr0nic", "electronic"),
+            ("reinf orcement", "reinforcement"), ("reinf0rcement", "reinforcement"),
+            ("calibrat ion", "calibration"), ("calibrat1on", "calibration"),
+            ("disconnect and reconnect batten", "disconnect and reconnect battery"),
+            ("disconnect and reconnect batte", "disconnect and reconnect battery"),
+            ("test batten", "test battery"), ("charge and maintain batten", "charge and maintain battery"),
+        };
+
+        // Hardware / part-number keywords — these are parts, not estimating operations
+        private static readonly string[] _hardwareKeywords = new[]
+        {
+            "bolt", "nut ", "clip #", "clip#", "grommet", "rivet ", "screw",
+            "fastener", "felt strip", "retainer clip", "liner clip",
+            "impact bar bolt", "seal retainer", "side seal",
+            "side retainer", "lower cover retainer",
+            "pin ", "washer ", "stud ", "bracket bolt",
+        };
+
         // Regex patterns (shared with EstimateParserService)
-        private static readonly Regex _pricePattern = new(@"\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))", RegexOptions.Compiled);
+        private static readonly Regex _pricePattern = new(@"\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)", RegexOptions.Compiled);
         private static readonly Regex _hoursPattern = new(@"(\d+\.?\d*)\s*(?:hrs?|hours?|labor)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _refinishPattern = new(@"(\d+\.?\d*)\s*(?:ref|refinish|paint)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _qtyPattern = new(@"qty[:\s]*(\d+)|(\d+)\s*(?:ea|each|x\s)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _vinPattern = new(@"\b([A-HJ-NPR-Z0-9]{17})\b", RegexOptions.Compiled);
+
+        // Diagnostic/scan canonical names — these should always get op type "Sublet", not context-guessed
+        private static readonly HashSet<string> _diagnosticCanonicalNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "diagnostic scan", "pre-repair scan", "post-repair scan", "in-process scan",
+            "adas calibration", "adas diagnostic report", "module programming",
+            "gateway unlock", "drive cycle", "dynamic systems verification",
+            "setup scan tool", "steering angle reset", "aim headlamps", "TPMS reset",
+            "OEM research", "electronic reset"
+        };
+
+        // CCC modifier/add-on sub-line patterns — these are NOT standalone operations.
+        // They modify the preceding parent panel line (e.g., "Add for Clear Coat" under a Quarter Panel Replace).
+        private static readonly Regex _cccModifierPattern = new(
+            @"(?i)^\s*\d*\s*(?:Add\s+for\s+|Overlap|Major\s+Adj|Minor\s+Adj|Adjacent\s+Adj|Deduct\s+Overlap|Add\s+Clear\s*Coat|Add\s+Underside|Add\s+Two\s*Tone|Add\s+Tri[\s-]*Coat|Anti[\s-]*Corrosion|Edging)",
+            RegexOptions.Compiled);
 
         public event EventHandler<string>? StatusChanged;
 
@@ -123,6 +164,14 @@ namespace McstudDesktop.Services
                 // Parse operations from recognized text
                 result.DetectedOperations = ParseOperations(result.Lines, result.EstimateSource);
 
+                // Optional AI-powered OCR cleanup for better accuracy
+                var aiCleanedOps = await TryAiOcrCleanupAsync(result.RawText, result.EstimateSource);
+                if (aiCleanedOps != null && aiCleanedOps.Count > 0)
+                {
+                    Debug.WriteLine($"[ScreenOCR] AI cleanup returned {aiCleanedOps.Count} ops (was {result.DetectedOperations.Count})");
+                    result.DetectedOperations = aiCleanedOps;
+                }
+
                 // Detect changes from previous capture
                 result.HasChanges = _previousRawText == null || !string.Equals(_previousRawText, result.RawText, StringComparison.Ordinal);
                 _previousRawText = result.RawText;
@@ -195,6 +244,11 @@ namespace McstudDesktop.Services
             "Repairable Total Loss", "Repairable", "Total Loss", "threshold",
             "Preliminary Estimate", "Lines MOTOR", "Other Charg", "Ext. Price",
             "Part Cod", "Search for Parts", "Checkout", "Diagnostics Checkout",
+            // CCC ONE parts catalog sidebar (right panel — NOT estimate data)
+            "Add to Estimate", "Select multiple part codes", "Advisa-",
+            "Rivian Pre-Scan", "Rivian Post-Scan", "Rivian In-Process",
+            "Tesla Toolbox", "Tesla Softvvare", "Tesla Software",
+            "RiDE", "Flex part T",
             "Ins ur ance", "Es tin", "Rental Estim", "Attachments",
             "Ev ents", "Fo rms", "Recy opt", "OEM Recond", "compare PDR",
             "Section • Operations", "Tire Part", "Re finish", "• Search",
@@ -427,7 +481,9 @@ namespace McstudDesktop.Services
             ("battery test", "test battery condition"),
             ("memory saver", "memory saver"), ("ks-100", "memory saver"),
             ("keep alive", "memory saver"), ("keep-alive", "memory saver"),
-            ("battery support", "memory saver"),
+            ("battery support", "battery support"), ("battery maintainer", "battery support"),
+            ("electronic reset", "electronic reset"), ("electronic module reset", "electronic reset"),
+            ("ecm reset", "electronic reset"), ("ecu reset", "electronic reset"),
 
             // ── Surface prep & paint materials ──
             ("adhesion promoter", "adhesion promoter"), ("ad pro", "adhesion promoter"),
@@ -437,8 +493,10 @@ namespace McstudDesktop.Services
             ("plastic prep", "adhesion promoter"),
             ("primer surfacer", "primer surfacer"), ("primer sealer", "primer surfacer"),
             ("color tint", "color tint"), ("color match", "color tint"), ("tinting", "color tint"),
-            ("spray card", "color tint"), ("let down panel", "color tint"),
             ("color verify", "color tint"),
+            ("spray out card", "spray out cards"), ("spray out cards", "spray out cards"),
+            ("spray card", "spray out cards"), ("let down panel", "spray out cards"),
+            ("spray out panel", "spray out cards"),
             ("clear coat", "clear coat"), ("clearcoat", "clear coat"),
             ("basecoat", "basecoat"), ("base coat", "basecoat"),
             ("single stage", "single stage"),
@@ -478,6 +536,16 @@ namespace McstudDesktop.Services
             ("masking", "mask & protect"), ("mask for", "mask & protect"),
             ("tape for", "mask & protect"),
             ("backtape", "back tape"), ("back tape", "back tape"),
+            ("cover car for overspray", "cover car for overspray"),
+            ("cover for overspray", "cover car for overspray"),
+            ("cover for edging", "cover for edging"),
+            ("mask for buffing", "mask for buffing"),
+            ("cover engine compartment", "cover engine compartment"),
+            ("cover interior and jambs", "cover interior and jambs"),
+            ("cover jambs", "cover interior and jambs"),
+            ("clean and cover car for primer", "clean and cover car for primer"),
+            ("clean and cover for primer", "clean and cover car for primer"),
+            ("cover car for primer", "clean and cover car for primer"),
             ("cover car", "cover vehicle"), ("cover interior", "cover vehicle"),
             ("cover engine", "cover vehicle"), ("cover trunk", "cover vehicle"),
             ("bagging", "cover vehicle"),
@@ -547,7 +615,11 @@ namespace McstudDesktop.Services
             ("misc. hardware", "misc hardware"),
             ("seat cover", "protective covers"), ("floor mat cover", "protective covers"),
             ("steering wheel cover", "protective covers"), ("protective cover", "protective covers"),
-            ("glass cleaner", "glass cleaner"),
+            ("glass cleaner", "glass cleaner"), ("windshield cleaner", "glass cleaner"),
+            ("refinish material invoice", "refinish material invoice"),
+            ("refinish materials invoice", "refinish material invoice"),
+            ("paint material invoice", "refinish material invoice"),
+            ("material invoice", "refinish material invoice"),
 
             // ── Mechanical ──
             ("tpms sensor", "TPMS sensor"), ("tpms", "TPMS sensor"),
@@ -598,12 +670,23 @@ namespace McstudDesktop.Services
             // Pass 1: Try structured parsing (existing logic)
             foreach (var line in lines)
             {
-                var text = line.Text.Trim();
+                var text = ApplyOcrCorrections(line.Text.Trim());
                 if (string.IsNullOrWhiteSpace(text) || text.Length < 5)
                     continue;
 
                 // Skip UI chrome / toolbar text (CCC, Mitchell, browser, email)
                 if (_uiChromePatterns.Any(chrome => text.Contains(chrome, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                // Skip CCC parts catalog sidebar entries (DIA codes, group codes, standalone op-type lists)
+                if (Regex.IsMatch(text, @"\bDIA\d{1,2}\b"))
+                    continue;
+                if (Regex.IsMatch(text, @"\b(VEHI|TRON|MISC)[_.\s]{2,}"))
+                    continue;
+                // Skip lines that are just a list of operation types from the catalog column
+                // e.g. "Repair Repair Repair Repair Repair Replace Replace..."
+                if (Regex.IsMatch(text, @"^(Repair|Replace|Refinish|R&I|Blend)(\s+(Repair|Replace|Refinish|R&I|Blend)){2,}",
+                    RegexOptions.IgnoreCase))
                     continue;
 
                 // Skip lines that are purely section headers (no operation codes or numerics mixed in).
@@ -628,6 +711,12 @@ namespace McstudDesktop.Services
 
                 // Skip lines >150 chars — estimate lines are typically short; long lines are OCR paragraph noise
                 if (text.Length > 150)
+                    continue;
+
+                // Skip CCC modifier/add-on sub-lines — these belong to the preceding parent panel operation,
+                // not standalone operations (e.g., "Add for Clear Coat", "Overlap", "Major Adj. Panel",
+                // "Add for Underside(Complete)", "Add for Two Tone", "Add for Tri-Coat")
+                if (_cccModifierPattern.IsMatch(text))
                     continue;
 
                 OcrDetectedOperation? operation = source switch
@@ -683,6 +772,9 @@ namespace McstudDesktop.Services
                     if (!desc.Contains(' ') && desc.Length < 5 &&
                         !_knownParts.Any(kp => kp.CanonicalName.Equals(desc, StringComparison.OrdinalIgnoreCase)))
                         continue;
+                    // Hardware/part number items (clips, bolts, retainers, felt strips) → not operations
+                    if (IsHardwareItem(desc))
+                        continue;
 
                     operations.Add(operation);
                 }
@@ -697,7 +789,20 @@ namespace McstudDesktop.Services
                     var candidate = Regex.Replace(l.Text.Trim(), @"^\d+\s*", "").Trim();
                     return !_cccSectionHeaders.Contains(candidate);
                 });
-                var fullText = string.Join(" ", filteredLines.Select(l => l.Text)).ToLowerInvariant();
+                var fullTextRaw = ApplyOcrCorrections(string.Join(" ", filteredLines.Select(l => l.Text))).ToLowerInvariant();
+                // Truncate at CCC parts catalog sidebar markers — everything after these is
+                // available-to-add operations, NOT what's on the estimate.
+                var fullText = fullTextRaw;
+                var catalogMarkers = new[] { "add to estimate", "select multiple part codes", "part codes advisa" };
+                foreach (var marker in catalogMarkers)
+                {
+                    var markerIdx = fullText.IndexOf(marker);
+                    if (markerIdx > 50) // only truncate if marker isn't at the very start
+                    {
+                        fullText = fullText.Substring(0, markerIdx);
+                        break;
+                    }
+                }
                 var foundParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 // Dedup against Pass 1 results by canonical name
                 var existingParts = new HashSet<string>(
@@ -719,22 +824,33 @@ namespace McstudDesktop.Services
                     var endIdx = patternIdx + pattern.Length;
                     if (endIdx < fullText.Length && char.IsLetter(fullText[endIdx])) continue;
 
+                    // Skip CCC modifier context — "add for clear coat", "add for underside" etc.
+                    // These are sub-lines of the preceding panel, not standalone operations.
+                    {
+                        var prefixStart = Math.Max(0, patternIdx - 15);
+                        var prefix = fullText.Substring(prefixStart, patternIdx - prefixStart);
+                        if (Regex.IsMatch(prefix, @"(?i)add\s+(?:for\s+)?$"))
+                            continue;
+                    }
+
                     foundParts.Add(canonical);
                     matchedPatterns.Add(pattern);
 
                     // Try to detect operation type from nearby context
+                    // Use wider window (±80 chars) because CCC grid columns put op types far from part names
                     var opType = "";
                     {
-                        var start = Math.Max(0, patternIdx - 30);
-                        var end = Math.Min(fullText.Length, patternIdx + pattern.Length + 30);
+                        var start = Math.Max(0, patternIdx - 80);
+                        var end = Math.Min(fullText.Length, patternIdx + pattern.Length + 50);
                         var context = fullText.Substring(start, end - start);
 
-                        if (context.Contains("repl") || context.Contains("new") || context.Contains("r/r"))
+                        // Check "repair" before "repl" — "repair" contains substring "repl" and would false-positive
+                        if (context.Contains("rpr") || context.Contains("repair"))
+                            opType = "Repair";
+                        else if (context.Contains("repl") || context.Contains("new") || context.Contains("r/r"))
                             opType = "Replace";
                         else if (context.Contains("r&i") || context.Contains("r+i") || context.Contains("remove"))
                             opType = "R&I";
-                        else if (context.Contains("rpr") || context.Contains("repair"))
-                            opType = "Repair";
                         else if (context.Contains("refn") || context.Contains("refinish") || context.Contains("paint"))
                             opType = "Refinish";
                         else if (context.Contains("blend") || context.Contains("blnd"))
@@ -762,6 +878,11 @@ namespace McstudDesktop.Services
                             }
                         }
                     }
+
+                    // Override operation type for diagnostic/scan items — context-based guessing
+                    // often misclassifies these (e.g., "pre-repair scan" → "Repair" due to "repair" substring)
+                    if (_diagnosticCanonicalNames.Contains(canonical))
+                        opType = "Sublet";
 
                     operations.Add(new OcrDetectedOperation
                     {
@@ -827,8 +948,8 @@ namespace McstudDesktop.Services
             {
                 var token = tokens[i];
 
-                // Part number: 6+ chars, has both letters and digits, no dot
-                if (partNumber == null && token.Length >= 6 &&
+                // Part number: 3+ chars, has both letters and digits, no dot (CCC codes like FR1, LS1, AB2)
+                if (partNumber == null && token.Length >= 3 &&
                     token.Any(char.IsDigit) && token.Any(char.IsLetter) && !token.Contains("."))
                 {
                     partNumber = token;
@@ -946,8 +1067,8 @@ namespace McstudDesktop.Services
                     if (foundOp) continue;
                 }
 
-                // Part number
-                if (partNumber == null && token.Length >= 6 &&
+                // Part number: 3+ chars (CCC codes like FR1, LS1, AB2)
+                if (partNumber == null && token.Length >= 3 &&
                     token.Any(char.IsDigit) && token.Any(char.IsLetter) && !token.Contains("."))
                 {
                     partNumber = token;
@@ -1177,11 +1298,129 @@ namespace McstudDesktop.Services
         }
 
         /// <summary>
+        /// Applies common OCR misread corrections to raw text before pattern matching.
+        /// </summary>
+        internal static string ApplyOcrCorrections(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return text;
+            var lower = text.ToLowerInvariant();
+            foreach (var (wrong, right) in _ocrCorrections)
+            {
+                if (lower.Contains(wrong))
+                {
+                    // Case-insensitive replace
+                    var idx = lower.IndexOf(wrong);
+                    while (idx >= 0)
+                    {
+                        text = text.Remove(idx, wrong.Length).Insert(idx, right);
+                        lower = text.ToLowerInvariant();
+                        idx = lower.IndexOf(wrong, idx + right.Length);
+                    }
+                }
+            }
+            return text;
+        }
+
+        /// <summary>
+        /// Returns true if the description looks like a hardware/part number, not an operation.
+        /// </summary>
+        private static bool IsHardwareItem(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return false;
+            var lower = description.ToLowerInvariant() + " "; // trailing space for boundary matching
+            return _hardwareKeywords.Any(kw => lower.Contains(kw));
+        }
+
+        /// <summary>
         /// Resets the change detection baseline.
         /// </summary>
         public void ResetChangeTracking()
         {
             _previousRawText = null;
+        }
+
+        /// <summary>
+        /// Attempt AI-powered OCR text cleanup for better structured parsing.
+        /// Returns null on failure — caller should use fallback regex results.
+        /// </summary>
+        private async Task<List<OcrDetectedOperation>?> TryAiOcrCleanupAsync(string rawText, OcrEstimateSource source)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(rawText) || rawText.Length < 20)
+                    return null;
+
+                var apiService = McStudDesktop.Services.ClaudeApiService.Instance;
+                var systemPrompt = @"You are a collision repair estimate parser. Extract structured operations from raw OCR text captured from estimating software (CCC ONE, Mitchell, Audatex).
+
+Return a JSON array of operations. Each operation object has:
+- ""description"": full operation description
+- ""operationType"": one of: Repl, Rpr, Refn, R&I, Blnd, Add, O/H, Subl, Mech, Body, New
+- ""partName"": the part/panel name (e.g. ""front bumper cover"", ""hood"", ""fender"")
+- ""laborHours"": decimal labor hours (0 if not found)
+- ""refinishHours"": decimal refinish hours (0 if not found)
+- ""price"": decimal price (0 if not found)
+
+Rules:
+- Skip UI chrome, headers, footers, and navigation text
+- Skip empty or purely numeric lines
+- Normalize part names to lowercase
+- Return ONLY the JSON array, no markdown or explanation";
+
+                var userMessage = $"Source: {source}\n\nRaw OCR text:\n{rawText}";
+
+                // Limit input to avoid excessive token usage
+                if (userMessage.Length > 4000)
+                    userMessage = userMessage.Substring(0, 4000);
+
+                var response = await apiService.SendAsync(systemPrompt, userMessage, McStudDesktop.Services.AiFeature.OcrCleanup, 2048);
+                if (response == null) return null;
+
+                // Parse the JSON response
+                var text = McStudDesktop.Services.ClaudeApiService.StripCodeFences(response.Text);
+
+                var ops = System.Text.Json.JsonSerializer.Deserialize<List<AiOcrOperation>>(text, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (ops == null || ops.Count == 0) return null;
+
+                var result = new List<OcrDetectedOperation>();
+                foreach (var op in ops)
+                {
+                    if (string.IsNullOrWhiteSpace(op.Description) && string.IsNullOrWhiteSpace(op.PartName))
+                        continue;
+
+                    result.Add(new OcrDetectedOperation
+                    {
+                        Description = op.Description ?? "",
+                        OperationType = op.OperationType ?? "",
+                        PartName = op.PartName ?? "",
+                        LaborHours = op.LaborHours,
+                        RefinishHours = op.RefinishHours,
+                        Price = op.Price,
+                        RawLine = op.Description ?? ""
+                    });
+                }
+
+                return result.Count > 0 ? result : null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ScreenOCR] AI cleanup failed (using fallback): {ex.Message}");
+                return null;
+            }
+        }
+
+        private class AiOcrOperation
+        {
+            public string? Description { get; set; }
+            public string? OperationType { get; set; }
+            public string? PartName { get; set; }
+            public decimal LaborHours { get; set; }
+            public decimal RefinishHours { get; set; }
+            public decimal Price { get; set; }
         }
     }
 }

@@ -41,6 +41,8 @@ namespace McStudDesktop.Services
                     foreach (var op in ops)
                     {
                         if (string.IsNullOrWhiteSpace(op.Description)) continue;
+                        // Skip Excel UI junk rows (navigation, stat bars, emoji headers)
+                        if (IsExcelJunkRow(op.Description)) continue;
 
                         var key = NormalizeDescription(op.Description);
                         if (!_operationIndex.TryGetValue(key, out var list))
@@ -205,6 +207,20 @@ namespace McStudDesktop.Services
             }
 
             return (false, 0, 0, 0, "");
+        }
+
+        /// <summary>
+        /// Filter out Excel UI junk: navigation links, stat bar rows, emoji headers.
+        /// </summary>
+        private static bool IsExcelJunkRow(string description)
+        {
+            if (description.Contains("\U0001f517") || description.Contains("\U0001f4ca") ||
+                description.Contains("\U0001f4b2") || description.Contains("\U0001f6e0") ||
+                description.Contains("\U0001f3a8"))
+                return true;
+            if (description.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase))
+                return true;
+            return false;
         }
 
         private static string NormalizeDescription(string description)

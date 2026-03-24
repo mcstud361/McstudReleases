@@ -153,6 +153,10 @@ namespace McStudDesktop.Services
 
                 var text = allText.ToString();
 
+                // Fix doubled characters from Mitchell PDF bold/overlay text extraction
+                // e.g., "PPaarrttss VVeennddoorrss" → "Parts Vendors"
+                text = FixDoubledCharacters(text);
+
                 // Detect estimate source (CCC, Mitchell, Audatex)
                 estimate.Source = DetectSource(text);
                 System.Diagnostics.Debug.WriteLine($"[PDF Parser] Detected source: {estimate.Source}");
@@ -198,6 +202,51 @@ namespace McStudDesktop.Services
             estimate.Totals = ExtractTotals(text);
 
             return estimate;
+        }
+
+        /// <summary>
+        /// Fix doubled characters from Mitchell PDF bold/overlay text extraction.
+        /// iText7 extracts bold/overlay text as doubled chars: "PPaarrttss" → "Parts".
+        /// Algorithm: For each word, if EVERY character appears exactly twice consecutively,
+        /// collapse by taking every other character. Safe because real English words
+        /// don't have all characters doubled (e.g., "Hood" has oo but H and d aren't doubled).
+        /// </summary>
+        private static string FixDoubledCharacters(string text)
+        {
+            // Process line by line to preserve line breaks
+            var lines = text.Split('\n');
+            var result = new StringBuilder(text.Length);
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (i > 0) result.Append('\n');
+
+                var line = lines[i];
+                var words = line.Split(' ');
+                for (int w = 0; w < words.Length; w++)
+                {
+                    if (w > 0) result.Append(' ');
+
+                    var word = words[w];
+                    // Must be even length, at least 4 chars (2 real chars), and match the doubled pattern
+                    if (word.Length >= 4 && word.Length % 2 == 0 && Regex.IsMatch(word, @"^((.)\2)+$"))
+                    {
+                        // Collapse: take every other character (index 0, 2, 4, ...)
+                        var collapsed = new StringBuilder(word.Length / 2);
+                        for (int c = 0; c < word.Length; c += 2)
+                        {
+                            collapsed.Append(word[c]);
+                        }
+                        result.Append(collapsed);
+                    }
+                    else
+                    {
+                        result.Append(word);
+                    }
+                }
+            }
+
+            return result.ToString();
         }
 
         /// <summary>
@@ -279,6 +328,14 @@ namespace McStudDesktop.Services
 
             string currentSection = "";
             PdfEstimateLineItem? currentParentPart = null;
+            bool skipSection = false; // Mitchell noise section state machine
+
+            // Mitchell noise sections whose DATA ROWS should be skipped entirely
+            var noiseSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Parts Vendors", "Recycled Part Vendors", "Estimate Totals",
+                "Estimate Event", "Estimate Event Log", "Price Price", "Line Part"
+            };
 
             System.Diagnostics.Debug.WriteLine($"[PDF Parser] Smart parsing {lines.Length} lines for {source}");
 
@@ -296,10 +353,25 @@ namespace McStudDesktop.Services
                 var sectionHeader = DetectSectionHeader(line);
                 if (!string.IsNullOrEmpty(sectionHeader))
                 {
+                    // Check if this is a noise section (vendor lists, totals, event logs)
+                    if (noiseSections.Any(ns => sectionHeader.Contains(ns, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        skipSection = true;
+                        System.Diagnostics.Debug.WriteLine($"[PDF Parser] Skipping noise section: {sectionHeader}");
+                        continue;
+                    }
+                    else
+                    {
+                        skipSection = false;
+                    }
                     currentSection = sectionHeader;
                     System.Diagnostics.Debug.WriteLine($"[PDF Parser] Section: {currentSection}");
                     continue;
                 }
+
+                // Skip all lines inside noise sections until the next real section header
+                if (skipSection)
+                    continue;
 
                 // Parse based on source format
                 PdfEstimateLineItem? item = source switch
@@ -312,6 +384,9 @@ namespace McStudDesktop.Services
 
                 if (item != null && IsValidLineItem(item))
                 {
+                    // Preserve original description before normalization
+                    item.OriginalDescription = item.Description;
+
                     // Normalize the part name
                     item.PartName = NormalizePartName(item.PartName);
                     item.Description = NormalizePartName(item.Description);
@@ -417,8 +492,8 @@ namespace McStudDesktop.Services
             {
                 var token = tokens[i];
 
-                // Part number detection (alphanumeric, 6+ chars, has both letters and digits)
-                if (string.IsNullOrEmpty(item.PartNumber) && token.Length >= 6 &&
+                // Part number detection (alphanumeric, 3+ chars, has both letters and digits — CCC codes like FR1, LS1)
+                if (string.IsNullOrEmpty(item.PartNumber) && token.Length >= 3 &&
                     token.Any(char.IsDigit) && token.Any(char.IsLetter) && !token.Contains("."))
                 {
                     item.PartNumber = token;
@@ -579,8 +654,8 @@ namespace McStudDesktop.Services
                     continue;
                 }
 
-                // Part number detection
-                if (string.IsNullOrEmpty(item.PartNumber) && token.Length >= 6 &&
+                // Part number detection (3+ chars — CCC codes like FR1, LS1)
+                if (string.IsNullOrEmpty(item.PartNumber) && token.Length >= 3 &&
                     token.Any(char.IsDigit) && !token.Contains("$") && !token.Contains("."))
                 {
                     item.PartNumber = token;
@@ -967,7 +1042,10 @@ namespace McStudDesktop.Services
             "Cooling System", "Engine", "Exhaust", "A/C System",
             "Electrical", "Air Bags", "Interior",
             "Additional Costs & Materials", "Additional Operations",
-            "Special / Manual Entry"
+            "Special / Manual Entry",
+            // Noise sections (data rows beneath these should be skipped)
+            "Parts Vendors", "Recycled Part Vendors", "Estimate Totals",
+            "Estimate Event", "Estimate Event Log", "Price Price", "Line Part"
         };
 
         private string DetectSectionHeader(string line)
@@ -1237,6 +1315,22 @@ namespace McStudDesktop.Services
                     "RADIO", "SAFETY", "SEATS", "WHEELS", "PAINT", "OTHER", "ROOF", "VEHICLE",
                     "OPTIONS", "FEATURES", "EQUIPMENT" };
                 if (singleWords.Contains(trimmed))
+                    return true;
+            }
+
+            // === MITCHELL NOISE PATTERNS ===
+            // Estimate event log entries (timestamps + actions)
+            if (upper.Contains("SUPPLEMENT STARTED") || upper.Contains("SUPPLEMENT PRINTED") ||
+                upper.Contains("SUPPLEMENT COMMITTED") || upper.Contains("ESTIMATE RETRIEVAL"))
+                return true;
+
+            // Lines that are ALL doubled characters (safety net for Mitchell bold text)
+            // e.g., "EESSTTII MMAATTEE" — every word has all chars doubled
+            if (trimmed.Length >= 4)
+            {
+                var words = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (words.Length > 0 && words.All(w => w.Length >= 4 && w.Length % 2 == 0 &&
+                    Regex.IsMatch(w, @"^((.)\2)+$")))
                     return true;
             }
 
@@ -1558,6 +1652,7 @@ namespace McStudDesktop.Services
     {
         public string RawLine { get; set; } = "";
         public string Description { get; set; } = "";
+        public string OriginalDescription { get; set; } = "";
         public string PartName { get; set; } = "";
         public string OperationType { get; set; } = "";
         public string Section { get; set; } = "";

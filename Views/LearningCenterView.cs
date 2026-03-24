@@ -979,22 +979,61 @@ namespace McStudDesktop.Views
 
         private async void ClearData_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new ContentDialog
+            // Only allow clearing personal data — never shop/baseline data
+            if (LearningModeService.Instance.CurrentMode != LearningMode.Personal)
             {
-                Title = "Clear All Learned Data?",
-                Content = "This will delete all patterns and training examples. This cannot be undone.",
-                PrimaryButtonText = "Clear All",
+                var blockedDialog = new ContentDialog
+                {
+                    Title = "Cannot Clear Shop Data",
+                    Content = "Shop baseline data is read-only and cannot be cleared.\nSwitch to Personal mode to manage your own learned data.",
+                    CloseButtonText = "OK",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+                await blockedDialog.ShowAsync();
+                return;
+            }
+
+            // First confirmation
+            var confirmDialog = new ContentDialog
+            {
+                Title = "Clear Your Personal Learned Data?",
+                Content = "This will delete all YOUR learned patterns and training examples.\nShop baseline data will not be affected.\n\nThis cannot be undone.",
+                PrimaryButtonText = "Continue",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Close,
                 XamlRoot = this.XamlRoot
             };
 
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            var firstResult = await confirmDialog.ShowAsync();
+            if (firstResult != ContentDialogResult.Primary)
+                return;
+
+            // Second confirmation — type CONFIRM
+            var confirmInput = new TextBox
+            {
+                PlaceholderText = "Type CONFIRM to proceed",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+
+            var finalDialog = new ContentDialog
+            {
+                Title = "Type CONFIRM to Clear Data",
+                Content = confirmInput,
+                PrimaryButtonText = "Clear All Personal Data",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+
+            var finalResult = await finalDialog.ShowAsync();
+            if (finalResult == ContentDialogResult.Primary && confirmInput.Text.Trim().Equals("CONFIRM", StringComparison.OrdinalIgnoreCase))
             {
                 EstimateLearningService.Instance.ClearAllData();
                 RefreshStats();
-                _importStatusText.Text = "All learned data has been cleared.";
+                _importStatusText.Text = "Personal learned data has been cleared.";
             }
         }
 

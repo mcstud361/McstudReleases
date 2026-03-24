@@ -99,7 +99,7 @@ namespace McStudDesktop.Views
             _alertsPanel = new StackPanel { Spacing = 8 };
             mainStack.Children.Add(_alertsPanel);
 
-            // === BOOTSTRAP MODE BANNER ===
+            // === IMPORT PROGRESS BANNER ===
             var bootstrapBorder = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 40, 35, 50)),
@@ -137,7 +137,7 @@ namespace McStudDesktop.Views
 
             bootstrapStack.Children.Add(new TextBlock
             {
-                Text = "Quality checks are relaxed while building initial baselines. Keep importing quality estimates!",
+                Text = "Keep importing estimates to improve accuracy!",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
                 TextWrapping = TextWrapping.Wrap
@@ -403,14 +403,14 @@ namespace McStudDesktop.Views
                 _acceptanceRateText!.Text = $"{metrics.OverallAcceptanceRate:P0}";
                 _rejectionRateText!.Text = $"{metrics.OverallRejectionRate:P0}";
 
-                // Bootstrap mode
+                // Import progress
                 var bootstrapBorder = (Border)((StackPanel)((ScrollViewer)Content).Content).Children
                     .First(c => c is Border b && b.Tag?.ToString() == "bootstrap");
 
                 if (summary.IsBootstrapMode)
                 {
                     bootstrapBorder.Visibility = Visibility.Visible;
-                    _bootstrapText!.Text = $"Bootstrap Mode: {summary.BootstrapProgress}/20 estimates";
+                    _bootstrapText!.Text = $"{summary.BootstrapProgress}/20 estimates imported";
                     _bootstrapProgress!.Value = summary.BootstrapProgress;
                 }
                 else

@@ -142,6 +142,31 @@ public class EstimateHistoryDatabase
         // Generate DNA fingerprint
         estimate.DNA = GenerateEstimateDNA(estimate);
 
+        // Grade the estimate quality
+        try
+        {
+            var qualityLines = estimate.LineItems.Select(li => new ParsedEstimateLine
+            {
+                PartName = li.PartName,
+                OperationType = li.OperationType,
+                LaborHours = li.LaborHours,
+                RefinishHours = li.RefinishHours,
+                Price = li.Price,
+                Description = li.Description,
+                IsManualLine = li.IsManualLine
+            }).ToList();
+            var quality = EstimateQualityService.Instance.AssessQuality(qualityLines, estimate.VehicleInfo);
+            estimate.QualityScore = quality.QualityScore;
+            estimate.QualityGrade = quality.Grade.ToString();
+            System.Diagnostics.Debug.WriteLine($"[History] Graded estimate: {estimate.QualityScore}/100 ({estimate.QualityGrade})");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[History] Error grading estimate: {ex.Message}");
+            estimate.QualityScore = 70; // Default to Fair if grading fails
+            estimate.QualityGrade = "Good";
+        }
+
         // Add to database
         _data.Estimates.Add(estimate);
 
@@ -909,6 +934,8 @@ public class StoredEstimate
     public EstimateDNA DNA { get; set; } = new();
     public int SupplementCount { get; set; }
     public string? Notes { get; set; }
+    public int QualityScore { get; set; }
+    public string QualityGrade { get; set; } = "";
 }
 
 public class StoredLineItem

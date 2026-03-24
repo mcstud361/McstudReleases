@@ -89,18 +89,29 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
-        /// Record a LEARN event (estimate trained/learned from Import tab)
+        /// Record a LEARN event (estimate trained/learned from Import tab).
+        /// Tracks a fingerprint so we know how many times the same estimate was learned.
+        /// Returns the occurrence number (1 = first time, 2+ = repeat).
         /// </summary>
-        public void RecordLearn(int partsLearned, int manualOpsLearned, decimal estimateValue)
+        public int RecordLearn(int partsLearned, int manualOpsLearned, decimal estimateValue, string? fingerprint = null)
         {
             lock (_lock)
             {
+                var source = string.IsNullOrEmpty(fingerprint) ? "Import" : $"Import|{fingerprint}";
+                int occurrence = 1;
+
+                // Count how many times this exact estimate was already learned
+                if (!string.IsNullOrEmpty(fingerprint))
+                {
+                    occurrence = _data.Transactions.Count(t => t.Type == TransactionType.Learn && t.Source == source) + 1;
+                }
+
                 var record = new TransactionRecord
                 {
                     Timestamp = DateTime.Now,
                     Type = TransactionType.Learn,
                     UserId = GetCurrentUserId(),
-                    Source = "Import",
+                    Source = source,
                     OperationCount = partsLearned + manualOpsLearned,
                     TotalPrice = estimateValue,
                     TotalLabor = 0,
@@ -109,6 +120,7 @@ namespace McStudDesktop.Services
 
                 _data.Transactions.Add(record);
                 SaveStats();
+                return occurrence;
             }
         }
 
@@ -269,7 +281,10 @@ namespace McStudDesktop.Services
                 TransactionCount = list.Count,
                 OperationCount = list.Sum(r => r.OperationCount),
                 TotalPrice = list.Sum(r => r.TotalPrice),
-                TotalLabor = list.Sum(r => r.TotalLabor),
+                TotalLabor = list.Sum(r =>
+                    r.Operations.Count > 0
+                        ? r.Operations.Sum(o => Math.Min(o.Labor, 50m))
+                        : Math.Min(r.TotalLabor, r.OperationCount * 50m)),
                 TotalPaint = list.Sum(r => r.TotalPaint),
                 CCCCount = list.Count(r => r.Target == "CCC"),
                 MitchellCount = list.Count(r => r.Target == "Mitchell")
@@ -431,7 +446,10 @@ namespace McStudDesktop.Services
                 TotalExports = exports.Count,
                 TotalOperations = exports.Sum(t => t.OperationCount),
                 TotalValue = exports.Sum(t => t.TotalPrice),
-                TotalLaborHours = exports.Sum(t => t.TotalLabor),
+                TotalLaborHours = exports.Sum(t =>
+                    t.Operations.Count > 0
+                        ? t.Operations.Sum(o => Math.Min(o.Labor, 50m))
+                        : Math.Min(t.TotalLabor, t.OperationCount * 50m)),
                 TotalRefinishHours = exports.Sum(t => t.TotalPaint)
             };
 
@@ -788,7 +806,12 @@ namespace McStudDesktop.Services
             var totalEstimates = transactions.Count;
             var totalOperations = transactions.Sum(t => t.OperationCount);
             var totalValue = transactions.Sum(t => t.TotalPrice);
-            var totalLabor = transactions.Sum(t => t.TotalLabor);
+            // Cap per-operation labor at 50h to fix historical data where dollar amounts
+            // were incorrectly parsed as labor hours (e.g. $250 → 250 hours)
+            var totalLabor = transactions.Sum(t =>
+                t.Operations.Count > 0
+                    ? t.Operations.Sum(o => Math.Min(o.Labor, 50m))
+                    : Math.Min(t.TotalLabor, t.OperationCount * 50m));
 
             var totalTime = TimeSpan.FromTicks(sessions.Sum(s => s.Duration.Ticks));
 
@@ -1282,80 +1305,277 @@ namespace McStudDesktop.Services
             var allTimeStats = GetEnhancedStats(userId, StatsPeriod.AllTime);
             var achievements = new List<Achievement>();
 
-            // Operations milestones
+            // Pull data from other services
+            var usageSummary = DocumentUsageTrackingService.Instance.GetUsageSummary(StatsPeriod.AllTime, userId);
+            var tabVisits = DocumentUsageTrackingService.Instance.GetTabVisitStats();
+            var presets = EstimatePresetService.Instance.GetAllPresets();
+            var accuracy = EstimateAccuracyService.Instance.GetAccuracyAnalysis();
+            var feedbackCount = EstimateAccuracyService.Instance.GetFeedbackCount();
+            var learningStats = EstimateLearningService.Instance.GetStatistics();
+            int healthScore = 0;
+            try { healthScore = LearningHealthService.Instance.GetLearningHealthScore(); } catch { }
+
+            int totalInvoices = usageSummary.TotalInvoices;
+            int totalPdfs = usageSummary.TotalPdfExports;
+            int distinctTabs = tabVisits.Count;
+            int presetCount = presets.Count;
+            int totalPresetUses = presets.Sum(p => p.TimesUsed);
+            int accurateCount = accuracy.AccurateCount;
+            int totalPatterns = learningStats.TotalPatterns;
+            int estimatesImported = learningStats.EstimatesImported;
+            int totalSessions = allTimeStats.TotalSessions;
+            double totalHours = allTimeStats.TotalTimeSpent.TotalHours;
+
+            // === Export Stats (7) ===
             achievements.Add(new Achievement
             {
                 Id = "ops_100", Name = "Getting Started", Description = "Export 100 operations",
                 Icon = "\uE8B8", Target = 100, Progress = Math.Min(100, allTimeStats.TotalOperations),
-                IsUnlocked = allTimeStats.TotalOperations >= 100, Tier = "Bronze"
+                IsUnlocked = allTimeStats.TotalOperations >= 100, Tier = "Bronze", Category = "Export Stats"
             });
             achievements.Add(new Achievement
             {
                 Id = "ops_500", Name = "Operation Expert", Description = "Export 500 operations",
                 Icon = "\uE8B8", Target = 500, Progress = Math.Min(500, allTimeStats.TotalOperations),
-                IsUnlocked = allTimeStats.TotalOperations >= 500, Tier = "Silver"
+                IsUnlocked = allTimeStats.TotalOperations >= 500, Tier = "Silver", Category = "Export Stats"
             });
             achievements.Add(new Achievement
             {
                 Id = "ops_1000", Name = "Operation Master", Description = "Export 1,000 operations",
                 Icon = "\uE8B8", Target = 1000, Progress = Math.Min(1000, allTimeStats.TotalOperations),
-                IsUnlocked = allTimeStats.TotalOperations >= 1000, Tier = "Gold"
+                IsUnlocked = allTimeStats.TotalOperations >= 1000, Tier = "Gold", Category = "Export Stats"
             });
             achievements.Add(new Achievement
             {
                 Id = "ops_5000", Name = "Operation Legend", Description = "Export 5,000 operations",
                 Icon = "\uE734", Target = 5000, Progress = Math.Min(5000, allTimeStats.TotalOperations),
-                IsUnlocked = allTimeStats.TotalOperations >= 5000, Tier = "Platinum"
+                IsUnlocked = allTimeStats.TotalOperations >= 5000, Tier = "Platinum", Category = "Export Stats"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "est_25", Name = "First Fleet", Description = "Export 25 estimates",
+                Icon = "\uE8B8", Target = 25, Progress = Math.Min(25, allTimeStats.TotalEstimates),
+                IsUnlocked = allTimeStats.TotalEstimates >= 25, Tier = "Bronze", Category = "Export Stats"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "est_100", Name = "Centurion", Description = "Export 100 estimates",
+                Icon = "\uE8B8", Target = 100, Progress = Math.Min(100, allTimeStats.TotalEstimates),
+                IsUnlocked = allTimeStats.TotalEstimates >= 100, Tier = "Silver", Category = "Export Stats"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "est_500", Name = "Estimate Titan", Description = "Export 500 estimates",
+                Icon = "\uE8B8", Target = 500, Progress = Math.Min(500, allTimeStats.TotalEstimates),
+                IsUnlocked = allTimeStats.TotalEstimates >= 500, Tier = "Gold", Category = "Export Stats"
             });
 
-            // Value milestones
+            // === Value (3) ===
             achievements.Add(new Achievement
             {
                 Id = "value_10k", Name = "Value Hunter", Description = "Capture $10,000 in value",
                 Icon = "\uE8C8", Target = 10000, Progress = Math.Min(10000, (int)allTimeStats.TotalValue),
-                IsUnlocked = allTimeStats.TotalValue >= 10000, Tier = "Bronze"
+                IsUnlocked = allTimeStats.TotalValue >= 10000, Tier = "Bronze", Category = "Value"
             });
             achievements.Add(new Achievement
             {
                 Id = "value_50k", Name = "Value Champion", Description = "Capture $50,000 in value",
                 Icon = "\uE8C8", Target = 50000, Progress = Math.Min(50000, (int)allTimeStats.TotalValue),
-                IsUnlocked = allTimeStats.TotalValue >= 50000, Tier = "Silver"
+                IsUnlocked = allTimeStats.TotalValue >= 50000, Tier = "Silver", Category = "Value"
             });
             achievements.Add(new Achievement
             {
                 Id = "value_100k", Name = "Six Figure Club", Description = "Capture $100,000 in value",
                 Icon = "\uE8C8", Target = 100000, Progress = Math.Min(100000, (int)allTimeStats.TotalValue),
-                IsUnlocked = allTimeStats.TotalValue >= 100000, Tier = "Gold"
+                IsUnlocked = allTimeStats.TotalValue >= 100000, Tier = "Gold", Category = "Value"
             });
 
-            // Streak achievements
+            // === Streaks (6) ===
+            achievements.Add(new Achievement
+            {
+                Id = "streak_3", Name = "Hat Trick", Description = "3-day streak",
+                Icon = "\uE735", Target = 3, Progress = Math.Min(3, allTimeStats.LongestStreak),
+                IsUnlocked = allTimeStats.LongestStreak >= 3, Tier = "Bronze", Category = "Streaks"
+            });
             achievements.Add(new Achievement
             {
                 Id = "streak_7", Name = "Week Warrior", Description = "7-day streak",
                 Icon = "\uE735", Target = 7, Progress = Math.Min(7, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 7, Tier = "Bronze"
+                IsUnlocked = allTimeStats.LongestStreak >= 7, Tier = "Bronze", Category = "Streaks"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "streak_14", Name = "Fortnight Force", Description = "14-day streak",
+                Icon = "\uE735", Target = 14, Progress = Math.Min(14, allTimeStats.LongestStreak),
+                IsUnlocked = allTimeStats.LongestStreak >= 14, Tier = "Silver", Category = "Streaks"
             });
             achievements.Add(new Achievement
             {
                 Id = "streak_30", Name = "Monthly Machine", Description = "30-day streak",
                 Icon = "\uE735", Target = 30, Progress = Math.Min(30, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 30, Tier = "Gold"
+                IsUnlocked = allTimeStats.LongestStreak >= 30, Tier = "Gold", Category = "Streaks"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "streak_60", Name = "Iron Will", Description = "60-day streak",
+                Icon = "\uE735", Target = 60, Progress = Math.Min(60, allTimeStats.LongestStreak),
+                IsUnlocked = allTimeStats.LongestStreak >= 60, Tier = "Gold", Category = "Streaks"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "streak_90", Name = "Unstoppable", Description = "90-day streak",
+                Icon = "\uE735", Target = 90, Progress = Math.Min(90, allTimeStats.LongestStreak),
+                IsUnlocked = allTimeStats.LongestStreak >= 90, Tier = "Platinum", Category = "Streaks"
             });
 
-            // Efficiency achievements
+            // === Time Use (5) ===
+            achievements.Add(new Achievement
+            {
+                Id = "sessions_10", Name = "Regular", Description = "Log 10 sessions",
+                Icon = "\uE823", Target = 10, Progress = Math.Min(10, totalSessions),
+                IsUnlocked = totalSessions >= 10, Tier = "Bronze", Category = "Time Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "sessions_50", Name = "Creature of Habit", Description = "Log 50 sessions",
+                Icon = "\uE823", Target = 50, Progress = Math.Min(50, totalSessions),
+                IsUnlocked = totalSessions >= 50, Tier = "Silver", Category = "Time Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "sessions_200", Name = "Power User", Description = "Log 200 sessions",
+                Icon = "\uE823", Target = 200, Progress = Math.Min(200, totalSessions),
+                IsUnlocked = totalSessions >= 200, Tier = "Gold", Category = "Time Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "hours_10", Name = "Putting in Time", Description = "Spend 10 hours in app",
+                Icon = "\uE823", Target = 10, Progress = Math.Min(10, (int)totalHours),
+                IsUnlocked = totalHours >= 10, Tier = "Bronze", Category = "Time Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "hours_50", Name = "Time Well Spent", Description = "Spend 50 hours in app",
+                Icon = "\uE823", Target = 50, Progress = Math.Min(50, (int)totalHours),
+                IsUnlocked = totalHours >= 50, Tier = "Silver", Category = "Time Use"
+            });
+
+            // === Usage (6) ===
+            achievements.Add(new Achievement
+            {
+                Id = "invoices_10", Name = "Paper Pusher", Description = "Create 10 invoices",
+                Icon = "\uE8A5", Target = 10, Progress = Math.Min(10, totalInvoices),
+                IsUnlocked = totalInvoices >= 10, Tier = "Bronze", Category = "Usage"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "invoices_50", Name = "Invoice Machine", Description = "Create 50 invoices",
+                Icon = "\uE8A5", Target = 50, Progress = Math.Min(50, totalInvoices),
+                IsUnlocked = totalInvoices >= 50, Tier = "Silver", Category = "Usage"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "pdfs_25", Name = "PDF Pro", Description = "Export 25 PDFs",
+                Icon = "\uE8A5", Target = 25, Progress = Math.Min(25, totalPdfs),
+                IsUnlocked = totalPdfs >= 25, Tier = "Bronze", Category = "Usage"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "pdfs_100", Name = "Document Factory", Description = "Export 100 PDFs",
+                Icon = "\uE8A5", Target = 100, Progress = Math.Min(100, totalPdfs),
+                IsUnlocked = totalPdfs >= 100, Tier = "Silver", Category = "Usage"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "feedback_5", Name = "Helpful Critic", Description = "Submit 5 feedback entries",
+                Icon = "\uE8A5", Target = 5, Progress = Math.Min(5, feedbackCount),
+                IsUnlocked = feedbackCount >= 5, Tier = "Bronze", Category = "Usage"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "feedback_25", Name = "Quality Champion", Description = "Submit 25 feedback entries",
+                Icon = "\uE8A5", Target = 25, Progress = Math.Min(25, feedbackCount),
+                IsUnlocked = feedbackCount >= 25, Tier = "Silver", Category = "Usage"
+            });
+
+            // === Customization (4) ===
+            achievements.Add(new Achievement
+            {
+                Id = "presets_3", Name = "Template Tinkerer", Description = "Create 3 presets",
+                Icon = "\uE771", Target = 3, Progress = Math.Min(3, presetCount),
+                IsUnlocked = presetCount >= 3, Tier = "Bronze", Category = "Customization"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "presets_10", Name = "Preset Architect", Description = "Create 10 presets",
+                Icon = "\uE771", Target = 10, Progress = Math.Min(10, presetCount),
+                IsUnlocked = presetCount >= 10, Tier = "Silver", Category = "Customization"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "preset_uses_20", Name = "Shortcut Master", Description = "Use presets 20 times",
+                Icon = "\uE771", Target = 20, Progress = Math.Min(20, totalPresetUses),
+                IsUnlocked = totalPresetUses >= 20, Tier = "Silver", Category = "Customization"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "tabs_8", Name = "Explorer", Description = "Visit 8 different tabs",
+                Icon = "\uE771", Target = 8, Progress = Math.Min(8, distinctTabs),
+                IsUnlocked = distinctTabs >= 8, Tier = "Bronze", Category = "Customization"
+            });
+
+            // === Learning (4) ===
+            achievements.Add(new Achievement
+            {
+                Id = "patterns_50", Name = "Pattern Spotter", Description = "Learn 50 patterns",
+                Icon = "\uE82D", Target = 50, Progress = Math.Min(50, totalPatterns),
+                IsUnlocked = totalPatterns >= 50, Tier = "Bronze", Category = "Learning"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "patterns_200", Name = "Pattern Master", Description = "Learn 200 patterns",
+                Icon = "\uE82D", Target = 200, Progress = Math.Min(200, totalPatterns),
+                IsUnlocked = totalPatterns >= 200, Tier = "Silver", Category = "Learning"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "imports_10", Name = "Data Feeder", Description = "Import 10 estimates",
+                Icon = "\uE82D", Target = 10, Progress = Math.Min(10, estimatesImported),
+                IsUnlocked = estimatesImported >= 10, Tier = "Bronze", Category = "Learning"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "health_80", Name = "Brain Trust", Description = "Reach learning health score of 80",
+                Icon = "\uE82D", Target = 80, Progress = Math.Min(80, healthScore),
+                IsUnlocked = healthScore >= 80, Tier = "Gold", Category = "Learning"
+            });
+
+            // === Accuracy (4) ===
             var avgOps = allTimeStats.TotalEstimates > 0
                 ? (double)allTimeStats.TotalOperations / allTimeStats.TotalEstimates : 0;
             achievements.Add(new Achievement
             {
                 Id = "efficiency_5", Name = "Efficient Estimator", Description = "Average 5+ ops per estimate",
                 Icon = "\uE9D9", Target = 5, Progress = Math.Min(5, (int)avgOps),
-                IsUnlocked = avgOps >= 5, Tier = "Silver"
+                IsUnlocked = avgOps >= 5, Tier = "Silver", Category = "Accuracy"
             });
             achievements.Add(new Achievement
             {
                 Id = "efficiency_8", Name = "Thoroughness Pro", Description = "Average 8+ ops per estimate",
                 Icon = "\uE9D9", Target = 8, Progress = Math.Min(8, (int)avgOps),
-                IsUnlocked = avgOps >= 8, Tier = "Gold"
+                IsUnlocked = avgOps >= 8, Tier = "Gold", Category = "Accuracy"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "accurate_10", Name = "Sharpshooter", Description = "Get 10 accurate estimates",
+                Icon = "\uE9D9", Target = 10, Progress = Math.Min(10, accurateCount),
+                IsUnlocked = accurateCount >= 10, Tier = "Bronze", Category = "Accuracy"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "accurate_50", Name = "Bullseye", Description = "Get 50 accurate estimates",
+                Icon = "\uE9D9", Target = 50, Progress = Math.Min(50, accurateCount),
+                IsUnlocked = accurateCount >= 50, Tier = "Gold", Category = "Accuracy"
             });
 
             return achievements;
@@ -1972,6 +2192,7 @@ namespace McStudDesktop.Services
         public int Progress { get; set; }  // 0-100
         public int Target { get; set; }
         public string Tier { get; set; } = "Bronze"; // Bronze, Silver, Gold, Platinum
+        public string Category { get; set; } = "General";
 
         public string TierColor => Tier switch
         {
@@ -1979,6 +2200,19 @@ namespace McStudDesktop.Services
             "Gold" => "#FFD700",
             "Silver" => "#C0C0C0",
             _ => "#CD7F32"
+        };
+
+        public static string CategoryIcon(string category) => category switch
+        {
+            "Export Stats" => "\uE8B8",   // Clipboard
+            "Value" => "\uE8C8",          // Money
+            "Streaks" => "\uE735",        // Star
+            "Time Use" => "\uE823",       // Clock
+            "Usage" => "\uE8A5",          // Document
+            "Customization" => "\uE771",  // Settings
+            "Learning" => "\uE82D",       // Education
+            "Accuracy" => "\uE9D9",       // Target
+            _ => "\uE734"                 // Star outline
         };
     }
 

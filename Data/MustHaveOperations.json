@@ -1,0 +1,226 @@
+{
+  "categories": [
+    {
+      "name": "Electrical",
+      "operations": [
+        {
+          "description": "Disconnect and Reconnect Battery",
+          "operationType": "Rpr",
+          "laborHours": 0.4,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Required for safe welding, panel replacement, and to prevent electrical damage during repair. OEM procedures require battery disconnect before structural work.",
+          "conditions": "always"
+        },
+        {
+          "description": "Test Battery Condition",
+          "operationType": "Rpr",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Verifies battery health after disconnect/reconnect cycle. Batteries can lose charge or develop issues during extended repair times.",
+          "conditions": "always"
+        },
+        {
+          "description": "Electronic Reset",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Resets electronic modules, clocks, radio presets, seat/mirror memory, and adaptive systems after battery disconnect.",
+          "conditions": "always"
+        },
+        {
+          "description": "Cover and Protect Electrical Connections",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 5.0,
+          "whyNeeded": "Prevents moisture, debris, and contamination of exposed electrical connectors during repair. Protects wiring harnesses from paint overspray and grinding dust.",
+          "conditions": "always"
+        },
+        {
+          "description": "Battery Support",
+          "operationType": "Rpr",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Maintains battery charge during extended repair with a battery maintainer/tender to prevent discharge and module memory loss.",
+          "conditions": "always"
+        },
+        {
+          "description": "Charge and Maintain Battery during ADAS",
+          "operationType": "Rpr",
+          "laborHours": 0.6,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "ADAS calibration procedures require stable voltage. Battery must be fully charged and maintained during the calibration process to prevent false failures.",
+          "conditions": "when ADAS equipped"
+        }
+      ]
+    },
+    {
+      "name": "Vehicle Diagnostics",
+      "operations": [
+        {
+          "description": "Pre-Scan",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 150.0,
+          "materialsCost": 0,
+          "whyNeeded": "Documents pre-existing DTCs and system status before any repairs begin. Required by most OEM repair procedures and insurer guidelines.",
+          "conditions": "always"
+        },
+        {
+          "description": "In-Process Scan",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 150.0,
+          "materialsCost": 0,
+          "whyNeeded": "Verifies systems during the repair process, especially after major component replacement or structural work. Catches issues before reassembly.",
+          "conditions": "always"
+        },
+        {
+          "description": "Post Scan",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 150.0,
+          "materialsCost": 0,
+          "whyNeeded": "Confirms all DTCs are cleared and systems functional after repair completion. Required documentation for safe return to customer.",
+          "conditions": "always"
+        },
+        {
+          "description": "Setup Scan Tool",
+          "operationType": "R&I",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Time to connect, configure, and set up the diagnostic scan tool for vehicle-specific communication protocols.",
+          "conditions": "always"
+        },
+        {
+          "description": "Dynamic Systems Verification",
+          "operationType": "Rpr",
+          "laborHours": 1.0,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Road test and verification of dynamic systems including ADAS, steering, braking, and suspension performance after repair.",
+          "conditions": "always"
+        },
+        {
+          "description": "OEM Research",
+          "operationType": "Replace",
+          "laborHours": 1.0,
+          "price": 50.0,
+          "materialsCost": 0,
+          "whyNeeded": "Research OEM repair procedures, position statements, and technical service bulletins specific to the vehicle being repaired.",
+          "conditions": "always"
+        },
+        {
+          "description": "ADAS Diagnostic Report",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 25.0,
+          "materialsCost": 0,
+          "whyNeeded": "Printed diagnostic report documenting ADAS system status, calibration results, and any related DTCs.",
+          "conditions": "when ADAS equipped"
+        },
+        {
+          "description": "Simulate Full Fluids for ADAS Calibrations",
+          "operationType": "R&I",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "ADAS calibration requires vehicle to be at proper ride height. Simulating full fluids (fuel, washer, coolant) ensures correct sensor alignment.",
+          "conditions": "when ADAS equipped"
+        },
+        {
+          "description": "Check and Adjust Tire Pressure for ADAS Calibrations",
+          "operationType": "R&I",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Proper tire pressure is critical for accurate ADAS calibration. Incorrect pressure affects ride height and sensor angles.",
+          "conditions": "when ADAS equipped"
+        },
+        {
+          "description": "Remove Customer Belongings for ADAS Calibrations",
+          "operationType": "R&I",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Customer belongings add weight that affects ride height. Must be removed for accurate ADAS calibration to factory specifications.",
+          "conditions": "when ADAS equipped"
+        }
+      ]
+    },
+    {
+      "name": "Misc",
+      "operations": [
+        {
+          "description": "Clean for Delivery",
+          "operationType": "Rpr",
+          "laborHours": 1.0,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Final cleaning of vehicle interior and exterior before delivery. Removes repair dust, masking residue, and fingerprints.",
+          "conditions": "always"
+        },
+        {
+          "description": "Glass Cleaner",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 2.0,
+          "materialsCost": 0,
+          "whyNeeded": "Glass cleaner for final detail cleaning of all windows and mirrors after repair and paint work.",
+          "conditions": "always"
+        },
+        {
+          "description": "Mask and Protect Removed Components",
+          "operationType": "Replace",
+          "laborHours": 0.5,
+          "price": 10.0,
+          "materialsCost": 0,
+          "whyNeeded": "Masking materials and labor to protect removed components from damage during storage. Prevents scratches, paint contamination, and hardware loss.",
+          "conditions": "always"
+        },
+        {
+          "description": "Parts Disposal",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 25.0,
+          "materialsCost": 0,
+          "whyNeeded": "Proper disposal of damaged parts removed during repair. Includes handling, transport, and disposal fees.",
+          "conditions": "always"
+        },
+        {
+          "description": "Hazardous Waste Disposal",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 7.50,
+          "materialsCost": 0,
+          "whyNeeded": "Disposal of hazardous materials including paint waste, solvents, and contaminated materials per EPA regulations.",
+          "conditions": "always"
+        },
+        {
+          "description": "Misc Hardware",
+          "operationType": "Replace",
+          "laborHours": 0,
+          "price": 15.0,
+          "materialsCost": 0,
+          "whyNeeded": "Replacement clips, fasteners, bolts, and hardware that are damaged or single-use during R&I operations.",
+          "conditions": "always"
+        },
+        {
+          "description": "Steering Wheel Cover, Seat Cover, and Floor Mat",
+          "operationType": "Replace",
+          "laborHours": 0.2,
+          "price": 5.0,
+          "materialsCost": 0,
+          "whyNeeded": "Protective covers installed before repair to prevent interior contamination. Shows professionalism and protects customer's vehicle.",
+          "conditions": "always"
+        }
+      ]
+    }
+  ]
+}

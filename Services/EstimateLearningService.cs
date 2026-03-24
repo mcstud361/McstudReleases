@@ -1820,8 +1820,8 @@ namespace McStudDesktop.Services
             {
                 var word = words[i];
 
-                // Check if this looks like a part number (letters + numbers, typically 6+ chars)
-                if (word.Length >= 6 && word.Any(char.IsDigit) && word.Any(char.IsLetter) && !word.Contains("."))
+                // Check if this looks like a part number (letters + numbers, 3+ chars — CCC codes like FR1, LS1)
+                if (word.Length >= 3 && word.Any(char.IsDigit) && word.Any(char.IsLetter) && !word.Contains("."))
                 {
                     partNumber = word;
                     continue;
@@ -1836,8 +1836,8 @@ namespace McStudDesktop.Services
                     continue;
                 }
 
-                // Check if this is a price (has comma or decimal with value > 10)
-                if (decimal.TryParse(word.Replace(",", ""), out var possiblePrice) && possiblePrice > 10 && word.Contains("."))
+                // Check if this is a price (has comma or decimal, or whole dollar > 100)
+                if (decimal.TryParse(word.Replace(",", ""), out var possiblePrice) && possiblePrice > 10 && (word.Contains(".") || word.Contains(",") || possiblePrice >= 100))
                 {
                     price = possiblePrice;
                     continue;
@@ -1944,9 +1944,15 @@ namespace McStudDesktop.Services
                     return true;
             }
 
-            // Refinish operations without prices are usually additional
+            // Refinish/repair operations with no price AND no meaningful labor are usually additional
+            // But if they have labor hours, they're real panel operations (e.g., "Refn Hood 3.2h")
+            // We can't check hours here directly, so only flag if it's a short generic description
             if ((operationType == "Refn" || operationType == "Rpr") && price < 10)
-                return true;
+            {
+                // Only flag as additional if the description is a known additional-op phrase
+                // Don't flag real panel refinish/repair lines like "Hood", "Fender", "Bumper Cover"
+                return false;
+            }
 
             return false;
         }
@@ -2751,6 +2757,124 @@ namespace McStudDesktop.Services
         /// Get count of manual line patterns
         /// </summary>
         public int ManualLinePatternCount => _database.ManualLinePatterns.Count;
+
+        /// <summary>
+        /// Get manual lines pooled across all parts in the same PartOperationCategory.
+        /// Excludes the specific part already queried (to avoid duplication with per-part results).
+        /// </summary>
+        public ManualLinePattern? GetManualLinesForCategory(PartOperationCategory category, string excludePartName)
+        {
+            if (category == PartOperationCategory.Unknown)
+                return null;
+
+            var rulesEngine = OperationRulesEngine.Instance;
+            var excludeLower = (excludePartName ?? "").ToLowerInvariant();
+            var allMatchingLines = new List<ManualLineEntry>();
+            int totalExamples = 0;
+            var contributingParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var kvp in _database.ManualLinePatterns)
+            {
+                var pattern = kvp.Value;
+                var partName = pattern.ParentPartName ?? "";
+                var opType = pattern.ParentOperationType ?? "";
+
+                // Skip the exact part we already have per-part data for
+                if (partName.ToLowerInvariant().Contains(excludeLower) && !string.IsNullOrEmpty(excludeLower))
+                    continue;
+
+                // Classify this stored pattern into a category
+                var patternCategory = rulesEngine.GetPartOperationCategory(partName, opType);
+                if (patternCategory != category)
+                    continue;
+
+                contributingParts.Add(partName);
+                totalExamples += pattern.ExampleCount;
+
+                foreach (var line in pattern.ManualLines)
+                {
+                    allMatchingLines.Add(line);
+                }
+            }
+
+            if (allMatchingLines.Count == 0)
+                return null;
+
+            return AggregateManualLinePatterns(allMatchingLines, totalExamples, contributingParts.Count);
+        }
+
+        /// <summary>
+        /// Aggregate manual line entries by normalized description.
+        /// Averages hours/prices, sums TimesUsed, calculates confidence.
+        /// </summary>
+        private ManualLinePattern AggregateManualLinePatterns(List<ManualLineEntry> entries, int totalExamples, int partCount)
+        {
+            var grouped = entries
+                .GroupBy(e => NormalizeManualLine(!string.IsNullOrEmpty(e.ManualLineType) ? e.ManualLineType : e.Description))
+                .Where(g => !string.IsNullOrEmpty(g.Key))
+                .Select(g =>
+                {
+                    var items = g.ToList();
+                    var first = items.First();
+                    return new ManualLineEntry
+                    {
+                        Description = first.Description,
+                        ManualLineType = !string.IsNullOrEmpty(first.ManualLineType) ? first.ManualLineType : first.Description,
+                        ParentPartName = first.ParentPartName,
+                        LaborUnits = items.Average(i => i.LaborUnits),
+                        RefinishUnits = items.Average(i => i.RefinishUnits),
+                        Price = items.Average(i => i.Price),
+                        AvgPrice = items.Average(i => i.AvgPrice > 0 ? i.AvgPrice : i.Price),
+                        MinPrice = items.Where(i => i.MinPrice > 0).Select(i => i.MinPrice).DefaultIfEmpty(0).Min(),
+                        MaxPrice = items.Select(i => i.MaxPrice).DefaultIfEmpty(0).Max(),
+                        TimesUsed = items.Sum(i => i.TimesUsed),
+                        LaborType = first.LaborType,
+                        MinLaborUnits = items.Where(i => i.MinLaborUnits > 0).Select(i => i.MinLaborUnits).DefaultIfEmpty(0).Min(),
+                        MaxLaborUnits = items.Select(i => i.MaxLaborUnits).DefaultIfEmpty(0).Max(),
+                        MinRefinishUnits = items.Where(i => i.MinRefinishUnits > 0).Select(i => i.MinRefinishUnits).DefaultIfEmpty(0).Min(),
+                        MaxRefinishUnits = items.Select(i => i.MaxRefinishUnits).DefaultIfEmpty(0).Max(),
+                        FirstSeen = items.Min(i => i.FirstSeen),
+                        LastSeen = items.Max(i => i.LastSeen)
+                    };
+                })
+                .OrderByDescending(e => e.TimesUsed)
+                .ToList();
+
+            var result = new ManualLinePattern
+            {
+                ParentPartName = $"Category ({partCount} parts)",
+                ParentOperationType = "",
+                ManualLines = grouped,
+                ExampleCount = totalExamples,
+                DateCreated = grouped.Min(g => g.FirstSeen),
+                LastUpdated = grouped.Max(g => g.LastSeen)
+            };
+
+            result.Confidence = CalculateManualLineConfidence(result);
+            return result;
+        }
+
+        /// <summary>
+        /// Get count of distinct parts with learned data in a category.
+        /// </summary>
+        public int GetCategoryPartsCount(PartOperationCategory category)
+        {
+            if (category == PartOperationCategory.Unknown)
+                return 0;
+
+            var rulesEngine = OperationRulesEngine.Instance;
+            var parts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var kvp in _database.ManualLinePatterns)
+            {
+                var pattern = kvp.Value;
+                var patternCategory = rulesEngine.GetPartOperationCategory(pattern.ParentPartName ?? "", pattern.ParentOperationType ?? "");
+                if (patternCategory == category)
+                    parts.Add(pattern.ParentPartName ?? "");
+            }
+
+            return parts.Count;
+        }
 
         /// <summary>
         /// Re-process all existing stored patterns: sanitize descriptions, remove garbage,
@@ -4168,6 +4292,7 @@ namespace McStudDesktop.Services
     {
         public string RawLine { get; set; } = "";
         public string Description { get; set; } = "";
+        public string OriginalDescription { get; set; } = "";
         public string PartName { get; set; } = "";
         public string OperationType { get; set; } = "";
         public string Category { get; set; } = "";

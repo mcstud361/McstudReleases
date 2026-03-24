@@ -489,6 +489,18 @@ namespace McStudDesktop.Views
             _exportButton.Click += ExportButton_Click;
             actionsPanel.Children.Add(_exportButton);
 
+            var clearButton = new Button
+            {
+                Content = "Clear",
+                Padding = new Thickness(12, 6, 12, 6),
+                FontSize = 12,
+                Background = new SolidColorBrush(Color.FromArgb(255, 80, 40, 40)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 140, 140)),
+                CornerRadius = new CornerRadius(4)
+            };
+            clearButton.Click += ClearButton_Click;
+            actionsPanel.Children.Add(clearButton);
+
             Grid.SetColumn(actionsPanel, 1);
             toolbarGrid.Children.Add(actionsPanel);
 
@@ -539,7 +551,7 @@ namespace McStudDesktop.Views
             System.Diagnostics.Debug.WriteLine($"[Guidance] Panels selected: {string.Join(", ", e.SelectedPanelIds)}");
         }
 
-        private void GenerateGhostButton_Click(object sender, RoutedEventArgs e)
+        private async void GenerateGhostButton_Click(object sender, RoutedEventArgs e)
         {
             var vehicleInfo = _vehicleInfoBox?.Text?.Trim() ?? "";
             var damageDesc = _damageDescriptionBox?.Text?.Trim() ?? "";
@@ -550,39 +562,58 @@ namespace McStudDesktop.Views
                 return;
             }
 
-            var severity = _severityCombo?.SelectedIndex switch
+            // Disable button and show loading state during generation
+            if (_generateGhostButton != null)
             {
-                0 => "light",
-                1 => "moderate",
-                2 => "heavy",
-                3 => "severe",
-                _ => "moderate"
-            };
-
-            var selectedPanels = _vehicleDiagram.SelectedPanels.ToList();
-            var impactZones = new List<string>();
-            foreach (var panel in selectedPanels)
-            {
-                impactZones.Add(panel);
+                _generateGhostButton.IsEnabled = false;
+                _generateGhostButton.Content = "Generating...";
             }
 
-            var input = new GhostEstimateInput
+            try
             {
-                VehicleInfo = vehicleInfo,
-                DamageDescription = damageDesc,
-                Severity = severity,
-                ImpactZones = impactZones,
-                SelectedPanels = selectedPanels
-            };
+                var severity = _severityCombo?.SelectedIndex switch
+                {
+                    0 => "light",
+                    1 => "moderate",
+                    2 => "heavy",
+                    3 => "severe",
+                    _ => "moderate"
+                };
 
-            // Generate guidance estimate
-            _currentResult = _ghostService.GenerateGuidanceEstimate(input);
+                var selectedPanels = _vehicleDiagram.SelectedPanels.ToList();
+                var impactZones = new List<string>();
+                foreach (var panel in selectedPanels)
+                {
+                    impactZones.Add(panel);
+                }
 
-            // Show toolbar and results
-            ShowToolbarAndResults();
+                var input = new GhostEstimateInput
+                {
+                    VehicleInfo = vehicleInfo,
+                    DamageDescription = damageDesc,
+                    Severity = severity,
+                    ImpactZones = impactZones,
+                    SelectedPanels = selectedPanels
+                };
 
-            // Display
-            DisplayGuidanceResults(_currentResult);
+                // Generate guidance estimate (async with AI when available, sync fallback)
+                _currentResult = await _ghostService.GenerateGuidanceEstimateAsync(input);
+
+                // Show toolbar and results
+                ShowToolbarAndResults();
+
+                // Display
+                DisplayGuidanceResults(_currentResult);
+            }
+            finally
+            {
+                // Restore button state
+                if (_generateGhostButton != null)
+                {
+                    _generateGhostButton.IsEnabled = true;
+                    _generateGhostButton.Content = "Generate Estimate";
+                }
+            }
         }
 
         private void FilterChanged(object sender, SelectionChangedEventArgs e)
@@ -629,6 +660,33 @@ namespace McStudDesktop.Views
                 RequestedTheme = ElementTheme.Dark
             };
             await dialog.ShowAsync();
+        }
+
+        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        {
+            _currentResult = null;
+            _operationCheckboxes.Clear();
+            _resultsPanel?.Children.Clear();
+            _summaryCardsPanel?.Children.Clear();
+
+            // Clear input fields
+            if (_vehicleInfoBox != null) _vehicleInfoBox.Text = "";
+            if (_damageDescriptionBox != null) _damageDescriptionBox.Text = "";
+
+            // Hide toolbar and results
+            var mainBorder = Content as Border;
+            var scrollViewer = mainBorder?.Child as ScrollViewer;
+            var mainStack = scrollViewer?.Content as StackPanel;
+            if (mainStack != null)
+            {
+                foreach (var child in mainStack.Children)
+                {
+                    if (child is Border b && (b.Name == "ToolbarBorder" || b.Name == "ResultsBorder"))
+                        b.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            _vehicleDiagram.ClearSelections();
         }
 
         private void ExportButton_Click(object sender, RoutedEventArgs e)
@@ -797,7 +855,8 @@ namespace McStudDesktop.Views
                         Text = response.Summary,
                         FontSize = 11,
                         Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 180)),
-                        TextWrapping = TextWrapping.Wrap
+                        TextWrapping = TextWrapping.Wrap,
+                        IsTextSelectionEnabled = true
                     };
                     stack.Children.Add(summaryBorder);
                 }
@@ -831,7 +890,8 @@ namespace McStudDesktop.Views
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Colors.White),
                 VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                IsTextSelectionEnabled = true
             };
             Grid.SetColumn(desc, 0);
             grid.Children.Add(desc);
@@ -868,7 +928,7 @@ namespace McStudDesktop.Views
                 var s when s.Contains("learn") => (Color.FromArgb(255, 180, 130, 255), "LRN"),
                 var s when s.Contains("database") || s.Contains("history") => (Color.FromArgb(255, 100, 180, 255), "DB"),
                 var s when s.Contains("knowledge") => (Color.FromArgb(255, 100, 220, 180), "KB"),
-                _ => (Color.FromArgb(255, 150, 155, 160), "AI")
+                _ => (Color.FromArgb(255, 150, 155, 160), "SYS")
             };
             var srcBadge = new Border
             {
@@ -940,16 +1000,7 @@ namespace McStudDesktop.Views
             Grid.SetColumn(refinishCard, 2);
             cardsGrid.Children.Add(refinishCard);
 
-            // Card 4: Labor Total (rate-based) — also show learned dollar total if available
-            var laborTotal = result.GrandTotalLaborDollars;
-            var laborLabel = "Rate-Based";
-            var laborValue = $"${laborTotal:F0}";
-            var laborCard = CreateSummaryCard(laborLabel, laborValue,
-                Color.FromArgb(255, 100, 220, 100));
-            Grid.SetColumn(laborCard, 3);
-            cardsGrid.Children.Add(laborCard);
-
-            // Card 5: Learned Dollar Total (from uploaded estimates) if >50% of ops have learned amounts
+            // Card 4: Dollar Total from real data (uploaded estimates + Excel tool)
             var opsWithDollars = filteredOps.Count(o => o.LearnedDollarAmount.HasValue && o.LearnedDollarAmount > 0);
             if (opsWithDollars > 0 && result.LearnedDollarTotal.HasValue)
             {
@@ -958,7 +1009,7 @@ namespace McStudDesktop.Views
                     learnedText += $"\n${result.MinDollarTotal:F0}–${result.MaxDollarTotal:F0}";
                 var learnedCard = CreateSummaryCard("From Estimates", learnedText,
                     Color.FromArgb(255, 100, 220, 180));
-                Grid.SetColumn(learnedCard, 4);
+                Grid.SetColumn(learnedCard, 3);
                 cardsGrid.Children.Add(learnedCard);
             }
 
@@ -974,7 +1025,7 @@ namespace McStudDesktop.Views
             var qualityCard = CreateSummaryCard("Data Quality",
                 $"{qualityPercent}% learned",
                 qualityColor);
-            Grid.SetColumn(qualityCard, 5);
+            Grid.SetColumn(qualityCard, 4);
             cardsGrid.Children.Add(qualityCard);
 
             _summaryCardsPanel?.Children.Add(cardsGrid);
@@ -1071,24 +1122,24 @@ namespace McStudDesktop.Views
 
             var sectionBorder = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 42)),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(0),
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 32, 38)),
+                Margin = new Thickness(0, 2, 0, 2),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 55, 65)),
-                BorderThickness = new Thickness(1)
+                BorderThickness = new Thickness(0, 0, 0, 1)
             };
 
             var sectionStack = new StackPanel();
 
-            // Category header (clickable to collapse)
+            // Section header — CCC style: bold section name with left accent
             var headerButton = new Button
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Padding = new Thickness(12, 8, 12, 8),
-                Background = new SolidColorBrush(Color.FromArgb(255, 38, 43, 52)),
-                CornerRadius = new CornerRadius(8, 8, isCollapsed ? 8 : 0, isCollapsed ? 8 : 0),
-                BorderThickness = new Thickness(0)
+                Padding = new Thickness(8, 6, 8, 6),
+                Background = new SolidColorBrush(Color.FromArgb(255, 35, 40, 48)),
+                CornerRadius = new CornerRadius(0),
+                BorderThickness = new Thickness(3, 0, 0, 0),
+                BorderBrush = new SolidColorBrush(catColor)
             };
 
             var headerContent = new Grid();
@@ -1099,30 +1150,38 @@ namespace McStudDesktop.Views
             var chevron = new FontIcon
             {
                 Glyph = isCollapsed ? "\uE76C" : "\uE76D",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(catColor),
-                Margin = new Thickness(0, 0, 8, 0)
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 125, 130)),
+                Margin = new Thickness(0, 0, 6, 0)
             };
             Grid.SetColumn(chevron, 0);
             headerContent.Children.Add(chevron);
 
             var catTitle = new TextBlock
             {
-                Text = $"{category.ToUpper()} ({operations.Count})",
-                FontSize = 12,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Text = category.ToUpper(),
+                FontSize = 11,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(catColor),
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(catTitle, 1);
             headerContent.Children.Add(catTitle);
 
-            var catHours = operations.Sum(o => o.LaborHours + o.RefinishHours);
+            // Section totals
+            var bodyHrs = operations.Sum(o => o.LaborHours);
+            var rfnHrs = operations.Sum(o => o.RefinishHours);
+            var partsDollars = operations.Sum(o => o.Price);
+            var totals = new List<string>();
+            if (bodyHrs > 0) totals.Add($"Body: {bodyHrs:F1}");
+            if (rfnHrs > 0) totals.Add($"Rfn: {rfnHrs:F1}");
+            if (partsDollars > 0) totals.Add($"Parts: ${partsDollars:F2}");
+
             var hoursText = new TextBlock
             {
-                Text = catHours > 0 ? $"{catHours:F1}h" : "",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
+                Text = string.Join("  ", totals),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 145, 150)),
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(hoursText, 2);
@@ -1130,8 +1189,8 @@ namespace McStudDesktop.Views
 
             headerButton.Content = headerContent;
 
-            // Toggle collapse
-            var opsPanel = new StackPanel { Spacing = 2, Padding = new Thickness(8, 4, 8, 8) };
+            // Operations panel
+            var opsPanel = new StackPanel { Spacing = 0, Padding = new Thickness(0) };
             opsPanel.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
 
             headerButton.Click += (s, e) =>
@@ -1144,10 +1203,15 @@ namespace McStudDesktop.Views
 
             sectionStack.Children.Add(headerButton);
 
+            // Column header row
+            var colHeader = CreateColumnHeaderRow();
+            opsPanel.Children.Add(colHeader);
+
             // Operation rows
+            int lineNum = 1;
             foreach (var op in operations)
             {
-                var opRow = CreateGuidanceOperationRow(op);
+                var opRow = CreateGuidanceOperationRow(op, lineNum++);
                 opsPanel.Children.Add(opRow);
             }
 
@@ -1156,262 +1220,220 @@ namespace McStudDesktop.Views
             return sectionBorder;
         }
 
-        private Border CreateGuidanceOperationRow(GuidanceOperation op)
+        private Grid CreateColumnHeaderRow()
         {
+            var grid = new Grid
+            {
+                Padding = new Thickness(8, 3, 8, 3),
+                Background = new SolidColorBrush(Color.FromArgb(255, 32, 36, 44))
+            };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });  // Checkbox
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });  // Line#
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });  // Type
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Body
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Paint
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) });  // Parts
+
+            var dimColor = new SolidColorBrush(Color.FromArgb(255, 100, 105, 115));
+            var headers = new[] { "", "#", "Description", "Type", "Body", "Paint", "Parts" };
+            for (int i = 1; i < headers.Length; i++)
+            {
+                var tb = new TextBlock
+                {
+                    Text = headers[i],
+                    FontSize = 9,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = dimColor,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = i >= 4 ? HorizontalAlignment.Right : HorizontalAlignment.Left
+                };
+                Grid.SetColumn(tb, i);
+                grid.Children.Add(tb);
+            }
+            return grid;
+        }
+
+        private Border CreateGuidanceOperationRow(GuidanceOperation op, int lineNum)
+        {
+            var isEvenRow = lineNum % 2 == 0;
+            var bgColor = isEvenRow
+                ? Color.FromArgb(255, 36, 40, 48)
+                : Color.FromArgb(255, 32, 36, 44);
+
             var border = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 42, 47, 56)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(8, 6, 8, 6),
-                Margin = new Thickness(0, 1, 0, 1)
+                Background = new SolidColorBrush(bgColor),
+                Padding = new Thickness(8, 4, 8, 4),
+                Margin = new Thickness(0)
             };
 
-            var mainStack = new StackPanel { Spacing = 2 };
+            var mainStack = new StackPanel { Spacing = 0 };
 
-            // Top row: checkbox + description + hours + badges
-            var topRow = new Grid();
-            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Checkbox
-            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
-            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Hours
-            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Confidence badge
-            topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Source tag
+            // Main row grid — CCC column layout
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });  // Checkbox
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });  // Line#
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });  // Type
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Body
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Paint
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) });  // Parts
 
             // Checkbox
             var checkbox = new CheckBox
             {
                 MinWidth = 0,
+                MinHeight = 0,
                 Padding = new Thickness(0),
-                Margin = new Thickness(0, 0, 6, 0),
+                Margin = new Thickness(0),
                 VerticalAlignment = VerticalAlignment.Center
             };
             _operationCheckboxes[op] = checkbox;
             Grid.SetColumn(checkbox, 0);
-            topRow.Children.Add(checkbox);
+            row.Children.Add(checkbox);
+
+            // Line number
+            var lineText = new TextBlock
+            {
+                Text = lineNum.ToString(),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 90, 95, 105)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(lineText, 1);
+            row.Children.Add(lineText);
 
             // Description
             var descText = new TextBlock
             {
                 Text = op.Description,
-                FontSize = 12,
+                FontSize = 11,
                 Foreground = new SolidColorBrush(Colors.White),
                 VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                IsTextSelectionEnabled = true
             };
-            Grid.SetColumn(descText, 1);
-            topRow.Children.Add(descText);
+            Grid.SetColumn(descText, 2);
+            row.Children.Add(descText);
 
-            // Hours — with range display when learned data has multiple samples
-            var hoursInfo = "";
+            // Type code
+            var typeCode = op.OperationType switch
+            {
+                "Replace" or "Repl" => "REPL",
+                "Repair" or "Rpr" => "RPR",
+                "Refinish" or "Rfn" => "RFN",
+                "Blend" => "BLD",
+                "Body" => "BODY",
+                "Mech" => "MECH",
+                "Frame" => "FRM",
+                "r&i" or "R&I" => "R&I",
+                _ => op.OperationType?.ToUpper() ?? ""
+            };
+            var typeText = new TextBlock
+            {
+                Text = typeCode,
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 160, 180)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(typeText, 3);
+            row.Children.Add(typeText);
+
+            // Body hours
             if (op.LaborHours > 0)
             {
-                hoursInfo += $"{op.LaborHours:F1}h";
-                if (op.SampleCount >= 2 && op.MinLaborHours != op.MaxLaborHours)
-                    hoursInfo += $" ({op.MinLaborHours:F1}–{op.MaxLaborHours:F1})";
-                else if (op.SampleCount == 1 && op.LaborSource != "fallback" && op.LaborSource != "met_data")
-                    hoursInfo += " (1 est)";
+                var bodyText = new TextBlock
+                {
+                    Text = $"{op.LaborHours:F1}",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 210, 220)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Right
+                };
+                Grid.SetColumn(bodyText, 4);
+                row.Children.Add(bodyText);
             }
+
+            // Paint/Refinish hours
             if (op.RefinishHours > 0)
             {
-                var rfnPart = $"{op.RefinishHours:F1}h rfn";
-                if (op.SampleCount >= 2 && op.MinRefinishHours != op.MaxRefinishHours && op.MinRefinishHours > 0)
-                    rfnPart += $" ({op.MinRefinishHours:F1}–{op.MaxRefinishHours:F1})";
-                hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + rfnPart;
+                var paintText = new TextBlock
+                {
+                    Text = $"{op.RefinishHours:F1}",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 255)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Right
+                };
+                Grid.SetColumn(paintText, 5);
+                row.Children.Add(paintText);
             }
+
+            // Parts price
             if (op.Price > 0)
             {
-                var pricePart = $"${op.Price:F2}";
-                if (op.SampleCount >= 2 && op.MinDollarAmount.HasValue && op.MaxDollarAmount.HasValue && op.MinDollarAmount != op.MaxDollarAmount)
-                    pricePart += $" (${op.MinDollarAmount:F0}–${op.MaxDollarAmount:F0})";
-                hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + pricePart;
-            }
-            if (op.LearnedDollarAmount.HasValue && op.LearnedDollarAmount > 0 && op.Price == 0)
-            {
-                var dollarPart = $"~${op.LearnedDollarAmount:F0}";
-                if (op.SampleCount >= 2 && op.MinDollarAmount.HasValue && op.MaxDollarAmount.HasValue && op.MinDollarAmount != op.MaxDollarAmount)
-                    dollarPart += $" (${op.MinDollarAmount:F0}–${op.MaxDollarAmount:F0})";
-                hoursInfo += (hoursInfo.Length > 0 ? " | " : "") + dollarPart;
-            }
-
-            if (!string.IsNullOrEmpty(hoursInfo))
-            {
-                var hoursText = new TextBlock
+                var partsText = new TextBlock
                 {
-                    Text = hoursInfo,
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 165, 170)),
+                    Text = $"${op.Price:F2}",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 220, 180)),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(8, 0, 8, 0)
+                    HorizontalAlignment = HorizontalAlignment.Right
                 };
-                Grid.SetColumn(hoursText, 2);
-                topRow.Children.Add(hoursText);
+                Grid.SetColumn(partsText, 6);
+                row.Children.Add(partsText);
             }
 
-            // Confidence badge
-            var (confColor, confText) = op.ConfidenceLabel switch
-            {
-                "High" => (Color.FromArgb(255, 80, 190, 80), "HIGH"),
-                "Medium" => (Color.FromArgb(255, 220, 180, 60), "MED"),
-                "Low" => (Color.FromArgb(255, 220, 130, 60), "LOW"),
-                _ => (Color.FromArgb(255, 150, 155, 160), "?")
-            };
+            mainStack.Children.Add(row);
 
-            var confBadge = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(40, confColor.R, confColor.G, confColor.B)),
-                CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(6, 2, 6, 2),
-                Margin = new Thickness(4, 0, 4, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            confBadge.Child = new TextBlock
-            {
-                Text = confText,
-                FontSize = 9,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(confColor)
-            };
-            Grid.SetColumn(confBadge, 3);
-            topRow.Children.Add(confBadge);
+            // Expandable detail row (click to show source/justification)
+            var hasDetails = !string.IsNullOrEmpty(op.Source) ||
+                             !string.IsNullOrEmpty(op.Justification) ||
+                             !string.IsNullOrEmpty(op.PPageReference) ||
+                             !string.IsNullOrEmpty(op.DEGReference);
 
-            // Source tag
-            var (srcColor, srcLabel) = op.DataSource switch
+            if (hasDetails)
             {
-                "Database" => (Color.FromArgb(255, 100, 180, 255), "DB"),
-                "Knowledge Base" => (Color.FromArgb(255, 180, 130, 255), "KB"),
-                "Learned" => (Color.FromArgb(255, 100, 220, 180), "LRN"),
-                "Excel Tool" => (Color.FromArgb(255, 255, 160, 60), "XLS"),
-                _ => (Color.FromArgb(255, 150, 155, 160), "?")
-            };
-
-            var srcBadge = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(40, srcColor.R, srcColor.G, srcColor.B)),
-                CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(6, 2, 6, 2),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            srcBadge.Child = new TextBlock
-            {
-                Text = srcLabel,
-                FontSize = 9,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(srcColor)
-            };
-            ToolTipService.SetToolTip(srcBadge, op.DataSource);
-            Grid.SetColumn(srcBadge, 4);
-            topRow.Children.Add(srcBadge);
-
-            mainStack.Children.Add(topRow);
-
-            // Justification row (expandable) - show if justification or references exist
-            var hasJustification = !string.IsNullOrEmpty(op.Justification) ||
-                                   !string.IsNullOrEmpty(op.PPageReference) ||
-                                   !string.IsNullOrEmpty(op.DEGReference) ||
-                                   !string.IsNullOrEmpty(op.Source);
-
-            if (hasJustification)
-            {
-                var justPanel = new StackPanel
+                var detailPanel = new StackPanel
                 {
                     Spacing = 1,
-                    Margin = new Thickness(28, 2, 0, 0),
+                    Margin = new Thickness(52, 2, 0, 2),
                     Visibility = Visibility.Collapsed
                 };
 
                 if (!string.IsNullOrEmpty(op.Source))
-                {
-                    justPanel.Children.Add(new TextBlock
-                    {
-                        Text = $"Source: {op.Source}",
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
-                        TextWrapping = TextWrapping.Wrap
-                    });
-                }
-
+                    detailPanel.Children.Add(CreateDetailText($"Source: {op.Source}", Color.FromArgb(255, 130, 135, 140)));
                 if (!string.IsNullOrEmpty(op.Justification) && op.Justification != op.Source)
-                {
-                    justPanel.Children.Add(new TextBlock
-                    {
-                        Text = $"Why: {op.Justification}",
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 160, 180)),
-                        TextWrapping = TextWrapping.Wrap
-                    });
-                }
-
+                    detailPanel.Children.Add(CreateDetailText($"Why: {op.Justification}", Color.FromArgb(255, 130, 160, 180)));
                 if (!string.IsNullOrEmpty(op.PPageReference))
-                {
-                    justPanel.Children.Add(new TextBlock
-                    {
-                        Text = $"P-Page: {op.PPageReference}",
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 160, 130)),
-                        TextWrapping = TextWrapping.Wrap
-                    });
-                }
-
+                    detailPanel.Children.Add(CreateDetailText($"P-Page: {op.PPageReference}", Color.FromArgb(255, 180, 160, 130)));
                 if (!string.IsNullOrEmpty(op.DEGReference))
-                {
-                    justPanel.Children.Add(new TextBlock
-                    {
-                        Text = $"DEG: {op.DEGReference}",
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 160, 130)),
-                        TextWrapping = TextWrapping.Wrap
-                    });
-                }
+                    detailPanel.Children.Add(CreateDetailText($"DEG: {op.DEGReference}", Color.FromArgb(255, 180, 160, 130)));
 
+                mainStack.Children.Add(detailPanel);
 
-                if (op.LearnedFrequency > 0)
-                {
-                    justPanel.Children.Add(new TextBlock
-                    {
-                        Text = $"Seen in {op.LearnedFrequency} uploaded estimate(s)",
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 160)),
-                        TextWrapping = TextWrapping.Wrap
-                    });
-                }
-
-                // Show sample count for learned data
-                if (op.SampleCount > 0 && op.LaborSource != "fallback" && op.LaborSource != "met_data")
-                {
-                    justPanel.Children.Add(new TextBlock
-                    {
-                        Text = $"Based on {op.SampleCount} uploaded estimate(s)",
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 160)),
-                        TextWrapping = TextWrapping.Wrap
-                    });
-
-                    // Show range details
-                    if (!string.IsNullOrEmpty(op.RangeDisplayText))
-                    {
-                        justPanel.Children.Add(new TextBlock
-                        {
-                            Text = op.RangeDisplayText,
-                            FontSize = 10,
-                            Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 200)),
-                            TextWrapping = TextWrapping.Wrap
-                        });
-                    }
-                }
-
-                mainStack.Children.Add(justPanel);
-
-                // Make the row clickable to expand/collapse justification
                 border.PointerPressed += (s, e) =>
                 {
-                    justPanel.Visibility = justPanel.Visibility == Visibility.Visible
-                        ? Visibility.Collapsed
-                        : Visibility.Visible;
+                    detailPanel.Visibility = detailPanel.Visibility == Visibility.Visible
+                        ? Visibility.Collapsed : Visibility.Visible;
                 };
-                ToolTipService.SetToolTip(border, "Click to show/hide details");
             }
 
             border.Child = mainStack;
             return border;
+        }
+
+        private static TextBlock CreateDetailText(string text, Color color)
+        {
+            return new TextBlock
+            {
+                Text = text,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(color),
+                TextWrapping = TextWrapping.Wrap
+            };
         }
 
         #endregion

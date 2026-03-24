@@ -148,7 +148,7 @@ public sealed class ReferenceView : UserControl
         _defsButton = CreateSubNavButton("Definitions", 0);
         _degButton = CreateSubNavButton("DEG Inquiries", 1);
         _ppagesButton = CreateSubNavButton("P-Pages", 2);
-        _procsButton = CreateSubNavButton("Procedures", 3);
+        _procsButton = CreateSubNavButton("How-To Library", 3);
         _inclNotInclButton = CreateSubNavButton("Incl/Not Incl", 4);
         _materialsButton = CreateSubNavButton("Materials", 5);
 

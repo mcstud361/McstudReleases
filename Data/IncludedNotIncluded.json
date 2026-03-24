@@ -1261,7 +1261,7 @@
       "partName": "Electric/Hybrid HV System",
       "operationType": "Safety/HV",
       "attachmentType": "N/A",
-      "aliases": ["ev", "electric vehicle", "hybrid", "high voltage", "hv battery", "tesla", "ev battery", "traction battery", "phev", "bev"],
+      "aliases": ["electric vehicle", "hybrid", "high voltage", "hv battery", "tesla", "ev battery", "traction battery", "phev", "bev"],
       "sourceRefs": {
         "cccMotor": "G14",
         "mitchell": "CEG",

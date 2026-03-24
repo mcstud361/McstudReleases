@@ -15,6 +15,17 @@ namespace McStudDesktop.Services
         Unknown
     }
 
+    public enum PartOperationCategory
+    {
+        PlasticPartBlend, PlasticPartRepair, PlasticPartReplace,
+        CarbonFiberRepair,
+        MetalPartBlend, MetalPartRepair,
+        BoltedMetalReplace, WeldedMetalReplace,
+        InnerPanelReplace, InnerPanelRepair,
+        GlassReplace,
+        Unknown
+    }
+
     public class RulesSuggestedOperation
     {
         public string Name { get; set; } = "";
@@ -27,7 +38,7 @@ namespace McStudDesktop.Services
         public bool ReplaceOnly { get; set; }
     }
 
-    public class EstimateContext
+    public class RulesEstimateContext
     {
         public bool HasPaintWork { get; set; }
         public bool HasWeldedPanels { get; set; }
@@ -43,7 +54,8 @@ namespace McStudDesktop.Services
         public static OperationRulesEngine Instance => _instance ??= new OperationRulesEngine();
 
         private static readonly string[] PlasticKeywords =
-            { "bumper", "fascia", "valance", "spoiler", "air dam", "deflector", "filler panel", "garnish" };
+            { "bumper cover", "bumper", "fascia", "valance", "spoiler", "air dam", "deflector", "filler panel", "garnish",
+              "rocker molding", "rocker mldg", "upper cover", "mirror cover", "lower cover", "lower bumper", "side cover" };
 
         private static readonly string[] BoltedMetalKeywords =
             { "fender", "hood", "door", "deck lid", "trunk lid", "tailgate", "liftgate" };
@@ -74,6 +86,10 @@ namespace McStudDesktop.Services
             // Glass
             if (GlassKeywords.Any(kw => lower.Contains(kw)))
                 return MaterialType.Glass;
+
+            // Rocker molding is plastic, not welded — check before welded metal
+            if (lower.Contains("rocker molding") || lower.Contains("rocker mldg"))
+                return MaterialType.Plastic;
 
             // Welded metal — check before bolted since "quarter" alone should match
             if (WeldedMetalKeywords.Any(kw => lower.Contains(kw)))
@@ -436,9 +452,77 @@ namespace McStudDesktop.Services
             return suggestions;
         }
 
-        public EstimateContext AnalyzeEstimateContext(List<(string partName, string opType)> operations)
+        private static readonly string[] InnerPanelKeywords =
+            { "rear body panel", "apron", "frame rail", "rocker panel", "inner panel" };
+
+        public PartOperationCategory GetPartOperationCategory(string partName, string operationType)
         {
-            var context = new EstimateContext();
+            var lower = partName.ToLowerInvariant();
+            var opLower = (operationType ?? "").ToLowerInvariant().Trim();
+
+            var isReplace = opLower == "replace" || opLower == "repl" || opLower.StartsWith("replac");
+            var isRepair = opLower == "repair" || opLower == "rpr";
+            var isBlend = opLower == "blend" || opLower == "blnd";
+
+            // Check inner panel before welded metal (rocker panel overlaps)
+            if (InnerPanelKeywords.Any(kw => lower.Contains(kw)))
+            {
+                if (isRepair) return PartOperationCategory.InnerPanelRepair;
+                return PartOperationCategory.InnerPanelReplace;
+            }
+
+            var material = ClassifyMaterial(partName);
+
+            switch (material)
+            {
+                case MaterialType.Plastic:
+                    if (isBlend) return PartOperationCategory.PlasticPartBlend;
+                    if (isRepair) return PartOperationCategory.PlasticPartRepair;
+                    return PartOperationCategory.PlasticPartReplace;
+
+                case MaterialType.CarbonFiber:
+                    return PartOperationCategory.CarbonFiberRepair;
+
+                case MaterialType.BoltedMetal:
+                    if (isBlend) return PartOperationCategory.MetalPartBlend;
+                    if (isRepair) return PartOperationCategory.MetalPartRepair;
+                    return PartOperationCategory.BoltedMetalReplace;
+
+                case MaterialType.WeldedMetal:
+                    if (isBlend) return PartOperationCategory.MetalPartBlend;
+                    if (isRepair) return PartOperationCategory.MetalPartRepair;
+                    return PartOperationCategory.WeldedMetalReplace;
+
+                case MaterialType.Glass:
+                    return PartOperationCategory.GlassReplace;
+
+                default:
+                    return PartOperationCategory.Unknown;
+            }
+        }
+
+        public static string GetCategoryDisplayName(PartOperationCategory category)
+        {
+            return category switch
+            {
+                PartOperationCategory.PlasticPartBlend => "Plastic Part Blend",
+                PartOperationCategory.PlasticPartRepair => "Plastic Part Repair",
+                PartOperationCategory.PlasticPartReplace => "Plastic Part Replace",
+                PartOperationCategory.CarbonFiberRepair => "Carbon Fiber Repair",
+                PartOperationCategory.MetalPartBlend => "Metal Part Blend",
+                PartOperationCategory.MetalPartRepair => "Metal Part Repair",
+                PartOperationCategory.BoltedMetalReplace => "Bolted Metal Replace",
+                PartOperationCategory.WeldedMetalReplace => "Welded Metal Replace",
+                PartOperationCategory.InnerPanelReplace => "Inner Panel Replace",
+                PartOperationCategory.InnerPanelRepair => "Inner Panel Repair",
+                PartOperationCategory.GlassReplace => "Glass Replace",
+                _ => "Unknown"
+            };
+        }
+
+        public RulesEstimateContext AnalyzeRulesEstimateContext(List<(string partName, string opType)> operations)
+        {
+            var context = new RulesEstimateContext();
             var breakdown = new Dictionary<MaterialType, int>();
 
             foreach (var (partName, opType) in operations)

@@ -162,7 +162,8 @@ namespace McStudDesktop.Views
             if (_statTotalHours != null) _statTotalHours.Text = $"{allPatterns.SelectMany(p => p.ManualLines).Sum(m => m.LaborUnits + m.RefinishUnits):N1}";
             if (_statAvgOps != null)
             {
-                var avgOps = patternCount > 0 ? (double)allPatterns.Sum(p => p.ManualLines.Count) / patternCount : 0;
+                var nonEmptyCount = allPatterns.Count;
+                var avgOps = nonEmptyCount > 0 ? (double)allPatterns.Sum(p => p.ManualLines.Count) / nonEmptyCount : 0;
                 _statAvgOps.Text = $"{avgOps:N1}";
             }
         }
@@ -493,7 +494,7 @@ namespace McStudDesktop.Views
             outer.Children.Add(partLabel);
             _partNameInput = new AutoSuggestBox
             {
-                PlaceholderText = "e.g. Fender, Door, Bumper...",
+                PlaceholderText = "Part or operation (e.g. Fender, scan, ADAS...)",
                 FontSize = 13,
                 Background = new SolidColorBrush(CardBg),
                 Foreground = new SolidColorBrush(TextPrimary),
@@ -763,6 +764,35 @@ namespace McStudDesktop.Views
                 return;
             }
 
+            // Strategy 3: Reverse search — search across manual line descriptions
+            // This handles cases where user types an operation name like "scan", "ADAS", "corrosion", etc.
+            var opResults = SearchManualLineDescriptions(partName, sourcePatterns);
+            if (opResults.Count > 0)
+            {
+                _statusText!.Text = $"Found {opResults.Count} operations matching \"{partName}\"";
+                _statusText.Foreground = new SolidColorBrush(AccentTeal);
+                AddSectionHeader("MATCHING OPERATIONS");
+
+                // Group by description so we show unique operations with their parent parts
+                var grouped = opResults
+                    .GroupBy(r => (r.Line.ManualLineType.Length > 0 ? r.Line.ManualLineType : r.Line.Description).ToLowerInvariant())
+                    .OrderByDescending(g => g.Sum(r => r.Line.TimesUsed))
+                    .Take(20);
+
+                bool alt = false;
+                foreach (var group in grouped)
+                {
+                    var best = group.OrderByDescending(r => r.Line.TimesUsed).First();
+                    var parentParts = group.Select(r => r.SourcePattern.ParentPartName ?? "").Distinct().Take(3);
+                    var parentInfo = string.Join(", ", parentParts);
+                    _resultsPanel.Children.Add(CreateOpSearchResultRow(best.Line, best.SourcePattern, parentInfo, alt));
+                    alt = !alt;
+                }
+
+                UpdateButtonStates();
+                return;
+            }
+
             // Nothing found
             var source = _viewPersonalOnly ? "your imports" : "learned data";
             _statusText!.Text = $"No results for \"{partName}\" in {source}";
@@ -772,32 +802,173 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
+        /// Search across all manual line descriptions for a query term.
+        /// Returns matching lines with their parent pattern context.
+        /// </summary>
+        private List<(ManualLineEntry Line, ManualLinePattern SourcePattern)> SearchManualLineDescriptions(
+            string query, IReadOnlyList<ManualLinePattern> patterns)
+        {
+            var queryLower = query.ToLowerInvariant().Trim();
+            if (queryLower.Length < 2) return new();
+
+            // Expand common shorthand/aliases
+            var searchTerms = new List<string> { queryLower };
+            var aliases = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["scan"] = new[] { "scan", "diagnostic", "pre-scan", "post-scan", "pre scan", "post scan" },
+                ["adas"] = new[] { "adas", "calibrat", "recalibrat", "camera", "sensor aim" },
+                ["corrosion"] = new[] { "corrosion", "anti-corrosion", "cavity wax", "rust" },
+                ["blend"] = new[] { "blend" },
+                ["seam"] = new[] { "seam seal", "seam sealer" },
+                ["weld"] = new[] { "weld", "weld-thru", "weld thru" },
+                ["prime"] = new[] { "primer", "weld-thru primer", "weld thru primer" },
+                ["mask"] = new[] { "mask", "cover", "tape" },
+                ["cover"] = new[] { "cover", "mask" },
+                ["r&i"] = new[] { "r&i", "remove and install", "remove & install", "r+i" },
+                ["refinish"] = new[] { "refinish", "paint", "clear coat", "clearcoat", "basecoat", "base coat" },
+            };
+
+            if (aliases.TryGetValue(queryLower, out var expanded))
+                searchTerms = expanded.ToList();
+
+            var results = new List<(ManualLineEntry Line, ManualLinePattern SourcePattern)>();
+            var seenDescs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var pattern in patterns)
+            {
+                if (pattern.ManualLines.Count == 0) continue;
+                foreach (var line in pattern.ManualLines)
+                {
+                    var desc = line.ManualLineType.Length > 0 ? line.ManualLineType : line.Description;
+                    if (string.IsNullOrEmpty(desc)) continue;
+                    var descLower = desc.ToLowerInvariant();
+
+                    if (searchTerms.Any(t => descLower.Contains(t)) && seenDescs.Add(desc))
+                        results.Add((line, pattern));
+                }
+            }
+
+            return results.OrderByDescending(r => r.Line.TimesUsed).ToList();
+        }
+
+        /// <summary>
+        /// Create a UI row for an operation search result (reverse search by description).
+        /// </summary>
+        private Grid CreateOpSearchResultRow(ManualLineEntry line, ManualLinePattern sourcePattern, string parentPartsInfo, bool alternate)
+        {
+            var row = new Grid
+            {
+                Padding = new Thickness(10, 8, 10, 8),
+                Background = new SolidColorBrush(alternate ? SurfaceBg : CardBg),
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 1, 0, 1)
+            };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+
+            var nameStack = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+            var desc = line.ManualLineType.Length > 0 ? line.ManualLineType : line.Description;
+            nameStack.Children.Add(new TextBlock
+            {
+                Text = desc,
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextPrimary),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            nameStack.Children.Add(new TextBlock
+            {
+                Text = $"Found in: {parentPartsInfo}",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(TextMuted),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            Grid.SetColumn(nameStack, 0);
+            row.Children.Add(nameStack);
+
+            var laborText = new TextBlock
+            {
+                Text = line.LaborUnits > 0 ? $"{line.LaborUnits:N1}" : "-",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 200, 140)),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            Grid.SetColumn(laborText, 1);
+            row.Children.Add(laborText);
+
+            var refinishText = new TextBlock
+            {
+                Text = line.RefinishUnits > 0 ? $"{line.RefinishUnits:N1}" : "-",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 170, 255)),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            Grid.SetColumn(refinishText, 2);
+            row.Children.Add(refinishText);
+
+            var usedPill = CreatePill($"{line.TimesUsed}x", AccentPurple, Color.FromArgb(255, 50, 35, 70));
+            usedPill.HorizontalAlignment = HorizontalAlignment.Center;
+            usedPill.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(usedPill, 3);
+            row.Children.Add(usedPill);
+
+            // Click to navigate to the parent pattern
+            row.PointerPressed += (s, e) =>
+            {
+                if (_partNameInput != null)
+                    _partNameInput.Text = sourcePattern.ParentPartName ?? "";
+                _currentPattern = sourcePattern;
+                ShowLookupResults(sourcePattern);
+            };
+            row.PointerEntered += (s, e) => row.Background = new SolidColorBrush(CardHover);
+            row.PointerExited += (s, e) => row.Background = new SolidColorBrush(alternate ? SurfaceBg : CardBg);
+
+            return row;
+        }
+
+        /// <summary>
         /// Search for a pattern by part name in a specific ManualLinePatterns dictionary.
         /// Simplified version of the service's GetManualLinesForPart for personal DB queries.
         /// </summary>
         private ManualLinePattern? FindPatternInDb(Dictionary<string, ManualLinePattern> patterns, string partName, string? opType)
         {
+            // Normalize to match GenerateManualLinePatternKey format: spaces → underscores, lowered
+            var normalizedPart = partName.ToLowerInvariant().Trim().Replace(" ", "_");
+            var normalizedOp = (opType ?? "any").ToLowerInvariant().Trim().Replace(" ", "_");
+
             // Try exact key match
-            var key = $"{partName.ToLowerInvariant().Trim()}|{(opType ?? "any").ToLowerInvariant().Trim()}";
+            var key = $"{normalizedPart}|{normalizedOp}";
             if (patterns.TryGetValue(key, out var match)) return match;
 
-            key = $"{partName.ToLowerInvariant().Trim()}|";
+            key = $"{normalizedPart}|";
             if (patterns.TryGetValue(key, out match)) return match;
 
             if (opType != null)
             {
-                key = $"{partName.ToLowerInvariant().Trim()}|any";
+                key = $"{normalizedPart}|any";
                 if (patterns.TryGetValue(key, out match)) return match;
             }
 
-            // Partial name match
+            // Partial name match — filter by operation type when specified
+            ManualLinePattern? bestPartial = null;
             foreach (var kvp in patterns)
             {
-                if ((kvp.Value.ParentPartName ?? "").Contains(partName, StringComparison.OrdinalIgnoreCase)
-                    && kvp.Value.ManualLines.Count > 0)
+                if (kvp.Value.ManualLines.Count == 0) continue;
+                var pp = kvp.Value.ParentPartName ?? "";
+                if (!pp.Contains(partName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                // If opType specified, prefer patterns with matching operation type
+                if (opType != null && !string.IsNullOrEmpty(kvp.Value.ParentOperationType) &&
+                    kvp.Value.ParentOperationType.Equals(opType, StringComparison.OrdinalIgnoreCase))
                     return kvp.Value;
+
+                bestPartial ??= kvp.Value;
             }
-            return null;
+            return bestPartial;
         }
 
         private void ShowLookupResults(ManualLinePattern pattern)
@@ -994,14 +1165,32 @@ namespace McStudDesktop.Views
                 allPatterns = _personalViewDb.ManualLinePatterns.Values;
             else
                 allPatterns = _learningService.GetAllManualLinePatterns();
-            return allPatterns
+
+            var patternList = allPatterns.ToList();
+
+            // Part name matches (existing)
+            var partNames = patternList
                 .Where(p => !string.IsNullOrEmpty(p.ParentPartName))
-                .Select(p => p.ParentPartName)
+                .Select(p => p.ParentPartName!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Where(n => n.Contains(filter, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(n => n)
-                .Take(15)
+                .Take(10)
                 .ToList();
+
+            // Also search manual line descriptions — so typing "scan" suggests "Diagnostic Scan"
+            var opNames = patternList
+                .SelectMany(p => p.ManualLines)
+                .Select(m => m.ManualLineType.Length > 0 ? m.ManualLineType : m.Description)
+                .Where(d => !string.IsNullOrEmpty(d) && d.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(d => !partNames.Any(p => p.Equals(d, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(d => d)
+                .Take(5)
+                .ToList();
+
+            partNames.AddRange(opNames);
+            return partNames.Take(15).ToList();
         }
 
         private void ShowEmptyState()
@@ -1118,6 +1307,7 @@ namespace McStudDesktop.Views
                 {
                     PartName = entry.ManualLineType.Length > 0 ? entry.ManualLineType : entry.Description,
                     OperationType = pattern.ParentOperationType ?? "",
+                    LaborType = entry.LaborType,
                     LaborHours = entry.LaborUnits,
                     RefinishHours = entry.RefinishUnits,
                     Price = entry.AvgPrice
@@ -1141,6 +1331,7 @@ namespace McStudDesktop.Views
                 {
                     PartName = entry.ManualLineType.Length > 0 ? entry.ManualLineType : entry.Description,
                     OperationType = pattern.ParentOperationType ?? "",
+                    LaborType = entry.LaborType,
                     LaborHours = entry.LaborUnits,
                     RefinishHours = entry.RefinishUnits,
                     Price = entry.AvgPrice
@@ -1317,9 +1508,9 @@ namespace McStudDesktop.Views
         private async void CopyButton_Click(object sender, RoutedEventArgs e)
         {
             var lines = new System.Text.StringBuilder();
-            foreach (var op in _selectedOperations) { var desc = op.ManualLineType.Length > 0 ? op.ManualLineType : op.Description; var hours = op.LaborUnits > 0 ? op.LaborUnits : op.RefinishUnits; var laborType = op.RefinishUnits > 0 ? "Refn" : "Rpr"; var price = op.AvgPrice > 0 ? $"\t${op.AvgPrice:N0}" : ""; lines.AppendLine($"#\t{laborType}\t{desc}\t{hours:N1}{price}"); }
-            foreach (var op in _selectedOpResults) { var desc = op.OperationName.Length > 0 ? op.OperationName : op.Description; var hours = op.LaborHours > 0 ? op.LaborHours : op.RefinishHours; var laborType = op.RefinishHours > 0 ? "Refn" : "Rpr"; var price = op.AvgPrice > 0 ? $"\t${op.AvgPrice:N0}" : ""; lines.AppendLine($"#\t{laborType}\t{desc}\t{hours:N1}{price}"); }
-            foreach (var line in _estimateLines) { var val = line.LaborHours > 0 ? $"{line.LaborHours:F1}" : line.RefinishHours > 0 ? $"{line.RefinishHours:F1}" : line.Price > 0 ? $"${line.Price:F0}" : ""; var laborType = line.RefinishHours > 0 ? "Refn" : "Rpr"; lines.AppendLine($"#\t{laborType}\t{line.PartName}\t{val}"); }
+            foreach (var op in _selectedOperations) { var desc = op.ManualLineType.Length > 0 ? op.ManualLineType : op.Description; var hours = op.LaborUnits > 0 ? op.LaborUnits : op.RefinishUnits; var laborType = ResolveCCCLaborType(op.LaborType, op.RefinishUnits > 0); var price = op.AvgPrice > 0 ? $"\t${op.AvgPrice:N0}" : ""; lines.AppendLine($"#\t{laborType}\t{desc}\t{hours:N1}{price}"); }
+            foreach (var op in _selectedOpResults) { var desc = op.OperationName.Length > 0 ? op.OperationName : op.Description; var hours = op.LaborHours > 0 ? op.LaborHours : op.RefinishHours; var laborType = ResolveCCCLaborType(op.LaborType, op.RefinishHours > 0); var price = op.AvgPrice > 0 ? $"\t${op.AvgPrice:N0}" : ""; lines.AppendLine($"#\t{laborType}\t{desc}\t{hours:N1}{price}"); }
+            foreach (var line in _estimateLines) { var val = line.LaborHours > 0 ? $"{line.LaborHours:F1}" : line.RefinishHours > 0 ? $"{line.RefinishHours:F1}" : line.Price > 0 ? $"${line.Price:F0}" : ""; var laborType = ResolveCCCLaborType(line.LaborType, line.RefinishHours > 0); var price = line.Price > 0 ? $"\t${line.Price:N0}" : ""; lines.AppendLine($"#\t{laborType}\t{line.PartName}\t{val}{price}"); }
             if (lines.Length == 0) return;
             var dataPackage = new DataPackage(); dataPackage.SetText(lines.ToString()); Clipboard.SetContent(dataPackage);
             if (sender is Button btn) { var original = btn.Content; var cc = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 }; cc.Children.Add(new FontIcon { Glyph = "\uE73E", FontSize = 14 }); cc.Children.Add(new TextBlock { Text = "Copied!", FontSize = 12 }); btn.Content = cc; await System.Threading.Tasks.Task.Delay(1500); btn.Content = original; }
@@ -1328,9 +1519,9 @@ namespace McStudDesktop.Views
         private async void InsertButton_Click(object sender, RoutedEventArgs e)
         {
             var rows = new List<string[]>();
-            foreach (var op in _selectedOperations) { var desc = op.ManualLineType.Length > 0 ? op.ManualLineType : op.Description; var hours = op.LaborUnits > 0 ? op.LaborUnits : op.RefinishUnits; var laborType = op.RefinishUnits > 0 ? "Refn" : "Rpr"; rows.Add(new[] { "#", laborType, desc, hours.ToString("N1") }); }
-            foreach (var op in _selectedOpResults) { var desc = op.OperationName.Length > 0 ? op.OperationName : op.Description; var hours = op.LaborHours > 0 ? op.LaborHours : op.RefinishHours; var laborType = op.RefinishHours > 0 ? "Refn" : "Rpr"; rows.Add(new[] { "#", laborType, desc, hours.ToString("N1") }); }
-            foreach (var line in _estimateLines) { var val = line.LaborHours > 0 ? line.LaborHours : line.RefinishHours; var laborType = line.RefinishHours > 0 ? "Refn" : "Rpr"; rows.Add(new[] { "#", laborType, line.PartName, val.ToString("N1") }); }
+            foreach (var op in _selectedOperations) { var desc = op.ManualLineType.Length > 0 ? op.ManualLineType : op.Description; var hours = op.LaborUnits > 0 ? op.LaborUnits : op.RefinishUnits; var laborType = ResolveCCCLaborType(op.LaborType, op.RefinishUnits > 0); var row = op.AvgPrice > 0 ? new[] { "#", laborType, desc, hours.ToString("N1"), $"${op.AvgPrice:N0}" } : new[] { "#", laborType, desc, hours.ToString("N1") }; rows.Add(row); }
+            foreach (var op in _selectedOpResults) { var desc = op.OperationName.Length > 0 ? op.OperationName : op.Description; var hours = op.LaborHours > 0 ? op.LaborHours : op.RefinishHours; var laborType = ResolveCCCLaborType(op.LaborType, op.RefinishHours > 0); var row = op.AvgPrice > 0 ? new[] { "#", laborType, desc, hours.ToString("N1"), $"${op.AvgPrice:N0}" } : new[] { "#", laborType, desc, hours.ToString("N1") }; rows.Add(row); }
+            foreach (var line in _estimateLines) { var val = line.LaborHours > 0 ? line.LaborHours : line.RefinishHours; var laborType = ResolveCCCLaborType(line.LaborType, line.RefinishHours > 0); var row = line.Price > 0 ? new[] { "#", laborType, line.PartName, val.ToString("N1"), $"${line.Price:N0}" } : new[] { "#", laborType, line.PartName, val.ToString("N1") }; rows.Add(row); }
             if (rows.Count == 0) return;
             if (sender is Button btn)
             {
@@ -1354,6 +1545,26 @@ namespace McStudDesktop.Views
         // ═══════════════════════════════════════════
         //  STATE MANAGEMENT
         // ═══════════════════════════════════════════
+
+        /// <summary>
+        /// Resolve the CCC labor type code from stored LaborType string.
+        /// Falls back to refinish heuristic only when no stored type exists.
+        /// </summary>
+        private static string ResolveCCCLaborType(string storedLaborType, bool hasRefinish)
+        {
+            if (!string.IsNullOrWhiteSpace(storedLaborType))
+            {
+                var lt = storedLaborType.Trim().ToLowerInvariant();
+                if (lt.Contains("body") || lt == "bdy") return "Bdy";
+                if (lt.Contains("refin") || lt == "refn" || lt == "rfn" || lt == "paint") return "Refn";
+                if (lt.Contains("mech")) return "Mech";
+                if (lt.Contains("struct") || lt == "frame" || lt == "frm") return "Struc";
+                // If the stored type is already a short code, use it directly
+                if (lt.Length <= 5) return storedLaborType.Trim();
+            }
+            // Fallback heuristic
+            return hasRefinish ? "Refn" : "Rpr";
+        }
 
         private void UpdateButtonStates()
         {
@@ -1775,6 +1986,7 @@ namespace McStudDesktop.Views
         {
             public string PartName { get; set; } = "";
             public string OperationType { get; set; } = "";
+            public string LaborType { get; set; } = "";
             public decimal LaborHours { get; set; }
             public decimal RefinishHours { get; set; }
             public decimal Price { get; set; }

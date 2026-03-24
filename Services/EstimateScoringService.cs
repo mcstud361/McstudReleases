@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace McStudDesktop.Services
 {
@@ -25,15 +26,57 @@ namespace McStudDesktop.Services
         public static EstimateScoringService Instance => _instance ??= new EstimateScoringService();
 
         private readonly CommonlyMissedData? _missedItemsData;
+        private readonly IncludedNotIncludedData? _pPageData;
         private readonly Dictionary<string, List<BlendRule>> _blendRules;
         private readonly Dictionary<string, List<string>> _operationChains;
 
         public EstimateScoringService()
         {
             _missedItemsData = LoadCommonlyMissedItems();
+            _pPageData = LoadIncludedNotIncludedData();
             _blendRules = InitializeBlendRules();
             _operationChains = InitializeOperationChains();
         }
+
+        #region Word Boundary Helpers
+
+        private static readonly Regex _vehicleInfoPattern = new(@"(19|20)\d{2}\s+\w+\s+\w+", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Word-boundary-aware keyword match.
+        /// Keywords under 3 chars → exact token match (split on whitespace/punctuation).
+        /// Keywords 3+ chars → \b word-boundary regex.
+        /// </summary>
+        public static bool IsWordMatch(string text, string keyword)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(keyword)) return false;
+
+            var kw = keyword.ToLowerInvariant();
+            var txt = text.ToLowerInvariant();
+
+            if (kw.Length < 3)
+            {
+                // Exact token match for very short keywords
+                var tokens = txt.Split(new[] { ' ', ',', ';', '/', '-', '(', ')', '&', '.', '\t' },
+                    StringSplitOptions.RemoveEmptyEntries);
+                return tokens.Any(t => t == kw);
+            }
+
+            // Word-boundary regex for 3+ char keywords
+            return Regex.IsMatch(txt, @"\b" + Regex.Escape(kw) + @"\b");
+        }
+
+        /// <summary>
+        /// Detects vehicle description lines (e.g., "2023 Tesla Model 3") that
+        /// leak through PDF parsing and should not trigger part-based checks.
+        /// </summary>
+        public static bool IsVehicleInfoLine(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            return _vehicleInfoPattern.IsMatch(text);
+        }
+
+        #endregion
 
         #region Main Scoring Method
 
@@ -43,6 +86,16 @@ namespace McStudDesktop.Services
         /// </summary>
         public EstimateScoringResult ScoreEstimate(List<ParsedEstimateLine> lines, string? vehicleInfo = null)
         {
+            // Pre-process: join continuation lines (e.g., "Rub-Out &" + "& Buff" → "Rub-Out & Buff")
+            // OCR and PDF parsers sometimes split wrapped descriptions across multiple lines.
+            lines = JoinContinuationLines(lines);
+
+            // Filter out vehicle description lines that leaked through PDF parsing
+            // (e.g., "2023 Tesla Model 3") — these trigger false positives on EV/make checks.
+            lines = lines.Where(l =>
+                !IsVehicleInfoLine(l.PartName ?? "") || !string.IsNullOrEmpty(l.OperationType))
+                .ToList();
+
             var result = new EstimateScoringResult
             {
                 VehicleInfo = vehicleInfo,
@@ -68,13 +121,27 @@ namespace McStudDesktop.Services
             CheckOperationChains(lines, result);
             CheckBlendOperations(lines, result);
             CheckMaterialOperations(lines, result);
+            CheckNotIncludedOperations(lines, result);
             CheckRIOperations(lines, result);
             CheckDiagnosticScans(lines, result);
             CheckADASCalibrations(lines, result);
             CheckGlobalRules(lines, result);
+            CheckMustHaves(lines, result);
 
             // Calculate final score
             CalculateFinalScore(result);
+
+            // Safety cap — if something still produces a runaway, truncate to 500 most severe
+            const int MaxIssues = 500;
+            if (result.Issues.Count > MaxIssues)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[ScoringService] WARNING: {result.Issues.Count} issues exceeded cap of {MaxIssues}, truncating.");
+                result.Issues = result.Issues
+                    .OrderByDescending(i => i.Severity)
+                    .ThenByDescending(i => i.PointDeduction)
+                    .Take(MaxIssues).ToList();
+            }
 
             return result;
         }
@@ -96,9 +163,9 @@ namespace McStudDesktop.Services
                 {
                     var checkData = check.Value;
 
-                    // Check if this line triggers this check
+                    // Check if this line triggers this check (word-boundary match)
                     bool matchesPart = checkData.TriggerKeywords?.Any(k =>
-                        partLower.Contains(k.ToLowerInvariant())) == true;
+                        IsWordMatch(partLower, k)) == true;
 
                     bool matchesOp = checkData.TriggerOperations == null ||
                                      checkData.TriggerOperations.Count == 0 ||
@@ -109,10 +176,10 @@ namespace McStudDesktop.Services
                     {
                         foreach (var missedItem in checkData.MissedItems)
                         {
-                            // Check if this item is already in the estimate
+                            // Check if this item is already in the estimate (word-boundary match)
                             bool isPresent = lines.Any(l =>
-                                l.PartName?.ToLowerInvariant().Contains(missedItem.Item.ToLowerInvariant()) == true ||
-                                l.Description?.ToLowerInvariant().Contains(missedItem.Item.ToLowerInvariant()) == true);
+                                IsWordMatch(l.PartName ?? "", missedItem.Item) ||
+                                IsWordMatch(l.Description ?? "", missedItem.Item));
 
                             if (!isPresent)
                             {
@@ -135,8 +202,9 @@ namespace McStudDesktop.Services
                                     PointDeduction = GetPointDeduction(missedItem.Priority ?? "medium")
                                 };
 
-                                // Avoid duplicates
-                                if (!result.Issues.Any(i => i.Title == issue.Title && i.TriggeredBy == issue.TriggeredBy))
+                                // Avoid duplicates (title-only dedup - prevents synonym panels
+                                // like "Quarter Panel" and "L Quarter" from both triggering the same issue)
+                                if (!result.Issues.Any(i => i.Title == issue.Title))
                                 {
                                     result.Issues.Add(issue);
                                 }
@@ -212,157 +280,159 @@ namespace McStudDesktop.Services
 
         private void CheckMaterialOperations(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
-            // Check for structural panels missing corrosion protection
-            var structuralPanels = lines.Where(l =>
-                !l.IsManualLine &&
-                (l.PartName?.ToLowerInvariant().Contains("quarter") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("rocker") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("rail") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("pillar") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("roof") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("floor") == true) &&
-                (l.OperationType?.ToLowerInvariant().Contains("repl") == true ||
-                 l.OperationType?.ToLowerInvariant().Contains("section") == true)).ToList();
+            var existingTitles = new HashSet<string>(
+                result.Issues.Select(i => i.Title.ToLowerInvariant()));
 
-            foreach (var panel in structuralPanels)
+            foreach (var line in lines.Where(l => !l.IsManualLine && !string.IsNullOrEmpty(l.PartName)))
             {
-                // Check for corrosion protection
-                bool hasCorrosion = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("corrosion") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("corrosion") == true ||
-                    l.Description?.ToLowerInvariant().Contains("cavity wax") == true);
+                var opType = line.OperationType ?? "";
 
-                if (!hasCorrosion)
+                // Skip lines that don't involve paint or structural work
+                bool involvesPaint = OperationRulesEngine.Instance.InvolvesPaint(opType) || line.RefinishHours > 0;
+                bool isReplace = opType.ToLowerInvariant().Contains("repl") ||
+                                 opType.ToLowerInvariant().Contains("r&r") ||
+                                 opType.ToLowerInvariant().Contains("section");
+                if (!involvesPaint && !isReplace) continue;
+
+                var suggestions = OperationRulesEngine.Instance.GetSuggestedOperations(line.PartName!, opType);
+
+                foreach (var suggestion in suggestions)
                 {
-                    result.Issues.Add(new ScoringIssue
+                    // Skip if already flagged
+                    if (existingTitles.Contains(suggestion.Name.ToLowerInvariant())) continue;
+
+                    // Check if the operation already exists in the estimate
+                    var nameLower = suggestion.Name.ToLowerInvariant();
+                    bool isPresent = lines.Any(l =>
+                        l.PartName?.ToLowerInvariant().Contains(nameLower) == true ||
+                        l.Description?.ToLowerInvariant().Contains(nameLower) == true);
+
+                    if (isPresent) continue;
+
+                    // Severity: Critical for replace-only structural ops, High for others
+                    var severity = suggestion.ReplaceOnly ? IssueSeverity.Critical : IssueSeverity.High;
+
+                    // Parse DEG reference from source if present
+                    string? degRef = null;
+                    if (suggestion.Source.Contains("DEG"))
                     {
+                        var match = System.Text.RegularExpressions.Regex.Match(suggestion.Source, @"\d{4,}");
+                        if (match.Success)
+                            degRef = match.Value;
+                    }
+
+                    var issue = new ScoringIssue
+                    {
+                        Source = "Scoring",
                         Category = IssueCategoryType.Materials,
-                        Severity = IssueSeverity.Critical,
-                        Title = "Corrosion Protection",
-                        Description = "Cavity wax and corrosion preventive compounds",
-                        WhyNeeded = "OEM requires corrosion protection on structural panel replacement",
-                        TriggeredBy = panel.PartName ?? "",
+                        Severity = severity,
+                        Title = suggestion.Name,
+                        Description = suggestion.Description,
+                        WhyNeeded = suggestion.WhyNeeded,
+                        TriggeredBy = line.PartName ?? "",
                         SuggestedFix = new SuggestedFix
                         {
-                            OperationType = "Add",
-                            Description = "Corrosion Protection - Cavities",
-                            LaborHours = 0.5m,
-                            EstimatedCost = 45
+                            Description = suggestion.Description,
+                            LaborHours = suggestion.DefaultHours,
+                            OperationType = suggestion.OperationType,
+                            DegReference = degRef
                         },
-                        PointDeduction = 8
-                    });
-                }
+                        PointDeduction = GetPointDeduction(severity == IssueSeverity.Critical ? "critical" : "high")
+                    };
 
-                // Check for weld-thru primer
-                bool hasWeldThru = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("weld") == true &&
-                    l.Description?.ToLowerInvariant().Contains("primer") == true);
-
-                if (!hasWeldThru)
-                {
-                    result.Issues.Add(new ScoringIssue
-                    {
-                        Category = IssueCategoryType.Materials,
-                        Severity = IssueSeverity.High,
-                        Title = "Weld-Thru Primer",
-                        Description = "Zinc-rich primer for weld joints",
-                        WhyNeeded = "Prevents corrosion at weld areas - OEM requirement",
-                        TriggeredBy = panel.PartName ?? "",
-                        SuggestedFix = new SuggestedFix
-                        {
-                            OperationType = "Add",
-                            Description = "Weld-Thru Primer Application",
-                            LaborHours = 0.3m,
-                            EstimatedCost = 18
-                        },
-                        PointDeduction = 5
-                    });
-                }
-
-                // Check for seam sealer
-                bool hasSeamSealer = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("seam seal") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("seam seal") == true);
-
-                if (!hasSeamSealer)
-                {
-                    result.Issues.Add(new ScoringIssue
-                    {
-                        Category = IssueCategoryType.Materials,
-                        Severity = IssueSeverity.High,
-                        Title = "Seam Sealer",
-                        Description = "OEM-style seam sealer application",
-                        WhyNeeded = "Prevents water intrusion at panel joints",
-                        TriggeredBy = panel.PartName ?? "",
-                        SuggestedFix = new SuggestedFix
-                        {
-                            OperationType = "Add",
-                            Description = "Seam Sealer Application",
-                            LaborHours = 0.8m,
-                            EstimatedCost = 35
-                        },
-                        PointDeduction = 5
-                    });
+                    result.Issues.Add(issue);
+                    existingTitles.Add(suggestion.Name.ToLowerInvariant());
                 }
             }
+        }
 
-            // Check plastic panels for flex additive
-            var plasticPanels = lines.Where(l =>
-                !l.IsManualLine &&
-                (l.PartName?.ToLowerInvariant().Contains("bumper") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("fascia") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("cover") == true) &&
-                l.RefinishHours > 0).ToList();
+        #endregion
 
-            if (plasticPanels.Count > 0)
+        #region Not-Included Operations (P-Pages/CEG/DEG)
+
+        private void CheckNotIncludedOperations(List<ParsedEstimateLine> lines, EstimateScoringResult result)
+        {
+            if (_pPageData?.Operations == null || _pPageData.Operations.Count == 0) return;
+
+            var dedupKeys = new HashSet<string>(
+                result.Issues.Select(i => $"{i.Title.ToLowerInvariant()}|{i.Category}"));
+
+            foreach (var line in lines.Where(l => !l.IsManualLine && !string.IsNullOrEmpty(l.PartName)))
             {
-                bool hasFlexAdditive = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("flex") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("flex") == true);
+                var partLower = line.PartName.ToLowerInvariant();
+                var opLower = line.OperationType?.ToLowerInvariant() ?? "";
 
-                if (!hasFlexAdditive)
+                foreach (var pPageOp in _pPageData.Operations)
                 {
-                    result.Issues.Add(new ScoringIssue
-                    {
-                        Category = IssueCategoryType.Materials,
-                        Severity = IssueSeverity.High,
-                        Title = "Flex Additive",
-                        Description = "Flexible paint additive for plastic panels",
-                        WhyNeeded = "Paint will crack on plastic without flex additive",
-                        TriggeredBy = plasticPanels.First().PartName ?? "Bumper",
-                        SuggestedFix = new SuggestedFix
-                        {
-                            OperationType = "Add",
-                            Description = "Flex Additive",
-                            EstimatedCost = 15
-                        },
-                        PointDeduction = 4
-                    });
-                }
+                    // Match against aliases (word-boundary match)
+                    bool matchesPart = pPageOp.Aliases?.Any(a => IsWordMatch(partLower, a)) == true;
+                    if (!matchesPart) continue;
 
-                bool hasAdhesionPromoter = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("adhesion") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("adhesion") == true);
-
-                if (!hasAdhesionPromoter)
-                {
-                    result.Issues.Add(new ScoringIssue
+                    // Also match on operationType when available
+                    if (!string.IsNullOrEmpty(pPageOp.OperationType))
                     {
-                        Category = IssueCategoryType.Materials,
-                        Severity = IssueSeverity.High,
-                        Title = "Adhesion Promoter",
-                        Description = "Promotes paint adhesion to plastic",
-                        WhyNeeded = "Paint won't properly adhere to bare plastic",
-                        TriggeredBy = plasticPanels.First().PartName ?? "Bumper",
-                        SuggestedFix = new SuggestedFix
+                        var pPageOpType = pPageOp.OperationType.ToLowerInvariant();
+                        // Only enforce op-type match if the estimate line has an operation type
+                        if (!string.IsNullOrEmpty(opLower) && pPageOpType == "replace" &&
+                            !opLower.Contains("repl") && !opLower.Contains("r&r") && !opLower.Contains("section"))
+                            continue;
+                    }
+
+                    if (pPageOp.NotIncluded == null) continue;
+
+                    var sourceCitation = BuildSourceCitation(pPageOp.SourceRefs);
+
+                    foreach (var notIncludedText in pPageOp.NotIncluded)
+                    {
+                        // Extract the key operation name (text before the parenthesized source citation)
+                        var operationName = notIncludedText;
+                        var parenIdx = notIncludedText.IndexOf('(');
+                        if (parenIdx > 0)
+                            operationName = notIncludedText.Substring(0, parenIdx).Trim();
+
+                        // Search all estimate lines for this operation (word-boundary match)
+                        bool isPresent = lines.Any(l =>
+                            IsWordMatch(l.PartName ?? "", operationName) ||
+                            IsWordMatch(l.Description ?? "", operationName));
+
+                        if (isPresent) continue;
+
+                        var category = MapNotIncludedToCategory(operationName);
+                        var dedupKey = $"{operationName.ToLowerInvariant()}|{category}";
+                        if (dedupKeys.Contains(dedupKey)) continue;
+                        dedupKeys.Add(dedupKey);
+
+                        // Look for matching metOperations entry for suggested fix
+                        SuggestedFix? suggestedFix = null;
+                        var opNameLower = operationName.ToLowerInvariant();
+                        var matchingMet = pPageOp.MetOperations?.FirstOrDefault(m =>
+                            opNameLower.Contains(m.Description?.ToLowerInvariant() ?? "~") ||
+                            m.Description?.ToLowerInvariant().Contains(opNameLower) == true);
+
+                        if (matchingMet != null)
                         {
-                            OperationType = "Add",
-                            Description = "Adhesion Promoter",
-                            LaborHours = 0.2m,
-                            EstimatedCost = 12
-                        },
-                        PointDeduction = 4
-                    });
+                            suggestedFix = new SuggestedFix
+                            {
+                                Description = matchingMet.Description ?? operationName,
+                                LaborHours = matchingMet.Hours,
+                                OperationType = matchingMet.LaborType ?? "Add"
+                            };
+                        }
+
+                        result.Issues.Add(new ScoringIssue
+                        {
+                            Source = "PPage",
+                            Category = category,
+                            Severity = IssueSeverity.Medium,
+                            PointDeduction = GetPointDeduction("medium"),
+                            Title = operationName,
+                            Description = notIncludedText,
+                            WhyNeeded = !string.IsNullOrEmpty(sourceCitation) ? $"Per {sourceCitation}" : "",
+                            TriggeredBy = line.PartName ?? "",
+                            SourceDetail = line.PartName ?? "",
+                            SuggestedFix = suggestedFix
+                        });
+                    }
                 }
             }
         }
@@ -373,7 +443,7 @@ namespace McStudDesktop.Services
 
         private void CheckRIOperations(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
-            // Check bumper work for R&I items
+            // Check bumper work for R&I items — split front vs rear
             var bumperWork = lines.Where(l =>
                 !l.IsManualLine &&
                 (l.PartName?.ToLowerInvariant().Contains("bumper") == true ||
@@ -381,9 +451,37 @@ namespace McStudDesktop.Services
 
             if (bumperWork.Count > 0)
             {
-                CheckForMissingRI(lines, result, bumperWork.First().PartName ?? "Bumper",
-                    new[] { "fog", "sensor", "camera", "grille" },
-                    new[] { ("R&I Fog Lamps", 0.3m), ("R&I Parking Sensors", 0.2m), ("R&I Camera", 0.3m) });
+                var frontBumperWork = bumperWork.Where(l =>
+                {
+                    var name = l.PartName?.ToLowerInvariant() ?? "";
+                    return name.Contains("front") || name.Contains("frt") ||
+                           (!name.Contains("rear") && !name.Contains("rr ") && !name.Contains("r bumper") && !name.Contains("r fascia"));
+                }).ToList();
+
+                var rearBumperWork = bumperWork.Where(l =>
+                {
+                    var name = l.PartName?.ToLowerInvariant() ?? "";
+                    return name.Contains("rear") || name.Contains("rr ") || name.Contains("r bumper") || name.Contains("r fascia");
+                }).ToList();
+
+                if (frontBumperWork.Count > 0)
+                {
+                    var trigger = frontBumperWork.First().PartName ?? "Front Bumper";
+                    CheckForMissingRI(lines, result, trigger, new[] {
+                        ("R&I Fog Lamps", 0.3m, new[] { "fog" }),
+                        ("R&I Parking Sensors", 0.2m, new[] { "sensor", "park" }),
+                        ("R&I Front Camera", 0.3m, new[] { "camera", "front camera" })
+                    });
+                }
+
+                if (rearBumperWork.Count > 0)
+                {
+                    var trigger = rearBumperWork.First().PartName ?? "Rear Bumper";
+                    CheckForMissingRI(lines, result, trigger, new[] {
+                        ("R&I Parking Sensors", 0.2m, new[] { "sensor", "park" }),
+                        ("R&I Rear Camera", 0.3m, new[] { "camera", "rear camera", "backup camera" })
+                    });
+                }
             }
 
             // Check door work for R&I items
@@ -394,9 +492,12 @@ namespace McStudDesktop.Services
 
             if (doorWork.Count > 0)
             {
-                CheckForMissingRI(lines, result, doorWork.First().PartName ?? "Door",
-                    new[] { "mirror", "handle", "molding", "trim" },
-                    new[] { ("R&I Mirror", 0.3m), ("R&I Door Handle", 0.3m), ("R&I Door Trim Panel", 0.3m) });
+                var trigger = doorWork.First().PartName ?? "Door";
+                CheckForMissingRI(lines, result, trigger, new[] {
+                    ("R&I Mirror", 0.3m, new[] { "mirror" }),
+                    ("R&I Door Handle", 0.3m, new[] { "handle" }),
+                    ("R&I Door Trim Panel", 0.3m, new[] { "trim", "molding" })
+                });
             }
 
             // Check quarter panel for R&I items
@@ -407,9 +508,12 @@ namespace McStudDesktop.Services
 
             if (quarterWork.Count > 0)
             {
-                CheckForMissingRI(lines, result, quarterWork.First().PartName ?? "Quarter Panel",
-                    new[] { "tail", "fuel door", "molding" },
-                    new[] { ("R&I Tail Light", 0.3m), ("R&I Fuel Door", 0.2m), ("R&I Quarter Moldings", 0.2m) });
+                var trigger = quarterWork.First().PartName ?? "Quarter Panel";
+                CheckForMissingRI(lines, result, trigger, new[] {
+                    ("R&I Tail Light", 0.3m, new[] { "tail" }),
+                    ("R&I Fuel Door", 0.2m, new[] { "fuel door", "fuel" }),
+                    ("R&I Quarter Moldings", 0.2m, new[] { "molding", "moulding" })
+                });
             }
 
             // Check hood for R&I items
@@ -419,9 +523,10 @@ namespace McStudDesktop.Services
 
             if (hoodWork.Count > 0)
             {
-                CheckForMissingRI(lines, result, "Hood",
-                    new[] { "insulator", "insulation", "strut" },
-                    new[] { ("R&I Hood Insulator", 0.3m), ("R&I Hood Struts", 0.2m) });
+                CheckForMissingRI(lines, result, "Hood", new[] {
+                    ("R&I Hood Insulator", 0.3m, new[] { "insulator", "insulation" }),
+                    ("R&I Hood Struts", 0.2m, new[] { "strut" })
+                });
             }
 
             // Check fender for R&I items
@@ -431,29 +536,33 @@ namespace McStudDesktop.Services
 
             if (fenderWork.Count > 0)
             {
-                CheckForMissingRI(lines, result, fenderWork.First().PartName ?? "Fender",
-                    new[] { "liner", "splash", "wheel", "tire" },
-                    new[] { ("R&I Fender Liner", 0.3m), ("R&I Tire/Wheel", 0.2m) });
+                var trigger = fenderWork.First().PartName ?? "Fender";
+                CheckForMissingRI(lines, result, trigger, new[] {
+                    ("R&I Fender Liner", 0.3m, new[] { "liner", "splash" }),
+                    ("R&I Tire/Wheel", 0.2m, new[] { "wheel", "tire" })
+                });
             }
         }
 
         private void CheckForMissingRI(List<ParsedEstimateLine> lines, EstimateScoringResult result,
-            string triggeredBy, string[] checkKeywords, (string Name, decimal Hours)[] riItems)
+            string triggeredBy, (string Name, decimal Hours, string[] Keywords)[] riItems)
         {
             foreach (var item in riItems)
             {
-                // Check if any keyword for this item exists in estimate
-                bool hasItem = lines.Any(l =>
-                    checkKeywords.Any(k =>
+                // Only suggest R&I if the component is actually referenced in the estimate
+                bool componentMentioned = lines.Any(l =>
+                    item.Keywords.Any(k =>
                         l.Description?.ToLowerInvariant().Contains(k) == true ||
                         l.PartName?.ToLowerInvariant().Contains(k) == true));
 
-                // Also check if the R&I itself is already there
-                bool hasRI = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains(item.Name.ToLowerInvariant()) == true ||
-                    l.PartName?.ToLowerInvariant().Contains(item.Name.ToLowerInvariant()) == true);
+                if (!componentMentioned) continue;
 
-                // If the component might exist but R&I isn't listed
+                // Check if the R&I itself is already on the estimate
+                var itemLower = item.Name.ToLowerInvariant();
+                bool hasRI = lines.Any(l =>
+                    l.Description?.ToLowerInvariant().Contains(itemLower) == true ||
+                    l.PartName?.ToLowerInvariant().Contains(itemLower) == true);
+
                 if (!hasRI)
                 {
                     var existing = result.Issues.FirstOrDefault(i => i.Title == item.Name);
@@ -765,7 +874,243 @@ namespace McStudDesktop.Services
 
         #endregion
 
+        #region Must-Haves Check
+
+        private void CheckMustHaves(List<ParsedEstimateLine> lines, EstimateScoringResult result)
+        {
+            var mustHaves = GhostConfigService.Instance.GetMustHaves();
+            if (mustHaves == null || mustHaves.Count == 0) return;
+
+            foreach (var mh in mustHaves)
+            {
+                if (!mh.Enabled || string.IsNullOrWhiteSpace(mh.Description)) continue;
+
+                // Skip junk entries (e.g., "Description" from header rows)
+                var descLower = mh.Description.ToLowerInvariant().Trim();
+                if (descLower is "description" or "category" or "operation" or "")
+                    continue;
+
+                // Count how many lines match this must-have using fuzzy word-based matching.
+                // This handles truncated names ("Disconnect and" matches "Disconnect and Reconnect Battery"),
+                // hyphen/space differences ("Pre-Scan" matches "Pre-repair scan"),
+                // and parenthetical suffixes ("Color Tint (2-Stage)" matches "Color Tint").
+                int matchCount = lines.Count(l => MustHaveFuzzyMatch(descLower, l));
+
+                if (matchCount < mh.MinCount)
+                {
+                    var missing = mh.MinCount - matchCount;
+                    var title = matchCount == 0
+                        ? $"Missing: {mh.Description}"
+                        : $"Need {missing} more: {mh.Description}";
+
+                    result.Issues.Add(new ScoringIssue
+                    {
+                        Category = IssueCategoryType.Other,
+                        Severity = mh.PointDeduction >= 8 ? IssueSeverity.Critical :
+                                   mh.PointDeduction >= 5 ? IssueSeverity.High : IssueSeverity.Medium,
+                        Title = title,
+                        Description = $"Your must-have requires at least {mh.MinCount} \"{mh.Description}\" — found {matchCount}",
+                        WhyNeeded = "Required by your shop's must-have settings",
+                        TriggeredBy = "Must-Have Rule",
+                        SuggestedFix = new SuggestedFix
+                        {
+                            OperationType = "Add",
+                            Description = mh.Description
+                        },
+                        PointDeduction = mh.PointDeduction * missing
+                    });
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fuzzy matching for must-have operations against estimate lines.
+        /// Handles truncated descriptions, hyphen/space variations, and abbreviations.
+        /// </summary>
+        internal static bool MustHaveFuzzyMatch(string mustHaveLower, ParsedEstimateLine line)
+        {
+            var partLower = line.PartName?.ToLowerInvariant() ?? "";
+            var descLower = line.Description?.ToLowerInvariant() ?? "";
+            var combined = partLower + " " + descLower;
+
+            // Normalize hyphens to spaces for comparison
+            var normalizedMH = mustHaveLower.Replace("-", " ").Replace("/", " ");
+            var normalizedLine = combined.Replace("-", " ").Replace("/", " ");
+
+            // 1. Direct substring match: line contains must-have (NOT the reverse — a short line
+            //    like "scan" must not match "pre-repair scan diagnostic" via reverse-contains)
+            if (normalizedLine.Contains(normalizedMH) && normalizedMH.Length >= 3)
+                return true;
+
+            // 2. Word-based matching: extract significant words (3+ chars) and check overlap
+            var stopWords = new HashSet<string> { "and", "for", "the", "during", "with", "from" };
+            var mhWords = normalizedMH.Split(new[] { ' ', ',', '(', ')' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length >= 3 && !stopWords.Contains(w)).ToList();
+            var lineWords = normalizedLine.Split(new[] { ' ', ',', '(', ')' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length >= 3 && !stopWords.Contains(w)).ToHashSet();
+
+            if (mhWords.Count == 0) return false;
+
+            // Count how many must-have words appear in the line (prefix match for truncated words)
+            // Only forward direction: line-word starts with must-have prefix (not the reverse)
+            int matched = mhWords.Count(mw => lineWords.Any(lw =>
+                lw == mw ||
+                (mw.Length >= 5 && lw.Length >= 5 && lw.StartsWith(mw.Substring(0, 5)))));
+
+            // If 2+ words match, or if it's a short must-have (1-2 words) and all match
+            if (mhWords.Count <= 2)
+                return matched == mhWords.Count;
+            return matched >= 2 && (double)matched / mhWords.Count >= 0.5;
+        }
+
+        #endregion
+
         #region Score Calculation
+
+        /// <summary>
+        /// Convert smart suggestions to scoring issues so they can be merged into the unified panel.
+        /// Point deductions are halved since the scoring engine already catches the important ones at full weight.
+        /// </summary>
+        public static List<ScoringIssue> ConvertFromSuggestions(List<SmartSuggestedOperation> suggestions)
+        {
+            var issues = new List<ScoringIssue>();
+            foreach (var s in suggestions)
+            {
+                var category = s.Category switch
+                {
+                    SuggestionCategory.Calibration => IssueCategoryType.Calibration,
+                    SuggestionCategory.Diagnostic => IssueCategoryType.Diagnostic,
+                    SuggestionCategory.Electrical => IssueCategoryType.Electrical,
+                    SuggestionCategory.Materials => IssueCategoryType.Materials,
+                    SuggestionCategory.RAndI => IssueCategoryType.RandI,
+                    SuggestionCategory.Labor => IssueCategoryType.Labor,
+                    SuggestionCategory.Refinish => IssueCategoryType.Refinish,
+                    SuggestionCategory.Mechanical => IssueCategoryType.Mechanical,
+                    _ => IssueCategoryType.Other
+                };
+
+                var severity = s.Priority?.ToLowerInvariant() switch
+                {
+                    "critical" => IssueSeverity.Critical,
+                    "high" => IssueSeverity.High,
+                    "medium" => IssueSeverity.Medium,
+                    _ => IssueSeverity.Low
+                };
+
+                // Halved point deductions for smart-sourced items
+                var baseDeduction = severity switch
+                {
+                    IssueSeverity.Critical => 5,
+                    IssueSeverity.High => 3,
+                    IssueSeverity.Medium => 1,
+                    _ => 0
+                };
+
+                issues.Add(new ScoringIssue
+                {
+                    Category = category,
+                    Severity = severity,
+                    Title = s.Item,
+                    Description = s.Description ?? s.Item,
+                    WhyNeeded = s.WhyNeeded ?? "",
+                    TriggeredBy = s.SourcePart,
+                    PointDeduction = baseDeduction,
+                    Source = "Smart",
+                    SourceDetail = s.SourcePart,
+                    SuggestedFix = new SuggestedFix
+                    {
+                        OperationType = "Add",
+                        Description = s.Description ?? s.Item,
+                        LaborHours = s.LaborHours,
+                        EstimatedCost = s.TypicalCost,
+                        DegReference = s.DegReference
+                    }
+                });
+            }
+            return issues;
+        }
+
+        /// <summary>
+        /// Convert learned operations (from EstimateLearningService) to scoring issues
+        /// so they can be merged into the unified scoring panel.
+        /// Learned patterns are suggestions — low deduction weight (1 pt each).
+        /// </summary>
+        public static List<ScoringIssue> ConvertFromLearnedOperations(
+            List<GeneratedOperation> operations,
+            ManualLinePattern? manualPattern,
+            string sourcePartName)
+        {
+            var issues = new List<ScoringIssue>();
+
+            foreach (var op in operations)
+            {
+                var category = op.Category?.ToLowerInvariant() switch
+                {
+                    "calibration" => IssueCategoryType.Calibration,
+                    "diagnostic" => IssueCategoryType.Diagnostic,
+                    "electrical" => IssueCategoryType.Electrical,
+                    "materials" or "material" => IssueCategoryType.Materials,
+                    "r&i" or "ri" or "r and i" => IssueCategoryType.RandI,
+                    "labor" => IssueCategoryType.Labor,
+                    "refinish" or "rfn" => IssueCategoryType.Refinish,
+                    "mechanical" or "mech" => IssueCategoryType.Mechanical,
+                    _ => IssueCategoryType.Other
+                };
+
+                issues.Add(new ScoringIssue
+                {
+                    Category = category,
+                    Severity = IssueSeverity.Low,
+                    Title = op.Description,
+                    Description = $"{op.OperationType}: {op.Description}",
+                    WhyNeeded = op.TimesUsed > 1 ? $"Seen in {op.TimesUsed} previous estimates" : "Learned from previous estimates",
+                    TriggeredBy = sourcePartName,
+                    PointDeduction = 1,
+                    Source = "Learned",
+                    SourceDetail = sourcePartName,
+                    SuggestedFix = new SuggestedFix
+                    {
+                        OperationType = op.OperationType,
+                        Description = op.Description,
+                        LaborHours = op.LaborHours + op.RepairHours,
+                        EstimatedCost = op.Price
+                    }
+                });
+            }
+
+            if (manualPattern != null)
+            {
+                foreach (var manual in manualPattern.ManualLines)
+                {
+                    issues.Add(new ScoringIssue
+                    {
+                        Category = IssueCategoryType.Other,
+                        Severity = IssueSeverity.Low,
+                        Title = manual.ManualLineType,
+                        Description = manual.Description,
+                        WhyNeeded = manual.TimesUsed > 1 ? $"Seen in {manual.TimesUsed} previous estimates" : "Learned from previous estimates",
+                        TriggeredBy = sourcePartName,
+                        PointDeduction = 1,
+                        Source = "Learned",
+                        SourceDetail = sourcePartName,
+                        SuggestedFix = new SuggestedFix
+                        {
+                            OperationType = "Manual",
+                            Description = manual.ManualLineType,
+                            LaborHours = manual.LaborUnits + manual.RefinishUnits,
+                            EstimatedCost = manual.AvgPrice
+                        }
+                    });
+                }
+            }
+
+            return issues;
+        }
+
+        /// <summary>
+        /// Recalculate score/grade/counts after issues have been modified (e.g., after merging smart suggestions).
+        /// </summary>
+        public void RecalculateScore(EstimateScoringResult result) => CalculateFinalScore(result);
 
         private void CalculateFinalScore(EstimateScoringResult result)
         {
@@ -811,6 +1156,12 @@ namespace McStudDesktop.Services
             result.PotentialLaborRecovery = result.Issues.Sum(i => i.SuggestedFix?.LaborHours ?? 0);
             result.PotentialCostRecovery = result.Issues.Sum(i => i.SuggestedFix?.EstimatedCost ?? 0);
 
+            // Classify action types
+            foreach (var issue in result.Issues)
+            {
+                issue.ActionType = ClassifyActionType(issue);
+            }
+
             // Generate summary
             if (result.OverallScore >= 90)
             {
@@ -830,6 +1181,27 @@ namespace McStudDesktop.Services
             }
         }
 
+        private static IssueActionType ClassifyActionType(ScoringIssue issue)
+        {
+            // Low severity → verify / optional
+            if (issue.Severity == IssueSeverity.Low)
+                return IssueActionType.VerifyOptional;
+
+            // ADAS calibrations and items with DEG references → check with OEM
+            if (issue.Category == IssueCategoryType.Calibration)
+                return IssueActionType.CheckWithOEM;
+
+            if (!string.IsNullOrEmpty(issue.SuggestedFix?.DegReference))
+                return IssueActionType.CheckWithOEM;
+
+            var titleLower = issue.Title.ToLowerInvariant();
+            if (titleLower.Contains("adas") || titleLower.Contains("calibrat"))
+                return IssueActionType.CheckWithOEM;
+
+            // Everything else → add to estimate
+            return IssueActionType.AddToEstimate;
+        }
+
         private int CalculateCategoryScore(List<ScoringIssue> issues, IssueCategoryType category)
         {
             var categoryIssues = issues.Where(i => i.Category == category).ToList();
@@ -837,6 +1209,73 @@ namespace McStudDesktop.Services
 
             int deductions = categoryIssues.Sum(i => i.PointDeduction);
             return Math.Max(0, 100 - (deductions * 3)); // Amplify for category score
+        }
+
+        #endregion
+
+        #region Pre-processing
+
+        /// <summary>
+        /// Join continuation lines where wrapped descriptions got split across lines.
+        /// e.g., a line with "Rub-Out &amp;" followed by a bare "Buff" line → merge into previous line's description.
+        /// Also handles lines starting with "&amp;" like "&amp; Buff", "Block Sand", etc. that are clearly
+        /// continuations of the previous operation.
+        /// </summary>
+        private static List<ParsedEstimateLine> JoinContinuationLines(List<ParsedEstimateLine> lines)
+        {
+            var result = new List<ParsedEstimateLine>(lines.Count);
+
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var line = lines[i];
+                var partName = (line.PartName ?? "").Trim();
+                var opType = (line.OperationType ?? "").Trim();
+
+                // Detect continuation line: no operation type, and either:
+                // - starts with "&" or "and" (e.g., "& Buff", "and Buff")
+                // - previous line's PartName ends with "&" or "and"
+                // - is a known refinish sub-operation (Rub-Out, Block Sand, etc.)
+                bool isContinuation = string.IsNullOrEmpty(opType) && result.Count > 0 &&
+                    (partName.StartsWith("&") || partName.StartsWith("and ", StringComparison.OrdinalIgnoreCase) ||
+                     IsRefinishContinuation(partName));
+
+                // Also check: previous line ends with "&"
+                if (!isContinuation && result.Count > 0 && string.IsNullOrEmpty(opType))
+                {
+                    var prevPart = (result[^1].PartName ?? "").Trim();
+                    if (prevPart.EndsWith("&") || prevPart.EndsWith("and", StringComparison.OrdinalIgnoreCase))
+                        isContinuation = true;
+                }
+
+                if (isContinuation)
+                {
+                    // Merge into previous line
+                    var prev = result[^1];
+                    var separator = (prev.PartName ?? "").EndsWith("&") || partName.StartsWith("&") ? " " : " ";
+                    prev.PartName = ((prev.PartName ?? "") + separator + partName).Trim();
+                    if (!string.IsNullOrEmpty(line.Description))
+                        prev.Description = ((prev.Description ?? "") + " " + line.Description).Trim();
+                    // Accumulate hours/price from continuation
+                    if (line.LaborHours > 0 && prev.LaborHours == 0) prev.LaborHours = line.LaborHours;
+                    if (line.RefinishHours > 0 && prev.RefinishHours == 0) prev.RefinishHours = line.RefinishHours;
+                    if (line.Price > 0 && prev.Price == 0) prev.Price = line.Price;
+                }
+                else
+                {
+                    result.Add(line);
+                }
+            }
+
+            return result;
+        }
+
+        private static bool IsRefinishContinuation(string partName)
+        {
+            var lower = partName.ToLowerInvariant();
+            return lower.StartsWith("rub-out") || lower.StartsWith("rub out") || lower.StartsWith("rubout") ||
+                   lower.StartsWith("block sand") || lower.StartsWith("buff") ||
+                   lower.StartsWith("wet sand") || lower.StartsWith("wet/dry") ||
+                   lower.StartsWith("sand, rub") || lower.StartsWith("de-nib") || lower.StartsWith("denib");
         }
 
         #endregion
@@ -961,6 +1400,29 @@ namespace McStudDesktop.Services
             return null;
         }
 
+        private IncludedNotIncludedData? LoadIncludedNotIncludedData()
+        {
+            try
+            {
+                var appDir = AppDomain.CurrentDomain.BaseDirectory;
+                var path = Path.Combine(appDir, "Data", "IncludedNotIncluded.json");
+
+                if (File.Exists(path))
+                {
+                    var json = File.ReadAllText(path);
+                    return JsonSerializer.Deserialize<IncludedNotIncludedData>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Scoring] Error loading P-Page data: {ex.Message}");
+            }
+            return null;
+        }
+
         private Dictionary<string, List<BlendRule>> InitializeBlendRules()
         {
             return new Dictionary<string, List<BlendRule>>
@@ -1034,14 +1496,47 @@ namespace McStudDesktop.Services
 
         private int GetPointDeduction(string priority)
         {
+            var weights = GhostConfigService.Instance.Config.ScoringWeights;
             return priority.ToLowerInvariant() switch
             {
-                "critical" => 8,
-                "high" => 5,
-                "medium" => 3,
-                "low" => 1,
+                "critical" => weights.CriticalPoints,
+                "high" => weights.HighPoints,
+                "medium" => weights.MediumPoints,
+                "low" => weights.LowPoints,
                 _ => 2
             };
+        }
+
+        private IssueCategoryType MapNotIncludedToCategory(string operationText)
+        {
+            var lower = operationText.ToLowerInvariant();
+            if (lower.Contains("corrosion") || lower.Contains("primer") || lower.Contains("sealer") ||
+                lower.Contains("e-coat") || lower.Contains("cavity wax") || lower.Contains("adhesion") ||
+                lower.Contains("flex additive"))
+                return IssueCategoryType.Materials;
+            if (lower.Contains("r&i") || lower.Contains("remove") || lower.Contains("transfer"))
+                return IssueCategoryType.RandI;
+            if (lower.Contains("scan") || lower.Contains("diagnostic"))
+                return IssueCategoryType.Diagnostic;
+            if (lower.Contains("adas") || lower.Contains("calibrat"))
+                return IssueCategoryType.Calibration;
+            if (lower.Contains("blend") || lower.Contains("refinish") || lower.Contains("feather") ||
+                lower.Contains("prime") || lower.Contains("denib") || lower.Contains("buff"))
+                return IssueCategoryType.Refinish;
+            return IssueCategoryType.Other;
+        }
+
+        private string BuildSourceCitation(SourceReferences? sourceRefs)
+        {
+            if (sourceRefs == null) return "";
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(sourceRefs.CccMotor))
+                parts.Add($"CCC/MOTOR {sourceRefs.CccMotor}");
+            if (!string.IsNullOrEmpty(sourceRefs.Mitchell))
+                parts.Add($"Mitchell {sourceRefs.Mitchell}");
+            if (sourceRefs.DegInquiries?.Count > 0)
+                parts.Add("DEG #" + string.Join(", #", sourceRefs.DegInquiries));
+            return string.Join(" | ", parts);
         }
 
         #endregion
@@ -1087,6 +1582,7 @@ namespace McStudDesktop.Services
     {
         public IssueCategoryType Category { get; set; }
         public IssueSeverity Severity { get; set; }
+        public IssueActionType ActionType { get; set; }
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
         public string WhyNeeded { get; set; } = "";
@@ -1094,6 +1590,8 @@ namespace McStudDesktop.Services
         public SuggestedFix? SuggestedFix { get; set; }
         public int PointDeduction { get; set; }
         public bool IsSelected { get; set; } = false;
+        public string? Source { get; set; }        // "Scoring" or "Smart"
+        public string? SourceDetail { get; set; }  // e.g. "Front Bumper" (the triggering part)
     }
 
     public class SuggestedFix
@@ -1125,6 +1623,13 @@ namespace McStudDesktop.Services
         High,
         Medium,
         Low
+    }
+
+    public enum IssueActionType
+    {
+        AddToEstimate,
+        CheckWithOEM,
+        VerifyOptional
     }
 
     internal class BlendRule

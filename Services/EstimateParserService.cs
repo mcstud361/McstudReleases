@@ -38,7 +38,7 @@ namespace McStudDesktop.Services
         };
 
         // Regex patterns for extracting specific data
-        private static readonly Regex _pricePattern = new(@"\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)", RegexOptions.Compiled);
+        private static readonly Regex _pricePattern = new(@"\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)", RegexOptions.Compiled);
         private static readonly Regex _hoursPattern = new(@"(\d+\.?\d*)\s*(?:hrs?|hours?|labor)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _qtyPattern = new(@"qty[:\s]*(\d+)|(\d+)\s*(?:ea|each|x\s)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _vinPattern = new(@"[A-HJ-NPR-Z0-9]{17}", RegexOptions.Compiled);

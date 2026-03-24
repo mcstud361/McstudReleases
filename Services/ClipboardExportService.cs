@@ -376,10 +376,19 @@ namespace McStudDesktop.Services
                     var qtyNum = numbersAfterDesc[0];
                     var laborNum = numbersAfterDesc[1];
                     qty = qtyNum.ToString("0");
-                    if (laborNum == Math.Floor(laborNum))
-                        labor = laborNum.ToString("0");
+                    if (laborNum <= 100) // Labor hours should be ≤ 100; larger values are prices
+                    {
+                        if (laborNum == Math.Floor(laborNum))
+                            labor = laborNum.ToString("0");
+                        else
+                            labor = laborNum.ToString("0.0");
+                    }
                     else
-                        labor = laborNum.ToString("0.0");
+                    {
+                        // Too large for labor hours — this is a price, not labor
+                        price = laborNum.ToString("0.00");
+                        labor = "";
+                    }
                 }
             }
 

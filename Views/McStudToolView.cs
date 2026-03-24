@@ -142,6 +142,11 @@ namespace McStudDesktop.Views
         // Shop Docs feature
         private ShopDocsView? _shopDocsView;
 
+        // AI Settings (admin-only)
+        private Border? _aiSettingsSection;
+        private int _aboutTapCount;
+        private DateTime _lastAboutTap = DateTime.MinValue;
+
 
         // Statistics feature
         private StatisticsView? _statisticsView;
@@ -245,10 +250,10 @@ namespace McStudDesktop.Views
             var steps = new System.Collections.Generic.List<TourStep>
             {
                 new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Your virtual clipboard. Copy lines from Excel and McStud reads them automatically. Hit the CCC or Mitchell button and it types everything into the estimating platform for you.\n\nTip: Look for the ? button in the top-right corner for detailed help on any tab.", TabIndex = 0 },
-                new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Ask the AI assistant any estimating questions. Get help with procedures, guidelines, and best practices.", TabIndex = 1 },
+                new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Ask estimating questions and get help with procedures, guidelines, and best practices.", TabIndex = 1 },
                 new TourStep { Target = _guideTabButton!, Icon = "\uE82D", Title = "Guide", Description = "Step-by-step MET guides to help you through common estimating tasks and procedures. Hit the ? for more details.", TabIndex = 2 },
                 new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDF estimates for analysis. The tool will parse operations, identify references, and help you review the estimate. Hit the ? for more details.", TabIndex = 3 },
-                new TourStep { Target = _referenceTabButton!, Icon = "\uE82D", Title = "Reference", Description = "Access Definitions, DEG Inquiries, P-Pages, and Procedures all in one place. Search and queue references for PDF export. Hit the ? for more details.", TabIndex = 4 },
+                new TourStep { Target = _referenceTabButton!, Icon = "\uE82D", Title = "Reference", Description = "Access Definitions, DEG Inquiries, P-Pages, and How-To Library all in one place. Search and queue references for PDF export. Hit the ? for more details.", TabIndex = 4 },
                 new TourStep { Target = _settingsTabButton!, Icon = "\uE713", Title = "Settings", Description = "Manage app settings, check for updates, view version info, and configure text-to-speech voice.", TabIndex = 5 },
                 new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Access checklists, invoices, and shop documents. Create custom checklists and export them to PDF. Hit the ? for more details.", TabIndex = 6 },
                 new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Track your export statistics — see how many operations you've exported, which platforms you use most, and your activity over time. Hit the ? for more details.", TabIndex = 7 }
@@ -405,17 +410,6 @@ namespace McStudDesktop.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            var halfBtn = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE740", FontSize = 10 },
-                Background = new SolidColorBrush(Colors.Transparent),
-                Padding = new Thickness(4, 2, 4, 2),
-                MinWidth = 24, MinHeight = 24
-            };
-            ToolTipService.SetToolTip(halfBtn, "Half Screen");
-            halfBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapHalfScreen();
-            snapStack.Children.Add(halfBtn);
-
             var quarterBtn = new Button
             {
                 Content = new FontIcon { Glyph = "\uE744", FontSize = 10 },
@@ -423,9 +417,20 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(4, 2, 4, 2),
                 MinWidth = 24, MinHeight = 24
             };
-            ToolTipService.SetToolTip(quarterBtn, "Quarter Screen");
+            ToolTipService.SetToolTip(quarterBtn, "Snap to corner (quarter screen)");
             quarterBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapQuarterScreen();
             snapStack.Children.Add(quarterBtn);
+
+            var halfBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE740", FontSize = 10 },
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(4, 2, 4, 2),
+                MinWidth = 24, MinHeight = 24
+            };
+            ToolTipService.SetToolTip(halfBtn, "Split screen (right half)");
+            halfBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapHalfScreen();
+            snapStack.Children.Add(halfBtn);
 
             var compactBtn = new Button
             {
@@ -434,7 +439,7 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(4, 2, 4, 2),
                 MinWidth = 24, MinHeight = 24
             };
-            ToolTipService.SetToolTip(compactBtn, "Compact (Default)");
+            ToolTipService.SetToolTip(compactBtn, "Compact tool window (default)");
             compactBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapCompact();
             snapStack.Children.Add(compactBtn);
 
@@ -1004,6 +1009,8 @@ namespace McStudDesktop.Views
             {
                 _statisticsView.Refresh();
             }
+
+            // (AI settings always visible in settings tab)
 
             // Show selected content
             if (_tabContent == null) return;
@@ -2083,13 +2090,35 @@ namespace McStudDesktop.Views
             };
 
             var aboutStack = new StackPanel { Spacing = 8 };
-            aboutStack.Children.Add(new TextBlock
+            var aboutTitle = new TextBlock
             {
                 Text = "About",
                 FontSize = 16,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White)
-            });
+            };
+            aboutTitle.Tapped += (s, e) =>
+            {
+                var now = DateTime.Now;
+                if ((now - _lastAboutTap).TotalSeconds > 2)
+                    _aboutTapCount = 0;
+                _lastAboutTap = now;
+                _aboutTapCount++;
+
+                if (_aboutTapCount >= 5)
+                {
+                    _aboutTapCount = 0;
+                    if (_aiSettingsSection != null && _aiSettingsSection.Visibility == Visibility.Visible)
+                    {
+                        _aiSettingsSection.Visibility = Visibility.Collapsed;
+                    }
+                    else
+                    {
+                        ShowAdminPinDialog();
+                    }
+                }
+            };
+            aboutStack.Children.Add(aboutTitle);
             aboutStack.Children.Add(new TextBlock
             {
                 Text = "McStud Tool - Clipboard export tool for collision estimating",
@@ -2107,9 +2136,67 @@ namespace McStudDesktop.Views
             aboutCard.Child = aboutStack;
             mainStack.Children.Add(aboutCard);
 
+            // === AI SETTINGS ===
+            _aiSettingsSection = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(20),
+                Margin = new Thickness(0, 8, 0, 0),
+                Visibility = Visibility.Collapsed
+            };
+            _aiSettingsSection.Child = new AiSettingsPanel();
+            mainStack.Children.Add(_aiSettingsSection);
+
             scrollViewer.Content = mainStack;
             settingsContent.Children.Add(scrollViewer);
             _tabContent?.Children.Add(settingsContent);
+        }
+
+        /// <summary>
+        /// Show/hide admin-only sections based on license tier
+        /// </summary>
+        private void UpdateAdminSections()
+        {
+            // AI settings stay hidden until revealed via About 5-tap + PIN
+        }
+
+        private const string HardcodedPin = "1115";
+
+        private async void ShowAdminPinDialog()
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Enter PIN",
+                XamlRoot = this.XamlRoot,
+                PrimaryButtonText = "Unlock",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary
+            };
+            var inputBox = new PasswordBox { PlaceholderText = "Enter PIN" };
+            dialog.Content = inputBox;
+            var dialogResult = await dialog.ShowAsync();
+
+            if (dialogResult == ContentDialogResult.Primary)
+            {
+                if (inputBox.Password == HardcodedPin)
+                {
+                    if (_aiSettingsSection != null)
+                        _aiSettingsSection.Visibility = Visibility.Visible;
+                    AiSettingsPanel.ShowConfigSection();
+                }
+                else
+                {
+                    var errorDialog = new ContentDialog
+                    {
+                        Title = "Incorrect",
+                        Content = "Access denied.",
+                        XamlRoot = this.XamlRoot,
+                        CloseButtonText = "OK"
+                    };
+                    await errorDialog.ShowAsync();
+                }
+            }
         }
 
         private void BuildGuideTab()

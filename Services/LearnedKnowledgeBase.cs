@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 
 namespace McStudDesktop.Services
 {
@@ -20,7 +21,7 @@ namespace McStudDesktop.Services
     ///
     /// CONTINUOUS LEARNING: Every new estimate makes this smarter.
     /// </summary>
-    public class LearnedKnowledgeBase
+    public partial class LearnedKnowledgeBase
     {
         #region Singleton
 
@@ -158,16 +159,22 @@ namespace McStudDesktop.Services
                 part.OperationStats[opKey] = stats;
             }
 
-            // Record values
+            // Apply sanity caps before recording — prevents inflated hours from imported estimates
+            var maxLabor = GetMaxReasonableHours(canonicalPart, opKey);
+            var maxRefinish = GetMaxReasonableRefinishHours(canonicalPart, opKey);
+
+            // Record values (capped)
             if (laborHours > 0)
             {
-                stats.LaborHoursValues.Add(laborHours);
+                var cappedLabor = Math.Min(laborHours, maxLabor);
+                stats.LaborHoursValues.Add(cappedLabor);
                 stats.RecalculateLaborStats();
             }
 
             if (refinishHours > 0)
             {
-                stats.RefinishHoursValues.Add(refinishHours);
+                var cappedRefinish = Math.Min(refinishHours, maxRefinish);
+                stats.RefinishHoursValues.Add(cappedRefinish);
                 stats.RecalculateRefinishStats();
             }
 
@@ -185,7 +192,108 @@ namespace McStudDesktop.Services
             // Track vehicle-specific stats if provided
             if (!string.IsNullOrEmpty(vehicleType))
             {
-                RecordVehicleSpecificStats(canonicalPart, operationType, vehicleType, laborHours, refinishHours);
+                RecordVehicleSpecificStats(canonicalPart, operationType, vehicleType,
+                    Math.Min(laborHours, maxLabor), Math.Min(refinishHours, maxRefinish));
+            }
+        }
+
+        /// <summary>
+        /// Max reasonable labor hours based on operation type and part category.
+        /// Prevents inflated hours from imported estimates (e.g., "grommet 2.3h").
+        /// </summary>
+        private static decimal GetMaxReasonableHours(string canonicalPart, string operationType)
+        {
+            var partLower = canonicalPart.ToLowerInvariant();
+            var opLower = operationType.ToLowerInvariant();
+
+            // Sub-components: grommets, clips, retainers, fasteners, etc.
+            var subPartKeywords = new[] { "grommet", "clip", "retainer", "rivet", "fastener",
+                "screw", "bolt", "nut", "pin", "stud", "plug", "washer", "bushing" };
+            if (subPartKeywords.Any(k => partLower.Contains(k)))
+                return 1.0m;
+
+            // Small trim/molding parts
+            var trimKeywords = new[] { "molding", "moulding", "emblem", "nameplate", "badge",
+                "decal", "stripe", "tape", "adhesive", "sealer", "sealant" };
+            if (trimKeywords.Any(k => partLower.Contains(k)))
+                return 2.0m;
+
+            // SOP/misc operations
+            var sopKeywords = new[] { "hazmat", "disposal", "mask", "cover car", "tape",
+                "clean", "protect", "decontam", "corrosion" };
+            if (sopKeywords.Any(k => partLower.Contains(k)))
+                return 2.0m;
+
+            // Operation-type caps
+            return opLower switch
+            {
+                "r&i" or "ri" or "r+i" => 5.0m,
+                "add" or "manual" or "man" => 3.0m,
+                "blend" or "bld" => 4.0m,
+                "refinish" or "rfn" or "ref" => 10.0m,
+                "replace" or "repl" => 20.0m,
+                "repair" or "rpr" => 15.0m,
+                "overhaul" or "o/h" => 15.0m,
+                "sublet" or "sub" => 10.0m,
+                "mechanical" or "mech" => 8.0m,
+                "frame" or "frm" => 15.0m,
+                _ => 15.0m
+            };
+        }
+
+        /// <summary>
+        /// Max reasonable refinish hours based on part type.
+        /// </summary>
+        private static decimal GetMaxReasonableRefinishHours(string canonicalPart, string operationType)
+        {
+            var partLower = canonicalPart.ToLowerInvariant();
+
+            // Sub-components don't get refinish time
+            var subPartKeywords = new[] { "grommet", "clip", "retainer", "rivet", "fastener",
+                "screw", "bolt", "nut", "pin", "stud", "plug", "washer" };
+            if (subPartKeywords.Any(k => partLower.Contains(k)))
+                return 0.5m;
+
+            // Blend operations cap
+            if (operationType.ToLowerInvariant() is "blend" or "bld")
+                return 4.0m;
+
+            // General refinish cap per panel
+            return 10.0m;
+        }
+
+        /// <summary>
+        /// Record operation statistics with description and labor type
+        /// </summary>
+        public void RecordOperationDetails(
+            string canonicalPart,
+            string operationType,
+            decimal laborHours,
+            decimal refinishHours,
+            decimal price,
+            string? description = null,
+            string? laborType = null,
+            string? vehicleType = null)
+        {
+            // Record hours/price via existing method
+            RecordOperation(canonicalPart, operationType, laborHours, refinishHours, price, vehicleType);
+
+            // Also record description and labor type variations
+            var part = GetOrCreatePart(canonicalPart);
+            var opKey = operationType.ToLowerInvariant().Trim();
+            if (part.OperationStats.TryGetValue(opKey, out var stats))
+            {
+                if (!string.IsNullOrWhiteSpace(description))
+                {
+                    var descKey = description.Trim();
+                    stats.DescriptionVariations[descKey] = stats.DescriptionVariations.GetValueOrDefault(descKey) + 1;
+                }
+
+                if (!string.IsNullOrWhiteSpace(laborType))
+                {
+                    var ltKey = laborType.Trim();
+                    stats.LaborTypeVariations[ltKey] = stats.LaborTypeVariations.GetValueOrDefault(ltKey) + 1;
+                }
             }
         }
 
@@ -404,6 +512,69 @@ namespace McStudDesktop.Services
 
         #endregion
 
+        #region Operation Profiles
+
+        /// <summary>
+        /// Record a learned operation profile — what sub-operations consistently appear with a panel's primary operation
+        /// </summary>
+        public void RecordOperationProfile(string panelKey, List<ProfileSubOperation> subOperations)
+        {
+            var key = panelKey.ToLowerInvariant().Trim();
+
+            if (!_store.OperationProfiles.TryGetValue(key, out var profile))
+            {
+                profile = new LearnedOperationProfile { PanelKey = key };
+                _store.OperationProfiles[key] = profile;
+            }
+
+            profile.ExampleCount++;
+
+            foreach (var sub in subOperations)
+            {
+                var subKey = $"{sub.PartName?.ToLower()}|{sub.OperationType?.ToLower()}";
+                var existing = profile.SubOperations.FirstOrDefault(s =>
+                    $"{s.PartName?.ToLower()}|{s.OperationType?.ToLower()}" == subKey);
+
+                if (existing != null)
+                {
+                    existing.TimesAppeared++;
+                    // Running average for hours
+                    existing.AverageHours = ((existing.AverageHours * (existing.TimesAppeared - 1)) + sub.AverageHours) / existing.TimesAppeared;
+                }
+                else
+                {
+                    profile.SubOperations.Add(new ProfileSubOperation
+                    {
+                        PartName = sub.PartName,
+                        OperationType = sub.OperationType,
+                        Description = sub.Description,
+                        LaborType = sub.LaborType,
+                        AverageHours = sub.AverageHours,
+                        TimesAppeared = 1
+                    });
+                }
+            }
+
+            // Update appearance rates
+            foreach (var sub in profile.SubOperations)
+            {
+                sub.AppearanceRate = profile.ExampleCount > 0
+                    ? (double)sub.TimesAppeared / profile.ExampleCount
+                    : 0;
+            }
+        }
+
+        /// <summary>
+        /// Get a learned operation profile for a panel key
+        /// </summary>
+        public LearnedOperationProfile? GetOperationProfile(string panelKey)
+        {
+            var key = panelKey.ToLowerInvariant().Trim();
+            return _store.OperationProfiles.GetValueOrDefault(key);
+        }
+
+        #endregion
+
         #region Estimate Tracking
 
         /// <summary>
@@ -425,6 +596,16 @@ namespace McStudDesktop.Services
         public bool WasEstimateAnalyzed(string estimateId)
         {
             return _store.AnalyzedEstimateIds.Contains(estimateId);
+        }
+
+        /// <summary>
+        /// Clear ALL learned data so it can be rebuilt from scratch with improved filtering.
+        /// Preserves nothing — full reset for re-mining.
+        /// </summary>
+        public void ClearAllLearnedData()
+        {
+            _store = new KnowledgeStore();
+            System.Diagnostics.Debug.WriteLine("[Knowledge] Cleared all learned data for re-mining");
         }
 
         #endregion
@@ -542,6 +723,7 @@ namespace McStudDesktop.Services
         public Dictionary<string, CoOccurrencePattern> CoOccurrencePatterns { get; set; } = new();
         public Dictionary<string, LearnedFormula> LearnedFormulas { get; set; } = new();
         public Dictionary<string, VehiclePatterns> VehicleSpecificPatterns { get; set; } = new();
+        public Dictionary<string, LearnedOperationProfile> OperationProfiles { get; set; } = new();
         public HashSet<string> AnalyzedEstimateIds { get; set; } = new();
     }
 
@@ -608,25 +790,66 @@ namespace McStudDesktop.Services
         public decimal MaxPrice { get; set; }
         public List<decimal> PriceValues { get; set; } = new();
 
+        // Description and labor type variations
+        public Dictionary<string, int> DescriptionVariations { get; set; } = new();
+        public Dictionary<string, int> LaborTypeVariations { get; set; } = new();
+
+        [JsonIgnore]
+        public string? MostCommonDescription => DescriptionVariations.Count > 0
+            ? DescriptionVariations.OrderByDescending(kv => kv.Value).First().Key : null;
+
+        [JsonIgnore]
+        public string? MostCommonLaborType => LaborTypeVariations.Count > 0
+            ? LaborTypeVariations.OrderByDescending(kv => kv.Value).First().Key : null;
+
         public void RecalculateLaborStats()
         {
             if (LaborHoursValues.Count == 0) return;
 
-            MeanLaborHours = LaborHoursValues.Average();
-            MinLaborHours = LaborHoursValues.Min();
-            MaxLaborHours = LaborHoursValues.Max();
-            MedianLaborHours = GetMedian(LaborHoursValues);
-            StdDevLaborHours = CalculateStdDev(LaborHoursValues);
+            // Apply outlier filtering: exclude values > 3x or < 1/3 of median when we have 3+ samples
+            var filtered = LaborHoursValues;
+            if (LaborHoursValues.Count >= 3)
+            {
+                var rawMedian = GetMedian(LaborHoursValues);
+                if (rawMedian > 0)
+                {
+                    filtered = LaborHoursValues
+                        .Where(v => v <= rawMedian * 3m && v >= rawMedian / 3m)
+                        .ToList();
+                    // Ensure we still have data after filtering
+                    if (filtered.Count == 0) filtered = LaborHoursValues;
+                }
+            }
+
+            MeanLaborHours = filtered.Average();
+            MinLaborHours = filtered.Min();
+            MaxLaborHours = filtered.Max();
+            MedianLaborHours = GetMedian(filtered);
+            StdDevLaborHours = CalculateStdDev(filtered);
         }
 
         public void RecalculateRefinishStats()
         {
             if (RefinishHoursValues.Count == 0) return;
 
-            MeanRefinishHours = RefinishHoursValues.Average();
-            MinRefinishHours = RefinishHoursValues.Min();
-            MaxRefinishHours = RefinishHoursValues.Max();
-            StdDevRefinishHours = CalculateStdDev(RefinishHoursValues);
+            // Apply outlier filtering for refinish hours too
+            var filtered = RefinishHoursValues;
+            if (RefinishHoursValues.Count >= 3)
+            {
+                var rawMedian = GetMedian(RefinishHoursValues);
+                if (rawMedian > 0)
+                {
+                    filtered = RefinishHoursValues
+                        .Where(v => v <= rawMedian * 3m && v >= rawMedian / 3m)
+                        .ToList();
+                    if (filtered.Count == 0) filtered = RefinishHoursValues;
+                }
+            }
+
+            MeanRefinishHours = filtered.Average();
+            MinRefinishHours = filtered.Min();
+            MaxRefinishHours = filtered.Max();
+            StdDevRefinishHours = CalculateStdDev(filtered);
         }
 
         public void RecalculatePriceStats()
@@ -779,6 +1002,116 @@ namespace McStudDesktop.Services
         public string Name { get; set; } = "";
         public int TimesSeen { get; set; }
         public int AliasCount { get; set; }
+    }
+
+    /// <summary>
+    /// A learned operation profile — captures what sub-operations consistently appear with a panel's primary operation
+    /// </summary>
+    public class LearnedOperationProfile
+    {
+        public string PanelKey { get; set; } = "";
+        public int ExampleCount { get; set; }
+        public List<ProfileSubOperation> SubOperations { get; set; } = new();
+    }
+
+    /// <summary>
+    /// A sub-operation within a learned profile
+    /// </summary>
+    public class ProfileSubOperation
+    {
+        public string? PartName { get; set; }
+        public string? OperationType { get; set; }
+        public string? Description { get; set; }
+        public string? LaborType { get; set; }
+        public decimal AverageHours { get; set; }
+        public int TimesAppeared { get; set; }
+        public double AppearanceRate { get; set; }
+    }
+
+    #endregion
+
+    #region AI-Powered Methods (LearnedKnowledgeBase)
+
+    public partial class LearnedKnowledgeBase
+    {
+        /// <summary>
+        /// Use AI to resolve a batch of unknown part names to canonical names.
+        /// Results are permanently cached via RecordPartAlias — AI is consulted
+        /// once per unknown name, then cached forever.
+        /// Called during estimate import, not during real-time lookups.
+        /// </summary>
+        public async Task<Dictionary<string, string>> ResolveAliasesBatchAsync(List<string> unknownParts)
+        {
+            var resolved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            if (unknownParts.Count == 0) return resolved;
+
+            try
+            {
+                var apiService = ClaudeApiService.Instance;
+
+                // Get top canonical names to send as reference
+                var knownParts = _store.Parts.Keys
+                    .OrderByDescending(k => _store.Parts[k].TimesSeenInEstimates)
+                    .Take(100)
+                    .ToList();
+
+                if (knownParts.Count == 0) return resolved;
+
+                var systemPrompt = @"You are a collision repair parts expert. Match unknown part names to their canonical equivalents from the known parts list.
+
+Return a JSON object where keys are the unknown part names and values are the matching canonical name from the known list.
+If no good match exists, set the value to null.
+
+Rules:
+- Match abbreviations (""fb cover"" = ""front bumper cover"")
+- Match synonyms (""decklid"" = ""trunk lid"")
+- Match partial names (""fdr"" = ""fender"")
+- Only match to names from the known parts list
+- Return ONLY the JSON object, no markdown or explanation";
+
+                var userMessage = $"Known parts:\n{string.Join(", ", knownParts)}\n\nUnknown parts to resolve:\n{string.Join("\n", unknownParts.Take(50))}";
+
+                var response = await apiService.SendAsync(systemPrompt, userMessage, AiFeature.PartMatching, 1024);
+                if (response == null) return resolved;
+
+                var text = ClaudeApiService.StripCodeFences(response.Text);
+
+                var mappings = JsonSerializer.Deserialize<Dictionary<string, string?>>(text, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (mappings == null) return resolved;
+
+                foreach (var kvp in mappings)
+                {
+                    if (!string.IsNullOrWhiteSpace(kvp.Value))
+                    {
+                        var canonical = kvp.Value.ToLowerInvariant().Trim();
+                        // Verify the canonical name actually exists in our knowledge base
+                        if (_store.Parts.ContainsKey(canonical))
+                        {
+                            resolved[kvp.Key] = canonical;
+                            // Permanently cache this alias
+                            RecordPartAlias(canonical, kvp.Key);
+                            System.Diagnostics.Debug.WriteLine($"[Knowledge] AI resolved: \"{kvp.Key}\" -> \"{canonical}\"");
+                        }
+                    }
+                }
+
+                // Save the new aliases
+                if (resolved.Count > 0) Save();
+
+                System.Diagnostics.Debug.WriteLine($"[Knowledge] AI resolved {resolved.Count}/{unknownParts.Count} unknown parts");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Knowledge] AI batch resolve failed: {ex.Message}");
+            }
+
+            return resolved;
+        }
     }
 
     #endregion

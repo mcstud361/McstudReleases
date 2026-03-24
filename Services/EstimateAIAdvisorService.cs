@@ -54,6 +54,14 @@ public class EstimateAIAdvisorService
         _session = new AdvisorSessionContext();
     }
 
+    /// <summary>
+    /// Returns a snapshot of the current session context for use by EstimateContextService
+    /// </summary>
+    public AdvisorSessionContext GetSessionSnapshot()
+    {
+        return _session;
+    }
+
     public void TrackEnteredOperation(string part, string operation, decimal hours)
     {
         _session.EnteredOperations.Add(new EnteredOp { Part = part, Operation = operation, Hours = hours });
@@ -270,6 +278,40 @@ public class EstimateAIAdvisorService
                 };
                 response.Sections.Add(section);
             }
+        }
+
+        // Section 5: Must-have operations check
+        try
+        {
+            var contextService = EstimateContextService.Instance;
+            var mustHaveChecklist = contextService.GetContext().MustHaveChecklist;
+            var missing = mustHaveChecklist.Where(m => !m.IsPresent).ToList();
+
+            if (missing.Any())
+            {
+                var section = new AdvisorSection
+                {
+                    Title = $"MUST-HAVE OPERATIONS — {missing.Count} MISSING",
+                    Icon = "\u2757",
+                    Items = missing.Select(m =>
+                    {
+                        var detail = m.LaborHours > 0 ? $"{m.OperationType}, {m.LaborHours:N1}h" : $"{m.OperationType}, ${m.Price:N2}";
+                        if (m.MaterialsCost > 0) detail += $", ${m.MaterialsCost:N2} materials";
+                        return new AdvisorItem
+                        {
+                            Description = m.Description,
+                            Detail = $"[{m.Category}] {detail} — {m.WhyNeeded}",
+                            Hours = m.LaborHours,
+                            Source = "must-haves"
+                        };
+                    }).ToList()
+                };
+                response.Sections.Add(section);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Advisor] Must-have check error: {ex.Message}");
         }
 
         response.Summary = response.Sections.Any()
@@ -768,6 +810,39 @@ public class EstimateAIAdvisorService
                 };
                 response.Sections.Add(section);
             }
+        }
+
+        // Must-have operations check
+        try
+        {
+            var contextService = EstimateContextService.Instance;
+            var mustHaveChecklist = contextService.GetContext().MustHaveChecklist;
+            var missing = mustHaveChecklist.Where(m => !m.IsPresent).ToList();
+
+            if (missing.Any())
+            {
+                var section = new AdvisorSection
+                {
+                    Title = $"MUST-HAVE OPERATIONS — {missing.Count} MISSING",
+                    Icon = "\u2757",
+                    Items = missing.Take(10).Select(m =>
+                    {
+                        var detail = m.LaborHours > 0 ? $"{m.OperationType}, {m.LaborHours:N1}h" : $"{m.OperationType}, ${m.Price:N2}";
+                        return new AdvisorItem
+                        {
+                            Description = m.Description,
+                            Detail = $"[{m.Category}] {detail}",
+                            Hours = m.LaborHours,
+                            Source = "must-haves"
+                        };
+                    }).ToList()
+                };
+                response.Sections.Add(section);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Advisor] Must-have review error: {ex.Message}");
         }
 
         response.Summary = $"Score: {scoreResult.OverallScore}/100 | {_session.EnteredOperations.Count} operations reviewed";

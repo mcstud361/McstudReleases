@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace McStudDesktop.Services
 {
@@ -22,7 +23,7 @@ namespace McStudDesktop.Services
     /// - Operations they missed
     /// - Operations ghost missed (learning opportunity for the AI)
     /// </summary>
-    public class GhostEstimateService
+    public partial class GhostEstimateService
     {
         private static GhostEstimateService? _instance;
         public static GhostEstimateService Instance => _instance ??= new GhostEstimateService();
@@ -40,6 +41,58 @@ namespace McStudDesktop.Services
         // Loaded knowledge from real estimates
         private GhostIncludedNotIncludedData? _operationsData;
         private GhostPartOperationsFormulas? _formulasData;
+        private readonly List<string> _missingDataWarnings = new();
+
+        // Major panels that should never be added automatically by mining — only sub-components are OK
+        private static readonly HashSet<string> MajorPanels = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "front bumper cover", "rear bumper cover", "hood", "fender", "front door",
+            "rear door", "quarter panel", "trunk lid", "roof", "rocker panel",
+            "a-pillar", "b-pillar", "c-pillar", "liftgate", "tailgate", "decklid"
+        };
+
+        // Operations that are hardware, parts, logistics — never belong on an estimate
+        private static readonly string[] JunkOperationKeywords = new[]
+        {
+            "bolt", "nut ", "nut\t", "clip ", "grommet", "rivet", "screw", "fastener",
+            "adhesive", "genuine adhesive", "toyota bond", "wurth", "inventory",
+            "tow to", "tow from", "dealer", "dealership",
+            "control arm", "cntrl arm", "trailing arm", "seat nut",
+            "touch up painted bolt", "monitor flash",
+            "filler", "lower grille retainer", "molding clip",
+            "pre wash", "prewash",
+            "felt strip", "emblem"
+        };
+
+        // Must-have operations are now read from GhostConfigService (single source of truth)
+
+        // Operations that must ONLY appear in MISCELLANEOUS OPERATIONS (handled by AddMustHaveOperations).
+        // Any per-panel pipeline that tries to add these should skip them to prevent duplication.
+        private static readonly HashSet<string> MiscOnlyOperations = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "cover car", "cover vehicle", "cover for edging", "mask for buffing",
+            "cover engine compartment", "cover interior", "clean and cover car",
+            "color tint", "spray out card", "clean for delivery", "glass cleaner",
+            "parts disposal", "hazardous waste", "misc hardware", "steering wheel cover",
+            "seat cover", "floor mat", "refinish material invoice",
+            "mask and protect removed", "cover interior and jambs for repairs",
+            "cover interior and jambs for refinish",
+            "weld-through primer", "weld through primer"
+        };
+
+        private static bool IsMiscOnlyOperation(string? description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return false;
+            var lower = description.ToLowerInvariant();
+            return MiscOnlyOperations.Any(kw => lower.Contains(kw));
+        }
+
+        private bool IsMustHaveDescription(string descLower)
+        {
+            return _ghostConfig.GetMustHaves()
+                .Where(m => m.Enabled)
+                .Any(m => descLower.Contains(m.Description.ToLowerInvariant()));
+        }
 
         // Damage severity multipliers for labor time estimation
         private static readonly Dictionary<string, decimal> SeverityMultipliers = new()
@@ -102,6 +155,11 @@ namespace McStudDesktop.Services
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     System.Diagnostics.Debug.WriteLine($"[Ghost] Loaded {_operationsData?.Operations?.Count ?? 0} operations from IncludedNotIncluded.json");
                 }
+                else
+                {
+                    _missingDataWarnings.Add("IncludedNotIncluded.json not found — MET labor times and operation data unavailable. Ghost estimates will use fallback times.");
+                    System.Diagnostics.Debug.WriteLine("[Ghost] WARNING: IncludedNotIncluded.json not found");
+                }
 
                 // Load PartOperationsFormulas.json - contains formulas and labor calculations
                 var formulasPath = Path.Combine(basePath, "Data", "PartOperationsFormulas.json");
@@ -114,6 +172,11 @@ namespace McStudDesktop.Services
                     _formulasData = JsonSerializer.Deserialize<GhostPartOperationsFormulas>(json,
                         new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     System.Diagnostics.Debug.WriteLine("[Ghost] Loaded PartOperationsFormulas.json");
+                }
+                else
+                {
+                    _missingDataWarnings.Add("PartOperationsFormulas.json not found — blend formulas and labor calculations will use defaults.");
+                    System.Diagnostics.Debug.WriteLine("[Ghost] WARNING: PartOperationsFormulas.json not found");
                 }
             }
             catch (Exception ex)
@@ -142,6 +205,10 @@ namespace McStudDesktop.Services
                 DamageDescription = input.DamageDescription,
                 GeneratedAt = DateTime.Now
             };
+
+            // Surface any missing data warnings so user knows why features may be limited
+            foreach (var warning in _missingDataWarnings)
+                result.Notes.Add(warning);
 
             // Classify vehicle type for pattern matching
             var vehicleType = _patternIntelligence.ClassifyVehicleType(input.VehicleInfo);
@@ -189,6 +256,7 @@ namespace McStudDesktop.Services
             }
             SanitizeHours(result);
             DeduplicateOperations(result);
+            FilterGhostOperations(result);
 
             // Step 7: Calculate totals
             CalculateTotals(result);
@@ -394,7 +462,7 @@ namespace McStudDesktop.Services
                         PartName = op.PartName,
                         Description = op.Description,
                         Category = op.Category,
-                        Section = MapToCCCSection(op.PartName, op.Category),
+                        Section = !string.IsNullOrWhiteSpace(op.Section) ? op.Section : MapToCCCSection(op.PartName, op.Category),
                         Side = op.Side,
                         LaborHours = op.LaborHours,
                         RefinishHours = op.RefinishHours,
@@ -431,6 +499,9 @@ namespace McStudDesktop.Services
                 {
                     foreach (var rec in partOps.Operations)
                     {
+                        // Skip misc-only ops — they belong in MISCELLANEOUS via AddMustHaveOperations
+                        if (IsMiscOnlyOperation(rec.Name)) continue;
+
                         var normalizedKey = NormalizeOperationKey(panel.Name, rec.Name);
                         if (seenOperations.Add(normalizedKey))
                         {
@@ -494,6 +565,13 @@ namespace McStudDesktop.Services
                 {
                     foreach (var sug in suggestions.ManualOperations)
                     {
+                        // Sanity check: skip learned operations with absurd hours (likely mislearned prices)
+                        if (sug.LaborHours > 5.0m && sug.OperationType != "Replace" && sug.OperationType != "Repl")
+                            continue;
+
+                        // Skip misc-only ops — they belong in MISCELLANEOUS via AddMustHaveOperations
+                        if (IsMiscOnlyOperation(sug.Description)) continue;
+
                         var normalizedKey = NormalizeOperationKey(panel.Name, sug.Description);
                         if (seenOperations.Add(normalizedKey))
                         {
@@ -547,10 +625,174 @@ namespace McStudDesktop.Services
             if (result.GuidanceOperations.Any(o => o.PartName.Contains("quarter") || o.PartName.Contains("rocker")))
                 result.ProTips.Add("Welded panels require destructive weld tests, corrosion protection, and cavity wax.");
 
+            // Add must-have operations that aren't already present
+            AddMustHaveOperations(result);
+
+            // Final filter: remove operations whose section maps to a panel the user didn't request.
+            // Allow global sections (diagnostics, restraints, misc) to pass through.
+            var globalSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "MISCELLANEOUS OPERATIONS", "VEHICLE DIAGNOSTICS", "RESTRAINT SYSTEMS",
+                "ELECTRICAL", "MECHANICAL", "Custom Operations"
+            };
+            var userPanelSections = new HashSet<string>(
+                affectedPanels.Select(p => MapToCCCSection(p.Name, "")),
+                StringComparer.OrdinalIgnoreCase);
+            // Also add blend-adjacent sections (one hop away)
+            foreach (var panel in affectedPanels)
+            {
+                var adjacent = GetAdjacentPanels(panel.Name);
+                foreach (var adj in adjacent)
+                    userPanelSections.Add(MapToCCCSection(adj, ""));
+            }
+
+            result.GuidanceOperations = result.GuidanceOperations
+                .Where(op =>
+                {
+                    // Filter by section relevance
+                    if (!string.IsNullOrWhiteSpace(op.Section) &&
+                        !globalSections.Contains(op.Section) &&
+                        !userPanelSections.Contains(op.Section))
+                        return false;
+
+                    // Filter out hardware, parts, logistics, and consumable junk
+                    var descLower = (op.Description ?? "").ToLowerInvariant();
+                    if (JunkOperationKeywords.Any(kw => descLower.Contains(kw)))
+                        return false;
+
+                    // Filter operations with part numbers (7+ digits = OEM part number)
+                    if (Regex.IsMatch(descLower, @"\d{7,}"))
+                        return false;
+
+                    // Filter truncated junk, raw estimate data, all-caps junk
+                    if (descLower.Contains(" rmc ") || descLower.Contains(" rmc$") || descLower.EndsWith(" rmc"))
+                        return false;
+                    if (descLower.Contains("two tone calculation") || descLower.Contains("clear coat and two tone"))
+                        return false;
+                    if (descLower.Contains("feather edge & block"))
+                        return false;
+                    if (Regex.IsMatch(descLower, @"^\d{2,3}\s+\d{5,}"))
+                        return false;
+                    if (descLower.Trim() == "buff only")
+                        return false;
+                    if (Regex.IsMatch(descLower, @"\$\s*$"))
+                        return false;
+
+                    // Misc-only ops must only appear in MISCELLANEOUS
+                    if (IsMiscOnlyOperation(descLower) && op.Section != "MISCELLANEOUS OPERATIONS")
+                        return false;
+
+                    // Scans belong in VEHICLE DIAGNOSTICS only
+                    if ((descLower.Contains("pre-repair scan") || descLower.Contains("post-repair scan") ||
+                         descLower.Contains("pre-scan") || descLower.Contains("post-scan")) &&
+                        op.Section != "VEHICLE DIAGNOSTICS")
+                        return false;
+
+                    // Strip actual parts/R&I lines from MISCELLANEOUS — they don't belong there
+                    if (op.Section == "MISCELLANEOUS OPERATIONS")
+                    {
+                        var d = descLower;
+                        if ((d.Contains("r&i") || d.Contains("remove and install")) && !IsMustHaveDescription(d))
+                            return false;
+                        if (MajorPanels.Any(p => d.Contains(p)))
+                            return false;
+                        if (d.Contains("clear coat application") || d.Contains("three stage paint") || d.Contains("two tone"))
+                            return false;
+                        if (d.Contains("side marker") || d.Contains("fog lamp") || d.Contains("parking sensor"))
+                            return false;
+                        if (d.Contains("door trim panel") || d.Contains("door handle") || d.Contains("door shell"))
+                            return false;
+                        if (d.Contains("upper molding") || d.Contains("lower molding"))
+                            return false;
+                        if (d.Contains("stage and secure") && !IsMustHaveDescription(d))
+                            return false;
+                        if (d.Contains("cover and protect electrical") || d.Contains("cover vehicle"))
+                            return false;
+                    }
+
+                    return true;
+                })
+                .ToList();
+
+            // Final dedup pass — catch R&I prefix/suffix swaps and near-duplicate descriptions
+            var dedupKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            result.GuidanceOperations = result.GuidanceOperations
+                .Where(op =>
+                {
+                    var key = NormalizeDescriptionForDedup(op.Description, op.Section);
+                    return dedupKeys.Add(key);
+                })
+                .ToList();
+
             // Copy operations list for backward compat
             result.Operations = result.GuidanceOperations.Cast<GhostOperation>().ToList();
 
             return result;
+        }
+
+        /// <summary>
+        /// Add must-have operations from the shop's standard list.
+        /// These always appear on every ghost estimate with correct hours/prices.
+        /// Skips any that are already present (by normalized description match).
+        /// </summary>
+        private void AddMustHaveOperations(GuidanceEstimateResult result)
+        {
+            var existingDescs = new HashSet<string>(
+                result.GuidanceOperations.Select(o => (o.Description ?? "").ToLowerInvariant().Trim()),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var mh in _ghostConfig.GetMustHaves().Where(m => m.Enabled))
+            {
+                // Skip if already present (fuzzy match on description)
+                if (existingDescs.Any(d => d.Contains(mh.Description.ToLowerInvariant())))
+                    continue;
+
+                result.GuidanceOperations.Add(new GuidanceOperation
+                {
+                    OperationType = mh.OpType,
+                    PartName = mh.Description.ToLower(),
+                    Description = mh.Description,
+                    Category = mh.Category,
+                    Section = mh.Section,
+                    LaborHours = mh.ExpectedHours,
+                    RefinishHours = mh.RefinishHours,
+                    Price = mh.ExpectedPrice,
+                    Confidence = 1.0,
+                    Source = "Shop standard operations",
+                    DataSource = "Database",
+                    ConfidenceLabel = "High",
+                    IsRequired = true
+                });
+            }
+        }
+
+        /// <summary>
+        /// Normalize a description for dedup — strips R&amp;I prefix/suffix, side codes, articles.
+        /// </summary>
+        private static string NormalizeDescriptionForDedup(string? description, string? section)
+        {
+            if (string.IsNullOrWhiteSpace(description)) return "";
+            var d = description.ToLowerInvariant().Trim();
+
+            // Strip side prefixes
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"^(lt |rt |left |right )", "");
+
+            // Normalize R&I variants — treat "R&I Door Trim Panel" same as "Door Trim Panel R&I"
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"^r&i\s+", "");
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"\s+r&i$", "");
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"^r ?& ?i\s+", "");
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"\s+r ?& ?i$", "");
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"^remove and install\s+", "");
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"\s+remove and install$", "");
+
+            // Normalize "stage and secure for refinish" variations
+            d = System.Text.RegularExpressions.Regex.Replace(d, @"stage and secure.*$", "stage and secure");
+
+            // Remove articles
+            d = d.Replace("the ", "").Replace("a ", "");
+
+            // Combine with section to scope dedup per section
+            return $"{section?.ToLower() ?? ""}|{d.Trim()}";
         }
 
         private string NormalizeOperationKey(string partName, string operationName)
@@ -589,9 +831,10 @@ namespace McStudDesktop.Services
                 o.PartName.Contains("quarter") || o.PartName.Contains("rocker") ||
                 o.PartName.Contains("pillar") || o.PartName.Contains("roof"));
 
+            // SRS only for structural/airbag-deployment panels — not simple door repairs
             var hasAirbagComponents = panelNames.Any(p =>
                 p.Contains("pillar") || p.Contains("dash") || p.Contains("steering") ||
-                p.Contains("door") || p.Contains("seat") || p.Contains("roof"));
+                p.Contains("seat") || p.Contains("roof"));
 
             var hasRefinish = existingOps.Any(o =>
                 o.Category == "Refinish Operations" || o.OperationType == "Rfn" || o.OperationType == "Blend");
@@ -607,7 +850,7 @@ namespace McStudDesktop.Services
                 ("SRS Operations", hasAirbagComponents, "SRS Operations"),
                 ("Cover Car Operations", hasWeldedPanels || hasRefinish, "Cover Car Operations"),
                 ("Mechanical Operations", hasMechanical, "Mechanical Operations"),
-                ("SOP Operations", existingOps.Count > 0, "SOP Operations"), // SOPs are always potentially relevant
+                ("SOP Operations", hasWeldedPanels || hasRefinish, "SOP Operations"), // SOPs when refinish or welded work
             };
 
             foreach (var (sheetName, isRelevant, displayCategory) in sheetConfig)
@@ -619,6 +862,15 @@ namespace McStudDesktop.Services
                 foreach (var excelOp in sheetOps)
                 {
                     if (string.IsNullOrWhiteSpace(excelOp.Description)) continue;
+                    // Skip raw tab-delimited data rows (unparsed summary rows from Excel)
+                    if (excelOp.Description.Contains('\t') || excelOp.Description.Contains('\n'))
+                        continue;
+                    // Skip Excel UI junk: navigation links, stat bars, emoji rows
+                    if (excelOp.Description.Contains("\U0001f517") || excelOp.Description.Contains("\U0001f4ca") ||
+                        excelOp.Description.Contains("\U0001f4b2") || excelOp.Description.Contains("\U0001f6e0") ||
+                        excelOp.Description.Contains("\U0001f3a8") ||
+                        excelOp.Description.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     if (_excelProvider.IsOperationDisabled(excelOp.Description)) continue;
 
                     var normalizedKey = NormalizeOperationKey(excelOp.Description.ToLower(), excelOp.OperationType ?? "Body");
@@ -658,6 +910,33 @@ namespace McStudDesktop.Services
                     });
                     result.ExcelToolCount++;
                 }
+            }
+
+            // Include user's custom operations
+            foreach (var customOp in _ghostConfig.GetCustomOperations())
+            {
+                if (!customOp.Enabled || string.IsNullOrWhiteSpace(customOp.Description)) continue;
+
+                var normalizedKey = NormalizeOperationKey(customOp.Description.ToLower(), customOp.OperationType);
+                if (!seenOperations.Add(normalizedKey)) continue;
+
+                result.GuidanceOperations.Add(new GuidanceOperation
+                {
+                    OperationType = customOp.OperationType,
+                    PartName = customOp.Description.ToLower(),
+                    Description = customOp.Description,
+                    Category = "Custom",
+                    Section = "Custom Operations",
+                    LaborHours = customOp.LaborHours,
+                    RefinishHours = customOp.RefinishHours,
+                    Price = customOp.Price,
+                    Confidence = 0.90,
+                    Source = "Your Custom Operation",
+                    DataSource = "Custom",
+                    ConfidenceLabel = "High",
+                    IsRequired = false,
+                    Justification = "Custom operation added by user"
+                });
             }
         }
 
@@ -766,6 +1045,11 @@ namespace McStudDesktop.Services
             if (lines.Length == 0)
                 lines = new[] { description };
 
+            // Two-pass approach: detect unambiguous panels first, then resolve ambiguous ones using context
+            var ambiguousPanels = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "bumper" };
+            var deferredMentions = new List<(string panel, string line)>();
+
+            // Pass 1: detect all non-ambiguous panels
             foreach (var line in lines)
             {
                 foreach (var panel in directPanels)
@@ -773,75 +1057,90 @@ namespace McStudDesktop.Services
                     if (!line.Contains(panel))
                         continue;
 
-                    // Use THIS LINE's context for GetFullPanelName (not the full description)
-                    var fullName = GetFullPanelName(panel, line);
-
-                    // Build a dedup key that includes side context from this line
-                    var lineSide = DetectSideFromDescription(line);
-                    var dedupKey = $"{fullName}|{lineSide}";
-
-                    if (!addedPanelKeys.Add(dedupKey))
-                        continue; // Already added this exact panel+side
-
-                    // Also skip if we already have this panel name without side distinction
-                    if (panels.Any(p => p.Name == fullName && p.Side == lineSide))
+                    if (ambiguousPanels.Contains(panel) && !line.Contains("front") && !line.Contains("rear"))
+                    {
+                        // Defer ambiguous panels for pass 2
+                        deferredMentions.Add((panel, line));
                         continue;
-
-                    // Check context around this panel mention to determine operation type
-                    var isRefinishOnly = false;
-                    string? explicitOp = null;
-
-                    foreach (var rk in refinishOnlyKeywords)
-                    {
-                        if (line.Contains($"{panel} {rk}") || line.Contains($"{rk} {panel}") || line.Contains(rk))
-                        {
-                            isRefinishOnly = true;
-                            explicitOp = rk == "blend" ? "Blend" : "Refinish";
-                            break;
-                        }
                     }
 
-                    if (!isRefinishOnly)
-                    {
-                        foreach (var rk in replaceKeywords)
-                        {
-                            if (line.Contains($"{panel} {rk}") || line.Contains($"{rk} {panel}") || line.Contains(rk))
-                            {
-                                explicitOp = "Replace";
-                                break;
-                            }
-                        }
-                    }
-
-                    // Check for R&I operation
-                    if (explicitOp == null && !isRefinishOnly)
-                    {
-                        foreach (var rk in riKeywords)
-                        {
-                            if (line.Contains(rk))
-                            {
-                                explicitOp = "R&I";
-                                break;
-                            }
-                        }
-                    }
-
-                    panels.Add(new AffectedPanel
-                    {
-                        Name = fullName,
-                        ImpactZone = "direct mention",
-                        Severity = explicitOp == "Replace" ? "heavy" : DetectSeverityFromDescription(line),
-                        Side = lineSide,
-                        RefinishOnly = isRefinishOnly,
-                        ExplicitOperation = explicitOp
-                    });
+                    AddPanelFromLine(panel, line, panels, addedPanelKeys, refinishOnlyKeywords, replaceKeywords, riKeywords);
                 }
+            }
+
+            // Pass 2: resolve ambiguous panels using already-detected siblings as context
+            foreach (var (panel, line) in deferredMentions)
+            {
+                AddPanelFromLine(panel, line, panels, addedPanelKeys, refinishOnlyKeywords, replaceKeywords, riKeywords, siblingPanels: panels);
             }
 
             return panels;
         }
 
-        private string GetFullPanelName(string shortName, string context)
+        private void AddPanelFromLine(string panel, string line, List<AffectedPanel> panels,
+            HashSet<string> addedPanelKeys, string[] refinishOnlyKeywords, string[] replaceKeywords, string[] riKeywords,
+            List<AffectedPanel>? siblingPanels = null)
+        {
+            var fullName = GetFullPanelName(panel, line, siblingPanels);
+
+            var lineSide = DetectSideFromDescription(line);
+            var dedupKey = $"{fullName}|{lineSide}";
+
+            if (!addedPanelKeys.Add(dedupKey))
+                return;
+
+            if (panels.Any(p => p.Name == fullName && p.Side == lineSide))
+                return;
+
+            var isRefinishOnly = false;
+            string? explicitOp = null;
+
+            foreach (var rk in refinishOnlyKeywords)
+            {
+                if (line.Contains($"{panel} {rk}") || line.Contains($"{rk} {panel}") || line.Contains(rk))
+                {
+                    isRefinishOnly = true;
+                    explicitOp = rk == "blend" ? "Blend" : "Refinish";
+                    break;
+                }
+            }
+
+            if (!isRefinishOnly)
+            {
+                foreach (var rk in replaceKeywords)
+                {
+                    if (line.Contains($"{panel} {rk}") || line.Contains($"{rk} {panel}") || line.Contains(rk))
+                    {
+                        explicitOp = "Replace";
+                        break;
+                    }
+                }
+            }
+
+            if (explicitOp == null && !isRefinishOnly)
+            {
+                foreach (var rk in riKeywords)
+                {
+                    if (line.Contains(rk))
+                    {
+                        explicitOp = "R&I";
+                        break;
+                    }
+                }
+            }
+
+            panels.Add(new AffectedPanel
+            {
+                Name = fullName,
+                ImpactZone = "direct mention",
+                Severity = explicitOp == "Replace" ? "heavy" : DetectSeverityFromDescription(line),
+                Side = lineSide,
+                RefinishOnly = isRefinishOnly,
+                ExplicitOperation = explicitOp
+            });
+        }
+
+        private string GetFullPanelName(string shortName, string context, List<AffectedPanel>? siblingPanels = null)
         {
             // Add position context — context should be the individual line, not full description
             var isRear = context.Contains("rear");
@@ -849,7 +1148,7 @@ namespace McStudDesktop.Services
 
             return shortName switch
             {
-                "bumper" => isRear ? "rear bumper cover" : "front bumper cover",
+                "bumper" => InferBumperPosition(context, siblingPanels),
                 "door" when context.Contains("rear door") => "rear door",
                 "door" when isRear => "rear door",
                 "door" => "front door",
@@ -864,6 +1163,26 @@ namespace McStudDesktop.Services
                 "pillar" => "a-pillar",
                 _ => shortName
             };
+        }
+
+        private string InferBumperPosition(string lineContext, List<AffectedPanel>? siblings)
+        {
+            if (lineContext.Contains("rear")) return "rear bumper cover";
+            if (lineContext.Contains("front")) return "front bumper cover";
+
+            // Infer from sibling panels already detected
+            if (siblings != null && siblings.Count > 0)
+            {
+                var rearIndicators = new[] { "trunk", "quarter", "tail light", "rear door", "decklid", "liftgate" };
+                var frontIndicators = new[] { "hood", "fender", "grille", "headlight", "radiator", "front door" };
+
+                bool hasRear = siblings.Any(p => rearIndicators.Any(r => p.Name.Contains(r, StringComparison.OrdinalIgnoreCase)));
+                bool hasFront = siblings.Any(p => frontIndicators.Any(f => p.Name.Contains(f, StringComparison.OrdinalIgnoreCase)));
+
+                if (hasRear && !hasFront) return "rear bumper cover";
+            }
+
+            return "front bumper cover"; // default
         }
 
         private string DetectSeverityFromDescription(string description)
@@ -964,13 +1283,21 @@ namespace McStudDesktop.Services
                 ? $"Learned from {laborResolution.SampleCount} uploaded estimates"
                 : "CCC/MOTOR database";
 
+            // Check for a learned operation profile for this panel + operation
+            var profileKey = $"{(_knowledgeBase.ResolveAlias(panel.Name.ToLower()) ?? panel.Name.ToLower())}|{primaryOp.ToLower()}";
+            var profile = _knowledgeBase.GetOperationProfile(profileKey);
+
+            // Use learned description for primary operation
+            var primaryDescription = ResolveLearnedDescription(panel.Name, primaryOp, sideCode);
+            var primaryCategory = ResolveLearnedLaborType(panel.Name, primaryOp);
+
             // Primary operation - format like real CCC estimate line
             operations.Add(new GhostOperation
             {
                 OperationType = opCode,
                 PartName = panel.Name,
-                Description = $"{sideCode}{ToTitleCase(panel.Name)} {opCode}",
-                Category = DetermineCategory(panel.Name),
+                Description = primaryDescription,
+                Category = primaryCategory,
                 LaborHours = bodyHours,
                 MinLaborHours = laborResolution.MinHours * severityMultiplier,
                 MaxLaborHours = laborResolution.MaxHours * severityMultiplier,
@@ -984,7 +1311,69 @@ namespace McStudDesktop.Services
                 Side = panel.Side
             });
 
-            // Add R&I operations for panels that need removal - CCC Pathways
+            // If a learned profile exists with enough data, use it for sub-operations
+            if (profile != null && profile.ExampleCount >= 3)
+            {
+                var qualifiedSubs = profile.SubOperations
+                    .Where(s => s.AppearanceRate >= 0.6 && !string.IsNullOrEmpty(s.PartName))
+                    .OrderByDescending(s => s.AppearanceRate)
+                    .ToList();
+
+                if (qualifiedSubs.Count > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] Using learned profile for {profileKey}: {qualifiedSubs.Count} sub-operations from {profile.ExampleCount} examples");
+
+                    foreach (var sub in qualifiedSubs)
+                    {
+                        var subDescription = !string.IsNullOrWhiteSpace(sub.Description)
+                            ? sub.Description
+                            : ResolveLearnedDescription(sub.PartName!, sub.OperationType ?? "", sideCode);
+
+                        // Skip misc-only ops — they belong in MISCELLANEOUS via AddMustHaveOperations
+                        if (IsMiscOnlyOperation(subDescription)) continue;
+
+                        var subOpCode = (sub.OperationType ?? "").ToLower() switch
+                        {
+                            "replace" => "Repl",
+                            "repair" => "Rpr",
+                            "r&i" => "R&I",
+                            "refinish" or "rfn" => "Rfn",
+                            "blend" => "Blend",
+                            _ => sub.OperationType ?? ""
+                        };
+
+                        var subCategory = !string.IsNullOrWhiteSpace(sub.LaborType)
+                            ? sub.LaborType
+                            : DetermineCategory(sub.PartName!);
+
+                        var subResolution = ResolveLaborTime(sub.PartName!, sub.OperationType ?? "", vehicleType);
+                        var subHours = subResolution.HasLearnedData ? subResolution.Hours : sub.AverageHours;
+
+                        var isRefinishOp = subOpCode == "Rfn" || subOpCode == "Blend";
+
+                        operations.Add(new GhostOperation
+                        {
+                            OperationType = subOpCode,
+                            PartName = sub.PartName!,
+                            Description = subDescription,
+                            Category = subCategory,
+                            LaborHours = isRefinishOp ? 0m : subHours,
+                            RefinishHours = isRefinishOp ? subHours : 0m,
+                            MinLaborHours = subResolution.HasLearnedData ? subResolution.MinHours : subHours,
+                            MaxLaborHours = subResolution.HasLearnedData ? subResolution.MaxHours : subHours,
+                            SampleCount = subResolution.SampleCount,
+                            LaborSource = subResolution.Source,
+                            Confidence = Math.Min(0.95, sub.AppearanceRate),
+                            Source = $"Learned profile ({sub.AppearanceRate:P0} appearance in {profile.ExampleCount} estimates)",
+                            Side = panel.Side
+                        });
+                    }
+
+                    return operations;
+                }
+            }
+
+            // Fallback: existing hardcoded R&I logic when no learned profile
             if (RequiresRAndI(panel.Name, primaryOp))
             {
                 var riParts = GetRAndIParts(panel.Name);
@@ -995,7 +1384,7 @@ namespace McStudDesktop.Services
                     {
                         OperationType = "R&I",
                         PartName = riPart,
-                        Description = $"{sideCode}{ToTitleCase(riPart)} R&I",
+                        Description = ResolveLearnedDescription(riPart, "R&I", sideCode),
                         Category = "Part Operations",
                         LaborHours = riResolution.Hours,
                         MinLaborHours = riResolution.MinHours,
@@ -1047,7 +1436,7 @@ namespace McStudDesktop.Services
             if (similarEstimates.Count == 0) return;
 
             // Count how often each operation appears across similar estimates
-            var opCounts = new Dictionary<string, (string PartName, string OpType, decimal AvgLabor, decimal AvgRefinish, decimal AvgPrice, int Count)>();
+            var opCounts = new Dictionary<string, (string PartName, string OpType, string Description, string LaborType, decimal AvgLabor, decimal AvgRefinish, decimal AvgPrice, int Count)>();
 
             foreach (var sim in similarEstimates)
             {
@@ -1066,6 +1455,8 @@ namespace McStudDesktop.Services
                         opCounts[opKey] = (
                             li.PartName,
                             li.OperationType,
+                            !string.IsNullOrWhiteSpace(li.Description) ? li.Description : existing.Description,
+                            !string.IsNullOrWhiteSpace(li.LaborType) ? li.LaborType : existing.LaborType,
                             (existing.AvgLabor * existing.Count + li.LaborHours) / newCount,
                             (existing.AvgRefinish * existing.Count + li.RefinishHours) / newCount,
                             (existing.AvgPrice * existing.Count + li.Price) / newCount,
@@ -1074,7 +1465,7 @@ namespace McStudDesktop.Services
                     }
                     else
                     {
-                        opCounts[opKey] = (li.PartName, li.OperationType, li.LaborHours, li.RefinishHours, li.Price, 1);
+                        opCounts[opKey] = (li.PartName, li.OperationType, li.Description ?? "", li.LaborType ?? "", li.LaborHours, li.RefinishHours, li.Price, 1);
                     }
                 }
             }
@@ -1085,14 +1476,31 @@ namespace McStudDesktop.Services
 
             foreach (var (opKey, data) in opCounts.Where(kv => kv.Value.Count >= threshold).OrderByDescending(kv => kv.Value.Count))
             {
+                // Don't add new major panels from similar estimates
+                if (MajorPanels.Contains(data.PartName) &&
+                    !panels.Any(p => p.Name.Equals(data.PartName, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
                 var confidence = (double)data.Count / similarEstimates.Count;
+
+                // Use actual description from stored estimates, fall back to learned or generic
+                var desc = !string.IsNullOrWhiteSpace(data.Description)
+                    ? data.Description
+                    : ResolveLearnedDescription(data.PartName, data.OpType);
+
+                // Skip misc-only ops — they belong in MISCELLANEOUS via AddMustHaveOperations
+                if (IsMiscOnlyOperation(desc)) continue;
+
+                var category = !string.IsNullOrWhiteSpace(data.LaborType)
+                    ? data.LaborType
+                    : ResolveLearnedLaborType(data.PartName, data.OpType);
 
                 result.Operations.Add(new GhostOperation
                 {
                     OperationType = data.OpType,
                     PartName = data.PartName,
-                    Description = $"{ToTitleCase(data.PartName)} {data.OpType}",
-                    Category = DetermineCategory(data.PartName),
+                    Description = desc,
+                    Category = category,
                     LaborHours = data.AvgLabor,
                     RefinishHours = data.AvgRefinish,
                     Price = data.AvgPrice,
@@ -1131,14 +1539,33 @@ namespace McStudDesktop.Services
                 // Get all co-occurring operations with >= 40% co-occurrence rate
                 var coOccurrences = _knowledgeBase.GetCoOccurrences(canonicalName, 0.4);
 
+                // Determine which CCC section the parent panel belongs to
+                var parentSection = MapToCCCSection(panel.Name, "");
+                // Build set of all sections the user's panels map to
+                var userSections = new HashSet<string>(
+                    panels.Select(p => MapToCCCSection(p.Name, "")),
+                    StringComparer.OrdinalIgnoreCase);
+
                 foreach (var assoc in coOccurrences)
                 {
                     var opKey = $"{assoc.AssociatedPart}|{assoc.AssociatedOperation}";
                     if (existingOps.Contains(opKey))
                         continue; // Already in the estimate
 
+                    // Don't add entirely new major panels — only sub-components of existing panels
+                    if (MajorPanels.Contains(assoc.AssociatedPart) &&
+                        !panels.Any(p => p.Name.Equals(assoc.AssociatedPart, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+
                     // Skip R&I parts — those are handled by GetRAndIParts
                     if (assoc.AssociatedOperation.Equals("r&i", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Filter out co-occurrence ops that map to a completely different panel section.
+                    // E.g., "bumper cover grommet" defaulting to FRONT BUMPER when parent is rear bumper.
+                    var opSection = MapToCCCSection(assoc.AssociatedPart, "");
+                    if (!userSections.Contains(opSection) && opSection != parentSection &&
+                        opSection != "MISCELLANEOUS OPERATIONS" && opSection != "VEHICLE DIAGNOSTICS")
                         continue;
 
                     // Get learned labor time for this co-occurring operation
@@ -1161,6 +1588,11 @@ namespace McStudDesktop.Services
                         _ => ""
                     };
 
+                    var resolvedDesc = ResolveLearnedDescription(assoc.AssociatedPart, assoc.AssociatedOperation, sideCode);
+
+                    // Skip misc-only ops — they belong in MISCELLANEOUS via AddMustHaveOperations
+                    if (IsMiscOnlyOperation(resolvedDesc)) continue;
+
                     var opCodeShort = assoc.AssociatedOperation.ToLower() switch
                     {
                         "replace" => "Repl",
@@ -1174,8 +1606,10 @@ namespace McStudDesktop.Services
                     {
                         OperationType = opCodeShort,
                         PartName = assoc.AssociatedPart,
-                        Description = $"{sideCode}{ToTitleCase(assoc.AssociatedPart)} {opCodeShort}",
-                        Category = DetermineCategory(assoc.AssociatedPart),
+                        Description = resolvedDesc,
+                        Category = ResolveLearnedLaborType(assoc.AssociatedPart, assoc.AssociatedOperation),
+                        // Use parent panel's section so ops stay in the correct CCC section
+                        Section = parentSection,
                         LaborHours = laborHours,
                         RefinishHours = refinishHours,
                         Confidence = Math.Min(0.95, assoc.CoOccurrenceRate),
@@ -1203,71 +1637,18 @@ namespace McStudDesktop.Services
                 .Where(o => !string.IsNullOrWhiteSpace(o.PartName))
                 .Select(o => (o.PartName, o.OperationType))
                 .ToList();
-            var estimateContext = engine.AnalyzeEstimateContext(opTuples);
+            var estimateContext = engine.AnalyzeRulesEstimateContext(opTuples);
 
             var hasStructural = estimateContext.HasStructural;
 
+            // ADAS calibration only for components with forward-facing sensors
             var hasADASComponents = result.Operations.Any(o =>
-                o.PartName.Contains("bumper") ||
-                o.PartName.Contains("grille") ||
                 o.PartName.Contains("windshield") ||
-                o.PartName.Contains("mirror"));
+                o.PartName.Contains("front bumper") ||
+                o.PartName.Contains("grille") ||
+                o.PartName.Contains("radar"));
 
-            // Add scan operations — use config scanning method (flat rate or labor hours)
-            // Only add if not already present from other paths (learned co-occurrence, similar estimates, etc.)
-            if (result.Operations.Count > 0)
-            {
-                var hasPreScan = result.Operations.Any(o =>
-                    o.PartName != null && o.PartName.Contains("pre", StringComparison.OrdinalIgnoreCase) &&
-                    (o.Category == "Scanning" || o.PartName.Contains("scan", StringComparison.OrdinalIgnoreCase)));
-                var hasPostScan = result.Operations.Any(o =>
-                    o.PartName != null && o.PartName.Contains("post", StringComparison.OrdinalIgnoreCase) &&
-                    (o.Category == "Scanning" || o.PartName.Contains("scan", StringComparison.OrdinalIgnoreCase)));
-
-                var scanConfig = _ghostConfig.GetEffectiveScanning();
-
-                if (!hasPreScan)
-                {
-                    var learnedPreScan = GetLearnedSubletOrLaborTime("pre-repair scan", "Mech", 0m);
-                    var preScanHours = learnedPreScan > 0 ? learnedPreScan : scanConfig.LaborHours;
-                    var preScanPrice = learnedPreScan > 0 ? 0m : scanConfig.Price;
-                    var preScanSource = learnedPreScan > 0 ? "Learned from uploaded estimates" :
-                        (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
-
-                    result.Operations.Add(new GhostOperation
-                    {
-                        OperationType = preScanPrice > 0 ? "Sublet" : "Mech",
-                        PartName = "pre-repair scan",
-                        Description = "Pre-Repair Diagnostic Scan",
-                        Category = "Scanning",
-                        LaborHours = preScanHours,
-                        Price = preScanPrice,
-                        Confidence = 0.95,
-                        Source = preScanSource
-                    });
-                }
-
-                if (!hasPostScan)
-                {
-                    var learnedPostScan = GetLearnedSubletOrLaborTime("post-repair scan", "Mech", 0m);
-                    var postScanHours = learnedPostScan > 0 ? learnedPostScan : scanConfig.LaborHours;
-                    var postScanPrice = learnedPostScan > 0 ? 0m : scanConfig.Price;
-                    var postScanSource = learnedPostScan > 0 ? "Learned from uploaded estimates" :
-                        (scanConfig.Price > 0 ? $"Shop rate: ${scanConfig.Price:F0} flat rate" : "CCC/MOTOR - scan tool diagnostics NOT INCLUDED");
-
-                    result.Operations.Add(new GhostOperation
-                    {
-                        OperationType = postScanPrice > 0 ? "Sublet" : "Mech",
-                        PartName = "post-repair scan",
-                        Description = "Post-Repair Diagnostic Scan",
-                        Category = "Scanning",
-                        LaborHours = postScanHours,
-                        Price = postScanPrice,
-                        Confidence = 0.95,
-                        Source = postScanSource
-                    });
-                }
-            }
+            // Scans and diagnostics are now handled by MustHaveOperations
 
             // Add ADAS calibrations if needed — use learned pricing if available
             if (hasADASComponents)
@@ -1329,6 +1710,9 @@ namespace McStudDesktop.Services
                     // Dedup: skip if this operation name was already added
                     if (!addedOpNames.Add(suggestion.Name)) continue;
 
+                    // Skip misc-only ops — they belong in MISCELLANEOUS via AddMustHaveOperations
+                    if (IsMiscOnlyOperation(suggestion.Description)) continue;
+
                     // Use learned data first, fall back to engine defaults
                     var isPaintOp = suggestion.OperationType == "Paint";
                     var resolved = ResolveLaborTime(suggestion.Name, suggestion.OperationType, result.VehicleType);
@@ -1370,7 +1754,18 @@ namespace McStudDesktop.Services
 
             foreach (var panel in panelsNeedingRefinish)
             {
-                var rfnResolution = ResolveRefinishTime(panel);
+                // Determine the primary operation type for this panel (Replace or Repair) for operation-type-aware refinish
+                var panelPrimaryOp = result.Operations
+                    .FirstOrDefault(o => o.PartName?.Equals(panel, StringComparison.OrdinalIgnoreCase) == true &&
+                                         (o.OperationType == "Repl" || o.OperationType == "Replace" || o.OperationType == "Rpr" || o.OperationType == "Repair"))
+                    ?.OperationType;
+                var rfnOpType = panelPrimaryOp switch
+                {
+                    "Repl" or "Replace" => "replace",
+                    "Rpr" or "Repair" => "repair",
+                    _ => null
+                };
+                var rfnResolution = ResolveRefinishTime(panel, rfnOpType);
 
                 // Add refinish for the panel - use proper CCC terminology
                 result.Operations.Add(new GhostOperation
@@ -1656,14 +2051,15 @@ namespace McStudDesktop.Services
         private LaborResolution ResolveLaborTime(string partName, string operationType, string vehicleType)
         {
             var partLower = partName.ToLower();
-
-            // PRIORITY 1: Real learned data from uploaded estimates (LearnedKnowledgeBase)
             var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
+
+            // PRIORITY 1: Learned data with 3+ samples (high confidence, outlier-filtered)
             var learnedStats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
 
-            if (learnedStats != null && learnedStats.SampleCount >= 1 && learnedStats.MeanLaborHours > 0)
+            if (learnedStats != null && learnedStats.SampleCount >= 3 && learnedStats.MeanLaborHours > 0)
             {
                 var hours = learnedStats.MedianLaborHours > 0 ? learnedStats.MedianLaborHours : learnedStats.MeanLaborHours;
+
                 System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED data for {partName} {operationType}: {hours}h (from {learnedStats.SampleCount} estimates)");
                 return new LaborResolution
                 {
@@ -1673,14 +2069,103 @@ namespace McStudDesktop.Services
                     MinHours = learnedStats.MinLaborHours,
                     MaxHours = learnedStats.MaxLaborHours,
                     MedianHours = learnedStats.MedianLaborHours,
-                    Confidence = learnedStats.SampleCount >= 3 ? 0.95 : learnedStats.SampleCount == 2 ? 0.85 : 0.5,
+                    Confidence = 0.95,
                     LearnedDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MeanPrice : null,
                     MinDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MinPrice : null,
-                    MaxDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MaxPrice : null
+                    MaxDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MaxPrice : null,
+                    LearnedDescription = learnedStats.MostCommonDescription,
+                    LearnedLaborType = learnedStats.MostCommonLaborType
                 };
             }
 
-            // PRIORITY 2: Vehicle-specific learned data (truck vs SUV vs car)
+            // PRIORITY 2: Excel estimating tool (curated real data from user's tool)
+            var excelLookup = _excelProvider.LookupForGhost(partName, operationType);
+            if (excelLookup.Found && excelLookup.LaborHours > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] Excel tool data for {partName} {operationType}: {excelLookup.LaborHours}h (sheet: {excelLookup.SheetName})");
+                return new LaborResolution
+                {
+                    Hours = excelLookup.LaborHours,
+                    Source = "excel_tool",
+                    SampleCount = 1,
+                    MinHours = excelLookup.LaborHours,
+                    MaxHours = excelLookup.LaborHours,
+                    MedianHours = excelLookup.LaborHours,
+                    Confidence = 0.85
+                };
+            }
+
+            // PRIORITY 3: Learned data with 1-2 samples (lower confidence, blend with other sources)
+            if (learnedStats != null && learnedStats.SampleCount >= 1 && learnedStats.MeanLaborHours > 0)
+            {
+                var hours = learnedStats.MedianLaborHours > 0 ? learnedStats.MedianLaborHours : learnedStats.MeanLaborHours;
+
+                // For 1-2 samples, try to blend with other data sources for reliability
+                if (learnedStats.SampleCount <= 2)
+                {
+                    decimal? blendHours = null;
+                    int blendSamples = 0;
+
+                    var blendPatterns = _learningService.SearchPatterns(partName, 5);
+                    var blendMatchPattern = blendPatterns.FirstOrDefault(p =>
+                        p.PartName.Equals(partName, StringComparison.OrdinalIgnoreCase) &&
+                        p.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase));
+                    if (blendMatchPattern?.Operations != null)
+                    {
+                        var patternOps = blendMatchPattern.Operations.Where(o => o.LaborHours > 0).ToList();
+                        if (patternOps.Any())
+                        {
+                            blendHours = patternOps.Average(o => o.LaborHours);
+                            blendSamples = blendMatchPattern.ExampleCount;
+                        }
+                    }
+
+                    if (blendHours == null)
+                    {
+                        var blendHistEstimates = _historyDb.GetAllEstimates();
+                        var matchingLines = blendHistEstimates
+                            .SelectMany(e => e.LineItems)
+                            .Where(li => li.LaborHours > 0 &&
+                                         !string.IsNullOrEmpty(li.PartName) &&
+                                         li.PartName.ToLower().Contains(partLower) &&
+                                         li.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                        if (matchingLines.Count >= 1)
+                        {
+                            blendHours = matchingLines.Average(li => li.LaborHours);
+                            blendSamples = matchingLines.Count;
+                        }
+                    }
+
+                    if (blendHours.HasValue && blendSamples > 0)
+                    {
+                        var learnedWeight = Math.Min(0.5m, 1.0m / (1 + blendSamples));
+                        var histWeight = 1.0m - learnedWeight;
+                        var blended = (hours * learnedWeight) + (blendHours.Value * histWeight);
+                        System.Diagnostics.Debug.WriteLine($"[Ghost] Weighted blend for {partName} {operationType}: learned={hours}h({learnedStats.SampleCount}) + hist={blendHours.Value}h({blendSamples}) → {blended:F2}h");
+                        hours = blended;
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED data for {partName} {operationType}: {hours}h (from {learnedStats.SampleCount} estimates)");
+                return new LaborResolution
+                {
+                    Hours = hours,
+                    Source = "learned",
+                    SampleCount = learnedStats.SampleCount,
+                    MinHours = learnedStats.MinLaborHours,
+                    MaxHours = learnedStats.MaxLaborHours,
+                    MedianHours = learnedStats.MedianLaborHours,
+                    Confidence = learnedStats.SampleCount == 2 ? 0.80 : 0.60,
+                    LearnedDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MeanPrice : null,
+                    MinDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MinPrice : null,
+                    MaxDollarAmount = learnedStats.PriceValues.Count > 0 ? (decimal?)learnedStats.MaxPrice : null,
+                    LearnedDescription = learnedStats.MostCommonDescription,
+                    LearnedLaborType = learnedStats.MostCommonLaborType
+                };
+            }
+
+            // PRIORITY 4: Vehicle-specific learned data (truck vs SUV vs car)
             if (!string.IsNullOrEmpty(vehicleType))
             {
                 var vehSpecific = _knowledgeBase.GetVehicleSpecificLaborTime(vehicleType, canonicalName, operationType);
@@ -1700,7 +2185,7 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // PRIORITY 3: Learned patterns from EstimateLearningService
+            // PRIORITY 5: Learned patterns from EstimateLearningService
             var patterns = _learningService.SearchPatterns(partName, 5);
             var matchingPattern = patterns.FirstOrDefault(p =>
                 p.PartName.Equals(partName, StringComparison.OrdinalIgnoreCase) &&
@@ -1731,7 +2216,7 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // PRIORITY 4: Estimate history database — average across all stored estimates
+            // PRIORITY 6: Estimate history database — average across all stored estimates
             var historyEstimates = _historyDb.GetAllEstimates();
             if (historyEstimates.Count > 0)
             {
@@ -1746,7 +2231,6 @@ namespace McStudDesktop.Services
                 if (matchingLines.Count >= 1)
                 {
                     var avgHours = matchingLines.Average(li => li.LaborHours);
-                    // Also compute dollar amounts from matching line items
                     var priceLines = matchingLines.Where(li => li.Price > 0).ToList();
                     decimal? avgPrice = priceLines.Count > 0 ? priceLines.Average(li => li.Price) : null;
                     decimal? minPrice = priceLines.Count > 0 ? priceLines.Min(li => li.Price) : null;
@@ -1767,23 +2251,6 @@ namespace McStudDesktop.Services
                         MaxDollarAmount = maxPrice
                     };
                 }
-            }
-
-            // PRIORITY 5: Excel estimating tool data (ExcelOperationsDB.json)
-            var excelLookup = _excelProvider.LookupForGhost(partName, operationType);
-            if (excelLookup.Found && excelLookup.LaborHours > 0)
-            {
-                System.Diagnostics.Debug.WriteLine($"[Ghost] Excel tool data for {partName} {operationType}: {excelLookup.LaborHours}h (sheet: {excelLookup.SheetName})");
-                return new LaborResolution
-                {
-                    Hours = excelLookup.LaborHours,
-                    Source = "excel_tool",
-                    SampleCount = 1,
-                    MinHours = excelLookup.LaborHours,
-                    MaxHours = excelLookup.LaborHours,
-                    MedianHours = excelLookup.LaborHours,
-                    Confidence = 0.7
-                };
             }
 
             // PRIORITY 6: MET data from IncludedNotIncluded.json
@@ -1860,13 +2327,34 @@ namespace McStudDesktop.Services
             };
         }
 
-        private LaborResolution ResolveRefinishTime(string partName)
+        private LaborResolution ResolveRefinishTime(string partName, string? operationType = null)
         {
             var partLower = partName.ToLower();
 
             // PRIORITY 1: Real learned refinish data from uploaded estimates
             var canonicalName = _knowledgeBase.ResolveAlias(partLower) ?? partLower;
 
+            // If a specific operation type is provided, check it first for operation-type-aware refinish
+            if (!string.IsNullOrEmpty(operationType))
+            {
+                var specificStats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
+                if (specificStats != null && specificStats.RefinishHoursValues.Count >= 1 && specificStats.MeanRefinishHours > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] LEARNED refinish for {partName} ({operationType}): {specificStats.MeanRefinishHours}h (from {specificStats.RefinishHoursValues.Count} samples)");
+                    return new LaborResolution
+                    {
+                        Hours = specificStats.MeanRefinishHours,
+                        Source = "learned",
+                        SampleCount = specificStats.RefinishHoursValues.Count,
+                        MinHours = specificStats.MinRefinishHours,
+                        MaxHours = specificStats.MaxRefinishHours,
+                        MedianHours = specificStats.MeanRefinishHours,
+                        Confidence = specificStats.RefinishHoursValues.Count >= 3 ? 0.95 : specificStats.RefinishHoursValues.Count == 2 ? 0.85 : 0.5
+                    };
+                }
+            }
+
+            // Fall back to checking all operation types
             foreach (var opType in new[] { "refinish", "rfn", "replace", "repair" })
             {
                 var stats = _knowledgeBase.GetOperationStats(canonicalName, opType);
@@ -2132,6 +2620,55 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Resolve the most common real CCC description for a part + operation from learned data.
+        /// Falls back to generic "{sideCode}{TitleCase(partName)} {opCode}" format.
+        /// </summary>
+        private string ResolveLearnedDescription(string partName, string operationType, string sideCode = "")
+        {
+            var canonicalName = _knowledgeBase.ResolveAlias(partName.ToLower()) ?? partName.ToLower();
+            var stats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
+            var learned = stats?.MostCommonDescription;
+            if (!string.IsNullOrWhiteSpace(learned))
+            {
+                // If the learned description already has a side prefix, use as-is; otherwise prepend sideCode
+                if (!string.IsNullOrEmpty(sideCode) &&
+                    !learned.StartsWith("LT ", StringComparison.OrdinalIgnoreCase) &&
+                    !learned.StartsWith("RT ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"{sideCode}{learned}";
+                }
+                return learned;
+            }
+
+            // Fallback to generic format
+            var opCode = operationType.ToLower() switch
+            {
+                "replace" => "Repl",
+                "repair" => "Rpr",
+                "r&i" => "R&I",
+                "refinish" or "rfn" => "Rfn",
+                "blend" => "Blend",
+                _ => operationType
+            };
+            return $"{sideCode}{ToTitleCase(partName)} {opCode}";
+        }
+
+        /// <summary>
+        /// Resolve the most common labor type for a part + operation from learned data.
+        /// Falls back to DetermineCategory() heuristic.
+        /// </summary>
+        private string ResolveLearnedLaborType(string partName, string operationType)
+        {
+            var canonicalName = _knowledgeBase.ResolveAlias(partName.ToLower()) ?? partName.ToLower();
+            var stats = _knowledgeBase.GetOperationStats(canonicalName, operationType);
+            var learned = stats?.MostCommonLaborType;
+            if (!string.IsNullOrWhiteSpace(learned))
+                return learned;
+
+            return DetermineCategory(partName);
+        }
+
+        /// <summary>
         /// Maps a part name (and optional category) to a CCC estimate section name.
         /// </summary>
         private static string MapToCCCSection(string partName, string category = "")
@@ -2191,7 +2728,7 @@ namespace McStudDesktop.Services
             if (lower.Contains("rear door"))
                 return "REAR DOOR";
             if (lower.Contains("door"))
-                return "FRONT DOOR"; // Default generic door to front
+                return "MISCELLANEOUS OPERATIONS"; // Don't default generic door to front
 
             // Mirror → door section
             if (lower.Contains("mirror"))
@@ -2227,9 +2764,10 @@ namespace McStudDesktop.Services
                 lower.Contains("steering") || lower.Contains("engine") || lower.Contains("wheel"))
                 return "MECHANICAL";
 
-            // Bumper fallback (generic "bumper" without front/rear)
+            // Bumper fallback (generic "bumper" without front/rear) — default to MISCELLANEOUS
+            // to avoid wrongly classifying rear bumper sub-ops under FRONT BUMPER
             if (lower.Contains("bumper"))
-                return "FRONT BUMPER & GRILLE";
+                return "MISCELLANEOUS OPERATIONS";
 
             // Category-based fallbacks
             if (!string.IsNullOrEmpty(category))
@@ -2363,6 +2901,10 @@ namespace McStudDesktop.Services
         private void SanitizeHours(GhostEstimateResult result)
         {
             var sopMiscPatterns = new[] { "hazmat", "hazardous", "disposal", "mask", "clean", "glass cleaner", "protect", "cover car", "tape" };
+            var subPartKeywords = new[] { "grommet", "clip", "retainer", "rivet", "fastener", "screw",
+                "bolt", "nut", "pin", "stud", "plug", "washer", "bushing" };
+            var trimKeywords = new[] { "molding", "moulding", "emblem", "nameplate", "badge",
+                "decal", "stripe", "adhesive", "sealer", "sealant" };
 
             foreach (var op in result.Operations)
             {
@@ -2371,12 +2913,23 @@ namespace McStudDesktop.Services
                 var opTypeLower = op.OperationType?.ToLower() ?? "";
                 var combined = $"{partLower} {descLower}";
 
+                // Sub-components: grommets, clips, retainers, etc. — max 1.0h
+                if (subPartKeywords.Any(k => combined.Contains(k)))
+                {
+                    if (op.LaborHours > 1.0m) op.LaborHours = 1.0m;
+                    if (op.RefinishHours > 0.5m) op.RefinishHours = 0.5m;
+                }
+                // Small trim/molding parts — max 2.0h
+                else if (trimKeywords.Any(k => combined.Contains(k)))
+                {
+                    if (op.LaborHours > 2.0m) op.LaborHours = 2.0m;
+                    if (op.RefinishHours > 2.0m) op.RefinishHours = 2.0m;
+                }
                 // SOP/misc operations: max 1.5h
-                if (sopMiscPatterns.Any(p => combined.Contains(p)))
+                else if (sopMiscPatterns.Any(p => combined.Contains(p)))
                 {
                     if (op.LaborHours > 1.5m) op.LaborHours = 1.5m;
                     if (op.RefinishHours > 1.5m) op.RefinishHours = 1.5m;
-                    // Cap SOP prices at $50 (unless it's a part/material sublet)
                     if (op.Price > 50m && opTypeLower != "sublet") op.Price = 50m;
                 }
                 // R&I operations: max 5.0h
@@ -2458,6 +3011,129 @@ namespace McStudDesktop.Services
             }
 
             result.Operations = dedupedList;
+        }
+
+        /// <summary>
+        /// Filter ghost estimate operations: remove junk, part numbers, misc-only ops in wrong sections,
+        /// and parts that don't belong in MISCELLANEOUS.
+        /// </summary>
+        private void FilterGhostOperations(GhostEstimateResult result)
+        {
+            // Step 1: Ensure every op has a Section so filtering works correctly.
+            // GenerateOperationsForPanel doesn't set Section — the UI falls back to Category.
+            foreach (var op in result.Operations)
+            {
+                if (string.IsNullOrWhiteSpace(op.Section))
+                    op.Section = MapToCCCSection(op.PartName ?? "", op.Category ?? "");
+            }
+
+            result.Operations = result.Operations
+                .Where(op =>
+                {
+                    var descLower = (op.Description ?? "").ToLowerInvariant();
+                    var partLower = (op.PartName ?? "").ToLowerInvariant();
+                    var section = op.Section ?? "";
+
+                    // --- Global junk filters (apply to ALL sections) ---
+
+                    // Filter out hardware, parts, logistics, and consumable junk
+                    if (JunkOperationKeywords.Any(kw => descLower.Contains(kw)))
+                        return false;
+
+                    // Filter operations with part numbers (7+ digits = OEM part number)
+                    if (Regex.IsMatch(descLower, @"\d{7,}"))
+                        return false;
+
+                    // Filter truncated junk lines — raw RMC/estimate data that leaked through
+                    if (descLower.Contains("refinish material invoice") && section != "MISCELLANEOUS OPERATIONS")
+                        return false;
+                    if (descLower.Contains(" rmc ") || descLower.Contains(" rmc$") || descLower.EndsWith(" rmc"))
+                        return false;
+
+                    // Filter all-caps junk lines (FEATHER EDGE, TT Included, etc.)
+                    if (descLower.Contains("two tone calculation") || descLower.Contains("clear coat and two tone"))
+                        return false;
+                    if (descLower.Contains("feather edge & block"))
+                        return false;
+
+                    // Filter lines with leading estimate line numbers (e.g. "135 900500 Refinish...")
+                    if (Regex.IsMatch(descLower, @"^\d{2,3}\s+\d{5,}"))
+                        return false;
+
+                    // Filter truncated/fragment descriptions that start with "for " or "add for"
+                    // but keep legitimate "Add for Edging", "Add for Underside"
+                    if (Regex.IsMatch(descLower, @"^for\s+\w") && descLower.Length < 25)
+                        return false;
+                    if (Regex.IsMatch(descLower, @"^add for\s+\w") && descLower.Contains("  "))
+                        return false;
+
+                    // Filter "Buff Only" — not a standalone operation
+                    if (descLower.Trim() == "buff only")
+                        return false;
+
+                    // Filter items with dollar amounts embedded in the description (price data, not ops)
+                    if (Regex.IsMatch(descLower, @"\$\s*$"))
+                        return false;
+
+                    // Filter operations that are actually parts with prices (clips, moldings with high $)
+                    if (partLower.Contains("clip") && op.Price > 50)
+                        return false;
+
+                    // --- Misc-only ops: must ONLY appear in MISCELLANEOUS ---
+                    if (IsMiscOnlyOperation(descLower) && section != "MISCELLANEOUS OPERATIONS")
+                        return false;
+
+                    // --- Scans belong in VEHICLE DIAGNOSTICS only ---
+                    if ((descLower.Contains("pre-repair scan") || descLower.Contains("post-repair scan") ||
+                         descLower.Contains("pre-scan") || descLower.Contains("post-scan") ||
+                         descLower.Contains("pre scan") || descLower.Contains("post scan")) &&
+                        section != "VEHICLE DIAGNOSTICS")
+                        return false;
+
+                    // --- MECHANICAL section cleanup ---
+                    if (section == "MECHANICAL")
+                    {
+                        // Remove test speaker, wheel repl, and other non-body ops
+                        if (descLower.Contains("test speaker"))
+                            return false;
+                        if (descLower.Contains("wheel") && descLower.Contains("repl"))
+                            return false;
+                    }
+
+                    // --- MISCELLANEOUS section cleanup ---
+                    if (section == "MISCELLANEOUS OPERATIONS")
+                    {
+                        var d = descLower;
+                        // R&I parts don't belong in misc (side marker, bumper cover, door trim, door handle, etc.)
+                        if ((d.Contains("r&i") || d.Contains("remove and install")) && !IsMustHaveDescription(d))
+                            return false;
+                        // Major panel names in misc = wrong section
+                        if (MajorPanels.Any(p => d.Contains(p)))
+                            return false;
+                        // Specific parts that end up in misc
+                        if (d.Contains("side marker") || d.Contains("fog lamp") || d.Contains("parking sensor"))
+                            return false;
+                        if (d.Contains("door trim panel") || d.Contains("door handle") || d.Contains("door shell"))
+                            return false;
+                        if (d.Contains("upper molding") || d.Contains("lower molding"))
+                            return false;
+                        if (d.Contains("clear coat application") || d.Contains("three stage paint") || d.Contains("two tone"))
+                            return false;
+                        // Generic "stage and secure" without must-have context
+                        if (d.Contains("stage and secure") && !IsMustHaveDescription(d))
+                            return false;
+                        // Duplicate cover/protect ops that aren't from must-haves list
+                        // (Must-have versions have specific descriptions like "Cover Car for Overspray")
+                        if (d.Contains("cover and protect electrical") || d.Contains("cover vehicle"))
+                            return false;
+                        // Flex additive with absurd hours in misc — the per-panel version is correct
+                        if (d.Contains("flex additive") && op.LaborHours + op.RefinishHours > 1.0m)
+                            return false;
+                    }
+
+                    return true;
+                })
+                .ToList();
         }
 
         private static string NormalizePart(string? partName)
@@ -2647,6 +3323,11 @@ namespace McStudDesktop.Services
 
         public List<string> Warnings { get; set; } = new();
         public List<string> ProTips { get; set; } = new();
+
+        /// <summary>
+        /// AI-generated plain-English explanation of the estimate (null if AI unavailable)
+        /// </summary>
+        public string? AiExplanation { get; set; }
     }
 
     #endregion
@@ -2663,6 +3344,8 @@ namespace McStudDesktop.Services
         public decimal? LearnedDollarAmount { get; set; }
         public decimal? MinDollarAmount { get; set; }
         public decimal? MaxDollarAmount { get; set; }
+        public string? LearnedDescription { get; set; }
+        public string? LearnedLaborType { get; set; }
         public bool HasLearnedData => Source != "fallback" && Source != "met_data";
     }
 
@@ -2834,6 +3517,335 @@ namespace McStudDesktop.Services
         public double Max { get; set; }
         public double ValuePerItem { get; set; }
         public string? Notes { get; set; }
+    }
+
+    #endregion
+
+    #region AI-Powered Methods (GhostEstimateService partial)
+
+    public partial class GhostEstimateService
+    {
+        /// <summary>
+        /// Async version of GenerateGhostEstimate that uses AI for panel detection when available.
+        /// Falls back to keyword-based parsing when AI is unavailable.
+        /// </summary>
+        public async Task<GhostEstimateResult> GenerateGhostEstimateAsync(GhostEstimateInput input)
+        {
+            var result = new GhostEstimateResult
+            {
+                VehicleInfo = input.VehicleInfo,
+                DamageDescription = input.DamageDescription,
+                GeneratedAt = DateTime.Now
+            };
+
+            foreach (var warning in _missingDataWarnings)
+                result.Notes.Add(warning);
+
+            var vehicleType = _patternIntelligence.ClassifyVehicleType(input.VehicleInfo);
+            result.VehicleType = vehicleType;
+
+            // Step 1: Try AI panel detection first, fall back to keyword parser
+            var affectedPanels = await GetAffectedPanelsAsync(input);
+
+            // Apply per-panel severity overrides
+            if (input.PanelSeverities.Count > 0)
+            {
+                foreach (var panel in affectedPanels)
+                {
+                    if (input.PanelSeverities.TryGetValue(panel.Name, out var panelSeverity))
+                        panel.Severity = panelSeverity;
+                }
+            }
+
+            // Steps 2-8 same as synchronous version
+            foreach (var panel in affectedPanels)
+            {
+                var operations = GenerateOperationsForPanel(panel, panel.Severity, vehicleType);
+                result.Operations.AddRange(operations);
+            }
+
+            AddLearnedCoOccurrenceOperations(result, affectedPanels, vehicleType);
+            AddOperationsFromSimilarEstimates(result, affectedPanels, vehicleType);
+            AddRelatedOperations(result, input);
+            AddRefinishOperations(result);
+
+            foreach (var op in result.Operations)
+            {
+                op.Description = CleanOperationDescription(op.Description);
+                op.PartName = CleanPartName(op.PartName);
+            }
+            SanitizeHours(result);
+            DeduplicateOperations(result);
+            FilterGhostOperations(result);
+            CalculateTotals(result);
+            AddConfidenceNotes(result);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Async version of GenerateGuidanceEstimate that leverages AI capabilities.
+        /// Uses sync GenerateGuidanceEstimate for the core logic, then cleans up operations
+        /// and adds AI explanation.
+        /// </summary>
+        public async Task<GuidanceEstimateResult> GenerateGuidanceEstimateAsync(GhostEstimateInput input)
+        {
+            // Use sync version for core logic (all inline operations)
+            var result = GenerateGuidanceEstimate(input);
+
+            // AI cleanup pass: fix truncated descriptions, remove junk line numbers/codes,
+            // drop empty/garbage operations, and standardize formatting
+            await TryAiOperationCleanupAsync(result);
+
+            // AI explanation removed — not useful for estimators and costs tokens
+
+            return result;
+        }
+
+        /// <summary>
+        /// Use AI to clean up generated ghost estimate operations:
+        /// - Fix truncated descriptions (e.g. "Door shell (HSS) Stage and" → "Door shell (HSS) Stage and Secure")
+        /// - Remove junk line numbers/codes from descriptions (e.g. "30 Repl Lower grille retainer 4 11.92")
+        /// - Drop empty/meaningless operations
+        /// - Fix items in wrong sections
+        /// - Standardize operation descriptions to professional estimating language
+        /// </summary>
+        private async Task TryAiOperationCleanupAsync(GuidanceEstimateResult result)
+        {
+            try
+            {
+                var apiService = ClaudeApiService.Instance;
+                if (!AiConfigService.Instance.IsFeatureEnabled(AiFeature.GhostPanelDetection))
+                    return;
+
+                if (result.GuidanceOperations.Count == 0) return;
+
+                var systemPrompt = @"You are a collision repair estimating expert. Clean up these estimate operation descriptions.
+
+For each operation, return the CLEANED version. Fix these common problems:
+1. Truncated descriptions — complete them (e.g. ""Stage and"" → ""Stage and Secure"", ""Cover Interior and Jambs for"" → ""Cover Interior and Jambs for Refinish"", ""Lift gate Stage and Secure for"" → ""Liftgate Stage and Secure for Refinish"")
+2. Leading line numbers or junk codes — remove them (e.g. ""30 Repl Lower grille retainer 4 11.92"" → ""Lower Grille Retainer"", ""62 AUTO L Add For Pillar Refinish C"" → ""Add for Pillar Refinish"")
+3. Fragment descriptions that don't make sense alone — fix them (e.g. ""for Clear Coat"" → ""Clear Coat Application"")
+4. Inconsistent capitalization — use Title Case for part names
+5. Remove operations that are pure garbage/unreadable
+6. ""Adhesion Promoter Only"" with no hours/price = remove it (duplicate of one with values)
+
+Return a JSON array of objects with:
+- ""index"": the 0-based index of the operation
+- ""description"": cleaned description (or null to remove the operation)
+- ""partName"": cleaned part name (or null to keep original)
+- ""section"": corrected section if the item is in the wrong section (or null to keep)
+
+Only include operations that need changes or removal. If an operation is fine, don't include it.
+Return ONLY the JSON array, no markdown.";
+
+                // Build operation list for AI
+                var opLines = new List<string>();
+                for (int i = 0; i < result.GuidanceOperations.Count && i < 80; i++)
+                {
+                    var op = result.GuidanceOperations[i];
+                    opLines.Add($"[{i}] Section: {op.Section ?? op.Category} | Desc: \"{op.Description}\" | Part: \"{op.PartName}\" | Type: {op.OperationType} | {op.LaborHours}h {(op.RefinishHours > 0 ? $"+ {op.RefinishHours}h rfn " : "")}${op.Price}");
+                }
+
+                var userMessage = string.Join("\n", opLines);
+                if (userMessage.Length > 4000)
+                    userMessage = userMessage.Substring(0, 4000);
+
+                var response = await apiService.SendAsync(systemPrompt, userMessage, AiFeature.GhostExplanation, 2048);
+                if (response == null) return;
+
+                var text = ClaudeApiService.StripCodeFences(response.Text);
+
+                var fixes = System.Text.Json.JsonSerializer.Deserialize<List<AiOperationFix>>(text, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (fixes == null || fixes.Count == 0) return;
+
+                // Apply fixes in reverse order so removals don't shift indices
+                var toRemove = new HashSet<int>();
+                foreach (var fix in fixes)
+                {
+                    if (fix.Index < 0 || fix.Index >= result.GuidanceOperations.Count) continue;
+
+                    if (fix.Description == null)
+                    {
+                        // null description = remove operation
+                        toRemove.Add(fix.Index);
+                        continue;
+                    }
+
+                    var op = result.GuidanceOperations[fix.Index];
+                    if (!string.IsNullOrWhiteSpace(fix.Description))
+                        op.Description = fix.Description;
+                    if (!string.IsNullOrWhiteSpace(fix.PartName))
+                        op.PartName = fix.PartName;
+                    if (!string.IsNullOrWhiteSpace(fix.Section))
+                        op.Section = fix.Section;
+                }
+
+                if (toRemove.Count > 0)
+                {
+                    result.GuidanceOperations = result.GuidanceOperations
+                        .Where((op, i) => !toRemove.Contains(i))
+                        .ToList();
+                    // Also update the base Operations list
+                    result.Operations = result.GuidanceOperations.Cast<GhostOperation>().ToList();
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] AI cleanup removed {toRemove.Count} junk operations");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[Ghost] AI cleanup applied {fixes.Count} fixes to operations");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] AI operation cleanup failed: {ex.Message}");
+            }
+        }
+
+        private class AiOperationFix
+        {
+            public int Index { get; set; }
+            public string? Description { get; set; }
+            public string? PartName { get; set; }
+            public string? Section { get; set; }
+        }
+
+        /// <summary>
+        /// Try AI-powered panel detection from damage description.
+        /// Falls back to keyword-based detection on failure.
+        /// </summary>
+        private async Task<List<AffectedPanel>> GetAffectedPanelsAsync(GhostEstimateInput input)
+        {
+            // Try AI first
+            var aiPanels = await TryAiPanelDetectionAsync(input.DamageDescription, input.Severity);
+            if (aiPanels != null && aiPanels.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] AI detected {aiPanels.Count} panels");
+
+                // Merge with explicit impact zone panels
+                var merged = new List<AffectedPanel>(aiPanels);
+                var addedNames = new HashSet<string>(aiPanels.Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+
+                foreach (var zone in input.ImpactZones)
+                {
+                    if (ImpactZonePanels.TryGetValue(zone.ToLower().Replace(" ", "_"), out var zonePanels))
+                    {
+                        foreach (var panelName in zonePanels)
+                        {
+                            if (addedNames.Add(panelName))
+                            {
+                                merged.Add(new AffectedPanel
+                                {
+                                    Name = panelName,
+                                    ImpactZone = zone,
+                                    Severity = input.Severity,
+                                    Side = DetermineSide(zone)
+                                });
+                            }
+                        }
+                    }
+                }
+
+                return merged;
+            }
+
+            // Fall back to keyword-based parsing
+            return GetAffectedPanels(input);
+        }
+
+        /// <summary>
+        /// Use AI to parse a natural-language damage description into structured panel data.
+        /// Returns null on failure.
+        /// </summary>
+        private async Task<List<AffectedPanel>?> TryAiPanelDetectionAsync(string damageDescription, string defaultSeverity)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(damageDescription) || damageDescription.Length < 5)
+                    return null;
+
+                var apiService = ClaudeApiService.Instance;
+                var systemPrompt = @"You are a collision repair damage analyst. Parse the damage description into affected vehicle panels.
+
+Return a JSON array of panels. Each panel object has:
+- ""name"": lowercase panel name (e.g. ""front bumper cover"", ""hood"", ""fender"", ""front door"", ""rear door"", ""quarter panel"", ""roof"", ""trunk lid"", ""grille"", ""headlight"", ""tail light"", ""rocker panel"", ""a-pillar"", ""b-pillar"", ""radiator support"", ""rear bumper cover"", ""mirror"")
+- ""side"": ""left"", ""right"", ""both"", or """" (empty for center panels)
+- ""severity"": ""light"", ""moderate"", ""heavy"", or ""severe""
+
+Rules:
+- Use standard collision repair panel names
+- Infer related panels (e.g. front end hit implies bumper, hood, grille, possibly fender)
+- Be conservative — only include panels clearly indicated or strongly implied
+- Return ONLY the JSON array, no markdown or explanation";
+
+                var response = await apiService.SendAsync(systemPrompt, damageDescription, AiFeature.GhostPanelDetection, 512);
+                if (response == null) return null;
+
+                var text = ClaudeApiService.StripCodeFences(response.Text);
+
+                var aiPanels = JsonSerializer.Deserialize<List<AiPanelResult>>(text, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (aiPanels == null || aiPanels.Count == 0) return null;
+
+                var panels = new List<AffectedPanel>();
+                foreach (var p in aiPanels)
+                {
+                    if (string.IsNullOrWhiteSpace(p.Name)) continue;
+                    panels.Add(new AffectedPanel
+                    {
+                        Name = p.Name.ToLowerInvariant().Trim(),
+                        Side = p.Side ?? "",
+                        Severity = string.IsNullOrWhiteSpace(p.Severity) ? defaultSeverity : p.Severity,
+                        ImpactZone = "ai_detected"
+                    });
+                }
+
+                return panels.Count > 0 ? panels : null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] AI panel detection failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Generate a plain-English explanation of a ghost/guidance estimate using AI.
+        /// Returns null if AI is unavailable.
+        /// </summary>
+        public async Task<string?> GenerateExplanationAsync(GuidanceEstimateResult result)
+        {
+            try
+            {
+                var apiService = ClaudeApiService.Instance;
+                var systemPrompt = @"You are a collision repair estimating assistant. Summarize the estimate in 2-4 sentences of plain English that a body shop estimator would understand. Mention key panels, total hours, and notable operations. Be concise and professional.";
+
+                var opSummary = string.Join("\n", result.GuidanceOperations
+                    .Take(50)
+                    .Select(o => $"- {o.Description} ({o.OperationType}) {o.LaborHours}h {(o.RefinishHours > 0 ? $"+ {o.RefinishHours}h refn" : "")}"));
+
+                var userMessage = $"Vehicle: {result.VehicleInfo}\nDamage: {result.DamageDescription}\nBody Hours: {result.TotalBodyHours:F1}, Refinish Hours: {result.TotalRefinishHours:F1}\nTotal: ${result.GrandTotalLaborDollars:F2}\n\nOperations:\n{opSummary}";
+
+                var response = await apiService.SendAsync(systemPrompt, userMessage, AiFeature.GhostExplanation, 256);
+                return response?.Text;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Ghost] AI explanation failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        private class AiPanelResult
+        {
+            public string? Name { get; set; }
+            public string? Side { get; set; }
+            public string? Severity { get; set; }
+        }
     }
 
     #endregion

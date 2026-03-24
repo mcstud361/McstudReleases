@@ -235,11 +235,10 @@ namespace McStudDesktop.Services
         {
             var recommendations = new List<string>();
 
-            // Bootstrap mode
             if (stats.EstimatesImported < 20)
             {
                 int remaining = 20 - stats.EstimatesImported;
-                recommendations.Add($"Bootstrap mode active. Import {remaining} more estimates to enable quality checks.");
+                recommendations.Add($"Import {remaining} more estimates to enable quality checks.");
             }
 
             // Low pattern count

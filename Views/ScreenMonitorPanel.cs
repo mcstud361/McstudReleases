@@ -63,6 +63,8 @@ namespace McStudDesktop.Views
         private TextBlock? _coachingScoreText;
         private TextBlock? _coachingGradeText;
         private TextBlock? _coachingPotentialText;
+        private bool _sectionsCollapsed = false;
+        private readonly List<(Border header, StackPanel content)> _collapsibleSections = new();
 
         // Diagnostics
         private StackPanel? _diagnosticStack;
@@ -307,6 +309,99 @@ namespace McStudDesktop.Views
             controlsRow.Children.Add(_clearButton);
 
             stack.Children.Add(controlsRow);
+
+            // Usage guidance (collapsible)
+            var guidanceOuter = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 38, 50)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 6, 12, 6),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 70, 90)),
+                BorderThickness = new Thickness(1)
+            };
+            var guidanceOuterStack = new StackPanel { Spacing = 4 };
+
+            // Header row with title + minimize/expand button
+            var guidanceHeaderRow = new Grid();
+            guidanceHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            guidanceHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var guidanceTitle = new TextBlock
+            {
+                Text = "How to use",
+                FontSize = 11,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(guidanceTitle, 0);
+            guidanceHeaderRow.Children.Add(guidanceTitle);
+
+            var guidanceToggleBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE010", FontSize = 10 }, // minimize icon
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(4, 2, 4, 2),
+                MinWidth = 24,
+                MinHeight = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(guidanceToggleBtn, 1);
+            guidanceHeaderRow.Children.Add(guidanceToggleBtn);
+
+            guidanceOuterStack.Children.Add(guidanceHeaderRow);
+
+            // Collapsible content
+            var guidanceContent = new StackPanel { Spacing = 6 };
+            guidanceContent.Children.Add(new TextBlock
+            {
+                Text = "Reviewing an existing estimate?",
+                FontSize = 11,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)),
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+            guidanceContent.Children.Add(new TextBlock
+            {
+                Text = "Turn on the monitor and scroll through your estimate in CCC/Mitchell. Operations will be detected as you go and missing items will be suggested.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 165, 175)),
+                TextWrapping = TextWrapping.Wrap
+            });
+            guidanceContent.Children.Add(new TextBlock
+            {
+                Text = "Starting from scratch?",
+                FontSize = 11,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)),
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+            guidanceContent.Children.Add(new TextBlock
+            {
+                Text = "Begin writing your estimate — suggestions will populate based on the parts and operations you add.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 165, 175)),
+                TextWrapping = TextWrapping.Wrap
+            });
+            guidanceOuterStack.Children.Add(guidanceContent);
+
+            // Toggle visibility on button click
+            guidanceToggleBtn.Click += (s, e) =>
+            {
+                if (guidanceContent.Visibility == Visibility.Visible)
+                {
+                    guidanceContent.Visibility = Visibility.Collapsed;
+                    ((FontIcon)guidanceToggleBtn.Content).Glyph = "\uE011"; // expand icon
+                }
+                else
+                {
+                    guidanceContent.Visibility = Visibility.Visible;
+                    ((FontIcon)guidanceToggleBtn.Content).Glyph = "\uE010"; // minimize icon
+                }
+            };
+
+            guidanceOuter.Child = guidanceOuterStack;
+            stack.Children.Add(guidanceOuter);
 
             // OCR availability warning
             if (!_monitorService.IsOcrAvailable)
@@ -1098,14 +1193,6 @@ namespace McStudDesktop.Views
                 }
             }
 
-            // Similar estimate bar
-            if (hasOps && result != null)
-            {
-                var similarBar = BuildSimilarEstimateBar(result, snapshot);
-                if (similarBar != null)
-                    _overviewContent.Children.Add(similarBar);
-            }
-
             // Focused part card
             if (snapshot?.FocusedPart != null)
             {
@@ -1114,92 +1201,442 @@ namespace McStudDesktop.Views
                     _overviewContent.Children.Add(focusedCard);
             }
 
-            // === MISSING OPERATIONS SECTION ===
-            if (hasCoaching)
+            _collapsibleSections.Clear();
+
+            // === MUST-HAVE OPERATIONS CHECKLIST ===
+            var mustHaveChecklist = new List<MustHaveChecklistItem>();
+            try
             {
-                var missingSuggestions = snapshot!.Suggestions
-                    .Where(s => !s.IsDismissed && !s.IsConfirmedOnEstimate)
-                    .OrderBy(s => s.Source == "SOP List" ? 0 : 1)
-                    .ThenByDescending(s => s.Severity)
-                    .ThenByDescending(s => s.EstimatedCost)
-                    .ToList();
+                mustHaveChecklist = BuildScreenMustHaveChecklist(accumulatedOps);
 
-                if (missingSuggestions.Count > 0)
+                if (mustHaveChecklist.Count > 0)
                 {
-                    _analysisContentStack.Children.Add(new Border
+                    var presentCount = mustHaveChecklist.Count(m => m.IsPresent);
+                    var missingCount = mustHaveChecklist.Count(m => !m.IsPresent);
+
+                    var mustHaveHeader = new Border
                     {
-                        Background = new SolidColorBrush(Color.FromArgb(255, 45, 35, 25)),
-                        CornerRadius = new CornerRadius(4),
-                        Padding = new Thickness(10, 6, 10, 6),
+                        Background = new SolidColorBrush(Color.FromArgb(255, 28, 35, 45)),
+                        CornerRadius = new CornerRadius(6),
+                        Padding = new Thickness(10, 8, 10, 8),
                         Margin = new Thickness(0, 4, 0, 2),
-                        Child = new TextBlock
+                        BorderBrush = new SolidColorBrush(missingCount > 0
+                            ? Color.FromArgb(255, 180, 120, 40)
+                            : Color.FromArgb(255, 50, 140, 70)),
+                        BorderThickness = new Thickness(1)
+                    };
+
+                    var mustHaveStack = new StackPanel { Spacing = 4 };
+
+                    // Title row with score
+                    var titleRow = new Grid();
+                    titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var titleText = new TextBlock
+                    {
+                        Text = "MUST-HAVE OPERATIONS",
+                        FontSize = 12,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 200, 140))
+                    };
+                    Grid.SetColumn(titleText, 0);
+                    titleRow.Children.Add(titleText);
+
+                    var scoreText = new TextBlock
+                    {
+                        Text = $"{presentCount}/{mustHaveChecklist.Count}",
+                        FontSize = 12,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(missingCount > 0
+                            ? Color.FromArgb(255, 240, 180, 80)
+                            : Color.FromArgb(255, 80, 200, 120))
+                    };
+                    Grid.SetColumn(scoreText, 1);
+                    titleRow.Children.Add(scoreText);
+                    mustHaveStack.Children.Add(titleRow);
+
+                    // Group by category
+                    var grouped = mustHaveChecklist.GroupBy(c => c.Category).ToList();
+                    foreach (var group in grouped)
+                    {
+                        mustHaveStack.Children.Add(new TextBlock
                         {
-                            Text = $"Missing Operations ({missingSuggestions.Count})",
-                            FontSize = 13,
-                            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                            Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 190, 80)),
-                            TextTrimming = TextTrimming.CharacterEllipsis
+                            Text = group.Key,
+                            FontSize = 10,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 160)),
+                            Margin = new Thickness(0, 4, 0, 1)
+                        });
+
+                        foreach (var item in group)
+                        {
+                            var itemRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+                            itemRow.Children.Add(new TextBlock
+                            {
+                                Text = item.IsPresent ? "\u2705" : "\u274C",
+                                FontSize = 11,
+                                VerticalAlignment = VerticalAlignment.Center
+                            });
+
+                            itemRow.Children.Add(new TextBlock
+                            {
+                                Text = item.Description,
+                                FontSize = 11,
+                                Foreground = new SolidColorBrush(item.IsPresent
+                                    ? Color.FromArgb(255, 100, 200, 120)
+                                    : Color.FromArgb(255, 220, 140, 80)),
+                                TextDecorations = item.IsPresent ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None,
+                                VerticalAlignment = VerticalAlignment.Center
+                            });
+
+                            var detail = item.LaborHours > 0 ? $"{item.LaborHours:N1}h" : $"${item.Price:N2}";
+                            itemRow.Children.Add(new TextBlock
+                            {
+                                Text = $"({item.OperationType}, {detail})",
+                                FontSize = 9,
+                                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 110)),
+                                VerticalAlignment = VerticalAlignment.Center
+                            });
+
+                            mustHaveStack.Children.Add(itemRow);
                         }
-                    });
+                    }
 
-                    foreach (var suggestion in missingSuggestions)
-                        _analysisContentStack.Children.Add(BuildCoachingSuggestionCard(suggestion));
+                    // Recovery potential
+                    if (missingCount > 0)
+                    {
+                        var missingItems = mustHaveChecklist.Where(m => !m.IsPresent).ToList();
+                        var missingHours = missingItems.Sum(m => m.LaborHours);
+                        var missingDollars = missingItems.Sum(m => m.Price) + missingItems.Sum(m => m.MaterialsCost);
 
-                    // Dismiss All button
-                    var dismissAllBtn = new Button
-                    {
-                        Content = "Dismiss All Suggestions",
-                        Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 65)),
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
-                        Padding = new Thickness(12, 6, 12, 6),
-                        CornerRadius = new CornerRadius(4),
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                        FontSize = 11,
-                        Margin = new Thickness(0, 4, 0, 0)
-                    };
-                    var suggestionsForDismiss = missingSuggestions;
-                    dismissAllBtn.Click += (s, e) =>
-                    {
-                        foreach (var suggestion in suggestionsForDismiss)
-                            LiveCoachingService.Instance.DismissSuggestion(suggestion.Id);
-                        RebuildAnalysisDisplay();
-                    };
-                    _analysisContentStack.Children.Add(dismissAllBtn);
+                        var recoveryParts = new List<string>();
+                        if (missingHours > 0) recoveryParts.Add($"{missingHours:N1}h labor");
+                        if (missingDollars > 0) recoveryParts.Add($"${missingDollars:N2}");
+
+                        if (recoveryParts.Count > 0)
+                        {
+                            mustHaveStack.Children.Add(new TextBlock
+                            {
+                                Text = $"Potential recovery: {string.Join(" + ", recoveryParts)}",
+                                FontSize = 10,
+                                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                                Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 180, 80)),
+                                Margin = new Thickness(0, 4, 0, 0)
+                            });
+                        }
+                    }
+
+                    mustHaveHeader.Child = mustHaveStack;
+                    _analysisContentStack.Children.Add(mustHaveHeader);
                 }
             }
-
-            // === CURRENT OPERATIONS SECTION (flat list in estimate order) ===
-            if (hasOps)
+            catch (Exception ex)
             {
-                _analysisContentStack.Children.Add(new Border
+                System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Must-have checklist error: {ex.Message}");
+            }
+
+            // Prepare data for all 3 sections
+            var missingSuggestions = hasCoaching
+                ? snapshot!.Suggestions.Where(s => !s.IsDismissed && !s.IsConfirmedOnEstimate).ToList()
+                : new List<CoachingSuggestion>();
+            var addedSuggestions = hasCoaching
+                ? snapshot!.Suggestions.Where(s => !s.IsDismissed && s.IsConfirmedOnEstimate).ToList()
+                : new List<CoachingSuggestion>();
+            var filteredOps = accumulatedOps.Where(op => IsValidEstimateOperation(op)).ToList();
+
+            // Filter out coaching suggestions that are already covered by the must-have checklist
+            // to avoid showing the same item in both places
+            if (mustHaveChecklist.Count > 0)
+            {
+                var mustHaveNames = mustHaveChecklist
+                    .Select(m => m.Description.ToLowerInvariant())
+                    .ToHashSet();
+
+                bool IsCoveredByMustHave(string title)
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 42, 52)),
-                    CornerRadius = new CornerRadius(4),
-                    Padding = new Thickness(10, 6, 10, 6),
-                    Margin = new Thickness(0, 8, 0, 2),
-                    Child = new TextBlock
+                    var titleLower = title.ToLowerInvariant().Trim();
+                    foreach (var mh in mustHaveNames)
                     {
-                        Text = $"Estimate Operations ({accumulatedOps.Count})",
-                        FontSize = 13,
-                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
-                        TextTrimming = TextTrimming.CharacterEllipsis
+                        if (titleLower.Contains(mh) || mh.Contains(titleLower))
+                            return true;
+                        // Check significant word overlap
+                        var titleWords = titleLower.Split(' ', '/', '-').Where(w => w.Length > 3).ToArray();
+                        var mhWords = mh.Split(' ', '/', '-').Where(w => w.Length > 3).ToArray();
+                        if (titleWords.Length > 0 && mhWords.Length > 0)
+                        {
+                            var overlap = titleWords.Count(tw => mhWords.Any(mw => mw.Contains(tw) || tw.Contains(mw)));
+                            if (overlap >= Math.Min(2, titleWords.Length))
+                                return true;
+                        }
                     }
+                    return false;
+                }
+
+                missingSuggestions = missingSuggestions.Where(s => !IsCoveredByMustHave(s.Title)).ToList();
+                addedSuggestions = addedSuggestions.Where(s => !IsCoveredByMustHave(s.Title)).ToList();
+            }
+
+            // Confirmed suggestions lookup for inline checkmarks on estimate ops
+            var confirmedTitles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in addedSuggestions)
+                confirmedTitles.Add(s.Title);
+
+            // Dedup missing suggestions by base title
+            var dedupedMissing = new List<CoachingSuggestion>();
+            var seenBaseOps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in missingSuggestions.OrderByDescending(s => s.Severity).ThenByDescending(s => s.EstimatedCost))
+            {
+                if (seenBaseOps.Add(s.Title.Trim()))
+                    dedupedMissing.Add(s);
+            }
+
+            // For door suggestions triggered by both front/rear parts, duplicate into both sections
+            var expandedMissing = new List<(string Section, CoachingSuggestion Suggestion)>();
+            foreach (var s in dedupedMissing)
+            {
+                var sections = GetAllCccSections(s);
+                foreach (var sec in sections)
+                    expandedMissing.Add((sec, s));
+            }
+
+            // Similarly expand added suggestions
+            var expandedAdded = new List<(string Section, CoachingSuggestion Suggestion)>();
+            var seenAddedOps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var s in addedSuggestions.OrderByDescending(s => s.Severity).ThenByDescending(s => s.EstimatedCost))
+            {
+                if (!seenAddedOps.Add(s.Title.Trim())) continue;
+                var sections = GetAllCccSections(s);
+                foreach (var sec in sections)
+                    expandedAdded.Add((sec, s));
+            }
+
+            // Group estimate ops by section
+            var opsGrouped = filteredOps
+                .GroupBy(op => GetCccSectionForOp(op))
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Group missing/added by section
+            var missingGrouped = expandedMissing
+                .GroupBy(x => x.Section)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Suggestion).ToList());
+            var addedGrouped = expandedAdded
+                .GroupBy(x => x.Section)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.Suggestion).ToList());
+
+            // Always-show sections (even when empty)
+            var alwaysShowSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "ELECTRICAL", "VEHICLE DIAGNOSTICS", "MISCELLANEOUS OPERATIONS"
+            };
+
+            // Determine which sections have any content
+            var activeSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in missingGrouped.Keys) activeSections.Add(key);
+            foreach (var key in addedGrouped.Keys) activeSections.Add(key);
+            foreach (var key in opsGrouped.Keys) activeSections.Add(key);
+            foreach (var s in alwaysShowSections) activeSections.Add(s);
+
+            // === RENDER ALL SECTIONS IN CCC ORDER ===
+            var orderedSections = _cccSectionOrder
+                .Where(s => activeSections.Contains(s))
+                .ToList();
+
+            // Section title for the CCC breakdown area
+            if (orderedSections.Count > 0)
+            {
+                var totalMissing = missingSuggestions.Count;
+                var sectionTitleRow = new Grid { Margin = new Thickness(0, 8, 0, 2) };
+                sectionTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                sectionTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var sectionTitle = new TextBlock
+                {
+                    Text = "COACHING SUGGESTIONS & ESTIMATE OPERATIONS",
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 200)),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(sectionTitle, 0);
+                sectionTitleRow.Children.Add(sectionTitle);
+
+                if (totalMissing > 0)
+                {
+                    var missingBadge = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 180, 80, 30)),
+                        CornerRadius = new CornerRadius(8),
+                        Padding = new Thickness(8, 2, 8, 2),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    missingBadge.Child = new TextBlock
+                    {
+                        Text = $"{totalMissing} missing",
+                        FontSize = 10,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Colors.White)
+                    };
+                    Grid.SetColumn(missingBadge, 1);
+                    sectionTitleRow.Children.Add(missingBadge);
+                }
+
+                _analysisContentStack.Children.Add(sectionTitleRow);
+            }
+
+            foreach (var sectionName in orderedSections)
+            {
+                var sectionColor = _cccSectionColors.TryGetValue(sectionName, out var c) ? c : Color.FromArgb(255, 150, 150, 150);
+                var hasMissing = missingGrouped.TryGetValue(sectionName, out var sectionMissing) && sectionMissing.Count > 0;
+                var hasAdded = addedGrouped.TryGetValue(sectionName, out var sectionAdded) && sectionAdded.Count > 0;
+                var hasEstOps = opsGrouped.TryGetValue(sectionName, out var sectionOps) && sectionOps.Count > 0;
+                var totalCount = (sectionMissing?.Count ?? 0) + (sectionAdded?.Count ?? 0) + (sectionOps?.Count ?? 0);
+
+                // Section header (clickable to collapse/expand)
+                var contentPanel = new StackPanel { Spacing = 1 };
+                var headerBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 40, 48)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(10, 5, 10, 5),
+                    Margin = new Thickness(0, 6, 0, 0)
+                };
+
+                var headerGrid = new Grid();
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var headerLeft = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                headerLeft.Children.Add(new Border
+                {
+                    Background = new SolidColorBrush(sectionColor),
+                    CornerRadius = new CornerRadius(2),
+                    Width = 4,
+                    Height = 16,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                headerLeft.Children.Add(new TextBlock
+                {
+                    Text = sectionName,
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(sectionColor),
+                    VerticalAlignment = VerticalAlignment.Center
                 });
 
-                // Confirmed suggestions lookup for inline checkmarks
-                var confirmedTitles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (hasCoaching)
+                // Missing count badge
+                if (hasMissing)
                 {
-                    foreach (var s in snapshot!.Suggestions.Where(s => s.IsConfirmedOnEstimate && !s.IsDismissed))
-                        confirmedTitles.Add(s.Title);
+                    var missingBadge = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 180, 80, 30)),
+                        CornerRadius = new CornerRadius(8),
+                        Padding = new Thickness(6, 1, 6, 1),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    missingBadge.Child = new TextBlock
+                    {
+                        Text = $"{sectionMissing!.Count} missing",
+                        FontSize = 9,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Colors.White)
+                    };
+                    headerLeft.Children.Add(missingBadge);
                 }
 
-                foreach (var op in accumulatedOps)
+                Grid.SetColumn(headerLeft, 0);
+                headerGrid.Children.Add(headerLeft);
+
+                // Right side: total count
+                var countText = new TextBlock
                 {
-                    var row = CreateAccumulatedOperationRow(op, confirmedTitles);
-                    _analysisContentStack.Children.Add(row);
+                    Text = totalCount > 0 ? $"{totalCount}" : "",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 130)),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(countText, 1);
+                headerGrid.Children.Add(countText);
+
+                headerBorder.Child = headerGrid;
+
+                // Make header clickable to toggle section
+                var capturedContent = contentPanel;
+                headerBorder.PointerPressed += (s, e) =>
+                {
+                    capturedContent.Visibility = capturedContent.Visibility == Visibility.Visible
+                        ? Visibility.Collapsed : Visibility.Visible;
+                };
+
+                _analysisContentStack.Children.Add(headerBorder);
+                _collapsibleSections.Add((headerBorder, contentPanel));
+
+                // --- Section content ---
+
+                // Missing suggestions for this section
+                if (hasMissing)
+                {
+                    foreach (var suggestion in sectionMissing!.OrderByDescending(s => s.Severity).ThenByDescending(s => s.EstimatedCost))
+                        contentPanel.Children.Add(BuildCoachingSuggestionCard(suggestion));
                 }
+
+                // Added (confirmed on estimate) suggestions for this section
+                if (hasAdded)
+                {
+                    foreach (var suggestion in sectionAdded!.OrderByDescending(s => s.Severity).ThenByDescending(s => s.EstimatedCost))
+                        contentPanel.Children.Add(BuildCoachingSuggestionCard(suggestion));
+                }
+
+                // Estimate operations for this section
+                if (hasEstOps)
+                {
+                    foreach (var op in sectionOps!)
+                    {
+                        var row = CreateAccumulatedOperationRow(op, confirmedTitles);
+                        contentPanel.Children.Add(row);
+                    }
+                }
+
+                // Empty section placeholder
+                if (!hasMissing && !hasAdded && !hasEstOps)
+                {
+                    contentPanel.Children.Add(new TextBlock
+                    {
+                        Text = "No operations detected",
+                        FontSize = 10,
+                        FontStyle = Windows.UI.Text.FontStyle.Italic,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 90, 90, 100)),
+                        Margin = new Thickness(16, 3, 0, 3)
+                    });
+                }
+
+                contentPanel.Visibility = _sectionsCollapsed ? Visibility.Collapsed : Visibility.Visible;
+                _analysisContentStack.Children.Add(contentPanel);
+            }
+
+            // Dismiss All button (at bottom if any missing suggestions exist)
+            if (dedupedMissing.Count > 0)
+            {
+                var dismissAllBtn = new Button
+                {
+                    Content = "Dismiss All Suggestions",
+                    Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 65)),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
+                    Padding = new Thickness(12, 6, 12, 6),
+                    CornerRadius = new CornerRadius(4),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    FontSize = 11,
+                    Margin = new Thickness(0, 6, 0, 0)
+                };
+                var allForDismiss = missingSuggestions;
+                dismissAllBtn.Click += (s, e) =>
+                {
+                    foreach (var suggestion in allForDismiss)
+                        LiveCoachingService.Instance.DismissSuggestion(suggestion.Id);
+                    RebuildAnalysisDisplay();
+                };
+                _analysisContentStack.Children.Add(dismissAllBtn);
             }
         }
 
@@ -1319,6 +1756,120 @@ namespace McStudDesktop.Views
             }
         }
 
+        /// <summary>
+        /// Normalize text for matching: lowercase, replace & with and, / with space, collapse whitespace.
+        /// This handles canonical name differences like "battery disconnect/reconnect" vs "disconnect and reconnect battery".
+        /// </summary>
+        private static string NormalizeForMatch(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "";
+            return System.Text.RegularExpressions.Regex.Replace(
+                text.ToLowerInvariant()
+                    .Replace("&", " and ")
+                    .Replace("/", " ")
+                    .Replace("-", " "),
+                @"\s+", " ").Trim();
+        }
+
+        /// <summary>
+        /// Extract significant words (> 3 chars) from normalized text for word-overlap matching.
+        /// </summary>
+        private static string[] ExtractSignificantWords(string normalizedText)
+        {
+            return normalizedText.Split(' ')
+                .Where(w => w.Length > 3)
+                .Distinct()
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Cross-references accumulated screen operations against must-have operations.
+        /// Returns a checklist with IsPresent set based on fuzzy matching.
+        /// </summary>
+        private List<MustHaveChecklistItem> BuildScreenMustHaveChecklist(IReadOnlyList<ParsedEstimateLine> accumulatedOps)
+        {
+            var checklist = new List<MustHaveChecklistItem>();
+            var categories = EstimateContextService.Instance.GetMustHaveCategories();
+            if (categories.Count == 0) return checklist;
+
+            // Build normalized searchable strings from PartName and Description.
+            // Do NOT use RawLine — it contains full OCR lines with too much noise.
+            var allTexts = new List<string>();
+            foreach (var o in accumulatedOps)
+            {
+                var partNorm = NormalizeForMatch(o.PartName);
+                var descNorm = NormalizeForMatch(o.Description);
+                if (!string.IsNullOrEmpty(partNorm) && !allTexts.Contains(partNorm))
+                    allTexts.Add(partNorm);
+                if (!string.IsNullOrEmpty(descNorm) && descNorm != partNorm && !allTexts.Contains(descNorm))
+                    allTexts.Add(descNorm);
+            }
+
+            // Debug: log all texts being matched against
+            System.Diagnostics.Debug.WriteLine($"[MustHave] accumulatedOps count: {accumulatedOps.Count}");
+            System.Diagnostics.Debug.WriteLine($"[MustHave] allTexts ({allTexts.Count}): {string.Join(" | ", allTexts)}");
+
+            foreach (var category in categories)
+            {
+                foreach (var op in category.Operations)
+                {
+                    var opNorm = NormalizeForMatch(op.Description);
+                    var opWords = ExtractSignificantWords(opNorm);
+
+                    var isPresent = allTexts.Any(d =>
+                    {
+                        // Check 1: Exact match
+                        if (d == opNorm) return true;
+
+                        // Check 2: Detected text contains full must-have (detected is longer/equal)
+                        if (d.Contains(opNorm)) return true;
+
+                        // Check 3: Must-have contains detected text, BUT only if detected text
+                        // is at least 50% of the must-have length. Prevents short detected texts
+                        // like "adas calibration" from matching long must-haves like
+                        // "simulate full fluids for adas calibrations".
+                        if (opNorm.Contains(d) && d.Length >= opNorm.Length * 0.5)
+                            return true;
+
+                        // Check 4: Proportional word overlap — must-have words found in detected text
+                        // Requires 60% of must-have significant words to be present (prevents
+                        // "adas calibration" from matching 5-word ADAS must-haves with only 2 words)
+                        if (opWords.Length > 0)
+                        {
+                            var matchCount = opWords.Count(w => d.Contains(w));
+                            int threshold;
+                            if (opWords.Length <= 2)
+                                threshold = opWords.Length; // Short must-haves: ALL words must match
+                            else
+                                threshold = (int)Math.Ceiling(opWords.Length * 0.6); // 60% for longer
+
+                            if (matchCount >= threshold)
+                                return true;
+                        }
+
+                        return false;
+                    });
+
+                    System.Diagnostics.Debug.WriteLine($"[MustHave] {(isPresent ? "MATCH" : "miss ")}: '{op.Description}' (words: {string.Join(",", opWords)})");
+
+                    checklist.Add(new MustHaveChecklistItem
+                    {
+                        Description = op.Description,
+                        Category = category.Name,
+                        OperationType = op.OperationType,
+                        LaborHours = op.LaborHours,
+                        Price = op.Price,
+                        MaterialsCost = op.MaterialsCost,
+                        WhyNeeded = op.WhyNeeded,
+                        Conditions = op.Conditions,
+                        IsPresent = isPresent
+                    });
+                }
+            }
+
+            return checklist;
+        }
+
         private Border CreateAccumulatedOperationRow(ParsedEstimateLine op, HashSet<string> confirmedTitles)
         {
             var border = new Border
@@ -1355,6 +1906,8 @@ namespace McStudDesktop.Views
             }
 
             var partDisplay = op.PartName ?? op.Description;
+            // Strip part numbers (e.g., "Door shell 6700253130" → "Door shell")
+            partDisplay = System.Text.RegularExpressions.Regex.Replace(partDisplay, @"\s+\d{4,}[A-Z0-9]*\s*$", "").Trim();
             if (partDisplay.Length > 60) partDisplay = partDisplay[..60] + "...";
             leftStack.Children.Add(new TextBlock
             {
@@ -1962,6 +2515,10 @@ namespace McStudDesktop.Views
             _captureOnceButton!.IsEnabled = false;
             _captureOnceButton.Content = "Capturing...";
 
+            // Auto-start live coaching so suggestions generate even on one-shot captures
+            if (!LiveCoachingService.Instance.IsRunning)
+                LiveCoachingService.Instance.Start();
+
             try
             {
                 await _monitorService.CaptureOnceAsync();
@@ -2430,6 +2987,325 @@ namespace McStudDesktop.Views
             lines.Add(result.RawText);
 
             return string.Join("\n", lines);
+        }
+
+        // CCC section display order (matches GhostEstimatePanel)
+        private static readonly string[] _cccSectionOrder = new[]
+        {
+            "FRONT BUMPER & GRILLE", "REAR BUMPER",
+            "FRONT LAMPS", "REAR LAMPS",
+            "RADIATOR SUPPORT",
+            "HOOD",
+            "FENDER",
+            "FRONT DOOR", "REAR DOOR",
+            "QUARTER PANEL",
+            "PILLARS, ROCKER & FLOOR",
+            "ROOF",
+            "TRUNK / DECKLID",
+            "GLASS",
+            "FRAME",
+            "RESTRAINT SYSTEMS",
+            "ELECTRICAL",
+            "INSTRUMENT PANEL",
+            "VEHICLE DIAGNOSTICS",
+            "MECHANICAL",
+            "MISCELLANEOUS OPERATIONS"
+        };
+
+        private static readonly Dictionary<string, Color> _cccSectionColors = new()
+        {
+            ["FRONT BUMPER & GRILLE"] = Color.FromArgb(255, 100, 180, 255),
+            ["REAR BUMPER"] = Color.FromArgb(255, 100, 180, 255),
+            ["FRONT LAMPS"] = Color.FromArgb(255, 130, 190, 255),
+            ["REAR LAMPS"] = Color.FromArgb(255, 130, 190, 255),
+            ["RADIATOR SUPPORT"] = Color.FromArgb(255, 100, 170, 240),
+            ["HOOD"] = Color.FromArgb(255, 100, 180, 255),
+            ["FENDER"] = Color.FromArgb(255, 100, 180, 255),
+            ["FRONT DOOR"] = Color.FromArgb(255, 100, 180, 255),
+            ["REAR DOOR"] = Color.FromArgb(255, 100, 180, 255),
+            ["QUARTER PANEL"] = Color.FromArgb(255, 100, 180, 255),
+            ["ROOF"] = Color.FromArgb(255, 100, 180, 255),
+            ["TRUNK / DECKLID"] = Color.FromArgb(255, 100, 180, 255),
+            ["GLASS"] = Color.FromArgb(255, 130, 200, 240),
+            ["INSTRUMENT PANEL"] = Color.FromArgb(255, 130, 190, 255),
+            ["PILLARS, ROCKER & FLOOR"] = Color.FromArgb(255, 255, 130, 130),
+            ["FRAME"] = Color.FromArgb(255, 255, 130, 130),
+            ["RESTRAINT SYSTEMS"] = Color.FromArgb(255, 255, 100, 100),
+            ["VEHICLE DIAGNOSTICS"] = Color.FromArgb(255, 100, 220, 180),
+            ["ELECTRICAL"] = Color.FromArgb(255, 255, 200, 80),
+            ["MECHANICAL"] = Color.FromArgb(255, 130, 200, 255),
+            ["MISCELLANEOUS OPERATIONS"] = Color.FromArgb(255, 180, 185, 190),
+        };
+
+        /// <summary>
+        /// Maps a coaching suggestion to the correct CCC estimate section
+        /// based on its Category and TriggeredBy (part name).
+        /// </summary>
+        private static string GetCccSection(CoachingSuggestion suggestion)
+        {
+            var cat = suggestion.Category ?? "";
+
+            // Category-based direct mappings (non-part-specific)
+            if (cat.Contains("Electrical", StringComparison.OrdinalIgnoreCase) ||
+                cat.Equals("SOP - Electrical", StringComparison.OrdinalIgnoreCase))
+                return "ELECTRICAL";
+            if (cat.Contains("Diagnostic", StringComparison.OrdinalIgnoreCase) ||
+                cat.Contains("Calibration", StringComparison.OrdinalIgnoreCase) ||
+                cat.Equals("SOP - Vehicle Diagnostics", StringComparison.OrdinalIgnoreCase))
+                return "VEHICLE DIAGNOSTICS";
+            if (cat.Contains("Materials", StringComparison.OrdinalIgnoreCase) ||
+                cat.Equals("SOP - Miscellaneous", StringComparison.OrdinalIgnoreCase) ||
+                cat.Equals("Miscellaneous", StringComparison.OrdinalIgnoreCase))
+                return "MISCELLANEOUS OPERATIONS";
+            if (cat.Contains("Mechanical", StringComparison.OrdinalIgnoreCase))
+                return "MECHANICAL";
+            if (cat.Contains("Restraint", StringComparison.OrdinalIgnoreCase))
+                return "RESTRAINT SYSTEMS";
+
+            // Part-based mapping from TriggeredBy
+            var part = (suggestion.TriggeredBy ?? "").ToLowerInvariant();
+            var title = (suggestion.Title ?? "").ToLowerInvariant();
+            var combined = part + " " + title;
+
+            // Bumper
+            if (combined.Contains("rear bumper")) return "REAR BUMPER";
+            if (combined.Contains("front bumper") || combined.Contains("bumper")) return "FRONT BUMPER & GRILLE";
+            if (combined.Contains("grille") || combined.Contains("grill")) return "FRONT BUMPER & GRILLE";
+
+            // Lamps
+            if (combined.Contains("headlamp") || combined.Contains("headlight") || combined.Contains("head lamp") || combined.Contains("fog l"))
+                return "FRONT LAMPS";
+            if (combined.Contains("tail lamp") || combined.Contains("taillight") || combined.Contains("tail light") || combined.Contains("rear lamp"))
+                return "REAR LAMPS";
+
+            // Radiator support / sight shield
+            if (combined.Contains("radiator support") || combined.Contains("rad support") || combined.Contains("sight shield"))
+                return "RADIATOR SUPPORT";
+
+            // Hood
+            if (combined.Contains("hood")) return "HOOD";
+
+            // Fender
+            if (combined.Contains("fender")) return "FENDER";
+
+            // Doors
+            if (combined.Contains("rear door")) return "REAR DOOR";
+            if (combined.Contains("front door") || combined.Contains("door")) return "FRONT DOOR";
+
+            // Quarter panel
+            if (combined.Contains("quarter") || combined.Contains("qtr panel")) return "QUARTER PANEL";
+
+            // Pillars / rocker
+            if (combined.Contains("pillar") || combined.Contains("rocker")) return "PILLARS, ROCKER & FLOOR";
+
+            // Roof
+            if (combined.Contains("roof")) return "ROOF";
+
+            // Trunk / liftgate
+            if (combined.Contains("trunk") || combined.Contains("decklid") || combined.Contains("liftgate") || combined.Contains("tailgate"))
+                return "TRUNK / DECKLID";
+
+            // Glass
+            if (combined.Contains("windshield") || combined.Contains("back glass") || combined.Contains("glass"))
+                return "GLASS";
+
+            // Frame
+            if (combined.Contains("frame") || combined.Contains("unibody")) return "FRAME";
+
+            // Refinish items without a specific part → Miscellaneous
+            if (cat.Contains("Refinish", StringComparison.OrdinalIgnoreCase) ||
+                cat.Contains("Labor", StringComparison.OrdinalIgnoreCase))
+            {
+                // If the part name tells us where it goes, we'd have matched above.
+                // Otherwise, misc.
+                return "MISCELLANEOUS OPERATIONS";
+            }
+
+            // Mirror, sensor, molding — map by location if possible, otherwise misc
+            if (combined.Contains("mirror")) return "FRONT DOOR"; // Most mirrors are door-mounted
+            if (combined.Contains("sensor") || combined.Contains("camera")) return "VEHICLE DIAGNOSTICS";
+
+            return "MISCELLANEOUS OPERATIONS";
+        }
+
+        /// <summary>
+        /// Returns ALL CCC sections a suggestion belongs to.
+        /// Most suggestions return 1 section, but door-related suggestions triggered by
+        /// both front and rear door parts return both FRONT DOOR and REAR DOOR.
+        /// </summary>
+        private static List<string> GetAllCccSections(CoachingSuggestion suggestion)
+        {
+            var primary = GetCccSection(suggestion);
+            var part = (suggestion.TriggeredBy ?? "").ToLowerInvariant();
+            var title = (suggestion.Title ?? "").ToLowerInvariant();
+            var combined = part + " " + title;
+
+            // If this is a door-related suggestion, check if it applies to both front and rear
+            if (primary == "FRONT DOOR" || primary == "REAR DOOR")
+            {
+                var hasFront = combined.Contains("front door");
+                var hasRear = combined.Contains("rear door");
+                // Generic "door" without front/rear qualifier → show in both
+                var isGeneric = combined.Contains("door") && !hasFront && !hasRear;
+
+                if (isGeneric || (hasFront && hasRear))
+                    return new List<string> { "FRONT DOOR", "REAR DOOR" };
+            }
+
+            return new List<string> { primary };
+        }
+
+        /// <summary>
+        /// Maps an accumulated estimate operation to the correct CCC section
+        /// based on its part name and operation type.
+        /// </summary>
+        private static string GetCccSectionForOp(ParsedEstimateLine op)
+        {
+            var part = (op.PartName ?? "").ToLowerInvariant();
+            var desc = (op.Description ?? "").ToLowerInvariant();
+            var combined = part + " " + desc;
+
+            // Diagnostics / scans / calibration
+            if (combined.Contains("scan") || combined.Contains("calibrat") || combined.Contains("adas") ||
+                combined.Contains("diagnostic") || combined.Contains("oem research"))
+                return "VEHICLE DIAGNOSTICS";
+
+            // Electrical
+            if (combined.Contains("battery") || combined.Contains("electronic reset") ||
+                combined.Contains("electrical") || combined.Contains("wiring"))
+                return "ELECTRICAL";
+
+            // Restraint
+            if (combined.Contains("air bag") || combined.Contains("airbag") || combined.Contains("restraint") ||
+                combined.Contains("seatbelt") || combined.Contains("impact sens"))
+                return "RESTRAINT SYSTEMS";
+
+            // Bumper
+            if (combined.Contains("rear bumper")) return "REAR BUMPER";
+            if (combined.Contains("front bumper") || combined.Contains("bumper")) return "FRONT BUMPER & GRILLE";
+            if (combined.Contains("grille") || combined.Contains("grill")) return "FRONT BUMPER & GRILLE";
+
+            // Lamps
+            if (combined.Contains("headlamp") || combined.Contains("headlight") || combined.Contains("head lamp") || combined.Contains("fog l"))
+                return "FRONT LAMPS";
+            if (combined.Contains("tail lamp") || combined.Contains("taillight") || combined.Contains("tail light") || combined.Contains("rear lamp"))
+                return "REAR LAMPS";
+
+            // Radiator support
+            if (combined.Contains("radiator support") || combined.Contains("rad support") || combined.Contains("sight shield"))
+                return "RADIATOR SUPPORT";
+
+            // Hood
+            if (combined.Contains("hood")) return "HOOD";
+
+            // Fender
+            if (combined.Contains("fender")) return "FENDER";
+
+            // Doors
+            if (combined.Contains("rear door")) return "REAR DOOR";
+            if (combined.Contains("front door") || combined.Contains("door")) return "FRONT DOOR";
+
+            // Quarter
+            if (combined.Contains("quarter") || combined.Contains("qtr panel")) return "QUARTER PANEL";
+
+            // Pillars / rocker
+            if (combined.Contains("pillar") || combined.Contains("rocker")) return "PILLARS, ROCKER & FLOOR";
+
+            // Roof
+            if (combined.Contains("roof")) return "ROOF";
+
+            // Trunk / liftgate
+            if (combined.Contains("trunk") || combined.Contains("decklid") || combined.Contains("liftgate") || combined.Contains("tailgate"))
+                return "TRUNK / DECKLID";
+
+            // Glass
+            if (combined.Contains("windshield") || combined.Contains("back glass") || combined.Contains("glass"))
+                return "GLASS";
+
+            // Frame
+            if (combined.Contains("frame") || combined.Contains("unibody")) return "FRAME";
+
+            // Mirror
+            if (combined.Contains("mirror")) return "FRONT DOOR";
+
+            // Instrument panel / speaker / dash
+            if (combined.Contains("speaker") || combined.Contains("instrument") || combined.Contains("dash"))
+                return "INSTRUMENT PANEL";
+
+            // Mechanical
+            if (combined.Contains("radiator") || combined.Contains("condenser") || combined.Contains("strut") ||
+                combined.Contains("control arm") || combined.Contains("suspension"))
+                return "MECHANICAL";
+
+            // Materials / misc
+            if (combined.Contains("cover car") || combined.Contains("clean") || combined.Contains("mask") ||
+                combined.Contains("grease") || combined.Contains("adhesive") || combined.Contains("hazard") ||
+                combined.Contains("disposal") || combined.Contains("hardware") || combined.Contains("refinish material") ||
+                combined.Contains("spray out") || combined.Contains("color tint") || combined.Contains("sealer") ||
+                combined.Contains("paint") || combined.Contains("primer"))
+                return "MISCELLANEOUS OPERATIONS";
+
+            return "MISCELLANEOUS OPERATIONS";
+        }
+
+        // Valid CCC/Mitchell operation type codes
+        private static readonly HashSet<string> _validOpTypes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Replace", "Repl", "R&I", "Rpr", "Repair", "Refinish", "Refn", "Blend", "Blnd",
+            "O/H", "Sublet", "Subl", "Add", "New", "Algn"
+        };
+
+        // Garbage patterns in part names — UI chrome, part numbers, navigation text
+        private static readonly string[] _garbagePartPatterns = new[]
+        {
+            "app.xaml", "desktop", ".exe", ".dll", ".cs", ".json", ".xml",
+            "workfile", "checkout", "diagnostics", "actions", "filter",
+            "section", "operations", "groups", "description", "recond",
+            "compare", "guide", "motor", "tire", "partcodes", "advisor",
+            "frame", "notes", "hnotes", "save", "print", "edit", "view",
+            "estimate properties", "rates and rules", "delete estimate",
+            "preliminary", "source parts", "line operation", "other charg",
+            "totals", "ext. price", "front view", "rear view", "side view",
+            "exploded view", "top view", "bottom view"
+        };
+
+        private static bool IsValidEstimateOperation(ParsedEstimateLine op)
+        {
+            // Must have a recognized operation type
+            if (string.IsNullOrWhiteSpace(op.OperationType)) return false;
+            if (!_validOpTypes.Contains(op.OperationType.Trim())) return false;
+
+            var partName = op.PartName ?? "";
+            if (partName.Length < 3) return false;
+
+            // Reject garbage with no real letters (dots, bullets, symbols like "• •")
+            if (!System.Text.RegularExpressions.Regex.IsMatch(partName, @"[a-zA-Z]{2,}")) return false;
+
+            var partLower = partName.ToLowerInvariant();
+
+            // Reject purely numeric/price strings
+            if (System.Text.RegularExpressions.Regex.IsMatch(partName, @"^\$?\d[\d,.\s]*$")) return false;
+
+            // Reject part numbers (alphanumeric codes like "24...", "530...", "20...")
+            if (System.Text.RegularExpressions.Regex.IsMatch(partName.Trim(), @"^\d{2,}")) return false;
+
+            // Reject UI chrome and navigation garbage
+            foreach (var pattern in _garbagePartPatterns)
+            {
+                if (partLower.Contains(pattern)) return false;
+            }
+
+            // Reject single-word entries that are common component sub-parts (bolt, nut, rivet, plug, bracket, screw)
+            // These come from CCC parts catalog, not estimate line items
+            var singleWordGarbage = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "bolt", "nut", "rivet", "plug", "screw", "clip", "retainer", "bracket",
+                "fastener", "washer", "spacer", "stud", "pin", "grommet"
+            };
+            var trimmedPart = partName.Trim();
+            if (!trimmedPart.Contains(' ') && singleWordGarbage.Contains(trimmedPart)) return false;
+
+            return true;
         }
 
         private static Color GetOperationTypeColor(string opType)

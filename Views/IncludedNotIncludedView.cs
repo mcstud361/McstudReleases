@@ -242,6 +242,37 @@ namespace McStudDesktop.Views
             RefreshContent();
         }
 
+        private StackPanel CreateNoResultsPanel(string searchTerm, Action<string> onSuggestionClick)
+        {
+            var panel = new StackPanel { Spacing = 10, Margin = new Thickness(8, 16, 8, 8) };
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"No results for '{searchTerm}'",
+                FontSize = 13,
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140))
+            });
+            var tryRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            tryRow.Children.Add(new TextBlock { Text = "Try:", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), VerticalAlignment = VerticalAlignment.Center });
+            foreach (var term in new[] { "quarter panel", "bumper", "door", "refinish" })
+            {
+                var btn = new Button
+                {
+                    Content = term,
+                    FontSize = 11,
+                    Padding = new Thickness(10, 4, 10, 4),
+                    Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 200, 255)),
+                    BorderThickness = new Thickness(0)
+                };
+                var captured = term;
+                btn.Click += (s, e) => onSuggestionClick(captured);
+                tryRow.Children.Add(btn);
+            }
+            panel.Children.Add(tryRow);
+            return panel;
+        }
+
         private void RefreshContent()
         {
             if (_contentPanel == null) return;
@@ -249,6 +280,16 @@ namespace McStudDesktop.Views
 
             if (_resultsCountText != null)
                 _resultsCountText.Text = $"{_filteredOperations.Count} operations";
+
+            if (_filteredOperations.Count == 0 && !string.IsNullOrWhiteSpace(_searchBox?.Text))
+            {
+                _contentPanel.Children.Add(CreateNoResultsPanel(_searchBox!.Text, term =>
+                {
+                    if (_searchBox != null) _searchBox.Text = term;
+                    FilterContent(term);
+                }));
+                return;
+            }
 
             foreach (var operation in _filteredOperations)
             {

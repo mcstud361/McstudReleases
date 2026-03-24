@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using McStudDesktop.Services;
 using McstudDesktop;
+using System.Security.Cryptography;
+using System.Text;
 using Windows.Storage.Pickers;
 using Windows.Storage;
 
@@ -38,6 +40,7 @@ namespace McStudDesktop.Views
         private Button? _learnButton;
         private Button? _buildLinesButton;
         private Button? _clearButton;
+        private Button? _mustHavesButton;
         private Button? _publishButton;
         private Button? _exportBaselineButton;
         private TextBox? _pasteArea;
@@ -61,13 +64,7 @@ namespace McStudDesktop.Views
         private EstimateScoringPanel? _scoringPanel;
         private readonly EstimateScoringService _scoringService;
 
-        // Smart Suggestions UI
-        private Border? _suggestionsSection;
-        private TextBlock? _suggestionsTitle;
-        private TextBlock? _suggestionsSummary;
-        private StackPanel? _suggestionsContainer;
-        private Button? _addSelectedButton;
-        private Button? _addAllHighPriorityButton;
+        // Smart analysis (data only — UI merged into scoring panel)
         private readonly SmartEstimateAnalyzerService _analyzerService;
         private AnalysisResult? _currentAnalysis;
 
@@ -290,7 +287,7 @@ namespace McStudDesktop.Views
             });
             _clientModeText = new TextBlock
             {
-                Text = "Client Mode: You can parse estimates and build operation lines, but learning is disabled. Contact your shop for full access.",
+                Text = "Client Mode: You can parse estimates and scrub for missing ops, but learning is disabled. Contact your shop for full access.",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 200, 150)),
                 TextWrapping = TextWrapping.Wrap,
@@ -432,7 +429,7 @@ namespace McStudDesktop.Views
             Grid.SetColumn(_progressRing, 1);
             resultsHeader.Children.Add(_progressRing);
 
-            // Build Lines button (works for all tiers)
+            // Scrubber button (works for all tiers)
             _buildLinesButton = new Button
             {
                 Content = new StackPanel
@@ -441,8 +438,8 @@ namespace McStudDesktop.Views
                     Spacing = 8,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uE8A5", FontSize = 14 }, // List icon
-                        new TextBlock { Text = "Build Operation Lines", FontSize = 12 }
+                        new FontIcon { Glyph = "\uE7BA", FontSize = 14 }, // Shield/scrub icon
+                        new TextBlock { Text = "Scrubber", FontSize = 12 }
                     }
                 },
                 Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 180)),
@@ -452,9 +449,8 @@ namespace McStudDesktop.Views
             };
             _buildLinesButton.Click += BuildLinesButton_Click;
             ToolTipService.SetToolTip(_buildLinesButton,
-                "BUILD: Generate operation lines for THIS estimate right now.\n" +
-                "Uses knowledge base to suggest operations you can copy/paste into CCC.\n" +
-                "Does NOT save anything - just creates output for immediate use.");
+                "SCRUBBER: Copy all missing items to clipboard.\n" +
+                "Includes must-haves, commonly missed, and learned pattern suggestions.");
 
             // Learn button (Shop/Admin only)
             _learnButton = new Button
@@ -500,15 +496,94 @@ namespace McStudDesktop.Views
             };
             _clearButton.Click += ClearButton_Click;
 
+            // Must-Haves settings button
+            _mustHavesButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE713", FontSize = 13 }, // Gear icon
+                        new TextBlock { Text = "Must-Haves", FontSize = 12 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 90)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            _mustHavesButton.Click += MustHavesButton_Click;
+            ToolTipService.SetToolTip(_mustHavesButton,
+                "Configure which operations must appear on every estimate.\n" +
+                "The Scrub button checks for these plus commonly missed items.");
+
             // Add buttons to a panel
             var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal };
             buttonsPanel.Children.Add(_buildLinesButton);
+            buttonsPanel.Children.Add(_mustHavesButton);
             buttonsPanel.Children.Add(_learnButton);
             buttonsPanel.Children.Add(_clearButton);
             Grid.SetColumn(buttonsPanel, 2);
             resultsHeader.Children.Add(buttonsPanel);
 
             resultsStack.Children.Add(resultsHeader);
+
+            // Legend bar
+            var legendPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 16,
+                Margin = new Thickness(4, 4, 4, 2)
+            };
+
+            // PART legend
+            var partLegend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+            partLegend.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 100, 160)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 1, 5, 1),
+                Child = new TextBlock { Text = "PART", FontSize = 9, Foreground = new SolidColorBrush(Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+            });
+            partLegend.Children.Add(new TextBlock
+            {
+                Text = "Estimate line items",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            legendPanel.Children.Add(partLegend);
+
+            // ADD legend
+            var addLegend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+            addLegend.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 80, 150, 100)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 1, 5, 1),
+                Child = new TextBlock { Text = "ADD", FontSize = 9, Foreground = new SolidColorBrush(Colors.White), FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+            });
+            addLegend.Children.Add(new TextBlock
+            {
+                Text = "Manual operations (#)",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 220, 180)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            legendPanel.Children.Add(addLegend);
+
+            // Indent hint
+            legendPanel.Children.Add(new TextBlock
+            {
+                Text = "\u21b3 indented = belongs to part above",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 110, 110, 110)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            resultsStack.Children.Add(legendPanel);
 
             // Parsed items list
             _parsedItemsList = new ListView
@@ -553,6 +628,20 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255))
             });
             qualityStack.Children.Add(qualityHeader);
+
+            // Explanation note
+            qualityStack.Children.Add(new TextBlock
+            {
+                Text = "Measures data cleanliness \u2014 how well the estimate parsed and whether the numbers " +
+                       "make sense. Checks for missing fields, unusual values, formatting issues, and " +
+                       "outliers. A high score means the data is clean and reliable for learning; a low " +
+                       "score means some lines may have parsing errors or suspicious values. This does " +
+                       "NOT judge whether the estimate is complete \u2014 that\u2019s what the Completeness Score below does.",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 140, 155)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
 
             // Score and grade row
             var scoreRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 4, 0, 0) };
@@ -609,115 +698,6 @@ namespace McStudDesktop.Views
             _scoringPanel.OnAddItems += ScoringPanel_OnAddItems;
             mainStack.Children.Add(_scoringPanel);
 
-            // === SMART SUGGESTIONS SECTION (hidden until analysis runs) ===
-            _suggestionsSection = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 25, 35)),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(16),
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, 12, 0, 0),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 100, 80, 140)),
-                BorderThickness = new Thickness(1)
-            };
-
-            var suggestionsStack = new StackPanel { Spacing = 12 };
-
-            // Suggestions header with icon
-            var suggestionsHeader = new Grid();
-            suggestionsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            suggestionsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            suggestionsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var headerStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-            headerStack.Children.Add(new FontIcon
-            {
-                Glyph = "\uE946", // Lightbulb icon
-                FontSize = 20,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 50))
-            });
-            var suggestionTitleStack = new StackPanel { Spacing = 2 };
-            _suggestionsTitle = new TextBlock
-            {
-                Text = "SMART Suggestions",
-                FontSize = 16,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            suggestionTitleStack.Children.Add(_suggestionsTitle);
-            _suggestionsSummary = new TextBlock
-            {
-                Text = "",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180))
-            };
-            suggestionTitleStack.Children.Add(_suggestionsSummary);
-            headerStack.Children.Add(suggestionTitleStack);
-            Grid.SetColumn(headerStack, 0);
-            Grid.SetColumnSpan(headerStack, 2);
-            suggestionsHeader.Children.Add(headerStack);
-
-            // Action buttons
-            var actionButtonsPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-
-            _addAllHighPriorityButton = new Button
-            {
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE73E", FontSize = 12 }, // Check icon
-                        new TextBlock { Text = "Add High Priority", FontSize = 11 }
-                    }
-                },
-                Background = new SolidColorBrush(Color.FromArgb(255, 180, 80, 50)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 6, 12, 6)
-            };
-            _addAllHighPriorityButton.Click += AddAllHighPriority_Click;
-            ToolTipService.SetToolTip(_addAllHighPriorityButton, "Add all critical and high priority items");
-            actionButtonsPanel.Children.Add(_addAllHighPriorityButton);
-
-            _addSelectedButton = new Button
-            {
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE710", FontSize = 12 }, // Add icon
-                        new TextBlock { Text = "Add Selected", FontSize = 11 }
-                    }
-                },
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 120, 80)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 6, 12, 6)
-            };
-            _addSelectedButton.Click += AddSelected_Click;
-            ToolTipService.SetToolTip(_addSelectedButton, "Add selected suggestions to the estimate");
-            actionButtonsPanel.Children.Add(_addSelectedButton);
-
-            Grid.SetColumn(actionButtonsPanel, 2);
-            suggestionsHeader.Children.Add(actionButtonsPanel);
-
-            suggestionsStack.Children.Add(suggestionsHeader);
-
-            // Suggestions container (scrollable)
-            var suggestionsScroll = new ScrollViewer
-            {
-                MaxHeight = 400,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            };
-            _suggestionsContainer = new StackPanel { Spacing = 4 };
-            suggestionsScroll.Content = _suggestionsContainer;
-            suggestionsStack.Children.Add(suggestionsScroll);
-
-            _suggestionsSection.Child = suggestionsStack;
-            mainStack.Children.Add(_suggestionsSection);
-
             // === REFERENCE MATCH STATUS ===
             _refMatchStatusText = new TextBlock
             {
@@ -771,7 +751,7 @@ namespace McStudDesktop.Views
             {
                 Text = "WHAT THIS TAB DOES\n" +
                        "Feed it an estimate (PDF or pasted text) and it reads every line — parts, labor,\n" +
-                       "refinish, additional ops — so you can analyze it, learn from it, or build new lines.\n\n" +
+                       "refinish, additional ops — so you can analyze it, learn from it, or scrub for missing ops.\n\n" +
                        "STEP BY STEP\n" +
                        "1. GET THE ESTIMATE IN\n" +
                        "   • PDF: Click \"Upload Estimate Files\" or drag-drop the file onto the box above.\n" +
@@ -783,16 +763,17 @@ namespace McStudDesktop.Views
                        "   The parser auto-detects CCC ONE, Mitchell, or Audatex format and normalizes\n" +
                        "   shorthand (LT→Left, Frt→Front, Bpr→Bumper, R&I→Remove & Install, etc.).\n\n" +
                        "3. CHOOSE WHAT TO DO WITH IT\n" +
-                       "   • \"Build Operation Lines\" — Generates suggested operations for THIS estimate\n" +
-                       "     right now. Uses the knowledge base to find ops you might be missing.\n" +
+                       "   • \"Scrub Estimate\" — Scrubs this estimate for missing operations right now.\n" +
+                       "     Uses the knowledge base to find ops you might be missing.\n" +
                        "     Nothing is saved — just gives you lines you can copy into CCC.\n" +
                        "   • \"Learn from This\" — Saves the patterns from this estimate for the FUTURE.\n" +
                        "     Next time you see \"Front Bumper + Replace\", McStud remembers what ops\n" +
                        "     usually go with it. Data goes to the Learned tab for searching later.\n\n" +
-                       "4. SMART SUGGESTIONS (appears after parsing)\n" +
-                       "   If the knowledge base spots missing items (adhesion promoter, flex additive,\n" +
-                       "   blend operations, etc.) they show up in the purple Suggestions panel.\n" +
-                       "   Hit \"Add High Priority\" to grab the important ones, or cherry-pick individually.\n\n" +
+                       "4. COMPLETENESS SCORING (appears after parsing)\n" +
+                       "   Scores your estimate for missing items (adhesion promoter, flex additive,\n" +
+                       "   blend operations, scans, calibrations, etc.). Items from both the scoring\n" +
+                       "   engine and smart analyzer are combined in one unified panel.\n" +
+                       "   Hit \"Fix All Critical\" to grab the important ones, or cherry-pick individually.\n\n" +
                        "5. QUALITY SCORE (appears after parsing)\n" +
                        "   Shows how complete/consistent the estimate looks. Outlier estimates can still\n" +
                        "   be learned from — just check the \"Include outliers\" box if you want to keep them.",
@@ -1042,8 +1023,9 @@ namespace McStudDesktop.Views
 
                             System.Diagnostics.Debug.WriteLine($"[Import] {file.Name}: {estimate.Source} estimate, {estimate.LineItems.Count} items, Vehicle: {estimate.VehicleInfo}");
 
-                            // Auto-save to Estimate History Database and mine for patterns
-                            EstimatePersistenceHelper.PersistAndMine(estimate);
+                            // Auto-save to Estimate History Database and mine for patterns (background)
+                            var est = estimate;
+                            _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(est));
                         }
                         else
                         {
@@ -1057,9 +1039,9 @@ namespace McStudDesktop.Views
                                 totalParts += parsed.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                                 totalManualLines += parsed.Count(p => p.IsManualLine);
 
-                                // Persist fallback-parsed PDF to history
+                                // Persist fallback-parsed PDF to history (background)
                                 var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
-                                EstimatePersistenceHelper.PersistAndMine(fallbackEstimate);
+                                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(fallbackEstimate));
                             }
                         }
                     }
@@ -1075,9 +1057,9 @@ namespace McStudDesktop.Views
                             totalParts += parsed.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                             totalManualLines += parsed.Count(p => p.IsManualLine);
 
-                            // Persist text/CSV file to history
+                            // Persist text/CSV file to history (background)
                             var csvEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
-                            EstimatePersistenceHelper.PersistAndMine(csvEstimate);
+                            _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(csvEstimate));
                         }
                     }
                 }
@@ -1102,7 +1084,7 @@ namespace McStudDesktop.Views
             ShowStatus($"Processed {files.Count} file(s): {totalParts} parts, {totalManualLines} additional operations ready to learn");
 
             // Run SMART analysis for suggestions
-            RunSmartAnalysis();
+            await RunSmartAnalysisAsync();
         }
 
         /// <summary>
@@ -1171,6 +1153,7 @@ namespace McStudDesktop.Views
             {
                 RawLine = item.RawLine,
                 Description = item.Description,
+                OriginalDescription = item.OriginalDescription,
                 PartName = item.PartName,
                 OperationType = item.OperationType,
                 Category = item.Section,
@@ -1186,7 +1169,7 @@ namespace McStudDesktop.Views
             };
         }
 
-        private void ParsePastedText_Click(object sender, RoutedEventArgs e)
+        private async void ParsePastedText_Click(object sender, RoutedEventArgs e)
         {
             var text = _pasteArea?.Text;
             if (string.IsNullOrWhiteSpace(text))
@@ -1223,12 +1206,12 @@ namespace McStudDesktop.Views
 
                 ShowStatus($"SMART Parse: {parts} parts, {additionalOps} additional operations detected", isSuccess: true);
 
-                // Persist pasted text estimate to history
+                // Persist pasted text estimate to history (background)
                 estimate.SourceFile = "TextPaste";
-                EstimatePersistenceHelper.PersistAndMine(estimate);
+                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
 
                 // Run SMART analysis for suggestions
-                RunSmartAnalysis();
+                await RunSmartAnalysisAsync();
             }
             else
             {
@@ -1245,12 +1228,12 @@ namespace McStudDesktop.Views
 
                 ShowStatus($"Parsed {_parsedLines.Count} lines: {parts} parts, {manualLines} manual lines");
 
-                // Persist fallback-parsed text paste to history
+                // Persist fallback-parsed text paste to history (background)
                 var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(_parsedLines, text, "TextPaste");
-                EstimatePersistenceHelper.PersistAndMine(fallbackEstimate);
+                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(fallbackEstimate));
 
                 // Run SMART analysis for suggestions
-                RunSmartAnalysis();
+                await RunSmartAnalysisAsync();
             }
         }
 
@@ -1263,10 +1246,11 @@ namespace McStudDesktop.Views
             foreach (var line in _parsedLines.Take(100)) // Limit display
             {
                 // Section header detection
+                var sectionText = !string.IsNullOrEmpty(line.OriginalDescription) ? line.OriginalDescription : line.PartName;
                 if (!line.IsManualLine && string.IsNullOrEmpty(line.OperationType) &&
-                    !string.IsNullOrEmpty(line.PartName) && line.PartName == line.PartName.ToUpper())
+                    !string.IsNullOrEmpty(sectionText) && sectionText == sectionText.ToUpper())
                 {
-                    currentSection = line.PartName;
+                    currentSection = sectionText;
                     // Add section header
                     var sectionHeader = new Border
                     {
@@ -1302,13 +1286,45 @@ namespace McStudDesktop.Views
             }
         }
 
+        private bool IsSuspectLine(ParsedEstimateLine line)
+        {
+            if (line.IsManualLine) return false;
+            // Missing both PartName and Description
+            if (string.IsNullOrEmpty(line.PartName) && string.IsNullOrEmpty(line.Description)) return true;
+            // Has part but all values zero
+            if (!string.IsNullOrEmpty(line.PartName) && line.LaborHours == 0 && line.RefinishHours == 0 && line.Price == 0) return true;
+            // Outlier price
+            if (line.Price < 0 || line.Price > 5000) return true;
+            // Outlier hours
+            if (line.LaborHours > 20 || line.RefinishHours > 20) return true;
+            return false;
+        }
+
+        private string GetSuspectReason(ParsedEstimateLine line)
+        {
+            var reasons = new List<string>();
+            if (string.IsNullOrEmpty(line.PartName) && string.IsNullOrEmpty(line.Description))
+                reasons.Add("Missing part name and description");
+            if (!string.IsNullOrEmpty(line.PartName) && line.LaborHours == 0 && line.RefinishHours == 0 && line.Price == 0)
+                reasons.Add("Part has no labor, refinish, or price");
+            if (line.Price < 0) reasons.Add($"Negative price: ${line.Price:N2}");
+            if (line.Price > 5000) reasons.Add($"High price: ${line.Price:N2}");
+            if (line.LaborHours > 20) reasons.Add($"High labor hours: {line.LaborHours:F1}");
+            if (line.RefinishHours > 20) reasons.Add($"High refinish hours: {line.RefinishHours:F1}");
+            return string.Join("\n", reasons);
+        }
+
         private Border CreateParsedLineItem(ParsedEstimateLine line)
         {
+            bool isSuspect = IsSuspectLine(line);
+
             var border = new Border
             {
                 Background = line.IsManualLine
                     ? new SolidColorBrush(Color.FromArgb(255, 35, 45, 40))  // Greenish tint for additional ops
-                    : new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
+                    : isSuspect
+                        ? new SolidColorBrush(Color.FromArgb(255, 60, 50, 35))  // Amber tint for suspect lines
+                        : new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
                 Padding = new Thickness(8, 5, 8, 5),
                 Margin = new Thickness(line.IsManualLine ? 20 : 0, 1, 0, 1),  // Indent additional ops more
                 CornerRadius = new CornerRadius(3)
@@ -1365,6 +1381,27 @@ namespace McStudDesktop.Views
                 Grid.SetColumn(partBadge, 0);
                 grid.Children.Add(partBadge);
             }
+            else if (isSuspect)
+            {
+                var warnBadge = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 180, 140, 50)),
+                    CornerRadius = new CornerRadius(3),
+                    Padding = new Thickness(4, 1, 4, 1),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                warnBadge.Child = new TextBlock
+                {
+                    Text = "\u26A0",
+                    FontSize = 8,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Colors.White)
+                };
+                ToolTipService.SetToolTip(warnBadge, GetSuspectReason(line));
+                Grid.SetColumn(warnBadge, 0);
+                grid.Children.Add(warnBadge);
+            }
 
             // Operation type
             if (!string.IsNullOrEmpty(line.OperationType))
@@ -1380,14 +1417,10 @@ namespace McStudDesktop.Views
                 grid.Children.Add(opText);
             }
 
-            // Description (show normalized part name for main parts)
-            var desc = !string.IsNullOrEmpty(line.PartName) ? line.PartName :
-                       !string.IsNullOrEmpty(line.Description) ? line.Description : line.RawLine;
-            if (line.IsManualLine && !string.IsNullOrEmpty(line.Description))
-            {
-                // For additional ops, show the operation description, not part name
-                desc = line.Description;
-            }
+            // Description — show original estimate wording to match the estimate format
+            var desc = !string.IsNullOrEmpty(line.OriginalDescription) ? line.OriginalDescription :
+                       !string.IsNullOrEmpty(line.Description) ? line.Description :
+                       !string.IsNullOrEmpty(line.PartName) ? line.PartName : line.RawLine;
             if (desc.Length > 55) desc = desc.Substring(0, 55) + "...";
 
             var descText = new TextBlock
@@ -1456,111 +1489,123 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
-        /// Build operation lines from parsed estimate.
-        /// This is available to ALL license tiers.
+        /// Scrubber: copy scoring results to clipboard.
+        /// Reads from the scoring panel's current result (which already includes
+        /// must-haves, commonly missed, smart suggestions, and learned patterns).
         /// </summary>
-        private async void BuildLinesButton_Click(object sender, RoutedEventArgs e)
+        private void BuildLinesButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_parsedLines.Count == 0)
+            var result = _scoringPanel?.CurrentResult;
+            if (result == null || result.Issues.Count == 0)
             {
-                ShowStatus("No data to build lines from", isError: true);
+                if (_parsedLines.Count == 0)
+                    ShowStatus("No data to scrub — upload or paste an estimate first", isError: true);
+                else
+                    ShowStatus("Scrubber found no missing items. This estimate looks complete!", isError: false);
                 return;
             }
 
-            ShowProgress(true);
-            _buildLinesButton!.IsEnabled = false;
-
             try
             {
-                // Generate operation lines using the learning service's pattern matching
-                // This works without training - it uses existing learned patterns
-                var operationLines = new List<string>();
-                var patternsUsed = new List<string>();  // Track for feedback
-                int suggestionsFound = 0;
+                var outputLines = new List<string>();
 
-                await Task.Run(() =>
+                // Section A — Must-have / Scoring issues
+                var scoringIssues = result.Issues
+                    .Where(i => i.Source == "Scoring" || i.Source == null)
+                    .ToList();
+                if (scoringIssues.Count > 0)
                 {
-                    foreach (var line in _parsedLines.Where(p => !string.IsNullOrEmpty(p.PartName)))
+                    outputLines.Add($"\u2550\u2550\u2550 MUST-HAVE / SCORING ISSUES ({scoringIssues.Count} items) \u2550\u2550\u2550");
+                    foreach (var issue in scoringIssues)
                     {
-                        // Get operations for this part using learned patterns
-                        var operations = _learningService.GenerateOperations(line);
-
-                        // Generate pattern key for feedback tracking
-                        var patternKey = $"{line.PartName.ToLowerInvariant()}|{line.OperationType?.ToLowerInvariant() ?? "unknown"}";
-
-                        if (operations.Count > 0)
-                        {
-                            patternsUsed.Add(patternKey);
-                        }
-
-                        foreach (var op in operations)
-                        {
-                            var lineText = $"{op.OperationType}: {op.Description}";
-                            if (op.LaborHours > 0)
-                                lineText += $" | Labor: {op.LaborHours:F1}";
-                            if (op.RefinishHours > 0)
-                                lineText += $" | Refinish: {op.RefinishHours:F1}";
-                            if (op.Confidence > 0)
-                                lineText += $" | Conf: {op.Confidence:P0}";
-
-                            operationLines.Add(lineText);
-                            suggestionsFound++;
-                        }
-
-                        // Also check for manual line patterns (available to all tiers for reading)
-                        var manualPattern = _learningService.GetManualLinesForPart(line.PartName, line.OperationType);
-                        if (manualPattern != null)
-                        {
-                            foreach (var manual in manualPattern.ManualLines)
-                            {
-                                var manualLine = $"  # {manual.ManualLineType}";
-                                if (manual.LaborUnits > 0)
-                                    manualLine += $" | Labor: {manual.LaborUnits:F1}";
-                                if (manual.RefinishUnits > 0)
-                                    manualLine += $" | Refinish: {manual.RefinishUnits:F1}";
-                                if (manual.AvgPrice > 0)
-                                    manualLine += $" | ~${manual.AvgPrice:F0}";
-                                if (manual.TimesUsed > 1)
-                                    manualLine += $" ({manual.TimesUsed}x)";
-                                operationLines.Add(manualLine);
-                                suggestionsFound++;
-                            }
-                        }
+                        var line = $"\u2717 {issue.Title}";
+                        if (issue.SuggestedFix?.LaborHours > 0)
+                            line += $" | Labor: {issue.SuggestedFix.LaborHours:F1}";
+                        if (issue.SuggestedFix?.EstimatedCost > 0)
+                            line += $" | ~${issue.SuggestedFix.EstimatedCost:N2}";
+                        if (issue.Severity == IssueSeverity.Critical)
+                            line += " | CRITICAL";
+                        else if (!string.IsNullOrEmpty(issue.WhyNeeded))
+                            line += $" | {issue.WhyNeeded}";
+                        outputLines.Add(line);
                     }
-                });
-
-                // Track feedback for patterns used - they're being "accepted" by copying
-                foreach (var patternKey in patternsUsed.Distinct())
-                {
-                    _feedbackService.RecordOperationGenerated(patternKey, "build_lines");
-                    // Count as accepted since user is copying to clipboard to use
-                    _feedbackService.RecordOperationAccepted(patternKey, "build_lines");
+                    outputLines.Add("");
                 }
 
-                // Copy to clipboard
-                var clipboardText = string.Join("\n", operationLines);
+                // Section B — Smart / commonly missed
+                var smartIssues = result.Issues
+                    .Where(i => i.Source == "Smart")
+                    .ToList();
+                if (smartIssues.Count > 0)
+                {
+                    outputLines.Add($"\u2550\u2550\u2550 COMMONLY MISSED FOR THIS ESTIMATE ({smartIssues.Count} items) \u2550\u2550\u2550");
+                    foreach (var issue in smartIssues)
+                    {
+                        var line = $"\u25ba {issue.TriggeredBy} \u2192 {issue.Title}";
+                        if (issue.SuggestedFix?.LaborHours > 0)
+                            line += $" | Labor: {issue.SuggestedFix.LaborHours:F1}";
+                        if (issue.SuggestedFix?.EstimatedCost > 0)
+                            line += $" | ~${issue.SuggestedFix.EstimatedCost:N2}";
+                        if (!string.IsNullOrEmpty(issue.WhyNeeded))
+                            line += $" | {issue.WhyNeeded}";
+                        outputLines.Add(line);
+                    }
+                    outputLines.Add("");
+                }
+
+                // Section C — Learned pattern suggestions
+                var learnedIssues = result.Issues
+                    .Where(i => i.Source == "Learned")
+                    .ToList();
+                if (learnedIssues.Count > 0)
+                {
+                    outputLines.Add($"\u2550\u2550\u2550 LEARNED PATTERN SUGGESTIONS ({learnedIssues.Count} items) \u2550\u2550\u2550");
+                    foreach (var issue in learnedIssues)
+                    {
+                        var line = $"{issue.Description}";
+                        if (issue.SuggestedFix?.LaborHours > 0)
+                            line += $" | Labor: {issue.SuggestedFix.LaborHours:F1}";
+                        if (issue.SuggestedFix?.EstimatedCost > 0)
+                            line += $" | ~${issue.SuggestedFix.EstimatedCost:F0}";
+                        if (!string.IsNullOrEmpty(issue.WhyNeeded))
+                            line += $" | {issue.WhyNeeded}";
+                        outputLines.Add(line);
+                    }
+                    outputLines.Add("");
+                }
+
+                // Section D — Not-included operations from P-Pages/CEG/DEG
+                var pPageIssues = result.Issues
+                    .Where(i => i.Source == "PPage")
+                    .ToList();
+                if (pPageIssues.Count > 0)
+                {
+                    outputLines.Add($"\u2550\u2550\u2550 NOT-INCLUDED OPERATIONS (P-Pages/CEG/DEG) ({pPageIssues.Count} items) \u2550\u2550\u2550");
+                    foreach (var issue in pPageIssues)
+                    {
+                        var line = $"- {issue.Title}: {issue.Description}";
+                        if (!string.IsNullOrEmpty(issue.WhyNeeded))
+                            line += $" [Source: {issue.WhyNeeded}]";
+                        outputLines.Add(line);
+                    }
+                }
+
+                var totalSuggestions = result.Issues.Count;
+                var clipboardText = string.Join("\n", outputLines);
                 var dataPackage = new Windows.ApplicationModel.DataTransfer.DataPackage();
                 dataPackage.SetText(clipboardText);
                 Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
 
-                // Notify health service of feedback
-                _healthService.OnFeedbackRecorded();
-
-                ShowStatus($"Built {suggestionsFound} operation lines and copied to clipboard!", isSuccess: true);
-
-                if (suggestionsFound == 0)
-                {
-                    ShowStatus("No matching patterns found. Import more estimates (with Shop license) to build the knowledge base.", isError: false);
-                }
+                var parts = new List<string>();
+                if (scoringIssues.Count > 0) parts.Add($"{scoringIssues.Count} scoring");
+                if (smartIssues.Count > 0) parts.Add($"{smartIssues.Count} commonly missed");
+                if (learnedIssues.Count > 0) parts.Add($"{learnedIssues.Count} learned");
+                if (pPageIssues.Count > 0) parts.Add($"{pPageIssues.Count} P-Page");
+                ShowStatus($"Scrubber: {totalSuggestions} items ({string.Join(", ", parts)}) — copied to clipboard!", isSuccess: true);
             }
             catch (Exception ex)
             {
-                ShowStatus($"Error building lines: {ex.Message}", isError: true);
-            }
-            finally
-            {
-                ShowProgress(false);
-                _buildLinesButton!.IsEnabled = true;
+                ShowStatus($"Error copying scrubber results: {ex.Message}", isError: true);
             }
         }
 
@@ -1568,11 +1613,29 @@ namespace McStudDesktop.Views
         {
             _parsedLines.Clear();
             _parsedItemsList!.Items.Clear();
+            _currentAnalysis = null;
+            _currentQualityRecord = null;
             _resultsSection!.Visibility = Visibility.Collapsed;
             _qualitySection!.Visibility = Visibility.Collapsed;
-            _suggestionsSection!.Visibility = Visibility.Collapsed;
+            _scoringPanel!.Reset();
+            _scoringPanel.Visibility = Visibility.Collapsed;
+            if (_learningSummarySection != null)
+                _learningSummarySection.Visibility = Visibility.Collapsed;
+            if (_pasteArea != null)
+                _pasteArea.Text = "";
             ShowProgress(false);
             ShowStatus("Cleared. Drop or paste a new estimate to start over.");
+        }
+
+
+        private async void MustHavesButton_Click(object sender, RoutedEventArgs e)
+        {
+            var saved = await MustHavesDialog.ShowAsync(this.XamlRoot);
+            if (saved)
+            {
+                var enabledCount = GhostConfigService.Instance.GetMustHaves().Count(m => m.Enabled);
+                ShowStatus($"Must-haves updated: {enabledCount} items enabled. Hit Scrub to check the estimate.", isSuccess: true);
+            }
         }
 
         private async void LearnButton_Click(object sender, RoutedEventArgs e)
@@ -1597,7 +1660,7 @@ namespace McStudDesktop.Views
                 UpdateQualityPanel(_currentQualityRecord);
             }
 
-            // Check if quality is too low (and not in bootstrap mode)
+            // Check if quality is too low (skip during initial import phase)
             if (!_qualityService.IsBootstrapMode() &&
                 _currentQualityRecord.Grade == QualityGrade.Rejected &&
                 _includeOutliersCheckbox?.IsChecked != true)
@@ -1666,8 +1729,9 @@ namespace McStudDesktop.Views
                 var parts = _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                 var manual = _parsedLines.Count(p => p.IsManualLine);
 
-                // Record learn event for Stats tab charts
-                new ExportStatisticsService().RecordLearn(parts, manual, estimateTotal);
+                // Record learn event for Stats tab charts (fingerprinted to track repeats)
+                var fingerprint = ComputeEstimateFingerprint(_parsedLines, estimateTotal);
+                var occurrence = new ExportStatisticsService().RecordLearn(parts, manual, estimateTotal, fingerprint);
 
                 // Notify health service
                 _healthService.OnTrainingCompleted(parts, 1);
@@ -1677,12 +1741,11 @@ namespace McStudDesktop.Views
 
                 UpdateStats();
 
-                var qualityNote = _qualityService.IsBootstrapMode()
-                    ? " (Bootstrap mode)"
-                    : $" (Quality: {_currentQualityRecord.QualityScore}/100)";
+                var qualityNote = $" (Quality: {_currentQualityRecord.QualityScore}/100)";
 
                 var destination = _learningService.CanTrainStandard ? "standard" : "personal";
-                ShowStatus($"Learned to {destination} (${estimateTotal:N0}): {parts} parts, {manual} operations{qualityNote}", isSuccess: true);
+                var repeatNote = occurrence > 1 ? $" (seen {occurrence}x)" : "";
+                ShowStatus($"Learned to {destination} (${estimateTotal:N0}): {parts} parts, {manual} operations{qualityNote}{repeatNote}", isSuccess: true);
 
                 // Notify listeners about training completion
                 OnTrainingCompleted?.Invoke(this, new TrainingCompletedEventArgs
@@ -1696,13 +1759,15 @@ namespace McStudDesktop.Views
                 // Post AI summary to chat feed
                 PostTrainingSummaryToChat(parts, manual, estimateTotal);
 
-                // Clear for next batch
+                // Clear parsed data but keep UI visible so Clear button stays accessible
                 _parsedLines.Clear();
                 _parsedItemsList!.Items.Clear();
-                _pasteArea!.Text = "";
-                _resultsSection!.Visibility = Visibility.Collapsed;
+                if (_pasteArea != null)
+                    _pasteArea.Text = "";
+                // Don't collapse _resultsSection — the Clear button is inside it
                 _qualitySection!.Visibility = Visibility.Collapsed;
-                _suggestionsSection!.Visibility = Visibility.Collapsed;
+                _scoringPanel!.Reset();
+                _scoringPanel.Visibility = Visibility.Collapsed;
                 _currentQualityRecord = null;
             }
             catch (Exception ex)
@@ -1741,15 +1806,7 @@ namespace McStudDesktop.Views
             _qualityGradeText.Foreground = new SolidColorBrush(gradeColor);
 
             // Learning weight
-            if (_qualityService.IsBootstrapMode())
-            {
-                var (current, required) = _qualityService.GetBootstrapProgress();
-                _qualityWeightText!.Text = $"Bootstrap Mode ({current}/{required} estimates)";
-            }
-            else
-            {
-                _qualityWeightText!.Text = $"Learning Weight: {quality.LearningWeight:F2}x";
-            }
+            _qualityWeightText!.Text = $"Learning Weight: {quality.LearningWeight:F2}x";
 
             // Flags
             _qualityFlagsPanel!.Children.Clear();
@@ -1986,6 +2043,31 @@ namespace McStudDesktop.Views
                 isSuccess ? Color.FromArgb(255, 100, 220, 150) :
                 Color.FromArgb(255, 180, 180, 180)
             );
+        }
+
+        /// <summary>
+        /// Generates a short hash from the parsed estimate lines so we can detect duplicate learns.
+        /// Uses sorted part names + operation types + prices + total to create a deterministic fingerprint.
+        /// </summary>
+        private static string ComputeEstimateFingerprint(List<ParsedEstimateLine> lines, decimal total)
+        {
+            var sb = new StringBuilder();
+            // Sort by part name then op type for deterministic ordering
+            foreach (var line in lines.OrderBy(l => l.PartName, StringComparer.OrdinalIgnoreCase)
+                                      .ThenBy(l => l.OperationType, StringComparer.OrdinalIgnoreCase))
+            {
+                sb.Append(line.PartName?.ToLowerInvariant().Trim() ?? "");
+                sb.Append('|');
+                sb.Append(line.OperationType?.ToLowerInvariant().Trim() ?? "");
+                sb.Append('|');
+                sb.Append(line.Price.ToString("F2"));
+                sb.Append(';');
+            }
+            sb.Append(total.ToString("F2"));
+
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
+            // Use first 8 bytes for a compact fingerprint (16 hex chars)
+            return Convert.ToHexString(bytes, 0, 8);
         }
 
         private void BuildLearningSummary(List<ParsedEstimateLine> parsedLines, decimal estimateTotal, EstimateQualityRecord? quality)
@@ -2241,7 +2323,7 @@ namespace McStudDesktop.Views
                 var sb = new System.Text.StringBuilder();
                 sb.AppendLine($"\u2705 Learned from estimate (${estimateTotal:N0})");
                 sb.AppendLine($"   {parts} parts, {manual} operations absorbed");
-                sb.AppendLine($"   AI now trained on {stats.TotalEstimatesTrained} estimates | {stats.TotalPatterns} patterns");
+                sb.AppendLine($"   Now trained on {stats.TotalEstimatesTrained} estimates | {stats.TotalPatterns} patterns");
 
                 var insurers = history.KnownInsurers;
                 if (insurers?.Count > 0)
@@ -2271,13 +2353,13 @@ namespace McStudDesktop.Views
         #region Smart Analysis
 
         /// <summary>
-        /// Run SMART analysis on parsed lines and display suggestions
+        /// Run unified analysis: quality + scoring + smart suggestions merged into one panel.
+        /// Heavy computation runs on background thread; UI updates marshal back to dispatcher.
         /// </summary>
-        private void RunSmartAnalysis()
+        private async Task RunSmartAnalysisAsync()
         {
             if (_parsedLines.Count == 0)
             {
-                _suggestionsSection!.Visibility = Visibility.Collapsed;
                 _qualitySection!.Visibility = Visibility.Collapsed;
                 _scoringPanel!.Visibility = Visibility.Collapsed;
                 return;
@@ -2285,27 +2367,87 @@ namespace McStudDesktop.Views
 
             try
             {
-                // Run quality assessment
-                _currentQualityRecord = _qualityService.AssessQuality(_parsedLines);
-                UpdateQualityPanel(_currentQualityRecord);
+                // Snapshot the lines for background processing
+                var linesSnapshot = _parsedLines.ToList();
 
-                // Run estimate completeness scoring
-                RunEstimateScoring();
-
-                // Run SMART suggestions analysis
-                _currentAnalysis = _analyzerService.AnalyzeEstimate(_parsedLines);
-
-                if (_currentAnalysis.Suggestions.Count > 0)
+                // Run heavy computation on background thread
+                var (qualityRecord, scoringResult, analysis) = await Task.Run(() =>
                 {
-                    DisplaySuggestions(_currentAnalysis);
-                    _suggestionsSection!.Visibility = Visibility.Visible;
+                    // Run quality assessment
+                    var qr = _qualityService.AssessQuality(linesSnapshot);
 
-                    System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Found {_currentAnalysis.Suggestions.Count} suggestions");
-                }
-                else
+                    // Run estimate completeness scoring
+                    EstimateScoringResult? sr = null;
+                    try
+                    {
+                        string? vehicleInfo = null;
+                        var vehicleLine = linesSnapshot.FirstOrDefault(l =>
+                            !string.IsNullOrEmpty(l.PartName) &&
+                            (l.PartName.ToLowerInvariant().Contains("vehicle") ||
+                             l.PartName.Contains(" VIN") ||
+                             System.Text.RegularExpressions.Regex.IsMatch(l.PartName, @"\d{4}\s+\w+")));
+                        if (vehicleLine != null)
+                            vehicleInfo = vehicleLine.PartName;
+
+                        sr = _scoringService.ScoreEstimate(linesSnapshot, vehicleInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Scoring] Error: {ex.Message}");
+                    }
+
+                    // Run smart suggestions analysis
+                    AnalysisResult? sa = null;
+                    if (sr != null)
+                    {
+                        foreach (var issue in sr.Issues)
+                            issue.Source ??= "Scoring";
+
+                        sa = _analyzerService.AnalyzeEstimate(linesSnapshot);
+
+                        if (sa.Suggestions.Count > 0)
+                        {
+                            var smartIssues = EstimateScoringService.ConvertFromSuggestions(sa.Suggestions);
+                            MergeIssuesWithDedup(sr, smartIssues);
+                            System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Merged {smartIssues.Count} smart suggestions into scoring panel");
+                        }
+
+                        // Merge learned patterns into scoring
+                        var learnedIssues = new List<ScoringIssue>();
+                        foreach (var line in linesSnapshot.Where(l => !string.IsNullOrEmpty(l.PartName)))
+                        {
+                            var ops = _learningService.GenerateOperations(line);
+                            var manualPattern = _learningService.GetManualLinesForPart(line.PartName, line.OperationType);
+                            if (ops.Count > 0 || manualPattern != null)
+                            {
+                                var converted = EstimateScoringService.ConvertFromLearnedOperations(ops, manualPattern, line.PartName);
+                                learnedIssues.AddRange(converted);
+                            }
+                        }
+                        if (learnedIssues.Count > 0)
+                        {
+                            MergeIssuesWithDedup(sr, learnedIssues);
+                            System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Merged {learnedIssues.Count} learned patterns into scoring panel");
+                        }
+
+                        _scoringService.RecalculateScore(sr);
+                    }
+
+                    return (qr, sr, sa);
+                });
+
+                // Update UI on main thread
+                _currentQualityRecord = qualityRecord;
+                UpdateQualityPanel(qualityRecord);
+
+                if (scoringResult != null)
                 {
-                    _suggestionsSection!.Visibility = Visibility.Collapsed;
+                    _scoringPanel!.UpdateScore(scoringResult);
+                    _scoringPanel.Visibility = Visibility.Visible;
+                    System.Diagnostics.Debug.WriteLine($"[Scoring] Unified score: {scoringResult.OverallScore}%, Issues: {scoringResult.Issues.Count}");
                 }
+
+                _currentAnalysis = analysis;
 
                 // Run reference matching to auto-populate PDF queue
                 _ = RunReferenceMatchingAsync();
@@ -2313,7 +2455,56 @@ namespace McStudDesktop.Views
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Error: {ex.Message}");
-                _suggestionsSection!.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// Normalize a dedup key by stripping "Missing: " and "Need N more: " prefixes
+        /// so that the same underlying item doesn't appear multiple times.
+        /// </summary>
+        private static string NormalizeDedupKey(string title)
+        {
+            var t = title.ToLowerInvariant().Trim();
+            if (t.StartsWith("missing: "))
+                t = t.Substring(9);
+            else if (t.StartsWith("need "))
+            {
+                var colonIdx = t.IndexOf(':');
+                if (colonIdx > 0 && colonIdx < t.Length - 1)
+                    t = t.Substring(colonIdx + 1).TrimStart();
+            }
+            return t;
+        }
+
+        /// <summary>
+        /// Merge smart-sourced issues into the scoring result, deduplicating by normalized title+category.
+        /// Scoring issues win on collision (they have full-weight point deductions).
+        /// </summary>
+        private static void MergeIssuesWithDedup(EstimateScoringResult result, List<ScoringIssue> smartIssues)
+        {
+            var existingKeys = new HashSet<string>(
+                result.Issues.Select(i => $"{NormalizeDedupKey(i.Title)}|{i.Category}"));
+
+            foreach (var smart in smartIssues)
+            {
+                var key = $"{NormalizeDedupKey(smart.Title)}|{smart.Category}";
+                if (!existingKeys.Contains(key))
+                {
+                    result.Issues.Add(smart);
+                    existingKeys.Add(key);
+                }
+            }
+
+            // Safety cap after merge
+            const int MaxIssues = 500;
+            if (result.Issues.Count > MaxIssues)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[EstimateUpload] WARNING: {result.Issues.Count} issues after merge exceeded cap of {MaxIssues}, truncating.");
+                result.Issues = result.Issues
+                    .OrderByDescending(i => i.Severity)
+                    .ThenByDescending(i => i.PointDeduction)
+                    .Take(MaxIssues).ToList();
             }
         }
 
@@ -2345,9 +2536,9 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
-        /// Run estimate completeness scoring and update the scoring panel
+        /// Run estimate completeness scoring and return the result (does not update panel — caller does that after merging).
         /// </summary>
-        private void RunEstimateScoring()
+        private EstimateScoringResult? RunEstimateScoringAndReturn()
         {
             if (_parsedLines.Count == 0 || _scoringPanel == null)
             {
@@ -2355,7 +2546,7 @@ namespace McStudDesktop.Views
                 {
                     _scoringPanel.Visibility = Visibility.Collapsed;
                 }
-                return;
+                return null;
             }
 
             try
@@ -2373,25 +2564,20 @@ namespace McStudDesktop.Views
                 }
 
                 // Run scoring
-                var scoringResult = _scoringService.ScoreEstimate(_parsedLines, vehicleInfo);
-
-                // Update the panel
-                _scoringPanel.UpdateScore(scoringResult);
-                _scoringPanel.Visibility = Visibility.Visible;
-
-                System.Diagnostics.Debug.WriteLine($"[Scoring] Score: {scoringResult.OverallScore}%, Issues: {scoringResult.Issues.Count}");
+                return _scoringService.ScoreEstimate(_parsedLines, vehicleInfo);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[Scoring] Error: {ex.Message}");
                 _scoringPanel.Visibility = Visibility.Collapsed;
+                return null;
             }
         }
 
         /// <summary>
-        /// Handle adding items from the scoring panel
+        /// Handle adding items from the scoring panel (works for both scoring and smart-sourced items)
         /// </summary>
-        private void ScoringPanel_OnAddItems(object? sender, List<ScoringIssue> items)
+        private async void ScoringPanel_OnAddItems(object? sender, List<ScoringIssue> items)
         {
             if (items.Count == 0) return;
 
@@ -2406,12 +2592,14 @@ namespace McStudDesktop.Views
                     var newLine = new ParsedEstimateLine
                     {
                         IsManualLine = true,
+                        RawLine = item.Source == "Smart" ? $"[SUGGESTED] {item.Title}" : $"[SCORING] {item.Title}",
                         Description = $"{item.SuggestedFix.Description} - {item.WhyNeeded}",
                         PartName = item.Title,
                         OperationType = item.SuggestedFix.OperationType,
                         LaborHours = item.SuggestedFix.LaborHours,
                         Price = item.SuggestedFix.EstimatedCost,
-                        Category = GetCategoryCode(item.Category)
+                        Category = GetCategoryCode(item.Category),
+                        ParentPartName = item.SourceDetail
                     };
 
                     // Add to parsed lines if not already present
@@ -2423,16 +2611,25 @@ namespace McStudDesktop.Views
                     {
                         _parsedLines.Add(newLine);
                         addedCount++;
+
+                        // Remove from smart suggestions so they don't reappear on re-analysis
+                        if (item.Source == "Smart" && _currentAnalysis != null)
+                        {
+                            _currentAnalysis.Suggestions.RemoveAll(s =>
+                                s.Item.Equals(item.Title, StringComparison.OrdinalIgnoreCase));
+                        }
                     }
                 }
 
                 if (addedCount > 0)
                 {
+                    ShowStatus($"Adding {addedCount} items...", isSuccess: true);
+
                     // Refresh the display
                     DisplayParsedLines();
 
-                    // Re-run scoring to update
-                    RunEstimateScoring();
+                    // Re-run unified scoring + smart merge flow (async - won't freeze UI)
+                    await RunSmartAnalysisAsync();
 
                     ShowStatus($"Added {addedCount} items to estimate", isSuccess: true);
                 }
@@ -2468,317 +2665,6 @@ namespace McStudDesktop.Views
             };
         }
 
-        /// <summary>
-        /// Display suggestions in the UI
-        /// </summary>
-        private void DisplaySuggestions(AnalysisResult analysis)
-        {
-            _suggestionsContainer!.Children.Clear();
-
-            // Update summary
-            var criticalText = analysis.CriticalCount > 0 ? $"{analysis.CriticalCount} CRITICAL, " : "";
-            var highText = analysis.HighPriorityCount > 0 ? $"{analysis.HighPriorityCount} high priority, " : "";
-            _suggestionsSummary!.Text = $"Found {analysis.Suggestions.Count} commonly missed items: {criticalText}{highText}based on industry knowledge";
-
-            // Group suggestions by category
-            var grouped = analysis.Suggestions
-                .GroupBy(s => s.Category)
-                .OrderBy(g => g.Key);
-
-            foreach (var group in grouped)
-            {
-                // Category header
-                var categoryHeader = new Border
-                {
-                    Background = new SolidColorBrush(Color.FromArgb(255, 45, 40, 55)),
-                    Padding = new Thickness(12, 6, 12, 6),
-                    Margin = new Thickness(0, 8, 0, 4),
-                    CornerRadius = new CornerRadius(4)
-                };
-                var categoryStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-                categoryStack.Children.Add(new FontIcon
-                {
-                    Glyph = GetCategoryIcon(group.Key),
-                    FontSize = 14,
-                    Foreground = new SolidColorBrush(GetCategoryColor(group.Key))
-                });
-                categoryStack.Children.Add(new TextBlock
-                {
-                    Text = $"{group.Key.ToString().Replace("RAndI", "R&I")} ({group.Count()})",
-                    FontSize = 12,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Colors.White)
-                });
-                categoryHeader.Child = categoryStack;
-                _suggestionsContainer.Children.Add(categoryHeader);
-
-                // Items in category
-                foreach (var suggestion in group)
-                {
-                    var itemUI = CreateSuggestionItem(suggestion);
-                    _suggestionsContainer.Children.Add(itemUI);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Create a suggestion item UI with checkbox
-        /// </summary>
-        private Border CreateSuggestionItem(SmartSuggestedOperation suggestion)
-        {
-            var border = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 35, 32, 42)),
-                Padding = new Thickness(10, 8, 10, 8),
-                Margin = new Thickness(0, 2, 0, 2),
-                CornerRadius = new CornerRadius(4),
-                Tag = suggestion
-            };
-
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });   // Checkbox
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });   // Priority badge
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Item + description
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });   // Hours
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });   // Cost
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });  // Source
-
-            // Checkbox
-            var checkbox = new CheckBox
-            {
-                IsChecked = suggestion.Priority == "critical" || suggestion.Priority == "high",
-                VerticalAlignment = VerticalAlignment.Center,
-                MinWidth = 0
-            };
-            checkbox.Checked += (s, e) => suggestion.IsSelected = true;
-            checkbox.Unchecked += (s, e) => suggestion.IsSelected = false;
-            suggestion.IsSelected = checkbox.IsChecked == true;
-            Grid.SetColumn(checkbox, 0);
-            grid.Children.Add(checkbox);
-
-            // Priority badge
-            var priorityBadge = new Border
-            {
-                Background = new SolidColorBrush(GetPriorityColor(suggestion.Priority)),
-                CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(6, 2, 6, 2),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            priorityBadge.Child = new TextBlock
-            {
-                Text = suggestion.Priority.ToUpperInvariant(),
-                FontSize = 9,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            Grid.SetColumn(priorityBadge, 1);
-            grid.Children.Add(priorityBadge);
-
-            // Item name and description
-            var itemStack = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
-            var itemName = new TextBlock
-            {
-                Text = suggestion.Item,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Colors.White),
-                TextTrimming = TextTrimming.CharacterEllipsis
-            };
-            itemStack.Children.Add(itemName);
-
-            if (!string.IsNullOrEmpty(suggestion.WhyNeeded))
-            {
-                var whyText = new TextBlock
-                {
-                    Text = suggestion.WhyNeeded,
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
-                    TextTrimming = TextTrimming.CharacterEllipsis
-                };
-                itemStack.Children.Add(whyText);
-            }
-            Grid.SetColumn(itemStack, 2);
-            grid.Children.Add(itemStack);
-
-            // Labor hours
-            if (suggestion.LaborHours > 0)
-            {
-                var hoursText = new TextBlock
-                {
-                    Text = $"{suggestion.LaborHours:F1} hrs",
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Right
-                };
-                Grid.SetColumn(hoursText, 3);
-                grid.Children.Add(hoursText);
-            }
-
-            // Cost
-            if (suggestion.TypicalCost > 0)
-            {
-                var costText = new TextBlock
-                {
-                    Text = $"${suggestion.TypicalCost:N0}",
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 100)),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Right
-                };
-                Grid.SetColumn(costText, 4);
-                grid.Children.Add(costText);
-            }
-
-            // Source (what triggered this)
-            var sourceText = new TextBlock
-            {
-                Text = suggestion.SourcePart.Length > 18 ? suggestion.SourcePart.Substring(0, 15) + "..." : suggestion.SourcePart,
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 150, 200)),
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Right
-            };
-            ToolTipService.SetToolTip(sourceText, $"Triggered by: {suggestion.SourcePart}");
-            Grid.SetColumn(sourceText, 5);
-            grid.Children.Add(sourceText);
-
-            // Tooltip with full details
-            var tooltipText = $"{suggestion.Item}\n\n";
-            if (!string.IsNullOrEmpty(suggestion.Description)) tooltipText += $"{suggestion.Description}\n\n";
-            if (!string.IsNullOrEmpty(suggestion.WhyNeeded)) tooltipText += $"Why: {suggestion.WhyNeeded}\n";
-            if (!string.IsNullOrEmpty(suggestion.DegReference)) tooltipText += $"DEG: {suggestion.DegReference}\n";
-            if (!string.IsNullOrEmpty(suggestion.AffectedSensors)) tooltipText += $"Sensors: {suggestion.AffectedSensors}\n";
-            ToolTipService.SetToolTip(border, tooltipText.Trim());
-
-            border.Child = grid;
-            return border;
-        }
-
-        private string GetCategoryIcon(SuggestionCategory category)
-        {
-            return category switch
-            {
-                SuggestionCategory.Calibration => "\uE945",  // Settings icon
-                SuggestionCategory.Diagnostic => "\uE9D9",   // Scan icon
-                SuggestionCategory.Electrical => "\uE945",   // Lightning bolt
-                SuggestionCategory.Materials => "\uE8B1",    // Box/package
-                SuggestionCategory.RAndI => "\uE895",        // Refresh/cycle
-                SuggestionCategory.Labor => "\uE902",        // Clock
-                SuggestionCategory.Refinish => "\uE790",     // Paint brush
-                SuggestionCategory.Mechanical => "\uE90F",   // Wrench
-                _ => "\uE8FD"                                 // List
-            };
-        }
-
-        private Color GetCategoryColor(SuggestionCategory category)
-        {
-            return category switch
-            {
-                SuggestionCategory.Calibration => Color.FromArgb(255, 255, 100, 100),
-                SuggestionCategory.Diagnostic => Color.FromArgb(255, 200, 150, 255),
-                SuggestionCategory.Electrical => Color.FromArgb(255, 255, 200, 50),
-                SuggestionCategory.Materials => Color.FromArgb(255, 150, 200, 255),
-                SuggestionCategory.RAndI => Color.FromArgb(255, 100, 200, 150),
-                SuggestionCategory.Labor => Color.FromArgb(255, 255, 180, 100),
-                SuggestionCategory.Refinish => Color.FromArgb(255, 100, 180, 255),
-                SuggestionCategory.Mechanical => Color.FromArgb(255, 200, 200, 200),
-                _ => Color.FromArgb(255, 180, 180, 180)
-            };
-        }
-
-        private Color GetPriorityColor(string? priority)
-        {
-            return priority?.ToLowerInvariant() switch
-            {
-                "critical" => Color.FromArgb(255, 200, 50, 50),
-                "high" => Color.FromArgb(255, 200, 100, 50),
-                "medium" => Color.FromArgb(255, 150, 150, 80),
-                "low" => Color.FromArgb(255, 80, 120, 80),
-                _ => Color.FromArgb(255, 100, 100, 100)
-            };
-        }
-
-        private void AddSelected_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentAnalysis == null) return;
-
-            var selected = _currentAnalysis.Suggestions.Where(s => s.IsSelected).ToList();
-            if (selected.Count == 0)
-            {
-                ShowStatus("No items selected. Check the boxes next to items you want to add.", isError: true);
-                return;
-            }
-
-            AddSuggestionsToEstimate(selected);
-        }
-
-        private void AddAllHighPriority_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentAnalysis == null) return;
-
-            var highPriority = _currentAnalysis.Suggestions
-                .Where(s => s.Priority == "critical" || s.Priority == "high")
-                .ToList();
-
-            if (highPriority.Count == 0)
-            {
-                ShowStatus("No critical or high priority items found.", isError: true);
-                return;
-            }
-
-            AddSuggestionsToEstimate(highPriority);
-        }
-
-        private void AddSuggestionsToEstimate(List<SmartSuggestedOperation> suggestions)
-        {
-            // Add suggestions to parsed lines so they can be learned or exported
-            foreach (var suggestion in suggestions)
-            {
-                var newLine = new ParsedEstimateLine
-                {
-                    RawLine = $"[SUGGESTED] {suggestion.Item}",
-                    Description = suggestion.Description ?? suggestion.Item,
-                    PartName = suggestion.Item,
-                    OperationType = "Add",
-                    LaborHours = suggestion.LaborHours,
-                    RepairHours = suggestion.LaborHours,
-                    RefinishHours = 0,
-                    Price = suggestion.TypicalCost,
-                    Category = suggestion.Category.ToString(),
-                    IsManualLine = true,
-                    ParentPartName = suggestion.SourcePart
-                };
-                _parsedLines.Add(newLine);
-            }
-
-            // Refresh display
-            DisplayParsedLines();
-
-            // Update suggestion checkboxes to reflect they were added
-            foreach (var suggestion in suggestions)
-            {
-                suggestion.IsSelected = false;
-            }
-
-            // Refresh suggestions UI
-            if (_currentAnalysis != null)
-            {
-                // Remove added items from suggestions
-                foreach (var suggestion in suggestions)
-                {
-                    _currentAnalysis.Suggestions.Remove(suggestion);
-                }
-                DisplaySuggestions(_currentAnalysis);
-
-                if (_currentAnalysis.Suggestions.Count == 0)
-                {
-                    _suggestionsSection!.Visibility = Visibility.Collapsed;
-                }
-            }
-
-            ShowStatus($"Added {suggestions.Count} suggested operations to the estimate. Click 'Learn from This' to train the system.", isSuccess: true);
-        }
 
         #endregion
     }

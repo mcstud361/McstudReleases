@@ -44,6 +44,9 @@ namespace McstudDesktop.Services
         private string? _trackedVin;
         private int _accumulatedOpsOrder = 0;
         private readonly Dictionary<string, int> _opInsertionOrder = new(StringComparer.OrdinalIgnoreCase);
+        // Freshness tracking: how many consecutive captures each operation has been absent
+        private readonly Dictionary<string, int> _opMissCount = new(StringComparer.OrdinalIgnoreCase);
+        private const int MaxMissesBeforeRemoval = 12; // Remove after 12 consecutive absences (allows scrolling through long estimates)
 
         private const int DebounceMs = 500;
 
@@ -51,6 +54,7 @@ namespace McstudDesktop.Services
         public event EventHandler<bool>? CoachingStateChanged;
 
         public bool IsRunning => _isRunning;
+        public CoachingSnapshot? LatestSnapshot { get; private set; }
 
         private LiveCoachingService()
         {
@@ -132,6 +136,7 @@ namespace McstudDesktop.Services
             _accumulatedOps.Clear();
             _accumulatedRawText.Clear();
             _opInsertionOrder.Clear();
+            _opMissCount.Clear();
             _accumulatedOpsOrder = 0;
             _vehicleInfo = null;
             _customerName = null;
@@ -173,7 +178,7 @@ namespace McstudDesktop.Services
             }, token);
         }
 
-        private void ProcessOcrResult(ScreenOcrResult result)
+        private async void ProcessOcrResult(ScreenOcrResult result)
         {
             // Only reset accumulated state if the core application changed
             var sourceWindow = result.SourceWindow ?? "";
@@ -189,25 +194,46 @@ namespace McstudDesktop.Services
             }
             _lastSourceWindow = sourceWindow;
 
-            // VIN-based vehicle change detection
+            // VIN-based vehicle change detection (fuzzy: allow up to 2 OCR character differences)
             if (!string.IsNullOrEmpty(result.DetectedVin))
             {
-                if (_trackedVin != null && !_trackedVin.Equals(result.DetectedVin, StringComparison.OrdinalIgnoreCase))
+                if (_trackedVin != null && !VinsAreSimilar(_trackedVin, result.DetectedVin))
                 {
                     Debug.WriteLine($"[LiveCoaching] VIN changed from \"{_trackedVin}\" to \"{result.DetectedVin}\" — resetting accumulated data");
                     ResetAccumulatedState();
                 }
-                _trackedVin = result.DetectedVin;
+                // Only update tracked VIN if we don't have one yet (first detection wins, avoids OCR drift)
+                if (_trackedVin == null)
+                    _trackedVin = result.DetectedVin;
             }
 
             // Accumulate structured operations from this capture
+            // Skip garbage: must have a valid operation type and a meaningful part name
+            var currentCaptureKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (result.DetectedOperations != null)
             {
                 foreach (var op in result.DetectedOperations)
                 {
+                    // Allow known body panels even without an explicit operation type
+                    var hasValidOpType = !string.IsNullOrWhiteSpace(op.OperationType) &&
+                                         _validOpTypes.Contains(op.OperationType.Trim());
+                    var isKnownPanel = !string.IsNullOrWhiteSpace(op.PartName) &&
+                                       _knownBodyPanels.Contains(op.PartName.Trim());
+                    if (!hasValidOpType && !isKnownPanel) continue;
+                    if (string.IsNullOrWhiteSpace(op.PartName) || op.PartName.Length < 3) continue;
+                    // Skip garbage that has no letters (dots, bullets, symbols like "• •")
+                    if (!Regex.IsMatch(op.PartName, @"[a-zA-Z]{2,}")) continue;
+                    // Skip part numbers (numeric-leading entries from CCC parts catalog)
+                    if (Regex.IsMatch(op.PartName.Trim(), @"^\d{2,}")) continue;
+                    // Skip single-word hardware sub-parts (bolt, rivet, nut, etc.)
+                    var trimmedPart = op.PartName.Trim();
+                    if (!trimmedPart.Contains(' ') && _hardwareSubParts.Contains(trimmedPart)) continue;
+
                     var key = $"{op.Description}|{op.PartName}|{op.OperationType}".ToLowerInvariant();
+                    currentCaptureKeys.Add(key);
                     if (!_opInsertionOrder.ContainsKey(key))
                         _opInsertionOrder[key] = _accumulatedOpsOrder++;
+                    _opMissCount[key] = 0; // Reset miss count — we just saw it
                     _accumulatedOps[key] = new ParsedEstimateLine
                     {
                         RawLine = op.RawLine,
@@ -222,14 +248,45 @@ namespace McstudDesktop.Services
                 }
             }
 
-            // Accumulate raw text for vehicle/customer info only — no part scanning
+            // Deletion detection: increment miss count for operations not seen in this capture,
+            // remove if they've been absent for too many consecutive captures.
+            if (currentCaptureKeys.Count > 0)
+            {
+                var keysToRemove = new List<string>();
+                foreach (var existingKey in _accumulatedOps.Keys.ToList())
+                {
+                    if (!currentCaptureKeys.Contains(existingKey))
+                    {
+                        _opMissCount.TryGetValue(existingKey, out var misses);
+                        misses++;
+                        _opMissCount[existingKey] = misses;
+                        if (misses >= MaxMissesBeforeRemoval)
+                            keysToRemove.Add(existingKey);
+                    }
+                }
+                foreach (var key in keysToRemove)
+                {
+                    _accumulatedOps.Remove(key);
+                    _opInsertionOrder.Remove(key);
+                    _opMissCount.Remove(key);
+                    Debug.WriteLine($"[LiveCoaching] Removed stale operation: {key}");
+                }
+            }
+
+            // Accumulate raw text for vehicle/customer info only — no part scanning.
+            // Strip CCC parts catalog sidebar text (after "Add to Estimate") to avoid
+            // false "confirmed on estimate" matches from catalog items.
             if (!string.IsNullOrWhiteSpace(result.RawText))
             {
-                _accumulatedRawText.AppendLine(result.RawText);
+                var cleanedRaw = result.RawText;
+                var catalogIdx = cleanedRaw.IndexOf("Add to Estimate", StringComparison.OrdinalIgnoreCase);
+                if (catalogIdx > 50)
+                    cleanedRaw = cleanedRaw.Substring(0, catalogIdx);
+                _accumulatedRawText.AppendLine(cleanedRaw);
                 if (_vehicleInfo == null)
-                    _vehicleInfo = ExtractVehicleInfo(result.RawText);
+                    _vehicleInfo = ExtractVehicleInfo(cleanedRaw);
                 if (_customerName == null)
-                    _customerName = ExtractCustomerName(result.RawText);
+                    _customerName = ExtractCustomerName(cleanedRaw);
             }
 
             // Build parsed lines from ONLY structured operations
@@ -334,7 +391,7 @@ namespace McstudDesktop.Services
                     Category = issue.Category.ToString(),
                     Severity = MapSeverity(issue.Severity),
                     TriggeredBy = issue.TriggeredBy,
-                    EstimatedCost = issue.SuggestedFix?.EstimatedCost ?? 0,
+                    EstimatedCost = 0, // No hardcoded prices — only real data from Excel/uploaded estimates
                     LaborHours = issue.SuggestedFix?.LaborHours ?? 0,
                     Source = "Scoring"
                 });
@@ -364,11 +421,14 @@ namespace McstudDesktop.Services
                     Category = suggestion.Category.ToString(),
                     Severity = MapPriority(suggestion.Priority),
                     TriggeredBy = suggestion.SourcePart,
-                    EstimatedCost = suggestion.TypicalCost,
+                    EstimatedCost = 0, // TypicalCost is hardcoded — only show real data
                     LaborHours = suggestion.LaborHours,
                     Source = "Analyzer"
                 });
             }
+
+            // AI-powered deduplication for borderline pairs (once per cycle, not hot-path)
+            suggestions = await TryAiDedupAsync(suggestions);
 
             // Cross-check suggestions against structured ops AND accumulated raw text.
             // Structured ops alone miss many SOP/misc items (pre-wash, clean for delivery, etc.)
@@ -377,7 +437,8 @@ namespace McstudDesktop.Services
                 .Select(op => $"{op.Description} {op.PartName} {op.OperationType} {op.RawLine}"))
                 .ToLowerInvariant();
             var rawText = _accumulatedRawText.ToString().ToLowerInvariant();
-            var combinedSeenText = structuredOpsText + " | " + rawText;
+            // Apply OCR corrections so "Batten,'" → "battery" etc. for better on-estimate matching
+            var combinedSeenText = ScreenOcrService.ApplyOcrCorrections(structuredOpsText + " | " + rawText);
 
             foreach (var s in suggestions)
             {
@@ -422,6 +483,7 @@ namespace McstudDesktop.Services
                 Timestamp = DateTime.Now
             };
 
+            LatestSnapshot = snapshot;
             Debug.WriteLine($"[LiveCoaching] Snapshot: score={snapshot.Score}, grade={snapshot.Grade}, suggestions={suggestions.Count} (SOP={sopSuggestions.Count}, Excel={excelSuggestions.Count}, KB={kbSuggestions.Count}, learned={learnedSuggestions.Count})");
             SuggestionsUpdated?.Invoke(this, snapshot);
         }
@@ -503,10 +565,7 @@ namespace McstudDesktop.Services
                 })
                 .Select(item =>
                 {
-                    var cost = ComputeCostFromHours(item.LaborHours, item.Name, item.Section);
-                    // For material-only items (LaborHours=0 but EstimatedCost>0), keep original cost
-                    if (item.LaborHours == 0 && item.EstimatedCost > 0)
-                        cost = item.EstimatedCost;
+                    var cost = 0m; // No hardcoded SOP prices — only real data from Excel/uploaded estimates
 
                     return new CoachingSuggestion
                     {
@@ -581,12 +640,20 @@ namespace McstudDesktop.Services
                     }
                 }
 
-                // Query direct operations for this part — skip entries with no valid op type
+                // Query direct operations for this part — only keep operations
+                // that are directly related to the triggering part (same part or sub-operations).
+                // Do NOT suggest Replace/Repl of completely different parts (e.g., "Repl Roof" from a hood job).
                 var queryResult = learningService.QueryOperationsForPart(op.PartName, op.OperationType);
                 foreach (var suggested in queryResult.SuggestedOperations)
                 {
                     if (suggested.Confidence < 0.2 || suggested.TimesUsed < 1) continue;
                     if (string.IsNullOrWhiteSpace(suggested.OperationType)) continue;
+
+                    // FILTER: Only suggest operations on the SAME part or sub-components of that part.
+                    // Don't suggest "Replace Roof" just because past estimates with a hood also had a roof.
+                    if (!IsRelatedToTriggerPart(op.PartName, suggested.PartName, suggested.OperationType))
+                        continue;
+
                     var key = $"{suggested.PartName}|{suggested.OperationType}".ToLowerInvariant();
                     if (!seenKeys.Add(key)) continue;
 
@@ -609,14 +676,18 @@ namespace McstudDesktop.Services
                     });
                 }
 
-                // Query co-occurring operations — only keep those with a valid op type
+                // Query co-occurring operations — only keep those related to the same part area
                 var related = learningService.GetRelatedOperations(op.PartName, op.OperationType ?? "Replace");
                 foreach (var coOp in related)
                 {
                     if (coOp.TimesSeenTogether < 1) continue;
-                    // Skip co-occurrences with no operation type — those are parts, not labor
                     if (string.IsNullOrWhiteSpace(coOp.OperationType)) continue;
                     if (!_validOpTypes.Contains(coOp.OperationType.Trim())) continue;
+
+                    // FILTER: Only suggest co-occurring ops on the same part or sub-components.
+                    if (!IsRelatedToTriggerPart(op.PartName, coOp.PartName, coOp.OperationType))
+                        continue;
+
                     var key = $"{coOp.PartName}|{coOp.OperationType}".ToLowerInvariant();
                     if (!seenKeys.Add(key)) continue;
 
@@ -727,6 +798,24 @@ namespace McstudDesktop.Services
 
                     if (hasLearned)
                     {
+                        // Sanity cap: learned hours can be wildly wrong if the learning data
+                        // accumulated totals instead of per-operation hours.
+                        var nameLower = s.Name.ToLowerInvariant();
+                        var isMaterial = s.Category?.ToLowerInvariant() is "materials" or "add" ||
+                            nameLower.Contains("flex") || nameLower.Contains("adhesion") ||
+                            nameLower.Contains("clear coat") || nameLower.Contains("denib") ||
+                            nameLower.Contains("color tint") || nameLower.Contains("spray") ||
+                            nameLower.Contains("promoter") || nameLower.Contains("additive");
+                        var maxHours = isMaterial ? 0.5m : 5.0m;
+                        if (hours > maxHours)
+                        {
+                            Debug.WriteLine($"[LiveCoaching] Capped learned hours for '{s.Name}': {hours:F1}h → {s.DefaultHours}h (max {maxHours})");
+                            hours = s.DefaultHours;
+                            // Also cap the fallback default
+                            if (hours > maxHours)
+                                hours = isMaterial ? 0.2m : 1.0m;
+                        }
+
                         dataSource = $"Rules Engine + Learned ({learnedStats.TotalOccurrences} estimates)";
                     }
                     else
@@ -786,6 +875,18 @@ namespace McstudDesktop.Services
                     var dataSource = hasLearned
                         ? $"Rules Engine + Learned ({learnedStats.TotalOccurrences} estimates)"
                         : "Rules Engine (percentage formula)";
+
+                    // Sanity cap for refinish materials
+                    if (hours > 1.0m)
+                    {
+                        var rnLower = s.Name.ToLowerInvariant();
+                        if (rnLower.Contains("denib") || rnLower.Contains("buff") ||
+                            rnLower.Contains("feather") || rnLower.Contains("wet sand") ||
+                            rnLower.Contains("block sand"))
+                        {
+                            hours = Math.Min(hours, 1.0m);
+                        }
+                    }
 
                     var cost = ComputeCostFromHours(hours, s.Name, s.OperationType);
 
@@ -860,7 +961,7 @@ namespace McstudDesktop.Services
                         if (match != null)
                         {
                             laborHours = match.LaborHours;
-                            cost = match.IsMaterial ? match.TypicalCost : ComputeCostFromHours(match.LaborHours, missing.Operation, match.Category);
+                            cost = 0; // KB TypicalCost is hardcoded — only use Excel tool prices
                             break;
                         }
                     }
@@ -891,49 +992,29 @@ namespace McstudDesktop.Services
         /// <summary>
         /// Computes dollar cost from labor hours using GhostConfigService rates.
         /// Uses the same rates as Ghost Estimate for consistency.
-        /// Maps operation type/category to the appropriate rate (body, paint, mech, frame, glass).
+        // Known body panels that should accumulate even without an explicit operation type.
+        // These are real estimate parts, not catalog garbage.
+        private static readonly HashSet<string> _knownBodyPanels = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "hood", "fender", "front fender", "rear fender", "bumper", "bumper cover",
+            "front bumper", "front bumper cover", "rear bumper", "rear bumper cover",
+            "front door", "rear door", "door", "trunk lid", "decklid", "liftgate", "tailgate",
+            "roof", "roof panel", "quarter panel", "rocker panel", "a pillar", "b pillar",
+            "radiator support", "headlamp", "tail lamp", "windshield", "back glass",
+            "fender liner", "door shell", "mirror", "grille", "header panel",
+            "bumper reinforcement", "bumper absorber", "hood hinge", "door hinge"
+        };
+
+        /// <summary>
+        /// No longer computes dollar costs from labor rates — the estimating system (CCC/Mitchell)
+        /// handles pricing. We only show labor hours from our data sources (Excel tool, learned patterns).
+        /// Returns 0 so no fake dollar amounts are displayed.
         /// </summary>
         private decimal ComputeCostFromHours(decimal laborHours, string operationName, string? operationType)
         {
-            if (laborHours <= 0) return 0;
-
-            var nameLower = operationName.ToLowerInvariant();
-            var typeLower = (operationType ?? "").ToLowerInvariant();
-
-            // Scanning operations use configured scanning rate
-            if (nameLower.Contains("scan") || nameLower.Contains("diagnostic"))
-            {
-                var scanning = _ghostConfig.GetEffectiveScanning();
-                if (scanning.Price > 0) return scanning.Price; // flat rate
-                return scanning.LaborHours * _ghostConfig.GetEffectiveMechRate();
-            }
-
-            // Refinish/paint operations
-            if (typeLower.Contains("refin") || typeLower.Contains("paint") || typeLower.Contains("blend") ||
-                nameLower.Contains("refinish") || nameLower.Contains("paint") || nameLower.Contains("blend") ||
-                nameLower.Contains("clear coat") || nameLower.Contains("primer") || nameLower.Contains("tint") ||
-                nameLower.Contains("spray") || nameLower.Contains("color"))
-                return laborHours * _ghostConfig.GetEffectivePaintRate();
-
-            // Mechanical operations
-            if (typeLower.Contains("mech") || nameLower.Contains("a/c") || nameLower.Contains("ac ") ||
-                nameLower.Contains("evacuate") || nameLower.Contains("recharge") ||
-                nameLower.Contains("calibrat") || nameLower.Contains("adas") ||
-                nameLower.Contains("alignment") || nameLower.Contains("electronic"))
-                return laborHours * _ghostConfig.GetEffectiveMechRate();
-
-            // Frame operations
-            if (typeLower.Contains("frame") || nameLower.Contains("frame") ||
-                nameLower.Contains("measure") || nameLower.Contains("structural"))
-                return laborHours * _ghostConfig.GetEffectiveFrameRate();
-
-            // Glass operations
-            if (typeLower.Contains("glass") || nameLower.Contains("windshield") ||
-                nameLower.Contains("glass") || nameLower.Contains("window"))
-                return laborHours * _ghostConfig.GetEffectiveGlassRate();
-
-            // Default to body rate for general labor
-            return laborHours * _ghostConfig.GetEffectiveBodyRate();
+            // No hardcoded prices — only show prices from Excel tool or uploaded estimates.
+            // The estimating system (CCC/Mitchell) handles pricing.
+            return 0;
         }
 
         /// <summary>
@@ -948,6 +1029,117 @@ namespace McstudDesktop.Services
             "mask", "cover", "tint", "prime", "block", "sand",
             "add", "additional", "cost", "adjust", "aim"
         };
+
+        // Single-word hardware sub-parts from CCC parts catalog — NOT estimate line items
+        private static readonly HashSet<string> _hardwareSubParts = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "bolt", "nut", "rivet", "plug", "screw", "clip", "retainer", "bracket",
+            "fastener", "washer", "spacer", "stud", "pin", "grommet"
+        };
+
+        /// <summary>
+        /// Determines if a suggested operation is related to the triggering part.
+        /// Prevents suggesting "Replace Roof" or "Replace Fender" just because a hood
+        /// appeared on the same past estimates. Only allows:
+        /// - Operations on the same part (hood → Refinish hood, backtape jambs for hood)
+        /// - Sub-component operations (hood → hood hinge, hood strut, hood insulator)
+        /// - Non-Replace operations that are generic labor (blend, refinish, R&I, repair)
+        /// </summary>
+        // Maps a part keyword to its CCC area — parts in the same area are related
+        private static readonly Dictionary<string, string> _partAreaMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            // Front bumper area
+            ["bumper cover"] = "front_bumper", ["bumper assy"] = "front_bumper", ["bumper absorber"] = "front_bumper",
+            ["bumper reinforcement"] = "front_bumper", ["grille"] = "front_bumper", ["grill"] = "front_bumper",
+            ["park sensor"] = "front_bumper", ["fog lamp"] = "front_bumper", ["fog light"] = "front_bumper",
+            ["valance"] = "front_bumper", ["license plate"] = "front_bumper",
+            // Rear bumper area
+            ["rear bumper"] = "rear_bumper", ["step pad"] = "rear_bumper",
+            // Front lamps
+            ["headlamp"] = "front_lamps", ["headlight"] = "front_lamps",
+            // Rear lamps
+            ["tail lamp"] = "rear_lamps", ["taillight"] = "rear_lamps", ["tail light"] = "rear_lamps",
+            // Hood area
+            ["hood"] = "hood", ["hood hinge"] = "hood", ["hood strut"] = "hood", ["hood insulator"] = "hood",
+            ["hood latch"] = "hood",
+            // Fender area
+            ["fender"] = "fender", ["fender liner"] = "fender", ["inner fender"] = "fender",
+            ["wheel opening"] = "fender", ["splash shield"] = "fender",
+            // Front door area
+            ["front door"] = "front_door", ["door shell"] = "front_door", ["door trim"] = "front_door",
+            ["door handle"] = "door", ["door check"] = "door", ["door hinge"] = "door",
+            ["belt molding"] = "door", ["belt w'strip"] = "door", ["door w'strip"] = "door",
+            ["surround w'strip"] = "door", ["water deflector"] = "door", ["door lock"] = "door",
+            ["door edge"] = "door", ["door mirror"] = "door", ["mirror assy"] = "door",
+            ["applique"] = "door", ["window molding"] = "door", ["corner molding"] = "door",
+            // Rear door area
+            ["rear door"] = "rear_door",
+            // Quarter panel
+            ["quarter panel"] = "quarter", ["quarter"] = "quarter",
+            // Roof
+            ["roof"] = "roof", ["roof panel"] = "roof", ["sunroof"] = "roof",
+            // Trunk / liftgate
+            ["trunk"] = "trunk", ["decklid"] = "trunk", ["liftgate"] = "trunk", ["tailgate"] = "trunk",
+            // Rocker / pillars
+            ["rocker"] = "rocker", ["a pillar"] = "rocker", ["b pillar"] = "rocker", ["c pillar"] = "rocker",
+            ["rocker molding"] = "rocker",
+        };
+
+        private static string? GetPartArea(string partName)
+        {
+            var lower = partName.ToLowerInvariant();
+            // Check longer keys first for specificity (e.g., "rear door" before "door")
+            foreach (var kvp in _partAreaMap.OrderByDescending(k => k.Key.Length))
+            {
+                if (lower.Contains(kvp.Key))
+                    return kvp.Value;
+            }
+            return null;
+        }
+
+        private static bool IsRelatedToTriggerPart(string triggerPart, string suggestedPart, string suggestedOpType)
+        {
+            var trigger = triggerPart.ToLowerInvariant().Trim();
+            var suggested = suggestedPart.ToLowerInvariant().Trim();
+            var opType = (suggestedOpType ?? "").ToLowerInvariant().Trim();
+
+            // Same part or one contains the other
+            if (suggested.Contains(trigger) || trigger.Contains(suggested))
+                return true;
+
+            // Check if they're in the same CCC part area
+            var triggerArea = GetPartArea(trigger);
+            var suggestedArea = GetPartArea(suggested);
+            if (triggerArea != null && suggestedArea != null)
+            {
+                // Same area → related (e.g., rear door → door handle, belt molding, door trim)
+                if (triggerArea == suggestedArea) return true;
+
+                // "door" area items relate to both front_door and rear_door
+                if (triggerArea is "front_door" or "rear_door" && suggestedArea == "door") return true;
+                if (triggerArea == "door" && suggestedArea is "front_door" or "rear_door") return true;
+            }
+
+            // Generic labor descriptions apply to any triggering part
+            var genericLabor = new[] {
+                "backtape", "de-nib", "denib", "wet/dry", "rub-out", "buff",
+                "edging", "cover car", "cover engine", "cover interior",
+                "cavity wax", "seam sealer", "adhesive", "trial fit",
+                "stage and secure", "mask", "sand", "prime", "clean",
+                "three stage", "two tone", "add for", "edge guard",
+                "sound deadener", "foam pad", "black out tape",
+                "protector", "crash pad"
+            };
+            if (genericLabor.Any(g => suggested.Contains(g)))
+                return true;
+
+            // Replace/Repl of a DIFFERENT major part area = NOT related
+            if (opType is "repl" or "replace" or "new")
+                return false; // Contains check above already caught same-part replaces
+
+            // Non-replace ops (R&I, Blend, Refinish, Repair) on unrelated parts → not related
+            return false;
+        }
 
         /// <summary>
         /// Returns true if the suggestion title looks like a physical part (emblem, clips,
@@ -1206,7 +1398,11 @@ namespace McstudDesktop.Services
 
             // Flex additive
             if (titleLower.Contains("flex"))
-                keywords.AddRange(new[] { "flex additive", "flex add", "flexible additive" });
+                keywords.AddRange(new[] { "flex additive", "flex add", "flexible additive", "flex agent" });
+
+            // Adhesion promoter
+            if (titleLower.Contains("adhesion") || titleLower.Contains("promoter"))
+                keywords.AddRange(new[] { "adhesion promoter", "adhesion", "ad pro", "adpro", "promoter" });
 
             // R&I
             if (titleLower.Contains("r&i") || titleLower.Contains("remove") || titleLower.Contains("reinstall"))
@@ -1224,14 +1420,34 @@ namespace McstudDesktop.Services
             return keywords;
         }
 
+        // Common vehicle make names for validation
+        private static readonly HashSet<string> _vehicleMakes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Acura", "Alfa", "Aston", "Audi", "BMW", "Bentley", "Buick", "Cadillac",
+            "Chevrolet", "Chevy", "Chrysler", "Dodge", "Ferrari", "Fiat", "Ford",
+            "Genesis", "GMC", "Honda", "Hyundai", "Infiniti", "Jaguar", "Jeep",
+            "Kia", "Lamborghini", "Land", "Lexus", "Lincoln", "Lucid", "Maserati",
+            "Mazda", "McLaren", "Mercedes", "Mercury", "Mini", "Mitsubishi",
+            "Nissan", "Polestar", "Pontiac", "Porsche", "Ram", "Rivian", "Rolls",
+            "Saturn", "Scion", "Smart", "Subaru", "Suzuki", "Tesla", "Toyota",
+            "Volkswagen", "Volvo", "VW"
+        };
+
         private static string? ExtractVehicleInfo(string rawText)
         {
             // Match patterns like "2024 Toyota Camry" or "2023 Honda Civic"
-            var match = System.Text.RegularExpressions.Regex.Match(
+            // Validate that the second word is a known vehicle make to avoid false positives
+            var matches = System.Text.RegularExpressions.Regex.Matches(
                 rawText,
-                @"(20\d{2})\s+([A-Za-z]{3,})\s+([A-Za-z]{2,})",
+                @"((?:19|20)\d{2})\s+([A-Za-z]{3,})\s+([A-Za-z]{2,})",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            return match.Success ? match.Value.Trim() : null;
+            foreach (System.Text.RegularExpressions.Match match in matches)
+            {
+                var make = match.Groups[2].Value;
+                if (_vehicleMakes.Contains(make))
+                    return match.Value.Trim();
+            }
+            return null;
         }
 
         private static string? ExtractCustomerName(string rawText)
@@ -1268,9 +1484,38 @@ namespace McstudDesktop.Services
             if (title.Contains("mitchell")) return "Mitchell";
             if (title.Contains("audatex") || title.Contains("audaexplore")) return "Audatex";
 
+            // CCC ONE new workfiles have title "Untitled" — treat as CCC
+            // Also "New Workfile" patterns
+            if (title == "untitled" || title.Contains("workfile") || title.Contains("new estimate"))
+                return "CCC";
+
             // For non-estimating apps, use the first word as the app identity
             var firstWord = windowTitle.Split(new[] { ' ', '-', '–', '—', '|' }, StringSplitOptions.RemoveEmptyEntries);
             return firstWord.Length > 0 ? firstWord[0] : windowTitle;
+        }
+
+        /// <summary>
+        /// Fuzzy VIN comparison — allows up to 2 character differences to handle OCR errors (O/0, I/1, etc.)
+        /// </summary>
+        private static bool VinsAreSimilar(string vin1, string vin2)
+        {
+            if (string.Equals(vin1, vin2, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (vin1.Length != vin2.Length)
+                return false;
+
+            int differences = 0;
+            for (int i = 0; i < vin1.Length; i++)
+            {
+                if (!char.ToUpperInvariant(vin1[i]).Equals(char.ToUpperInvariant(vin2[i])))
+                {
+                    differences++;
+                    if (differences > 2)
+                        return false;
+                }
+            }
+            return true;
         }
 
         private static string ComputeContentHash(ScreenOcrResult result)
@@ -1301,10 +1546,35 @@ namespace McstudDesktop.Services
 
         private static string NormalizeKey(string category, string title)
         {
-            var normalized = (category + "|" + title)
-                .ToLowerInvariant()
-                .Replace(" ", "")
-                .Replace("-", "");
+            var titleLower = title.ToLowerInvariant();
+            var catLower = category.ToLowerInvariant();
+
+            // Normalize scan aliases so "Pre-Scan", "Pre-Repair Scan", "Pre Scan" all dedup
+            // regardless of source category (SOP, KB, Scoring)
+            if (titleLower.Contains("pre") && titleLower.Contains("scan"))
+            { titleLower = "pre_scan"; catLower = "diagnostic"; }
+            else if (titleLower.Contains("post") && titleLower.Contains("scan"))
+            { titleLower = "post_scan"; catLower = "diagnostic"; }
+            else if (titleLower.Contains("in-process") && titleLower.Contains("scan"))
+            { titleLower = "in_process_scan"; catLower = "diagnostic"; }
+
+            // Normalize battery disconnect/reconnect variants
+            // "Disconnect/Reconnect Battery", "Battery Disconnect", "Battery Reconnect & Initialize" → same key
+            if (titleLower.Contains("battery") && (titleLower.Contains("disconnect") || titleLower.Contains("reconnect")))
+            { titleLower = "battery_disconnect_reconnect"; catLower = "electrical"; }
+
+            // Normalize adhesion promoter variants
+            if (titleLower.Contains("adhesion") && titleLower.Contains("promoter"))
+            { titleLower = "adhesion_promoter"; catLower = "materials"; }
+
+            // Normalize flex additive variants
+            if (titleLower.Contains("flex") && (titleLower.Contains("additive") || titleLower.Contains("add")))
+            { titleLower = "flex_additive"; catLower = "materials"; }
+
+            // Use _ instead of stripping spaces — preserves word boundaries for IsFuzzyDuplicate
+            var normalized = (catLower + "|" + titleLower)
+                .Replace(" ", "_")
+                .Replace("-", "_");
             return normalized;
         }
 
@@ -1379,6 +1649,73 @@ namespace McstudDesktop.Services
                 "low" => CoachingSeverity.Low,
                 _ => CoachingSeverity.Medium
             };
+        }
+
+        /// <summary>
+        /// Use AI to detect and remove duplicate suggestions that string matching missed.
+        /// Called once per coaching cycle, not in the hot-path IsFuzzyDuplicate.
+        /// Returns the filtered list on success, original list on failure.
+        /// </summary>
+        private async Task<List<CoachingSuggestion>> TryAiDedupAsync(List<CoachingSuggestion> suggestions)
+        {
+            try
+            {
+                if (suggestions.Count < 3) return suggestions;
+
+                var apiService = McStudDesktop.Services.ClaudeApiService.Instance;
+                if (!McStudDesktop.Services.AiConfigService.Instance.IsFeatureEnabled(McStudDesktop.Services.AiFeature.SuggestionDedup))
+                    return suggestions;
+
+                // Find borderline pairs (similar titles that string matching kept)
+                var pairs = new List<string>();
+                for (int i = 0; i < suggestions.Count && pairs.Count < 20; i++)
+                {
+                    for (int j = i + 1; j < suggestions.Count && pairs.Count < 20; j++)
+                    {
+                        var a = suggestions[i].Title;
+                        var b = suggestions[j].Title;
+                        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) continue;
+                        // Only send pairs with some word overlap (potential duplicates)
+                        var wordsA = a.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w.ToLower()).ToHashSet();
+                        var wordsB = b.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w.ToLower()).ToHashSet();
+                        var overlap = wordsA.Count(w => wordsB.Contains(w));
+                        if (overlap >= 1)
+                            pairs.Add($"{i}:{j} | \"{a}\" vs \"{b}\"");
+                    }
+                }
+
+                if (pairs.Count == 0) return suggestions;
+
+                var systemPrompt = @"You are a collision repair coaching assistant. Identify which suggestion pairs are duplicates (same underlying advice, different wording).
+
+Return a JSON array of index pairs to remove (the second item in each pair). Format: [3, 7, 12] — these are the 0-based indices of suggestions to remove.
+If no duplicates, return an empty array: []
+Return ONLY the JSON array.";
+
+                var userMessage = $"Suggestions:\n{string.Join("\n", suggestions.Select((s, i) => $"[{i}] {s.Title}: {s.Description}"))}\n\nPotential duplicate pairs:\n{string.Join("\n", pairs)}";
+
+                if (userMessage.Length > 3000)
+                    userMessage = userMessage.Substring(0, 3000);
+
+                var response = await apiService.SendAsync(systemPrompt, userMessage, McStudDesktop.Services.AiFeature.SuggestionDedup, 256);
+                if (response == null) return suggestions;
+
+                var text = McStudDesktop.Services.ClaudeApiService.StripCodeFences(response.Text);
+
+                var indicesToRemove = System.Text.Json.JsonSerializer.Deserialize<List<int>>(text);
+                if (indicesToRemove == null || indicesToRemove.Count == 0) return suggestions;
+
+                var removeSet = new HashSet<int>(indicesToRemove);
+                var filtered = suggestions.Where((s, i) => !removeSet.Contains(i)).ToList();
+
+                Debug.WriteLine($"[LiveCoaching] AI dedup removed {suggestions.Count - filtered.Count} duplicates");
+                return filtered;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[LiveCoaching] AI dedup failed (using fallback): {ex.Message}");
+                return suggestions;
+            }
         }
     }
 }

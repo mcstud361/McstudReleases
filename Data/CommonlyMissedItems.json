@@ -361,24 +361,16 @@
         }
       ]
     },
-    "any_bumper_work": {
-      "operation": "Any Bumper Work",
-      "triggerKeywords": ["bumper", "fascia", "front cover", "rear cover"],
+    "front_bumper_work": {
+      "operation": "Front Bumper Work",
+      "triggerKeywords": ["front bumper", "front fascia", "front cover", "frt bumper"],
       "triggerOperations": [],
       "missedItems": [
         {
-          "item": "R&I Parking Sensors",
-          "category": "Electrical",
-          "description": "Remove and install parking/proximity sensors",
-          "whyNeeded": "Sensors embedded in bumper cover",
-          "laborHours": 0.3,
-          "priority": "medium"
-        },
-        {
           "item": "R&I Fog Lamps",
           "category": "Electrical",
-          "description": "Remove fog lamp assemblies from bumper",
-          "whyNeeded": "Fog lamps mounted in bumper cover",
+          "description": "Remove fog lamp assemblies from front bumper",
+          "whyNeeded": "Fog lamps mounted in front bumper cover",
           "laborHours": 0.3,
           "priority": "medium"
         },
@@ -386,7 +378,38 @@
           "item": "R&I Front Camera",
           "category": "Electrical",
           "description": "Remove/install front camera if equipped",
-          "whyNeeded": "Camera may be in grille or bumper area",
+          "whyNeeded": "Camera may be in grille or front bumper area",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Parking Sensors",
+          "category": "Electrical",
+          "description": "Remove and install front parking/proximity sensors",
+          "whyNeeded": "Sensors embedded in front bumper cover",
+          "laborHours": 0.3,
+          "priority": "medium"
+        }
+      ]
+    },
+    "rear_bumper_work": {
+      "operation": "Rear Bumper Work",
+      "triggerKeywords": ["rear bumper", "rear fascia", "rear cover", "rr bumper"],
+      "triggerOperations": [],
+      "missedItems": [
+        {
+          "item": "R&I Parking Sensors",
+          "category": "Electrical",
+          "description": "Remove and install rear parking/proximity sensors",
+          "whyNeeded": "Sensors embedded in rear bumper cover",
+          "laborHours": 0.3,
+          "priority": "medium"
+        },
+        {
+          "item": "R&I Rear Camera",
+          "category": "Electrical",
+          "description": "Remove/install backup camera if equipped",
+          "whyNeeded": "Backup camera mounted in rear bumper or liftgate area",
           "laborHours": 0.3,
           "priority": "medium"
         }

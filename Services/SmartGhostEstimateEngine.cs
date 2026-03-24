@@ -548,7 +548,7 @@ namespace McStudDesktop.Services
             if (lower.Contains("radiator") || lower.Contains("condenser") || lower.Contains("suspension") || lower.Contains("steering") || lower.Contains("engine") || lower.Contains("wheel"))
                 return "MECHANICAL";
             if (lower.Contains("bumper"))
-                return "FRONT BUMPER & GRILLE";
+                return "MISCELLANEOUS OPERATIONS";
 
             if (!string.IsNullOrEmpty(category))
             {

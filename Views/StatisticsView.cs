@@ -84,6 +84,7 @@ namespace McStudDesktop.Views
         private StackPanel? _chartSeriesPanel;
         private string _currentChartKey = "";
         private bool _isSeriesToggleRefresh = false;
+        private bool _isRefreshingChart = false;
         private Dictionary<string, bool> _chartSeriesVisibility = new();
 
         public StatisticsView()
@@ -322,6 +323,9 @@ namespace McStudDesktop.Views
 
             // Export stats section
             stack.Children.Add(BuildExportStatsSection(period));
+
+            // Business outcomes panel
+            stack.Children.Add(BuildBusinessOutcomesPanel(period));
 
             // Shop docs section
             stack.Children.Add(CreateShopDocsStatsSection(period));
@@ -604,6 +608,184 @@ namespace McStudDesktop.Views
             if (sparkData != null && sparkData.Count >= 2)
                 AddSparkline(stack, sparkData, accent);
             return stack;
+        }
+
+        private Border BuildBusinessOutcomesPanel(StatsPeriod period)
+        {
+            var enhancedStats = _exportStats.GetEnhancedStats(_currentUserId, period);
+            var roi = _exportStats.GetROIStats(_currentUserId, period);
+            var breakdown = _exportStats.GetCategoryBreakdown(_currentUserId, period);
+            var achievements = _exportStats.GetAchievements(_currentUserId);
+            var partStats = _exportStats.GetPartTypeBreakdown(_currentUserId, period);
+
+            var border = new Border
+            {
+                Background = new LinearGradientBrush
+                {
+                    StartPoint = new Windows.Foundation.Point(0, 0),
+                    EndPoint = new Windows.Foundation.Point(1, 1),
+                    GradientStops = {
+                        new GradientStop { Color = Color.FromArgb(255, 25, 40, 55), Offset = 0 },
+                        new GradientStop { Color = Color.FromArgb(255, 35, 30, 50), Offset = 1 }
+                    }
+                },
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16)
+            };
+
+            var stack = new StackPanel { Spacing = 14 };
+
+            // Header
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            header.Children.Add(new FontIcon { Glyph = "\uE9D2", FontSize = 16, Foreground = new SolidColorBrush(AccentCyan) });
+            header.Children.Add(new TextBlock
+            {
+                Text = "BUSINESS OUTCOMES",
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                CharacterSpacing = 40
+            });
+            stack.Children.Add(header);
+
+            // Key metrics row (3 columns)
+            var metricsGrid = new Grid();
+            metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            metricsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // Total Value
+            var totalStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            totalStack.Children.Add(new TextBlock
+            {
+                Text = enhancedStats.FormattedValue,
+                FontSize = 24, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(AccentGreen),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+            totalStack.Children.Add(new TextBlock
+            {
+                Text = "Total Value",
+                FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 130)),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+            Grid.SetColumn(totalStack, 0);
+            metricsGrid.Children.Add(totalStack);
+
+            // Avg Per Estimate
+            var avgStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            avgStack.Children.Add(new TextBlock
+            {
+                Text = enhancedStats.FormattedAvgValue,
+                FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(AccentBlue),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+            avgStack.Children.Add(new TextBlock
+            {
+                Text = "Avg Per Estimate",
+                FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 130)),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+            Grid.SetColumn(avgStack, 1);
+            metricsGrid.Children.Add(avgStack);
+
+            // Trend
+            var trendStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            var trendValue = enhancedStats.ValueTrend;
+            var trendColor = trendValue >= 0 ? AccentGreen : AccentRed;
+            var trendArrow = trendValue >= 0 ? "\u25B2" : "\u25BC";
+            trendStack.Children.Add(new TextBlock
+            {
+                Text = $"{trendArrow} {Math.Abs(trendValue):F1}%",
+                FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(trendColor),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+            trendStack.Children.Add(new TextBlock
+            {
+                Text = "Value Trend",
+                FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 130)),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+            Grid.SetColumn(trendStack, 2);
+            metricsGrid.Children.Add(trendStack);
+
+            stack.Children.Add(metricsGrid);
+
+            // ROI section
+            stack.Children.Add(CreateROISection(roi));
+
+            // Category breakdown
+            stack.Children.Add(CreateCategoryBreakdownSection(breakdown));
+
+            // Top 5 parts by value
+            var topParts = partStats.OrderByDescending(p => p.TotalValue).Take(5).ToList();
+            if (topParts.Any())
+            {
+                var partsSection = new StackPanel { Spacing = 6 };
+                var partsHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                partsHeader.Children.Add(new FontIcon { Glyph = "\uE8EC", FontSize = 14, Foreground = new SolidColorBrush(AccentOrange) });
+                partsHeader.Children.Add(new TextBlock
+                {
+                    Text = "TOP PARTS BY VALUE",
+                    FontSize = 11, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+                    CharacterSpacing = 40
+                });
+                partsSection.Children.Add(partsHeader);
+
+                var maxVal = topParts.Max(p => p.TotalValue);
+                int barIdx = 0;
+                foreach (var part in topParts)
+                {
+                    var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    row.Children.Add(new TextBlock
+                    {
+                        Text = part.PartType,
+                        FontSize = 11, Foreground = new SolidColorBrush(Colors.White),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    });
+
+                    var targetWidth = maxVal > 0 ? (double)(part.TotalValue / maxVal) * 160 : 0;
+                    var bar = new Border
+                    {
+                        Width = 0, Height = 12,
+                        Background = new SolidColorBrush(AccentOrange),
+                        CornerRadius = new CornerRadius(2),
+                        HorizontalAlignment = HorizontalAlignment.Left
+                    };
+                    Grid.SetColumn(bar, 1);
+                    row.Children.Add(bar);
+                    AnimateBarWidth(bar, targetWidth, delayMs: barIdx * 60);
+
+                    var valText = new TextBlock
+                    {
+                        Text = part.TotalValue.ToString("C0"),
+                        FontSize = 10, Foreground = new SolidColorBrush(AccentGreen),
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    };
+                    Grid.SetColumn(valText, 2);
+                    row.Children.Add(valText);
+
+                    partsSection.Children.Add(row);
+                    barIdx++;
+                }
+                stack.Children.Add(partsSection);
+            }
+
+            // Achievements
+            stack.Children.Add(CreateAchievementsSection(achievements));
+
+            border.Child = stack;
+            return border;
         }
 
         private Border BuildExportStatsSection(StatsPeriod period)
@@ -2098,7 +2280,7 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(14, 12, 14, 12)
             };
 
-            var stack = new StackPanel { Spacing = 10 };
+            var outerStack = new StackPanel { Spacing = 10 };
 
             // Header
             var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
@@ -2120,44 +2302,108 @@ namespace McStudDesktop.Views
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 0, 0)
             });
-            stack.Children.Add(header);
+            outerStack.Children.Add(header);
 
-            // Achievement badges grid
-            var badgesWrap = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-
-            foreach (var achievement in achievements.Take(8))
+            // Scrollable category groups
+            var scrollViewer = new ScrollViewer
             {
-                var tierColor = ColorFromHex(achievement.TierColor);
-                var badge = new Border
-                {
-                    Width = 50, Height = 50,
-                    CornerRadius = new CornerRadius(25),
-                    Background = achievement.IsUnlocked
-                        ? new SolidColorBrush(Color.FromArgb(60, tierColor.R, tierColor.G, tierColor.B))
-                        : new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
-                    BorderBrush = achievement.IsUnlocked
-                        ? new SolidColorBrush(tierColor)
-                        : new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
-                    BorderThickness = new Thickness(2)
-                };
+                MaxHeight = 340,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
 
-                var badgeContent = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-                badgeContent.Children.Add(new FontIcon
+            var categoriesStack = new StackPanel { Spacing = 12 };
+
+            // Group by category, sort by most unlocked first
+            var tierRank = new Dictionary<string, int> { { "Platinum", 4 }, { "Gold", 3 }, { "Silver", 2 }, { "Bronze", 1 } };
+            var groups = achievements
+                .GroupBy(a => a.Category)
+                .OrderByDescending(g => g.Count(a => a.IsUnlocked))
+                .ThenBy(g => g.Key);
+
+            foreach (var group in groups)
+            {
+                var categoryPanel = new StackPanel { Spacing = 6 };
+
+                // Category header
+                var catHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                catHeader.Children.Add(new FontIcon
                 {
-                    Glyph = achievement.Icon,
-                    FontSize = 16,
-                    Foreground = new SolidColorBrush(achievement.IsUnlocked ? tierColor : Color.FromArgb(255, 80, 80, 80))
+                    Glyph = Achievement.CategoryIcon(group.Key),
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140))
                 });
+                catHeader.Children.Add(new TextBlock
+                {
+                    Text = group.Key.ToUpperInvariant(),
+                    FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
+                    CharacterSpacing = 30
+                });
+                var catUnlocked = group.Count(a => a.IsUnlocked);
+                catHeader.Children.Add(new TextBlock
+                {
+                    Text = $"{catUnlocked}/{group.Count()}",
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                categoryPanel.Children.Add(catHeader);
 
-                badge.Child = badgeContent;
-                ToolTipService.SetToolTip(badge, $"{achievement.Name}: {achievement.Description}\n{(achievement.IsUnlocked ? "UNLOCKED!" : $"Progress: {achievement.Progress}/{achievement.Target}")}");
-                badgesWrap.Children.Add(badge);
+                // Sort: unlocked first (by tier desc), then locked (by % progress desc)
+                var sorted = group
+                    .OrderByDescending(a => a.IsUnlocked)
+                    .ThenByDescending(a => a.IsUnlocked ? tierRank.GetValueOrDefault(a.Tier, 0) : 0)
+                    .ThenByDescending(a => !a.IsUnlocked && a.Target > 0 ? (double)a.Progress / a.Target : 0);
+
+                // Badge row
+                var badgesWrap = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                foreach (var achievement in sorted)
+                {
+                    var tierColor = ColorFromHex(achievement.TierColor);
+                    var badge = new Border
+                    {
+                        Width = 44, Height = 44,
+                        CornerRadius = new CornerRadius(22),
+                        Background = achievement.IsUnlocked
+                            ? new SolidColorBrush(Color.FromArgb(60, tierColor.R, tierColor.G, tierColor.B))
+                            : new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
+                        BorderBrush = achievement.IsUnlocked
+                            ? new SolidColorBrush(tierColor)
+                            : new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+                        BorderThickness = new Thickness(2)
+                    };
+
+                    var badgeContent = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
+                    badgeContent.Children.Add(new FontIcon
+                    {
+                        Glyph = achievement.Icon,
+                        FontSize = 14,
+                        Foreground = new SolidColorBrush(achievement.IsUnlocked ? tierColor : Color.FromArgb(255, 80, 80, 80))
+                    });
+
+                    badge.Child = badgeContent;
+
+                    var pct = achievement.Target > 0 ? (double)achievement.Progress / achievement.Target * 100 : 0;
+                    var tooltipText = $"{achievement.Name} ({achievement.Tier})\n{achievement.Description}\n" +
+                        (achievement.IsUnlocked ? "UNLOCKED!" : $"Progress: {achievement.Progress}/{achievement.Target} ({pct:F0}%)");
+                    var toolTip = new ToolTip { Content = tooltipText };
+                    ToolTipService.SetToolTip(badge, toolTip);
+                    badgesWrap.Children.Add(badge);
+                }
+
+                categoryPanel.Children.Add(badgesWrap);
+                categoriesStack.Children.Add(categoryPanel);
             }
 
-            stack.Children.Add(badgesWrap);
+            scrollViewer.Content = categoriesStack;
+            outerStack.Children.Add(scrollViewer);
 
-            // Next achievement progress
-            var nextAchievement = achievements.Where(a => !a.IsUnlocked).OrderBy(a => a.Target - a.Progress).FirstOrDefault();
+            // Next achievement progress bar — closest to unlock by %
+            var nextAchievement = achievements
+                .Where(a => !a.IsUnlocked && a.Target > 0)
+                .OrderByDescending(a => (double)a.Progress / a.Target)
+                .FirstOrDefault();
             if (nextAchievement != null)
             {
                 var progressStack = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
@@ -2175,7 +2421,7 @@ namespace McStudDesktop.Views
                     Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
                     Margin = new Thickness(0, 4, 0, 0)
                 };
-                var progress = nextAchievement.Target > 0 ? (double)nextAchievement.Progress / nextAchievement.Target * 100 : 0;
+                var progress = (double)nextAchievement.Progress / nextAchievement.Target * 100;
                 var fill = new Border
                 {
                     Height = 4,
@@ -2195,10 +2441,10 @@ namespace McStudDesktop.Views
                     Margin = new Thickness(0, 2, 0, 0)
                 });
 
-                stack.Children.Add(progressStack);
+                outerStack.Children.Add(progressStack);
             }
 
-            border.Child = stack;
+            border.Child = outerStack;
             return border;
         }
 
@@ -3054,7 +3300,10 @@ namespace McStudDesktop.Views
 
         private void RefreshSelectedChart()
         {
-            if (_chartsContainer == null) return;
+            if (_chartsContainer == null || _isRefreshingChart) return;
+            _isRefreshingChart = true;
+            try
+            {
 
             // Save view state if this is a series toggle refresh
             (double zoom, double panX, double panY) savedState = (1.0, 0, 0);
@@ -3114,6 +3363,11 @@ namespace McStudDesktop.Views
             {
                 RestoreChartViewState(savedState);
                 _isSeriesToggleRefresh = false;
+            }
+            }
+            finally
+            {
+                _isRefreshingChart = false;
             }
         }
 

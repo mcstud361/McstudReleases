@@ -32,6 +32,7 @@ public class ChatbotView : UserControl
     private readonly TypeItService _typeItService;
     private readonly OperationDescriptionBuilderService _descriptionBuilder;
     private readonly EstimateAIAdvisorService _advisorService;
+    private readonly AiChatService _aiChatService;
 
     private StackPanel _chatHistory = null!;
     private TextBox _inputBox = null!;
@@ -80,6 +81,14 @@ public class ChatbotView : UserControl
     public event EventHandler? OnNavigateToExport;
     public event EventHandler? OnNavigateToReference;
 
+    // Unmatched message log (in-memory, max 50)
+    private static readonly List<(DateTime Time, string Message)> _unmatchedLog = new();
+
+    // Automation state
+    private AutomationPlan? _pendingAutomationPlan;
+    private IEstimatingSystemAdapter? _pendingAutomationAdapter;
+    private CancellationTokenSource? _automationCts;
+
     // Static instance for cross-view messaging
     public static ChatbotView? Instance { get; private set; }
 
@@ -96,6 +105,7 @@ public class ChatbotView : UserControl
         _typeItService.BlockUserInput = true; // Safety: block input during paste
         _descriptionBuilder = OperationDescriptionBuilderService.Instance;
         _advisorService = EstimateAIAdvisorService.Instance;
+        _aiChatService = AiChatService.Instance;
 
         // Chat history path
         var appDataPath = Path.Combine(
@@ -249,7 +259,7 @@ public class ChatbotView : UserControl
         headerStack.Children.Add(new TextBlock
         {
             Text = string.IsNullOrWhiteSpace(userName)
-                ? "Your AI-powered partner for comprehensive collision estimates. Ask questions, build operations, or explore the tabs above for specialized tools."
+                ? "Your partner for comprehensive collision estimates. Ask questions, build operations, or explore the tabs above for specialized tools."
                 : "Ask questions, build operations, or explore the tabs above for specialized tools.",
             FontSize = 13,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 190, 200)),
@@ -797,7 +807,7 @@ public class ChatbotView : UserControl
         // Tab labels
         _chatTabButton = CreateTabButton("\uD83D\uDCAC Chat", "Ask questions", 0, true);
         _estimateBuilderTabButton = CreateTabButton("\uD83D\uDCCB Learned", "Look up operations", 1, false);
-        _ghostTabButton = CreateTabButton("\uD83D\uDC7B Ghost Compare", "AI training", 2, false);
+        _ghostTabButton = CreateTabButton("\uD83D\uDC7B Ghost Estimate", "Smart training", 2, false);
         _screenMonitorTabButton = CreateTabButton("\uD83D\uDDA5 Screen OCR", "Monitor screen", 3, false);
 
         panel.Children.Add(_chatTabButton);
@@ -1077,6 +1087,7 @@ public class ChatbotView : UserControl
             Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
         });
 
+        titleStack.DoubleTapped += (s, e) => ShowUnmatchedLogDialog();
         Grid.SetColumn(titleStack, 1);
         headerGrid.Children.Add(titleStack);
 
@@ -1258,10 +1269,15 @@ public class ChatbotView : UserControl
 
     private Grid CreateInputArea()
     {
+        var outerStack = new Grid
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
+        };
+
+        // Input row
         var inputGrid = new Grid
         {
-            Padding = new Thickness(16),
-            Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
+            Padding = new Thickness(16, 8, 16, 16),
             ColumnDefinitions =
             {
                 new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
@@ -1297,7 +1313,9 @@ public class ChatbotView : UserControl
         Grid.SetColumn(sendButton, 1);
         inputGrid.Children.Add(sendButton);
 
-        return inputGrid;
+        outerStack.Children.Add(inputGrid);
+
+        return outerStack;
     }
 
     private void InputBox_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -1328,8 +1346,14 @@ public class ChatbotView : UserControl
         // Small delay to simulate processing
         await System.Threading.Tasks.Task.Delay(150);
 
-        // Hide typing indicator
-        HideTypingIndicator();
+        // Check for automation commands first (e.g., "replace the hood")
+        if (AiConfigService.Instance.IsFeatureEnabled(AiFeature.Automation) &&
+            AutomationDetectionService.IsAutomationCommand(message))
+        {
+            HideTypingIndicator();
+            await HandleAutomationCommandAsync(message);
+            return;
+        }
 
         // Process message and determine response type
         var response = ProcessMessage(message);
@@ -1340,52 +1364,452 @@ public class ChatbotView : UserControl
             var advisorResult = _advisorService.ProcessAdvisorQuery(message);
             if (advisorResult != null)
             {
+                HideTypingIndicator();
                 AddAdvisorResponse(advisorResult);
+
+                // Also try AI-enhanced response if available
+                if (_aiChatService.IsAvailable)
+                {
+                    ShowTypingIndicator();
+                    var aiResult = await _aiChatService.ChatAsync(message);
+                    HideTypingIndicator();
+                    if (aiResult != null)
+                        AddAiMessage(aiResult.Message, aiResult.FollowUps);
+                }
             }
             else
             {
+                // Try AI chat first, then fall back to rule-based
+                if (_aiChatService.IsAvailable)
+                {
+                    var aiResult = await _aiChatService.ChatAsync(message);
+                    HideTypingIndicator();
+                    if (aiResult != null)
+                    {
+                        AddAiMessage(aiResult.Message, aiResult.FollowUps);
+                        return;
+                    }
+                }
+                HideTypingIndicator();
                 var chatResponse = _chatbotService.GetResponse(message);
+                if (chatResponse.Confidence == 0)
+                {
+                    _unmatchedLog.Add((DateTime.Now, message));
+                    if (_unmatchedLog.Count > 50) _unmatchedLog.RemoveAt(0);
+                }
                 AddBotMessage(chatResponse.Message, chatResponse.RelatedTopics);
             }
         }
         else if (response.IsDescriptionBuilderRequest)
         {
+            HideTypingIndicator();
             // Description builder mode - professional descriptions from informal input
             AddDescriptionBuilderResponse(response);
         }
         else if (response.IsSuggestionRequest)
         {
+            HideTypingIndicator();
             // Smart suggestions mode - show beginner help
             AddSuggestionResponse(response);
         }
         else if (response.IsFullOperationEntry)
         {
+            HideTypingIndicator();
             // ARMED UP mode - full operation analysis
             AddFullOperationResponse(response);
         }
         else if (response.IsSupplementCheck)
         {
+            HideTypingIndicator();
             AddSupplementResponse(response);
         }
         else if (response.IsADASCheck)
         {
+            HideTypingIndicator();
             AddADASResponse(response);
         }
         else if (response.IsTrainingQuestion)
         {
+            HideTypingIndicator();
             AddTrainingResponse(response);
         }
         else
         {
+            // Try AI chat first for unmatched/general messages
+            if (_aiChatService.IsAvailable)
+            {
+                var aiResult = await _aiChatService.ChatAsync(message);
+                HideTypingIndicator();
+                if (aiResult != null)
+                {
+                    AddAiMessage(aiResult.Message, aiResult.FollowUps);
+                    return;
+                }
+            }
+            HideTypingIndicator();
+
             // Fall back to regular chatbot
             var chatResponse = _chatbotService.GetResponse(message);
+            if (chatResponse.Confidence == 0)
+            {
+                _unmatchedLog.Add((DateTime.Now, message));
+                if (_unmatchedLog.Count > 50) _unmatchedLog.RemoveAt(0);
+            }
             AddBotMessage(chatResponse.Message, chatResponse.RelatedTopics);
         }
     }
 
+    #region AI Automation
+
+    private async Task HandleAutomationCommandAsync(string command)
+    {
+        ShowTypingIndicator();
+        AddBotMessage("Detecting estimating system...", null);
+
+        // Step 1: Detect system
+        var adapter = await AiAutomationService.Instance.DetectSystemAsync();
+        if (adapter == null)
+        {
+            HideTypingIndicator();
+            AddBotMessage("No estimating software detected. Please open CCC Desktop, CCC Web, or Mitchell and try again.",
+                new List<string> { "Help me open CCC", "What systems are supported?" });
+            return;
+        }
+
+        // Step 2: Parse intent
+        AddBotMessage($"Connected to **{adapter.SystemName}**. Parsing command...", null);
+        var intent = await AiAutomationService.Instance.ParseIntentAsync(command);
+
+        HideTypingIndicator();
+
+        if (intent == null || intent.Operations.Count == 0)
+        {
+            // Fall back to regular chat
+            ShowTypingIndicator();
+            if (_aiChatService.IsAvailable)
+            {
+                var aiResult = await _aiChatService.ChatAsync(command);
+                HideTypingIndicator();
+                if (aiResult != null)
+                {
+                    AddAiMessage(aiResult.Message, aiResult.FollowUps);
+                    return;
+                }
+            }
+            HideTypingIndicator();
+            AddBotMessage("I couldn't understand that as an automation command. Try something like \"replace the hood\" or \"repair the fender\".",
+                new List<string> { "replace the hood", "repair the fender", "r&i the bumper" });
+            return;
+        }
+
+        // Confidence gating
+        if (intent.Confidence < 0.5)
+        {
+            // Too low — fall back to regular chat
+            ShowTypingIndicator();
+            if (_aiChatService.IsAvailable)
+            {
+                var aiResult = await _aiChatService.ChatAsync(command);
+                HideTypingIndicator();
+                if (aiResult != null)
+                {
+                    AddAiMessage(aiResult.Message, aiResult.FollowUps);
+                    return;
+                }
+            }
+            HideTypingIndicator();
+            var chatResponse = _chatbotService.GetResponse(command);
+            AddBotMessage(chatResponse.Message, chatResponse.RelatedTopics);
+            return;
+        }
+
+        // Step 3: Plan actions
+        var plan = AiAutomationService.Instance.PlanActions(intent, adapter);
+        ShowAutomationPlanPreview(plan, adapter);
+    }
+
+    private void ShowAutomationPlanPreview(AutomationPlan plan, IEstimatingSystemAdapter adapter)
+    {
+        _pendingAutomationPlan = plan;
+        _pendingAutomationAdapter = adapter;
+
+        var container = new StackPanel { Spacing = 8 };
+
+        // AI badge
+        var badgePanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            Margin = new Thickness(0, 0, 48, 0)
+        };
+        var badge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 40, 80, 50)),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(8, 2, 8, 2)
+        };
+        badge.Child = new TextBlock
+        {
+            Text = "\u2699 Automation",
+            FontSize = 10,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 255, 150))
+        };
+        badgePanel.Children.Add(badge);
+        container.Children.Add(badgePanel);
+
+        // Plan card
+        var card = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 30, 45, 35)),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(14, 10, 14, 10),
+            MaxWidth = 500,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 100, 70)),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 0, 48, 0)
+        };
+
+        var cardContent = new StackPanel { Spacing = 8 };
+
+        // System info
+        cardContent.Children.Add(new TextBlock
+        {
+            Text = $"System: {adapter.SystemName}",
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
+        });
+
+        // Operations summary
+        foreach (var op in plan.Intent.Operations)
+        {
+            var opText = $"\u2022 {op.OperationType} — {op.Part}";
+            if (op.Hours.HasValue) opText += $" ({op.Hours.Value}h)";
+            cardContent.Children.Add(new TextBlock
+            {
+                Text = opText,
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Colors.White),
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        // Step count
+        cardContent.Children.Add(new TextBlock
+        {
+            Text = $"{plan.Steps.Count} steps to execute",
+            FontSize = 11,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 130)),
+            Margin = new Thickness(0, 4, 0, 0)
+        });
+
+        // Low confidence warning
+        if (plan.Intent.Confidence >= 0.5 && plan.Intent.Confidence < 0.7)
+        {
+            cardContent.Children.Add(new TextBlock
+            {
+                Text = "\u26A0 Low confidence — please verify the operations above are correct",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+        }
+
+        // Buttons
+        var buttonPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin = new Thickness(0, 8, 0, 0)
+        };
+
+        var executeButton = new Button
+        {
+            Content = "Execute",
+            Background = new SolidColorBrush(Color.FromArgb(255, 40, 120, 60)),
+            Foreground = new SolidColorBrush(Colors.White),
+            Padding = new Thickness(16, 6, 16, 6),
+            CornerRadius = new CornerRadius(8),
+            BorderThickness = new Thickness(0)
+        };
+        executeButton.Click += ExecuteAutomationPlan_Click;
+        buttonPanel.Children.Add(executeButton);
+
+        var cancelButton = new Button
+        {
+            Content = "Cancel",
+            Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 65)),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            Padding = new Thickness(16, 6, 16, 6),
+            CornerRadius = new CornerRadius(8),
+            BorderThickness = new Thickness(0)
+        };
+        cancelButton.Click += (s, e) =>
+        {
+            _pendingAutomationPlan = null;
+            _pendingAutomationAdapter = null;
+            AddBotMessage("Automation cancelled.", null);
+        };
+        buttonPanel.Children.Add(cancelButton);
+
+        cardContent.Children.Add(buttonPanel);
+        card.Child = cardContent;
+        container.Children.Add(card);
+
+        _chatHistory.Children.Add(container);
+        ScrollToBottom();
+    }
+
+    private async void ExecuteAutomationPlan_Click(object sender, RoutedEventArgs e)
+    {
+        var plan = _pendingAutomationPlan;
+        var adapter = _pendingAutomationAdapter;
+        _pendingAutomationPlan = null;
+        _pendingAutomationAdapter = null;
+
+        if (plan == null || adapter == null)
+        {
+            AddBotMessage("No automation plan pending.", null);
+            return;
+        }
+
+        // Disable the execute button
+        if (sender is Button btn)
+        {
+            btn.IsEnabled = false;
+            btn.Content = "Executing...";
+        }
+
+        _automationCts = new CancellationTokenSource();
+        var ct = _automationCts.Token;
+
+        // Show progress in chat
+        var progressText = new TextBlock
+        {
+            Text = "Starting automation...",
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 255, 150)),
+            Margin = new Thickness(0, 4, 48, 4)
+        };
+        _chatHistory.Children.Add(progressText);
+        ScrollToBottom();
+
+        var progress = new Progress<AutomationProgress>(p =>
+        {
+            DispatcherQueue?.TryEnqueue(() =>
+            {
+                progressText.Text = $"Step {p.CurrentStep}/{p.TotalSteps}: {p.Description}";
+                ScrollToBottom();
+            });
+        });
+
+        // Register Escape key to cancel
+        void OnKeyDown(object s, KeyRoutedEventArgs args)
+        {
+            if (args.Key == VirtualKey.Escape)
+            {
+                _automationCts?.Cancel();
+                args.Handled = true;
+            }
+        }
+        this.KeyDown += OnKeyDown;
+
+        try
+        {
+            var result = await AiAutomationService.Instance.ExecuteAsync(plan, adapter, progress, ct);
+
+            this.KeyDown -= OnKeyDown;
+
+            // Show result
+            if (result.WasCancelled)
+            {
+                AddBotMessage($"Automation cancelled at step {result.StepsCompleted}/{result.TotalSteps}.", null);
+            }
+            else if (result.Success)
+            {
+                var msg = $"**Done!** {result.Message}";
+                if (result.OcrVerified)
+                    msg += $"\n\nVerification: {result.OcrVerificationDetail}";
+                else if (!string.IsNullOrEmpty(result.OcrVerificationDetail))
+                    msg += $"\n\nNote: {result.OcrVerificationDetail}";
+
+                AddAiMessage(msg, new List<string> { "replace the fender", "add refinish", "repair the bumper" });
+            }
+            else
+            {
+                AddBotMessage($"Automation failed: {result.Message}", new List<string> { "Try again" });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            this.KeyDown -= OnKeyDown;
+            AddBotMessage("Automation was cancelled.", null);
+        }
+        catch (Exception ex)
+        {
+            this.KeyDown -= OnKeyDown;
+            AddBotMessage($"Automation error: {ex.Message}", null);
+        }
+        finally
+        {
+            _automationCts?.Dispose();
+            _automationCts = null;
+        }
+    }
+
+    #endregion
+
     /// <summary>
     /// ARMED UP response - full operation breakdown with P-Pages, DEG, additionals
     /// </summary>
+    private async void ShowUnmatchedLogDialog()
+    {
+        var content = new StackPanel { Spacing = 8, MinWidth = 400 };
+        if (_unmatchedLog.Count == 0)
+        {
+            content.Children.Add(new TextBlock
+            {
+                Text = "No unmatched messages yet.",
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140))
+            });
+        }
+        else
+        {
+            foreach (var (time, msg) in _unmatchedLog.AsEnumerable().Reverse())
+            {
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                row.Children.Add(new TextBlock
+                {
+                    Text = time.ToString("HH:mm"),
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                row.Children.Add(new TextBlock
+                {
+                    Text = msg.Length > 80 ? msg.Substring(0, 80) + "..." : msg,
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Colors.White),
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                content.Children.Add(row);
+            }
+        }
+
+        var dialog = new ContentDialog
+        {
+            Title = $"Unmatched Messages ({_unmatchedLog.Count})",
+            Content = new ScrollViewer { Content = content, MaxHeight = 400 },
+            CloseButtonText = "Close",
+            XamlRoot = this.XamlRoot
+        };
+        await dialog.ShowAsync();
+    }
+
     private void AddFullOperationResponse(ProcessedMessage processed)
     {
         var part = processed.DetectedPart;
@@ -1546,7 +1970,7 @@ public class ChatbotView : UserControl
             if (proactive != null)
             {
                 var advisorSb = new System.Text.StringBuilder();
-                advisorSb.AppendLine("🤖 AI ADVISOR");
+                advisorSb.AppendLine("ADVISOR");
                 advisorSb.AppendLine("───────────────────────────────────────────");
 
                 if (proactive.PatternSuggestions.Any())
@@ -1590,7 +2014,7 @@ public class ChatbotView : UserControl
     private void AddAdvisorResponse(AdvisorResponse advisorResult)
     {
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("🤖 AI ADVISOR");
+        sb.AppendLine("ADVISOR");
         sb.AppendLine("═══════════════════════════════════════════");
         sb.AppendLine();
 
@@ -1989,7 +2413,7 @@ public class ChatbotView : UserControl
 
         // Show feedback in chat
         SelectTab(0);
-        AddBotMessage($"Added from Ghost Compare: {e.Description}");
+        AddBotMessage($"Added from Ghost Estimate: {e.Description}");
     }
 
     private void ScreenMonitorPanel_OnFeedToChat(object? sender, McstudDesktop.Models.ScreenOcrResult ocrResult)
@@ -2307,7 +2731,7 @@ public class ChatbotView : UserControl
 
         // Check for AI Advisor queries FIRST
         // "what am i missing", "similar estimates", "what does State Farm pay", "review my estimate", etc.
-        if (_advisorService.IsAdvisorQuery(message))
+        if (msgLower.Contains("what's missing") || msgLower.Contains("whats missing") || msgLower.Contains("what did i miss") || _advisorService.IsAdvisorQuery(message))
         {
             result.IsAdvisorQuery = true;
             result.DetectedPart = ExtractPart(msgLower);
@@ -2316,7 +2740,7 @@ public class ChatbotView : UserControl
         }
 
         // Check for suggestion requests - "suggest bumper cover replace" or "what do I need for bumper replace"
-        var suggestionTriggers = new[] { "suggest", "help me with", "what manual lines" };
+        var suggestionTriggers = new[] { "suggest", "sugest", "sugges", "help me with", "what manual lines", "what goes with", "what do i need for", "show me", "how much for" };
         if (suggestionTriggers.Any(t => msgLower.StartsWith(t) || msgLower.Contains(t)))
         {
             var part = ExtractPart(msgLower);
@@ -2351,7 +2775,7 @@ public class ChatbotView : UserControl
         }
 
         // ADAS check
-        if (msgLower.Contains("adas") || msgLower.Contains("calibrat") || msgLower.Contains("sensor") ||
+        if (msgLower.Contains("adas") || msgLower.Contains("calibrat") || msgLower.Contains("recalibrat") || msgLower.Contains("recalibration") || msgLower.Contains("sensor") ||
             (msgLower.Contains("windshield") && !msgLower.Contains("why")))
         {
             result.IsADASCheck = true;
@@ -2442,30 +2866,58 @@ public class ChatbotView : UserControl
 
     private string ExtractPart(string msg)
     {
-        var parts = new Dictionary<string, string>
+        // Ordered specific-to-general to avoid partial matches
+        var parts = new List<(string pattern, string partName)>
         {
-            ["front bumper"] = "Front Bumper Cover",
-            ["rear bumper"] = "Rear Bumper Cover",
-            ["bumper cover"] = "Bumper Cover",
-            ["bumper"] = "Bumper Cover",
-            ["quarter panel"] = "Quarter Panel",
-            ["quarter"] = "Quarter Panel",
-            ["left fender"] = "Left Fender",
-            ["right fender"] = "Right Fender",
-            ["fender"] = "Fender",
-            ["hood"] = "Hood",
-            ["roof"] = "Roof",
-            ["trunk"] = "Trunk Lid",
-            ["door"] = "Door",
-            ["windshield"] = "Windshield",
-            ["back glass"] = "Back Glass",
-            ["rocker"] = "Rocker Panel"
+            // Plastic parts (specific first)
+            ("front bumper", "Front Bumper Cover"),
+            ("rear bumper", "Rear Bumper Cover"),
+            ("bumper cover", "Bumper Cover"),
+            ("bumper", "Bumper Cover"),
+            ("rocker molding", "Rocker Molding"),
+            ("rocker mldg", "Rocker Molding"),
+            ("upper cover", "Upper Cover"),
+            ("mirror cover", "Mirror Cover"),
+            ("lower cover", "Lower Cover"),
+            ("lower bumper", "Lower Bumper"),
+            ("side cover", "Side Cover"),
+            // Metal: welded (specific first)
+            ("quarter panel", "Quarter Panel"),
+            ("quarter glass", "Quarter Glass"),
+            ("quarter", "Quarter Panel"),
+            ("roof panel", "Roof Panel"),
+            ("roof glass", "Roof Glass"),
+            ("roof", "Roof Panel"),
+            // Metal: bolted
+            ("front door", "Front Door"),
+            ("rear door", "Rear Door"),
+            ("left fender", "Left Fender"),
+            ("right fender", "Right Fender"),
+            ("fender", "Fender"),
+            ("hood", "Hood"),
+            ("bonnet", "Hood"),
+            ("deck lid", "Trunk Lid"),
+            ("trunk lid", "Trunk Lid"),
+            ("trunk", "Trunk Lid"),
+            ("tailgate", "Tailgate"),
+            ("liftgate", "Liftgate"),
+            ("door", "Door"),
+            // Inner panels (must be after "rocker molding" but before generic "rocker")
+            ("rear body panel", "Rear Body Panel"),
+            ("apron", "Apron"),
+            ("frame rail", "Frame Rail"),
+            ("rocker panel", "Rocker Panel"),
+            ("rocker", "Rocker Panel"),
+            ("inner panel", "Inner Panel"),
+            // Glass
+            ("windshield", "Windshield"),
+            ("back glass", "Back Glass"),
         };
 
-        foreach (var kvp in parts)
+        foreach (var (pattern, partName) in parts)
         {
-            if (msg.Contains(kvp.Key))
-                return kvp.Value;
+            if (msg.Contains(pattern))
+                return partName;
         }
 
         return "Panel";
@@ -2728,9 +3180,42 @@ public class ChatbotView : UserControl
 
             container.Children.Add(opsPanel);
         }
-        else
+
+        // Category-pooled operations panel
+        if (suggestions.CategoryOperations.Count > 0)
         {
-            // No data message
+            var catPanel = new StackPanel
+            {
+                Spacing = 4,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 45, 55)),
+                Padding = new Thickness(8),
+                CornerRadius = new CornerRadius(8),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var catHeader = new TextBlock
+            {
+                Text = $"🔗 {suggestions.CategoryDescription}",
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 180, 220)),
+                Margin = new Thickness(0, 0, 0, 8),
+                TextWrapping = TextWrapping.Wrap
+            };
+            catPanel.Children.Add(catHeader);
+
+            foreach (var op in suggestions.CategoryOperations.Take(12))
+            {
+                var opRow = CreateSuggestionOpRow(op);
+                catPanel.Children.Add(opRow);
+            }
+
+            container.Children.Add(catPanel);
+        }
+
+        // No data message — only when no learned AND no category data
+        if (suggestions.ManualOperations.Count == 0 && suggestions.CategoryOperations.Count == 0)
+        {
             var noDataPanel = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 50, 45, 40)),
@@ -2820,9 +3305,17 @@ public class ChatbotView : UserControl
     /// </summary>
     private Border CreateSuggestionOpRow(SmartSuggestionOp op)
     {
+        // Tint background based on source
+        var bgColor = op.Source switch
+        {
+            "Category" => Color.FromArgb(255, 50, 45, 55),    // purple tint
+            "Rules Engine" => Color.FromArgb(255, 50, 50, 45), // yellow tint
+            _ => Color.FromArgb(255, 50, 50, 50)               // default dark gray
+        };
+
         var rowBorder = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+            Background = new SolidColorBrush(bgColor),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 6, 8, 6),
             Margin = new Thickness(0, 2, 0, 2)
@@ -2858,12 +3351,27 @@ public class ChatbotView : UserControl
         Grid.SetColumn(descText, 0);
         mainRow.Children.Add(descText);
 
-        // Learned indicator (small badge showing times used)
-        if (op.TimesUsed > 0)
+        // Badge showing times used + source indicator
+        var badgeText = op.Source switch
         {
+            "Category" when op.TimesUsed > 0 => $"{op.TimesUsed}x (pooled)",
+            "Rules Engine" => "baseline",
+            _ when op.TimesUsed > 0 => $"{op.TimesUsed}x",
+            _ => ""
+        };
+
+        if (!string.IsNullOrEmpty(badgeText))
+        {
+            var badgeBgColor = op.Source switch
+            {
+                "Category" => Color.FromArgb(255, 90, 70, 110),
+                "Rules Engine" => Color.FromArgb(255, 100, 90, 60),
+                _ => Color.FromArgb(255, 80, 80, 100)
+            };
+
             var badge = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 80, 80, 100)),
+                Background = new SolidColorBrush(badgeBgColor),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(6, 2, 6, 2),
                 Margin = new Thickness(8, 0, 4, 0),
@@ -2871,7 +3379,7 @@ public class ChatbotView : UserControl
             };
             badge.Child = new TextBlock
             {
-                Text = $"{op.TimesUsed}x",
+                Text = badgeText,
                 FontSize = 10,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 200))
             };
@@ -3390,6 +3898,122 @@ public class ChatbotView : UserControl
         _chatHistory.Children.Add(container);
         SaveChatHistory();
         UpdateQuickReplies(); // Update quick replies based on context
+        ScrollToBottom();
+    }
+
+    /// <summary>
+    /// Display an AI-generated message with a visual AI badge to distinguish from rule-based responses.
+    /// </summary>
+    private void AddAiMessage(string message, List<string>? followUps = null)
+    {
+        var timestamp = DateTime.Now;
+        var container = new StackPanel { Spacing = 8 };
+
+        // Response container (no badge)
+
+        // Message bubble with slightly different tint
+        var bubbleContainer = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 0, 48, 0)
+        };
+
+        var bubble = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 65)),
+            CornerRadius = new CornerRadius(16),
+            Padding = new Thickness(14, 10, 14, 10),
+            MaxWidth = 500,
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 80, 110)),
+            BorderThickness = new Thickness(1)
+        };
+
+        var richTextBlock = new RichTextBlock
+        {
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Colors.White),
+            TextWrapping = TextWrapping.Wrap,
+            IsTextSelectionEnabled = true
+        };
+
+        ParseMarkdownIntoRichText(richTextBlock, message);
+        bubble.Child = richTextBlock;
+        bubbleContainer.Children.Add(bubble);
+
+        // Timestamp
+        bubbleContainer.Children.Add(new TextBlock
+        {
+            Text = FormatTimestamp(timestamp),
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+            Margin = new Thickness(14, 2, 0, 0)
+        });
+
+        // Read-aloud button
+        try
+        {
+            var readButton = TextToSpeechService.CreateSmallReadAloudButton(() => message);
+            if (readButton != null)
+                bubbleContainer.Children.Add(readButton);
+        }
+        catch { }
+
+        container.Children.Add(bubbleContainer);
+        _conversationLog.Add($"AI: {message}");
+
+        // Track message
+        _messages.Add(new ChatMessage
+        {
+            Content = message,
+            IsUser = false,
+            Timestamp = timestamp
+        });
+
+        // Follow-up buttons
+        if (followUps != null && followUps.Count > 0)
+        {
+            var followUpPanel = new StackPanel
+            {
+                Margin = new Thickness(48, 4, 48, 0),
+                Spacing = 4
+            };
+
+            followUpPanel.Children.Add(new TextBlock
+            {
+                Text = "Follow up:",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120))
+            });
+
+            var buttonsPanel = new WrapPanel
+            {
+                Orientation = Orientation.Horizontal
+            };
+
+            foreach (var followUp in followUps.Take(4))
+            {
+                var topicButton = new Button
+                {
+                    Content = followUp,
+                    FontSize = 10,
+                    Padding = new Thickness(8, 4, 8, 4),
+                    Margin = new Thickness(0, 4, 8, 0),
+                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 50, 65)),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
+                    BorderThickness = new Thickness(0),
+                    CornerRadius = new CornerRadius(10)
+                };
+                topicButton.Click += (s, e) => SendMessage(followUp);
+                buttonsPanel.Children.Add(topicButton);
+            }
+
+            followUpPanel.Children.Add(buttonsPanel);
+            container.Children.Add(followUpPanel);
+        }
+
+        _chatHistory.Children.Add(container);
+        SaveChatHistory();
+        UpdateQuickReplies();
         ScrollToBottom();
     }
 

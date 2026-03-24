@@ -15,10 +15,10 @@ namespace McStudDesktop.Views
         private static readonly (string Icon, string Name, string Description)[] TabInfo = new[]
         {
             ("\uE8C8", "Export", "Virtual clipboard that reads Excel and types into CCC/Mitchell for you"),
-            ("\uE8BD", "Chat", "AI assistant for estimating questions"),
+            ("\uE8BD", "Chat", "Estimating assistant for questions and procedures"),
             ("\uE8E5", "Import", "Upload PDF estimates for analysis"),
             ("\uE9D9", "Stats", "Track your export statistics"),
-            ("\uE82D", "Reference", "Definitions, DEG, P-Pages, Procedures"),
+            ("\uE82D", "Reference", "Definitions, DEG, P-Pages, How-To Library"),
             ("\uE713", "Settings", "App settings, updates, version info"),
             ("\uE82D", "Guide", "Step-by-step MET guides"),
             ("\uE8A5", "Shop Docs", "Checklists and shop documents")

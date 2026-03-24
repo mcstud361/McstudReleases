@@ -809,7 +809,15 @@ namespace McStudDesktop.Views
 
             // Rebuild definitions content
             _definitionsContent?.Children.Clear();
-            if (_filteredDefinitions.Count == 0)
+            if (_filteredDefinitions.Count == 0 && !string.IsNullOrEmpty(searchLower))
+            {
+                _definitionsContent?.Children.Add(CreateNoResultsPanel(search.Trim(), term =>
+                {
+                    if (_searchBox != null) _searchBox.Text = term;
+                    FilterContent(term);
+                }));
+            }
+            else if (_filteredDefinitions.Count == 0)
             {
                 _definitionsContent?.Children.Add(new TextBlock
                 {
@@ -1230,6 +1238,37 @@ namespace McStudDesktop.Views
 
             expander.Content = contentStack;
             return expander;
+        }
+
+        private StackPanel CreateNoResultsPanel(string searchTerm, Action<string> onSuggestionClick)
+        {
+            var panel = new StackPanel { Spacing = 10, Margin = new Thickness(8, 16, 8, 8) };
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"No results for '{searchTerm}'",
+                FontSize = 13,
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140))
+            });
+            var tryRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            tryRow.Children.Add(new TextBlock { Text = "Try:", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), VerticalAlignment = VerticalAlignment.Center });
+            foreach (var term in new[] { "blend", "corrosion", "scan", "calibration" })
+            {
+                var btn = new Button
+                {
+                    Content = term,
+                    FontSize = 11,
+                    Padding = new Thickness(10, 4, 10, 4),
+                    Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 200, 255)),
+                    BorderThickness = new Thickness(0)
+                };
+                var captured = term;
+                btn.Click += (s, e) => onSuggestionClick(captured);
+                tryRow.Children.Add(btn);
+            }
+            panel.Children.Add(tryRow);
+            return panel;
         }
 
         private Expander CreateDefinitionExpander(DefinitionItem def)

@@ -2,6 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+using McStudDesktop.Services;
 
 namespace McStudDesktop.Services
 {
@@ -103,8 +106,81 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // If still no data, return empty with message
-            if (suggestions.ManualOperations.Count == 0)
+            // Strategy 3: Category pooling — when per-part data is thin
+            if (suggestions.ManualOperations.Count < 3)
+            {
+                var rulesEngine = OperationRulesEngine.Instance;
+                var category = rulesEngine.GetPartOperationCategory(partName, operationType);
+
+                if (category != PartOperationCategory.Unknown)
+                {
+                    var categoryPattern = _learningService.GetManualLinesForCategory(category, partName);
+                    if (categoryPattern != null && categoryPattern.ManualLines.Count > 0)
+                    {
+                        var partsCount = _learningService.GetCategoryPartsCount(category);
+                        var categoryName = OperationRulesEngine.GetCategoryDisplayName(category);
+                        suggestions.CategoryDescription = $"From {categoryPattern.ExampleCount} similar {categoryName} estimates across {partsCount} parts";
+
+                        // Existing per-part descriptions for dedup
+                        var existingDescs = suggestions.ManualOperations
+                            .Select(m => m.Description.ToLowerInvariant())
+                            .ToHashSet();
+
+                        foreach (var manual in categoryPattern.ManualLines.OrderByDescending(m => m.TimesUsed).Take(15))
+                        {
+                            var desc = !string.IsNullOrEmpty(manual.ManualLineType) ? manual.ManualLineType : manual.Description;
+                            if (existingDescs.Contains(desc.ToLowerInvariant()))
+                                continue;
+
+                            existingDescs.Add(desc.ToLowerInvariant());
+
+                            suggestions.CategoryOperations.Add(new SmartSuggestionOp
+                            {
+                                Description = desc,
+                                OperationType = !string.IsNullOrEmpty(manual.LaborType) ? manual.LaborType : "Add",
+                                LaborHours = manual.LaborUnits,
+                                RefinishHours = manual.RefinishUnits,
+                                Price = manual.AvgPrice > 0 ? manual.AvgPrice : manual.Price,
+                                Confidence = categoryPattern.Confidence * 0.8,
+                                TimesUsed = manual.TimesUsed,
+                                Source = "Category",
+                                CategoryLabel = categoryName,
+                                Reason = $"Used {manual.TimesUsed}x across {partsCount} {categoryName} parts",
+                                Priority = manual.TimesUsed
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Strategy 4: Baseline fallback from rules engine when no learned data exists
+            if (suggestions.ManualOperations.Count == 0 && suggestions.CategoryOperations.Count == 0)
+            {
+                var rulesEngine = OperationRulesEngine.Instance;
+                var baselineOps = rulesEngine.GetSuggestedOperations(partName, operationType);
+                if (baselineOps.Count > 0)
+                {
+                    suggestions.MatchType = "Baseline";
+                    suggestions.MatchDescription = "Common operations for this part type (no learned data yet)";
+
+                    foreach (var baseOp in baselineOps)
+                    {
+                        suggestions.CategoryOperations.Add(new SmartSuggestionOp
+                        {
+                            Description = baseOp.Description,
+                            OperationType = baseOp.OperationType,
+                            LaborHours = baseOp.DefaultHours,
+                            Source = "Rules Engine",
+                            CategoryLabel = "Common Operations",
+                            Reason = baseOp.WhyNeeded,
+                            Priority = 0
+                        });
+                    }
+                }
+            }
+
+            // If still no data at all, return empty with message
+            if (suggestions.ManualOperations.Count == 0 && suggestions.CategoryOperations.Count == 0)
             {
                 suggestions.MatchType = "No Data";
                 suggestions.MatchCount = 0;
@@ -126,6 +202,82 @@ namespace McStudDesktop.Services
             // For now, just call without vehicle info
             return GetSuggestionsForPart(partName, operationType, null);
         }
+
+        /// <summary>
+        /// Get suggestions with AI-powered dedup. Falls back to standard string dedup if AI is unavailable.
+        /// </summary>
+        public async Task<PartSuggestions> GetSuggestionsForPartAsync(string partName, string operationType, string? vehicleInfo = null)
+        {
+            var suggestions = GetSuggestionsForPart(partName, operationType, vehicleInfo);
+
+            // Only use AI dedup if we have enough suggestions to warrant it
+            var allOps = suggestions.ManualOperations.Concat(suggestions.CategoryOperations).ToList();
+            if (allOps.Count >= 3)
+            {
+                var deduped = await TryAiDedupAsync(allOps);
+                if (deduped != null)
+                {
+                    // Separate back into manual vs category
+                    var dedupedDescs = new HashSet<string>(deduped.Select(d => d.Description), StringComparer.OrdinalIgnoreCase);
+                    suggestions.ManualOperations.RemoveAll(o => !dedupedDescs.Contains(o.Description));
+                    suggestions.CategoryOperations.RemoveAll(o => !dedupedDescs.Contains(o.Description));
+                    suggestions.CalculateTotals();
+                }
+            }
+
+            return suggestions;
+        }
+
+        /// <summary>
+        /// Use AI to detect semantically duplicate suggestions that string matching would miss.
+        /// Returns the deduplicated list, or null on failure.
+        /// </summary>
+        private async Task<List<SmartSuggestionOp>?> TryAiDedupAsync(List<SmartSuggestionOp> operations)
+        {
+            try
+            {
+                var apiService = ClaudeApiService.Instance;
+                var systemPrompt = @"You are a collision repair estimating assistant. Given a list of suggested operations, identify duplicates — operations that describe the same work even if worded differently.
+
+Examples of duplicates:
+- ""Blend adjacent panel"" and ""Blend"" (same operation)
+- ""R&I headlamp"" and ""Remove & install headlight"" (same work)
+- ""Corrosion protection"" and ""Anti-corrosion treatment"" (same work)
+
+Return a JSON array of the UNIQUE operation descriptions to keep (remove the duplicates, keeping the more descriptive version). Return ONLY the JSON array of strings.";
+
+                var opList = string.Join("\n", operations.Select((o, i) => $"{i + 1}. {o.Description} ({o.OperationType})"));
+                var response = await apiService.SendAsync(systemPrompt, opList, AiFeature.SuggestionDedup, 512);
+                if (response == null) return null;
+
+                var text = ClaudeApiService.StripCodeFences(response.Text);
+                var keepDescs = JsonSerializer.Deserialize<List<string>>(text, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (keepDescs == null || keepDescs.Count == 0) return null;
+
+                // Map back to the original operations by matching descriptions
+                var keepSet = new HashSet<string>(keepDescs, StringComparer.OrdinalIgnoreCase);
+                var result = operations.Where(o => keepSet.Contains(o.Description)).ToList();
+
+                // If AI removed too many (>50%), something went wrong — return null to use fallback
+                if (result.Count < operations.Count * 0.5)
+                    return null;
+
+                var removed = operations.Count - result.Count;
+                if (removed > 0)
+                    System.Diagnostics.Debug.WriteLine($"[SmartSuggestion] AI dedup removed {removed} duplicates from {operations.Count} suggestions");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SmartSuggestion] AI dedup failed: {ex.Message}");
+                return null;
+            }
+        }
     }
 
     #region Data Models
@@ -144,6 +296,10 @@ namespace McStudDesktop.Services
         // Suggestions from learned data
         public List<SmartSuggestionOp> ManualOperations { get; set; } = new();
 
+        // Category-pooled suggestions (from similar part types)
+        public List<SmartSuggestionOp> CategoryOperations { get; set; } = new();
+        public string CategoryDescription { get; set; } = "";
+
         // Note: RelatedParts and CommonlyMissed removed - we only show what was actually learned
         // These could be added back if we track which parts appear together in estimates
 
@@ -159,7 +315,7 @@ namespace McStudDesktop.Services
             EstimatedValue = ManualOperations.Sum(o => o.Price);
         }
 
-        public bool HasData => ManualOperations.Count > 0;
+        public bool HasData => ManualOperations.Count > 0 || CategoryOperations.Count > 0;
     }
 
     public class SmartSuggestionOp
@@ -171,7 +327,8 @@ namespace McStudDesktop.Services
         public decimal Price { get; set; }
         public double Confidence { get; set; }
         public int TimesUsed { get; set; }
-        public string Source { get; set; } = "Learned"; // Always "Learned" now
+        public string Source { get; set; } = "Learned"; // "Learned", "Category", or "Rules Engine"
+        public string CategoryLabel { get; set; } = "";
         public string Reason { get; set; } = "";
         public int Priority { get; set; }
     }

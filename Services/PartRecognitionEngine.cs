@@ -2,7 +2,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using McStudDesktop.Services;
 
 namespace McStudDesktop.Services
 {
@@ -340,6 +343,74 @@ namespace McStudDesktop.Services
             canonical = Regex.Replace(canonical, @"_+", "_").Trim('_');
 
             return canonical;
+        }
+
+        /// <summary>
+        /// Async recognition with AI fallback for unknown parts.
+        /// Tries local matching first, falls back to AI when confidence is low.
+        /// </summary>
+        public async Task<PartRecognitionResult> RecognizeAsync(string rawPartName)
+        {
+            var result = Recognize(rawPartName);
+
+            // Only use AI if local matching produced a low-confidence result
+            if (result.Success && result.Confidence <= 0.60 && result.Source == "generated")
+            {
+                var aiName = await TryAiPartMatchAsync(rawPartName, result.CanonicalName);
+                if (aiName != null)
+                {
+                    result.CanonicalName = aiName;
+                    result.Confidence = 0.80;
+                    result.Source = "ai_matched";
+
+                    // Learn this mapping for future local lookups
+                    var normalized = rawPartName.ToLowerInvariant();
+                    _knowledge.RecordPartAlias(aiName, normalized);
+                    System.Diagnostics.Debug.WriteLine($"[PartRecog] AI matched: '{rawPartName}' → '{aiName}'");
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Ask AI to resolve an unknown part name to a canonical collision repair part.
+        /// Returns null on failure.
+        /// </summary>
+        private async Task<string?> TryAiPartMatchAsync(string rawPartName, string currentBestGuess)
+        {
+            try
+            {
+                var apiService = ClaudeApiService.Instance;
+                var systemPrompt = @"You are a collision repair parts expert. Given a raw part name from an estimate, return the canonical part name in lowercase with underscores.
+
+Use standard collision repair terminology:
+front_bumper_cover, rear_bumper_cover, hood, fender, front_door, rear_door, quarter_panel, trunk_lid, roof, rocker_panel, a_pillar, b_pillar, c_pillar, liftgate, grille, headlight, tail_light, fog_light, mirror, fender_liner, radiator_support, condenser, radiator, splash_shield, bumper_reinforcement, absorber, wheel_opening_molding, door_handle, belt_molding, windshield, back_glass, door_glass, quarter_glass, cowl_panel, header_panel, valance
+
+Return ONLY the canonical name, nothing else. If you cannot determine the part, return: unknown";
+
+                var userMessage = $"Raw part name: {rawPartName}";
+
+                var response = await apiService.SendAsync(systemPrompt, userMessage, AiFeature.PartMatching, 64);
+                if (response == null) return null;
+
+                var aiName = response.Text.Trim().ToLowerInvariant();
+
+                // Validate the response is reasonable
+                if (string.IsNullOrWhiteSpace(aiName) || aiName == "unknown" || aiName.Length > 60 || aiName.Contains('\n'))
+                    return null;
+
+                // Clean up - ensure underscore format
+                aiName = aiName.Replace(" ", "_").Replace("-", "_");
+                aiName = System.Text.RegularExpressions.Regex.Replace(aiName, @"_+", "_").Trim('_');
+
+                return aiName;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PartRecog] AI match failed: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>

@@ -76,6 +76,12 @@ namespace McStudDesktop.Services
 
             try
             {
+                // Phase 0: Clear existing learned data for a clean rebuild with current filtering
+                _progress.Phase = "Clearing old data";
+                ProgressChanged?.Invoke(this, _progress);
+                _knowledge.ClearAllLearnedData();
+                System.Diagnostics.Debug.WriteLine("[Mining] Cleared old knowledge for clean rebuild with sanity filtering");
+
                 // Phase 1: Get all estimates from history database
                 _progress.Phase = "Loading estimates";
                 ProgressChanged?.Invoke(this, _progress);
@@ -152,6 +158,17 @@ namespace McStudDesktop.Services
             return result;
         }
 
+        /// <summary>
+        /// Clear all learned data and re-mine from scratch with improved filtering.
+        /// Call this after upgrading the sanity caps in LearnedKnowledgeBase.
+        /// </summary>
+        public async Task<MiningResult> ClearAndRemineAsync(CancellationToken cancellationToken = default)
+        {
+            System.Diagnostics.Debug.WriteLine("[Mining] Clearing all learned data for clean re-mine...");
+            _knowledge.ClearAllLearnedData();
+            return await RunFullMiningPassAsync(cancellationToken);
+        }
+
         #endregion
 
         #region Single Estimate Mining
@@ -163,6 +180,32 @@ namespace McStudDesktop.Services
         {
             if (estimate.LineItems == null || estimate.LineItems.Count == 0)
                 return;
+
+            // Grade the estimate if not already graded
+            if (estimate.QualityScore == 0 && estimate.LineItems.Count > 0)
+            {
+                var parsedLines = estimate.LineItems.Select(li => new ParsedEstimateLine
+                {
+                    PartName = li.PartName,
+                    OperationType = li.OperationType,
+                    LaborHours = li.LaborHours,
+                    RefinishHours = li.RefinishHours,
+                    Price = li.Price,
+                    Description = li.Description,
+                    IsManualLine = li.IsManualLine
+                }).ToList();
+
+                var quality = EstimateQualityService.Instance.AssessQuality(parsedLines, estimate.VehicleInfo);
+                estimate.QualityScore = quality.QualityScore;
+                estimate.QualityGrade = quality.Grade.ToString();
+            }
+
+            // Skip rejected estimates entirely — they hurt learning
+            if (estimate.QualityScore > 0 && estimate.QualityScore < 40)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Mining] Skipping low-quality estimate {estimate.Id} (score: {estimate.QualityScore}, grade: {estimate.QualityGrade})");
+                return;
+            }
 
             var estimateId = estimate.Id ?? Guid.NewGuid().ToString();
 
@@ -183,14 +226,16 @@ namespace McStudDesktop.Services
                 var refinishHours = line.RefinishHours;
                 var price = line.Price;
 
-                // Record operation statistics
-                _knowledge.RecordOperation(
+                // Record operation statistics with description and labor type
+                _knowledge.RecordOperationDetails(
                     canonical,
                     operation,
                     laborHours,
                     refinishHours,
                     price,
-                    estimate.VehicleType
+                    description: line.Description,
+                    laborType: line.LaborType,
+                    vehicleType: estimate.VehicleType
                 );
 
                 // Track for co-occurrence analysis
@@ -225,6 +270,9 @@ namespace McStudDesktop.Services
                     _knowledge.RecordCoOccurrence(part1, op1, part2, op2);
                 }
             }
+
+            // Record operation profiles — group lines by section and learn sub-operation patterns
+            RecordOperationProfiles(estimate);
 
             // Extract calculation patterns
             ExtractCalculationPatterns(estimate, partsInEstimate);
@@ -362,6 +410,57 @@ namespace McStudDesktop.Services
                 "frame" or "frm" => "frame",
                 _ => lower
             };
+        }
+
+        /// <summary>
+        /// Group estimate lines by section and record operation profiles for primary operations.
+        /// A "profile" captures what sub-operations consistently appear with a panel's primary operation.
+        /// </summary>
+        private void RecordOperationProfiles(StoredEstimate estimate)
+        {
+            if (estimate.LineItems == null || estimate.LineItems.Count == 0) return;
+
+            // Group lines by section
+            var sections = estimate.LineItems
+                .Where(li => !string.IsNullOrEmpty(li.Section) && !string.IsNullOrEmpty(li.PartName))
+                .GroupBy(li => li.Section, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var section in sections)
+            {
+                var lines = section.ToList();
+
+                // Find primary operations (Replace/Repair) in this section
+                var primaryLines = lines.Where(li =>
+                {
+                    var op = NormalizeOperationType(li.OperationType);
+                    return op == "replace" || op == "repair";
+                }).ToList();
+
+                foreach (var primary in primaryLines)
+                {
+                    var primaryOp = NormalizeOperationType(primary.OperationType);
+                    var panelKey = $"{primary.PartName.ToLower()}|{primaryOp}";
+
+                    // All other lines in this section are sub-operations
+                    var subOps = lines
+                        .Where(li => li != primary)
+                        .Select(li => new ProfileSubOperation
+                        {
+                            PartName = li.PartName,
+                            OperationType = NormalizeOperationType(li.OperationType),
+                            Description = li.Description,
+                            LaborType = li.LaborType,
+                            AverageHours = li.LaborHours > 0 ? li.LaborHours : li.RefinishHours
+                        })
+                        .Where(s => !string.IsNullOrEmpty(s.PartName))
+                        .ToList();
+
+                    if (subOps.Count > 0)
+                    {
+                        _knowledge.RecordOperationProfile(panelKey, subOps);
+                    }
+                }
+            }
         }
 
         private bool IsPlasticPart(string canonicalPart)
