@@ -14,8 +14,24 @@ namespace McStudDesktop.Services
     /// </summary>
     public class UpdateService
     {
-        // Current app version - UPDATE THIS WITH EACH RELEASE
-        public static readonly Version CurrentVersion = new Version(2, 12, 0);
+        // Fallback version — Velopack overrides this at runtime when installed
+        private static readonly Version _fallbackVersion = new Version(2, 14, 0);
+
+        public static Version CurrentVersion
+        {
+            get
+            {
+                try
+                {
+                    var source = new Velopack.Sources.GithubSource("https://github.com/mcstud361/McstudReleases", null, false);
+                    var mgr = new Velopack.UpdateManager(source);
+                    if (mgr.IsInstalled && mgr.CurrentVersion != null)
+                        return new Version(mgr.CurrentVersion.Major, mgr.CurrentVersion.Minor, mgr.CurrentVersion.Patch);
+                }
+                catch { }
+                return _fallbackVersion;
+            }
+        }
 
         // OneDrive sync folder path for update manifest
         // This will check the local OneDrive sync folder first
