@@ -2335,7 +2335,7 @@ namespace McStudDesktop.Services
                         }
 
                         // Update price tracking (cap at $100K to reject garbage values)
-                        if (manualLine.Price > 0 && manualLine.Price <= 100_000m)
+                        if (manualLine.Price > 0 && manualLine.Price <= 10_000m)
                         {
                             existingEntry.MinPrice = existingEntry.MinPrice == 0 ? manualLine.Price : Math.Min(existingEntry.MinPrice, manualLine.Price);
                             existingEntry.MaxPrice = Math.Max(existingEntry.MaxPrice, manualLine.Price);
@@ -2368,7 +2368,7 @@ namespace McStudDesktop.Services
                     }
                     else
                     {
-                        var safePrice = manualLine.Price <= 100_000m ? manualLine.Price : 0m;
+                        var safePrice = manualLine.Price <= 10_000m ? manualLine.Price : 0m;
                         existingPattern.ManualLines.Add(new ManualLineEntry
                         {
                             Description = cleanDesc,
@@ -2409,7 +2409,7 @@ namespace McStudDesktop.Services
                     if (IsGarbagePattern(cleanDesc, cleanPartName))
                         continue;
 
-                    var safePrice = ml.Price <= 100_000m ? ml.Price : 0m;
+                    var safePrice = ml.Price <= 10_000m ? ml.Price : 0m;
                     cleanLines.Add(new ManualLineEntry
                     {
                         Description = cleanDesc,
@@ -2633,13 +2633,18 @@ namespace McStudDesktop.Services
 
                 removedEntries += beforeCount - pattern.ManualLines.Count;
 
-                // Cap absurd prices on surviving entries
+                // Cap absurd prices and labor hours on surviving entries
                 foreach (var ml in pattern.ManualLines)
                 {
-                    if (ml.Price > 100_000m) { ml.Price = 0; cappedPrices++; }
-                    if (ml.AvgPrice > 100_000m) ml.AvgPrice = 0;
-                    if (ml.MinPrice > 100_000m) ml.MinPrice = 0;
-                    if (ml.MaxPrice > 100_000m) ml.MaxPrice = 0;
+                    if (ml.Price > 10_000m) { ml.Price = 0; cappedPrices++; }
+                    if (ml.AvgPrice > 10_000m) ml.AvgPrice = 0;
+                    if (ml.MinPrice > 10_000m) ml.MinPrice = 0;
+                    if (ml.MaxPrice > 10_000m) ml.MaxPrice = 0;
+                    // No single collision operation exceeds ~20 labor hours
+                    if (ml.LaborUnits > 20m) ml.LaborUnits = 0;
+                    if (ml.MaxLaborUnits > 20m) ml.MaxLaborUnits = 0;
+                    if (ml.RefinishUnits > 20m) ml.RefinishUnits = 0;
+                    if (ml.MaxRefinishUnits > 20m) ml.MaxRefinishUnits = 0;
                 }
 
                 if (pattern.ManualLines.Count == 0)

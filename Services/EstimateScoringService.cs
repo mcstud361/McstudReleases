@@ -1076,6 +1076,19 @@ namespace McStudDesktop.Services
 
             foreach (var op in operations)
             {
+                // Skip items seen only once — too low confidence to suggest
+                if (op.TimesUsed < 2)
+                    continue;
+
+                // Skip items with no actionable data
+                if (op.LaborHours <= 0 && op.RepairHours <= 0 && op.Price <= 0)
+                    continue;
+
+                // Skip garbage descriptions
+                var opDesc = op.Description?.Trim() ?? "";
+                if (opDesc.Length < 5 || opDesc.Length > 100)
+                    continue;
+
                 var category = op.Category?.ToLowerInvariant() switch
                 {
                     "calibration" => IssueCategoryType.Calibration,
@@ -1095,7 +1108,7 @@ namespace McStudDesktop.Services
                     Severity = IssueSeverity.Low,
                     Title = op.Description,
                     Description = $"{op.OperationType}: {op.Description}",
-                    WhyNeeded = op.TimesUsed > 1 ? $"Seen in {op.TimesUsed} previous estimates" : "Learned from previous estimates",
+                    WhyNeeded = $"Seen in {op.TimesUsed} previous estimates",
                     TriggeredBy = sourcePartName,
                     PointDeduction = 1,
                     Source = "Learned",
@@ -1114,13 +1127,26 @@ namespace McStudDesktop.Services
             {
                 foreach (var manual in manualPattern.ManualLines)
                 {
+                    // Skip items seen only once — too low confidence to suggest
+                    if (manual.TimesUsed < 2)
+                        continue;
+
+                    // Skip items with zero labor AND zero price — no actionable value
+                    if (manual.LaborUnits <= 0 && manual.RefinishUnits <= 0 && manual.AvgPrice <= 0 && manual.Price <= 0)
+                        continue;
+
+                    // Skip descriptions that are too short or too long (fragments/boilerplate)
+                    var desc = manual.Description?.Trim() ?? "";
+                    if (desc.Length < 5 || desc.Length > 100)
+                        continue;
+
                     issues.Add(new ScoringIssue
                     {
                         Category = IssueCategoryType.Other,
                         Severity = IssueSeverity.Low,
                         Title = manual.ManualLineType,
                         Description = manual.Description,
-                        WhyNeeded = manual.TimesUsed > 1 ? $"Seen in {manual.TimesUsed} previous estimates" : "Learned from previous estimates",
+                        WhyNeeded = $"Seen in {manual.TimesUsed} previous estimates",
                         TriggeredBy = sourcePartName,
                         PointDeduction = 1,
                         Source = "Learned",

@@ -168,30 +168,6 @@ public class LoginView : Grid
 
         loginButtonBorder.Child = _loginButton;
 
-        // Skip Login button (testing)
-        var skipLoginButton = new Button
-        {
-            Content = "Skip Login (Testing)",
-            Height = 45,
-            Margin = new Thickness(0, 20, 0, 0),
-            Background = new SolidColorBrush(Color.FromArgb(255, 100, 50, 150)),
-            Foreground = new SolidColorBrush(Colors.White),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 150, 100, 200)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            FontSize = 14,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-        };
-        skipLoginButton.Click += SkipLoginButton_Click;
-        skipLoginButton.PointerEntered += (s, e) =>
-        {
-            skipLoginButton.Scale = new System.Numerics.Vector3(1.02f, 1.02f, 1);
-        };
-        skipLoginButton.PointerExited += (s, e) =>
-        {
-            skipLoginButton.Scale = new System.Numerics.Vector3(1, 1, 1);
-        };
-
         // Add elements
         mainStack.Children.Add(titleText);
         mainStack.Children.Add(subtitleText);
@@ -201,7 +177,6 @@ public class LoginView : Grid
         mainStack.Children.Add(_errorMessageText);
         mainStack.Children.Add(_spinner);
         mainStack.Children.Add(loginButtonBorder);
-        mainStack.Children.Add(skipLoginButton);
 
         Children.Add(mainStack);
 
@@ -226,12 +201,6 @@ public class LoginView : Grid
     private void LoginButton_Click(object sender, RoutedEventArgs e)
     {
         _ = PerformLoginAsync();
-    }
-
-    private void SkipLoginButton_Click(object sender, RoutedEventArgs e)
-    {
-        System.Diagnostics.Debug.WriteLine("[Login] Skipping login for testing");
-        LoginSuccessful?.Invoke(this, EventArgs.Empty);
     }
 
     private async Task PerformLoginAsync()

@@ -81,7 +81,11 @@ namespace McStudDesktop.Services
                     suggestions.MatchCount = pattern.ExampleCount;
                     suggestions.MatchDescription = $"Based on {pattern.ExampleCount} learned pattern(s)";
 
-                    foreach (var manual in pattern.ManualLines.OrderByDescending(m => m.TimesUsed).Take(15))
+                    foreach (var manual in pattern.ManualLines
+                        .Where(m => m.TimesUsed >= 2) // Only suggest items seen in 2+ estimates
+                        .Where(m => m.LaborUnits > 0 || m.RefinishUnits > 0 || m.AvgPrice > 0 || m.Price > 0) // Must have actionable data
+                        .Where(m => (m.Description?.Length ?? 0) >= 5 && (m.Description?.Length ?? 0) <= 100) // Not fragments or boilerplate
+                        .OrderByDescending(m => m.TimesUsed).Take(10))
                     {
                         // Don't duplicate
                         if (suggestions.ManualOperations.Any(m =>
@@ -126,7 +130,11 @@ namespace McStudDesktop.Services
                             .Select(m => m.Description.ToLowerInvariant())
                             .ToHashSet();
 
-                        foreach (var manual in categoryPattern.ManualLines.OrderByDescending(m => m.TimesUsed).Take(15))
+                        foreach (var manual in categoryPattern.ManualLines
+                            .Where(m => m.TimesUsed >= 2)
+                            .Where(m => m.LaborUnits > 0 || m.RefinishUnits > 0 || m.AvgPrice > 0 || m.Price > 0)
+                            .Where(m => (m.Description?.Length ?? 0) >= 5 && (m.Description?.Length ?? 0) <= 100)
+                            .OrderByDescending(m => m.TimesUsed).Take(10))
                         {
                             var desc = !string.IsNullOrEmpty(manual.ManualLineType) ? manual.ManualLineType : manual.Description;
                             if (existingDescs.Contains(desc.ToLowerInvariant()))

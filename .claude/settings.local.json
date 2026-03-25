@@ -225,7 +225,9 @@
       "WebFetch(domain:www.scottdaypaint.com)",
       "WebFetch(domain:estimatescrubber.com)",
       "WebFetch(domain:www.estimatescrubber.com)",
-      "WebFetch(domain:www.dents.co)"
+      "WebFetch(domain:www.dents.co)",
+      "Bash(where:*)",
+      "Bash(\"C:\\\\Users\\\\mcnee\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\python.exe\":*)"
     ],
     "deny": [],
     "ask": []

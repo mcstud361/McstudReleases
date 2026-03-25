@@ -1498,7 +1498,7 @@ namespace McStudDesktop.Services
         /// </summary>
         private decimal ExtractPrice(string line)
         {
-            const decimal MaxReasonablePrice = 100_000m; // No single collision part/op costs $100K+
+            const decimal MaxReasonablePrice = 10_000m; // Single collision line items top out around $5K-$8K for exotic OEM parts
 
             // Look for dollar amounts
             var priceMatch = Regex.Match(line, @"\$\s*([\d,]+\.?\d*)");
