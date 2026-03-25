@@ -73,6 +73,7 @@ namespace McstudDesktop.Services
         // can't determine one (misc charges sections often lack standard op-type keywords nearby)
         private static readonly HashSet<string> _mustHaveCanonicalNames = new(StringComparer.OrdinalIgnoreCase)
         {
+            // Original must-haves
             "cover and protect electrical connections",
             "charge and maintain battery during ADAS",
             "simulate full fluids for ADAS calibrations",
@@ -82,7 +83,34 @@ namespace McstudDesktop.Services
             "steering wheel cover, seat cover, and floor mat",
             "clean for delivery", "glass cleaner", "parts disposal",
             "hazardous waste", "misc hardware", "test battery condition",
-            "battery support"
+            "battery support",
+            // Welding
+            "weld blankets", "welder setup", "welding consumables",
+            "destructive test weld", "remove and cleanup debris from welding",
+            "R&I electronics within weld zones",
+            // Measurement
+            "setup for measurement", "pre and post repair measurements",
+            // AC & Climate
+            "R1234yf refrigerant and refrigerant oil",
+            "cover and protect AC lines", "climate control system check",
+            "bring vehicle to operating temperatures", "coolant",
+            // Wheel & Tire
+            "torque wheels to spec", "mount and balance tires",
+            "wheel weights", "tire mounting paste", "tire disposal fee",
+            // SRS
+            "disable and enable SRS", "SRS safety inspections",
+            "seatbelt and steering column inspection",
+            "airbag residue cleanup", "restraint control module program",
+            // Misc additions
+            "touch up painted bolts", "setup ADAS equipment",
+            "verify no high voltage", "steering wheel lock",
+            // Body On Frame
+            "cut up shipping crate", "drain and replace fuel",
+            "depressurize fuel tank",
+            // Total Loss
+            "administration fee", "yard fee",
+            // Stolen Recovery
+            "inspect vehicle", "fingerprint powder cleanup", "wheel lock set"
         };
 
         // CCC modifier/add-on sub-line patterns — these are NOT standalone operations.
@@ -609,6 +637,22 @@ namespace McstudDesktop.Services
             ("additional labor", "additional labor"),
 
             // ── Welding & structural ──
+            ("weld blankets", "weld blankets"), ("weld blanket", "weld blankets"),
+            ("welding blankets", "weld blankets"), ("welding blanket", "weld blankets"),
+            ("welder setup", "welder setup"), ("weld setup", "welder setup"),
+            ("setup welder", "welder setup"),
+            ("welding consumables", "welding consumables"), ("weld consumables", "welding consumables"),
+            ("consumable weld", "welding consumables"),
+            ("destructive test weld", "destructive test weld"), ("test weld", "destructive test weld"),
+            ("destructive weld test", "destructive test weld"),
+            ("remove and cleanup debris from welding", "remove and cleanup debris from welding"),
+            ("cleanup debris from welding", "remove and cleanup debris from welding"),
+            ("welding debris", "remove and cleanup debris from welding"),
+            ("cleanup welding", "remove and cleanup debris from welding"),
+            ("r&i electronics within weld zones", "R&I electronics within weld zones"),
+            ("electronics within weld zone", "R&I electronics within weld zones"),
+            ("electronics weld zone", "R&I electronics within weld zones"),
+            ("weld zone electronics", "R&I electronics within weld zones"),
             ("plug weld", "plug weld"), ("spot weld", "spot weld"),
             ("mig weld", "MIG weld"), ("mig braze", "MIG braze"),
             ("resistance weld", "resistance weld"), ("squeeze type resistance", "resistance weld"),
@@ -697,7 +741,110 @@ namespace McstudDesktop.Services
             ("window motor", "window regulator"),
             ("wiper motor", "wiper motor"), ("wiper arm", "wiper arm"),
             ("antenna", "antenna"), ("antenna mast", "antenna"),
-            ("connecting support", "connecting support")
+            ("connecting support", "connecting support"),
+
+            // ── Measurement ──
+            ("setup for measurement", "setup for measurement"), ("measurement setup", "setup for measurement"),
+            ("setup measuring", "setup for measurement"),
+            ("pre and post repair measurements", "pre and post repair measurements"),
+            ("pre and post measurements", "pre and post repair measurements"),
+            ("pre-repair measurement", "pre and post repair measurements"),
+            ("post-repair measurement", "pre and post repair measurements"),
+            ("post repair measure", "pre and post repair measurements"),
+            ("pre repair measure", "pre and post repair measurements"),
+            ("pre measure", "pre and post repair measurements"),
+            ("post measure", "pre and post repair measurements"),
+
+            // ── AC & Climate ──
+            ("r1234yf", "R1234yf refrigerant and refrigerant oil"),
+            ("r-1234yf", "R1234yf refrigerant and refrigerant oil"),
+            ("refrigerant and refrigerant oil", "R1234yf refrigerant and refrigerant oil"),
+            ("refrigerant oil", "R1234yf refrigerant and refrigerant oil"),
+            ("refrigerant", "R1234yf refrigerant and refrigerant oil"),
+            ("cover and protect ac lines", "cover and protect AC lines"),
+            ("cover ac lines", "cover and protect AC lines"),
+            ("protect ac lines", "cover and protect AC lines"),
+            ("cover a/c lines", "cover and protect AC lines"),
+            ("protect a/c lines", "cover and protect AC lines"),
+            ("climate control system check", "climate control system check"),
+            ("climate control check", "climate control system check"),
+            ("climate control", "climate control system check"),
+            ("hvac check", "climate control system check"),
+            ("bring vehicle to operating temperatures", "bring vehicle to operating temperatures"),
+            ("bring to operating temp", "bring vehicle to operating temperatures"),
+            ("operating temperature", "bring vehicle to operating temperatures"),
+            ("operating temp", "bring vehicle to operating temperatures"),
+            ("coolant", "coolant"),
+
+            // ── Wheel & Tire ──
+            ("torque wheels to spec", "torque wheels to spec"), ("torque wheels", "torque wheels to spec"),
+            ("torque lug nuts", "torque wheels to spec"), ("torque lugs", "torque wheels to spec"),
+            ("wheel torque", "torque wheels to spec"),
+            ("mount and balance tires", "mount and balance tires"),
+            ("mount and balance", "mount and balance tires"),
+            ("mount & balance", "mount and balance tires"),
+            ("tire balance", "mount and balance tires"),
+            ("wheel weights", "wheel weights"), ("wheel weight", "wheel weights"),
+            ("balance weights", "wheel weights"),
+            ("tire mounting paste", "tire mounting paste"), ("mounting paste", "tire mounting paste"),
+            ("tire paste", "tire mounting paste"), ("bead sealer", "tire mounting paste"),
+            ("tire disposal", "tire disposal fee"), ("tire disposal fee", "tire disposal fee"),
+
+            // ── SRS & Restraints ──
+            ("disable and enable srs", "disable and enable SRS"),
+            ("disable srs", "disable and enable SRS"), ("enable srs", "disable and enable SRS"),
+            ("disable/enable srs", "disable and enable SRS"),
+            ("srs safety inspection", "SRS safety inspections"),
+            ("srs safety inspections", "SRS safety inspections"),
+            ("safety inspection", "SRS safety inspections"),
+            ("seatbelt and steering column inspection", "seatbelt and steering column inspection"),
+            ("seatbelt inspection", "seatbelt and steering column inspection"),
+            ("steering column inspection", "seatbelt and steering column inspection"),
+            ("seatbelt steering column", "seatbelt and steering column inspection"),
+            ("airbag residue cleanup", "airbag residue cleanup"),
+            ("airbag residue", "airbag residue cleanup"),
+            ("air bag residue", "airbag residue cleanup"),
+            ("srs residue", "airbag residue cleanup"),
+            ("restraint control module program", "restraint control module program"),
+            ("restraint control module", "restraint control module program"),
+            ("rcm program", "restraint control module program"),
+
+            // ── Touch Up & ADAS ──
+            ("touch up painted bolts", "touch up painted bolts"),
+            ("touch up bolts", "touch up painted bolts"),
+            ("touchup painted bolts", "touch up painted bolts"),
+            ("touchup bolts", "touch up painted bolts"),
+            ("painted bolts", "touch up painted bolts"),
+            ("setup adas equipment", "setup ADAS equipment"),
+            ("adas equipment setup", "setup ADAS equipment"),
+            ("adas setup", "setup ADAS equipment"),
+            ("adas target setup", "setup ADAS equipment"),
+            ("verify no high voltage", "verify no high voltage"),
+            ("no high voltage", "verify no high voltage"),
+            ("high voltage check", "verify no high voltage"),
+            ("high voltage verify", "verify no high voltage"),
+            ("steering wheel lock", "steering wheel lock"),
+
+            // ── Body On Frame ──
+            ("cut up shipping crate", "cut up shipping crate"),
+            ("shipping crate", "cut up shipping crate"),
+            ("drain and replace fuel", "drain and replace fuel"),
+            ("drain fuel", "drain and replace fuel"), ("replace fuel", "drain and replace fuel"),
+            ("depressurize fuel tank", "depressurize fuel tank"),
+            ("depressurize fuel", "depressurize fuel tank"),
+            ("fuel tank depressurize", "depressurize fuel tank"),
+
+            // ── Total Loss ──
+            ("administration fee", "administration fee"), ("admin fee", "administration fee"),
+            ("yard fee", "yard fee"), ("storage fee", "yard fee"),
+
+            // ── Stolen Recovery ──
+            ("inspect vehicle", "inspect vehicle"), ("vehicle inspection", "inspect vehicle"),
+            ("fingerprint powder cleanup", "fingerprint powder cleanup"),
+            ("fingerprint powder", "fingerprint powder cleanup"),
+            ("fingerprint cleanup", "fingerprint powder cleanup"),
+            ("wheel lock set", "wheel lock set"), ("wheel locks", "wheel lock set"),
+            ("lug lock set", "wheel lock set")
         };
 
         /// <summary>

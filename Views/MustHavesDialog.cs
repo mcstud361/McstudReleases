@@ -319,8 +319,15 @@ namespace McStudDesktop.Views
                                     op.RefinishHours > 0 ? $"{op.RefinishHours:F1}h refn" : "";
                     var detail = string.Join("  ", new[] { hoursStr, priceStr }.Where(s => s.Length > 0));
 
+                    // Look up condition from saved config (canonical conditions are on the MustHaveOperation)
+                    var savedMh = existingMustHaves.FirstOrDefault(m =>
+                        m.Description.Equals(desc, StringComparison.OrdinalIgnoreCase) ||
+                        m.Description.Replace("-", " ").Equals(desc.Replace("-", " "), StringComparison.OrdinalIgnoreCase));
+                    var condition = savedMh?.Conditions ?? "always";
+
                     var rowGrid = new Grid { Margin = new Thickness(8, 0, 0, 0) };
                     rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                     rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                     var cb = new CheckBox
@@ -349,6 +356,21 @@ namespace McStudDesktop.Views
                         };
                         Grid.SetColumn(detailText, 1);
                         rowGrid.Children.Add(detailText);
+                    }
+
+                    // Show condition tag for non-"always" items
+                    if (!string.IsNullOrEmpty(condition) && condition != "always")
+                    {
+                        var condTag = new TextBlock
+                        {
+                            Text = $"[{condition}]",
+                            FontSize = 9,
+                            Foreground = new SolidColorBrush(TextDim),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = new Thickness(6, 0, 0, 0)
+                        };
+                        Grid.SetColumn(condTag, 2);
+                        rowGrid.Children.Add(condTag);
                     }
 
                     sectionItemsPanel.Children.Add(rowGrid);
@@ -408,6 +430,17 @@ namespace McStudDesktop.Views
             };
             var priceBox = new NumberBox { PlaceholderText = "$", Minimum = 0, Maximum = 5000, Width = 80, FontSize = 12, Header = "Price" };
             var hoursBox = new NumberBox { PlaceholderText = "hrs", Minimum = 0, Maximum = 50, SmallChange = 0.1, Width = 80, FontSize = 12, Header = "Hours" };
+            var conditionBox = new ComboBox
+            {
+                IsEditable = true,
+                PlaceholderText = "Condition",
+                Width = 150,
+                FontSize = 12,
+                SelectedIndex = 0
+            };
+            foreach (var cond in EstimateConditionEvaluator.AllConditions)
+                conditionBox.Items.Add(cond);
+
             var addBtn = new Button
             {
                 Content = "Add",
@@ -467,12 +500,15 @@ namespace McStudDesktop.Views
                 if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
                 var price = !double.IsNaN(priceBox.Value) ? (decimal)priceBox.Value : 0;
                 var hours = !double.IsNaN(hoursBox.Value) ? (decimal)hoursBox.Value : 0;
+                var selectedCondition = conditionBox.SelectedItem?.ToString() ?? conditionBox.Text ?? "always";
+                if (string.IsNullOrWhiteSpace(selectedCondition)) selectedCondition = "always";
                 var newMh = new MustHaveOperation
                 {
                     Description = nameBox.Text.Trim(),
                     Section = "Custom",
                     ExpectedPrice = price,
-                    ExpectedHours = hours
+                    ExpectedHours = hours,
+                    Conditions = selectedCondition
                 };
                 config.AddMustHave(newMh);
 
@@ -491,6 +527,7 @@ namespace McStudDesktop.Views
                 nameBox.Text = "";
                 priceBox.Value = double.NaN;
                 hoursBox.Value = double.NaN;
+                conditionBox.SelectedIndex = 0;
                 UpdateSummary();
             };
 
@@ -498,6 +535,7 @@ namespace McStudDesktop.Views
             addRow.Children.Add(nameBox);
             addRow.Children.Add(priceBox);
             addRow.Children.Add(hoursBox);
+            addRow.Children.Add(conditionBox);
             addRow.Children.Add(addBtn);
 
             customSectionPanel.Children.Add(addRow);
@@ -634,9 +672,10 @@ namespace McStudDesktop.Views
             Action updateSummary)
         {
             var customRow = new Grid();
-            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 0: checkbox
+            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 1: info
+            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: condition tag
+            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 3: delete
 
             var cb = new CheckBox
             {
@@ -668,6 +707,21 @@ namespace McStudDesktop.Views
                 customRow.Children.Add(info);
             }
 
+            // Show condition tag for non-"always" custom items
+            if (!string.IsNullOrEmpty(mh.Conditions) && mh.Conditions != "always")
+            {
+                var condTag = new TextBlock
+                {
+                    Text = $"[{mh.Conditions}]",
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(TextDim),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 0, 0)
+                };
+                Grid.SetColumn(condTag, 2);
+                customRow.Children.Add(condTag);
+            }
+
             var capturedMh = mh;
             var deleteBtn = new Button
             {
@@ -685,7 +739,7 @@ namespace McStudDesktop.Views
                 customRow.Visibility = Visibility.Collapsed;
                 updateSummary();
             };
-            Grid.SetColumn(deleteBtn, 2);
+            Grid.SetColumn(deleteBtn, 3);
             customRow.Children.Add(deleteBtn);
 
             checkBoxMap[cb] = (mh.Description, "Custom", mh.ExpectedPrice, mh.ExpectedHours);

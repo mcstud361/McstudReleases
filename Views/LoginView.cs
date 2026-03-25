@@ -8,13 +8,17 @@ namespace McStudDesktop.Views;
 public class LoginView : Grid
 {
     private TextBox? _emailBox;
-    private PasswordBox? _passwordBox;
     private CheckBox? _rememberMeCheckbox;
     private TextBlock? _errorMessageText;
     private Button? _loginButton;
     private ProgressRing? _spinner;
 
     public event EventHandler? LoginSuccessful;
+
+    /// <summary>
+    /// Optional error message to display immediately (e.g. from failed session re-validation).
+    /// </summary>
+    public string? InitialError { get; set; }
 
     public LoginView()
     {
@@ -33,7 +37,7 @@ public class LoginView : Grid
         };
 
         CreateLoginUI();
-        _ = LoadRememberedCredentialsAsync();
+        _ = LoadRememberedEmailAsync();
     }
 
     private void CreateLoginUI()
@@ -59,7 +63,7 @@ public class LoginView : Grid
 
         var subtitleText = new TextBlock
         {
-            Text = "Sign in to continue",
+            Text = "Enter your license email",
             FontSize = 16,
             HorizontalAlignment = HorizontalAlignment.Center,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
@@ -88,29 +92,7 @@ public class LoginView : Grid
             CornerRadius = new CornerRadius(8)
         };
 
-        // Password field
-        var passwordLabel = new TextBlock
-        {
-            Text = "Password",
-            FontSize = 14,
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
-            Margin = new Thickness(0, 0, 0, 5)
-        };
-
-        _passwordBox = new PasswordBox
-        {
-            PlaceholderText = "Enter your password",
-            Height = 45,
-            FontSize = 16,
-            Margin = new Thickness(0, 0, 0, 10),
-            Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
-            Foreground = new SolidColorBrush(Colors.White),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8)
-        };
-
-        _passwordBox.KeyDown += PasswordBox_KeyDown;
+        _emailBox.KeyDown += EmailBox_KeyDown;
 
         // Remember me
         _rememberMeCheckbox = new CheckBox
@@ -142,7 +124,7 @@ public class LoginView : Grid
             Visibility = Visibility.Collapsed
         };
 
-        // Login button
+        // Activate button
         var loginButtonBorder = new Border
         {
             Height = 50,
@@ -164,7 +146,7 @@ public class LoginView : Grid
 
         _loginButton = new Button
         {
-            Content = "Sign In",
+            Content = "Activate",
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Background = new SolidColorBrush(Colors.Transparent),
@@ -215,8 +197,6 @@ public class LoginView : Grid
         mainStack.Children.Add(subtitleText);
         mainStack.Children.Add(emailLabel);
         mainStack.Children.Add(_emailBox);
-        mainStack.Children.Add(passwordLabel);
-        mainStack.Children.Add(_passwordBox);
         mainStack.Children.Add(_rememberMeCheckbox);
         mainStack.Children.Add(_errorMessageText);
         mainStack.Children.Add(_spinner);
@@ -224,9 +204,18 @@ public class LoginView : Grid
         mainStack.Children.Add(skipLoginButton);
 
         Children.Add(mainStack);
+
+        // Show initial error if set (e.g. from failed session re-validation)
+        Loaded += (s, e) =>
+        {
+            if (!string.IsNullOrEmpty(InitialError))
+            {
+                ShowError(InitialError);
+            }
+        };
     }
 
-    private void PasswordBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    private void EmailBox_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
@@ -239,18 +228,23 @@ public class LoginView : Grid
         _ = PerformLoginAsync();
     }
 
+    private void SkipLoginButton_Click(object sender, RoutedEventArgs e)
+    {
+        System.Diagnostics.Debug.WriteLine("[Login] Skipping login for testing");
+        LoginSuccessful?.Invoke(this, EventArgs.Empty);
+    }
+
     private async Task PerformLoginAsync()
     {
-        if (_emailBox == null || _passwordBox == null || _errorMessageText == null ||
+        if (_emailBox == null || _errorMessageText == null ||
             _loginButton == null || _spinner == null)
             return;
 
         var email = _emailBox.Text.Trim();
-        var password = _passwordBox.Password;
 
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        if (string.IsNullOrWhiteSpace(email))
         {
-            ShowError("Please enter both email and password.");
+            ShowError("Please enter your license email.");
             return;
         }
 
@@ -262,24 +256,24 @@ public class LoginView : Grid
 
         try
         {
-            var result = await LoginAuthService.LoginAsync(email, password);
+            var result = await LoginAuthService.LoginAsync(email);
 
             if (result.Success)
             {
-                // Save credentials if remember me is checked
+                // Save email if remember me is checked
                 if (_rememberMeCheckbox?.IsChecked == true)
                 {
-                    SaveCredentials(email, password);
+                    SaveEmail(email);
                 }
                 else
                 {
-                    ClearSavedCredentials();
+                    ClearSavedEmail();
                 }
 
                 // Save session for auto-login
                 LoginAuthService.SaveSession(email);
 
-                System.Diagnostics.Debug.WriteLine($"[Login] User logged in successfully: {email}");
+                System.Diagnostics.Debug.WriteLine($"[Login] License activated for: {email}");
                 LoginSuccessful?.Invoke(this, EventArgs.Empty);
             }
             else
@@ -289,7 +283,7 @@ public class LoginView : Grid
         }
         catch (Exception ex)
         {
-            ShowError($"Login failed: {ex.Message}");
+            ShowError($"Activation failed: {ex.Message}");
         }
         finally
         {
@@ -297,12 +291,6 @@ public class LoginView : Grid
             _spinner.IsActive = false;
             _spinner.Visibility = Visibility.Collapsed;
         }
-    }
-
-    private void SkipLoginButton_Click(object sender, RoutedEventArgs e)
-    {
-        System.Diagnostics.Debug.WriteLine("[Login] Skipping login for testing");
-        LoginSuccessful?.Invoke(this, EventArgs.Empty);
     }
 
     private void ShowError(string message)
@@ -315,22 +303,22 @@ public class LoginView : Grid
         }
     }
 
-    private void SaveCredentials(string email, string password)
+    private void SaveEmail(string email)
     {
         try
         {
-            var credentials = new { Email = email, Password = password };
-            var json = System.Text.Json.JsonSerializer.Serialize(credentials);
+            var data = new { Email = email };
+            var json = System.Text.Json.JsonSerializer.Serialize(data);
             var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json));
             File.WriteAllText("remember.dat", encoded);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Login] Error saving credentials: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Login] Error saving email: {ex.Message}");
         }
     }
 
-    private async Task LoadRememberedCredentialsAsync()
+    private async Task LoadRememberedEmailAsync()
     {
         try
         {
@@ -338,18 +326,15 @@ public class LoginView : Grid
             {
                 var encoded = await File.ReadAllTextAsync("remember.dat");
                 var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
-                var credentials = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
 
                 DispatcherQueue.TryEnqueue(() =>
                 {
-                    if (credentials != null && _emailBox != null && _passwordBox != null && _rememberMeCheckbox != null)
+                    if (data != null && _emailBox != null && _rememberMeCheckbox != null)
                     {
-                        // Support both old "Username" key and new "Email" key
-                        if (credentials.TryGetValue("Email", out var email) ||
-                            credentials.TryGetValue("Username", out email))
+                        if (data.TryGetValue("Email", out var email) ||
+                            data.TryGetValue("Username", out email))
                             _emailBox.Text = email;
-                        if (credentials.TryGetValue("Password", out var password))
-                            _passwordBox.Password = password;
 
                         _rememberMeCheckbox.IsChecked = true;
                     }
@@ -358,11 +343,11 @@ public class LoginView : Grid
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Login] Error loading credentials: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Login] Error loading email: {ex.Message}");
         }
     }
 
-    private void ClearSavedCredentials()
+    private void ClearSavedEmail()
     {
         try
         {
@@ -371,7 +356,7 @@ public class LoginView : Grid
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Login] Error clearing credentials: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[Login] Error clearing saved email: {ex.Message}");
         }
     }
 }

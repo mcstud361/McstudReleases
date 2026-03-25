@@ -55,7 +55,16 @@
           "price": 0,
           "materialsCost": 0,
           "whyNeeded": "ADAS calibration procedures require stable voltage. Battery must be fully charged and maintained during the calibration process to prevent false failures.",
-          "conditions": "when ADAS equipped"
+          "conditions": "when adas"
+        },
+        {
+          "description": "Verify No High Voltage",
+          "operationType": "Rpr",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Safety check to confirm no high voltage present before beginning work on hybrid/EV vehicles or near high-voltage components.",
+          "conditions": "when high voltage"
         }
       ]
     },
@@ -123,7 +132,7 @@
           "price": 25.0,
           "materialsCost": 0,
           "whyNeeded": "Printed diagnostic report documenting ADAS system status, calibration results, and any related DTCs.",
-          "conditions": "when ADAS equipped"
+          "conditions": "when adas"
         },
         {
           "description": "Simulate Full Fluids for ADAS Calibrations",
@@ -132,7 +141,7 @@
           "price": 0,
           "materialsCost": 0,
           "whyNeeded": "ADAS calibration requires vehicle to be at proper ride height. Simulating full fluids (fuel, washer, coolant) ensures correct sensor alignment.",
-          "conditions": "when ADAS equipped"
+          "conditions": "when adas"
         },
         {
           "description": "Check and Adjust Tire Pressure for ADAS Calibrations",
@@ -141,7 +150,7 @@
           "price": 0,
           "materialsCost": 0,
           "whyNeeded": "Proper tire pressure is critical for accurate ADAS calibration. Incorrect pressure affects ride height and sensor angles.",
-          "conditions": "when ADAS equipped"
+          "conditions": "when adas"
         },
         {
           "description": "Remove Customer Belongings for ADAS Calibrations",
@@ -150,7 +159,16 @@
           "price": 0,
           "materialsCost": 0,
           "whyNeeded": "Customer belongings add weight that affects ride height. Must be removed for accurate ADAS calibration to factory specifications.",
-          "conditions": "when ADAS equipped"
+          "conditions": "when adas"
+        },
+        {
+          "description": "Setup ADAS Equipment",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Time to position targets, fixtures, and calibration equipment per OEM specifications for static/dynamic ADAS calibration.",
+          "conditions": "when adas"
         }
       ]
     },
@@ -197,7 +215,7 @@
           "description": "Hazardous Waste Disposal",
           "operationType": "Replace",
           "laborHours": 0,
-          "price": 7.50,
+          "price": 7.5,
           "materialsCost": 0,
           "whyNeeded": "Disposal of hazardous materials including paint waste, solvents, and contaminated materials per EPA regulations.",
           "conditions": "always"
@@ -219,6 +237,361 @@
           "materialsCost": 0,
           "whyNeeded": "Protective covers installed before repair to prevent interior contamination. Shows professionalism and protects customer's vehicle.",
           "conditions": "always"
+        },
+        {
+          "description": "Touch Up Painted Bolts",
+          "operationType": "Rfn",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Touch up paint on exposed bolt heads to prevent corrosion and maintain factory appearance after panel replacement or repair.",
+          "conditions": "when refinish"
+        },
+        {
+          "description": "Steering Wheel Lock",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 15.0,
+          "materialsCost": 0,
+          "whyNeeded": "Steering wheel lock device to secure vehicle during transport and storage in the shop.",
+          "conditions": "always"
+        },
+        {
+          "description": "Refinish Material Invoice",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 1.0,
+          "materialsCost": 0,
+          "whyNeeded": "Printed refinish materials invoice documenting paint materials used during the repair.",
+          "conditions": "when refinish"
+        }
+      ]
+    },
+    {
+      "name": "Welding",
+      "operations": [
+        {
+          "description": "Weld Blankets",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 25.0,
+          "materialsCost": 0,
+          "whyNeeded": "Fire-resistant blankets to protect surrounding areas from sparks, heat, and spatter during welding operations.",
+          "conditions": "when welding"
+        },
+        {
+          "description": "Welder Setup",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Time to set up, calibrate, and test welding equipment including wire feed, gas flow, and amperage settings for the specific material.",
+          "conditions": "when welding"
+        },
+        {
+          "description": "Welding Consumables",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 35.0,
+          "materialsCost": 0,
+          "whyNeeded": "Wire, gas, tips, nozzles, and other consumable materials used during welding operations.",
+          "conditions": "when welding"
+        },
+        {
+          "description": "Weld Through Primer",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 15.0,
+          "materialsCost": 0,
+          "whyNeeded": "Zinc-rich primer applied to weld flanges before welding to maintain corrosion protection at the weld joint.",
+          "conditions": "when welding"
+        },
+        {
+          "description": "Destructive Test Weld",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Test weld on coupon material to verify weld settings and quality before welding on the vehicle. Required by many OEM procedures.",
+          "conditions": "when welding"
+        },
+        {
+          "description": "Remove and Cleanup Debris from Welding",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Cleanup of weld spatter, grinding dust, and debris from welding operations. Prevents contamination of paint work and interior.",
+          "conditions": "when welding"
+        },
+        {
+          "description": "R&I Electronics Within Weld Zones",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Remove and reinstall electronic components, wiring, and modules within the weld zone to prevent heat damage during welding.",
+          "conditions": "when welding"
+        }
+      ]
+    },
+    {
+      "name": "Measurement",
+      "operations": [
+        {
+          "description": "Setup for Measurement",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Time to set up measuring equipment (electronic or mechanical) on the vehicle for structural measurement and verification.",
+          "conditions": "when structural"
+        },
+        {
+          "description": "Pre and Post Repair Measurements",
+          "operationType": "Rpr",
+          "laborHours": 1.0,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Document structural dimensions before and after repair to verify the vehicle is within factory specifications. Required for structural repairs.",
+          "conditions": "when structural"
+        }
+      ]
+    },
+    {
+      "name": "AC and Climate",
+      "operations": [
+        {
+          "description": "R1234yf Refrigerant and Refrigerant Oil",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 75.0,
+          "materialsCost": 0,
+          "whyNeeded": "Replacement refrigerant and compressor oil after AC system is opened during repair. R1234yf is the current standard refrigerant.",
+          "conditions": "when ac"
+        },
+        {
+          "description": "Cover and Protect AC Lines",
+          "operationType": "Rpr",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Protect exposed AC lines and fittings from contamination and damage during repair work.",
+          "conditions": "when ac"
+        },
+        {
+          "description": "Climate Control System Check",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Verify proper operation of heating, AC, and climate control system after repairs that may have affected these components.",
+          "conditions": "when ac"
+        },
+        {
+          "description": "Bring Vehicle to Operating Temperatures",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Run vehicle to operating temperature to verify cooling system, thermostat, and climate control operation after repairs.",
+          "conditions": "when ac"
+        },
+        {
+          "description": "Coolant",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 25.0,
+          "materialsCost": 0,
+          "whyNeeded": "Replacement coolant after cooling system is opened or drained during repair.",
+          "conditions": "when ac"
+        }
+      ]
+    },
+    {
+      "name": "Wheel and Tire",
+      "operations": [
+        {
+          "description": "Torque Wheels to Spec",
+          "operationType": "Rpr",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Torque all wheel lug nuts to manufacturer specification after wheel R&I. Critical safety item.",
+          "conditions": "when wheels"
+        },
+        {
+          "description": "Mount and Balance Tires",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Mount tires on wheels and balance for proper operation after tire or wheel replacement.",
+          "conditions": "when wheels"
+        },
+        {
+          "description": "Wheel Weights",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 10.0,
+          "materialsCost": 0,
+          "whyNeeded": "Replacement wheel balance weights after tire mounting and balancing.",
+          "conditions": "when wheels"
+        },
+        {
+          "description": "Tire Mounting Paste",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 5.0,
+          "materialsCost": 0,
+          "whyNeeded": "Lubricant paste used during tire mounting to prevent bead damage and ensure proper seating.",
+          "conditions": "when wheels"
+        },
+        {
+          "description": "Tire Disposal Fee",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 5.0,
+          "materialsCost": 0,
+          "whyNeeded": "Disposal fee for damaged tires that cannot be reused.",
+          "conditions": "when wheels"
+        }
+      ]
+    },
+    {
+      "name": "SRS and Restraints",
+      "operations": [
+        {
+          "description": "Disable and Enable SRS",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Disable supplemental restraint system before working near airbag components to prevent accidental deployment. Re-enable after repairs.",
+          "conditions": "when srs"
+        },
+        {
+          "description": "SRS Safety Inspections",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Inspect all SRS components including airbags, sensors, wiring, and connectors for damage or displacement after collision.",
+          "conditions": "when srs"
+        },
+        {
+          "description": "Seatbelt and Steering Column Inspection",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Inspect seatbelts for proper operation and retraction, and steering column for damage or misalignment after collision.",
+          "conditions": "when srs"
+        },
+        {
+          "description": "Airbag Residue Cleanup",
+          "operationType": "Rpr",
+          "laborHours": 0.3,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Clean up airbag deployment residue (powder, fabric, chemicals) from vehicle interior. Residue can be irritating and must be properly cleaned.",
+          "conditions": "when srs"
+        },
+        {
+          "description": "Restraint Control Module Program",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 100.0,
+          "materialsCost": 0,
+          "whyNeeded": "Program or reset the restraint control module after airbag deployment or replacement. Required for proper SRS operation.",
+          "conditions": "when srs"
+        }
+      ]
+    },
+    {
+      "name": "Body On Frame",
+      "operations": [
+        {
+          "description": "Cut Up Shipping Crate",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Disassemble and dispose of shipping crate for large replacement panels (bed sides, box sides, etc.).",
+          "conditions": "when body on frame"
+        },
+        {
+          "description": "Drain and Replace Fuel",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Drain fuel tank for safe body-on-frame separation or fuel system repairs. Replace fuel after reassembly.",
+          "conditions": "when body on frame"
+        },
+        {
+          "description": "Depressurize Fuel Tank",
+          "operationType": "Rpr",
+          "laborHours": 0.2,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Safely depressurize the fuel system before disconnecting fuel lines or removing the fuel tank.",
+          "conditions": "when body on frame"
+        }
+      ]
+    },
+    {
+      "name": "Total Loss",
+      "operations": [
+        {
+          "description": "Administration Fee",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 150.0,
+          "materialsCost": 0,
+          "whyNeeded": "Administrative processing fee for total loss handling, documentation, and coordination.",
+          "conditions": "when total loss"
+        },
+        {
+          "description": "Yard Fee",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 50.0,
+          "materialsCost": 0,
+          "whyNeeded": "Vehicle storage fee while awaiting total loss disposition and pickup.",
+          "conditions": "when total loss"
+        }
+      ]
+    },
+    {
+      "name": "Stolen Recovery",
+      "operations": [
+        {
+          "description": "Inspect Vehicle",
+          "operationType": "Rpr",
+          "laborHours": 1.0,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Thorough inspection of recovered stolen vehicle for damage, missing components, and safety concerns.",
+          "conditions": "when stolen recovery"
+        },
+        {
+          "description": "Fingerprint Powder Cleanup",
+          "operationType": "Rpr",
+          "laborHours": 0.5,
+          "price": 0,
+          "materialsCost": 0,
+          "whyNeeded": "Clean up fingerprint dusting powder left by law enforcement during investigation of the stolen vehicle.",
+          "conditions": "when stolen recovery"
+        },
+        {
+          "description": "Wheel Lock Set",
+          "operationType": "Rpr",
+          "laborHours": 0,
+          "price": 35.0,
+          "materialsCost": 0,
+          "whyNeeded": "Replacement wheel lock set to secure wheels after stolen recovery. Original locks may be missing or damaged.",
+          "conditions": "when stolen recovery"
         }
       ]
     }

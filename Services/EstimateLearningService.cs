@@ -95,6 +95,7 @@ namespace McStudDesktop.Services
                 : _userKnowledgePath;
 
             _database = LoadDatabase();
+            ScrubExistingGarbage();
         }
 
         /// <summary>
@@ -2333,8 +2334,8 @@ namespace McStudDesktop.Services
                             existingEntry.MaxRefinishUnits = Math.Max(existingEntry.MaxRefinishUnits, manualLine.RefinishHours);
                         }
 
-                        // Update price tracking
-                        if (manualLine.Price > 0)
+                        // Update price tracking (cap at $100K to reject garbage values)
+                        if (manualLine.Price > 0 && manualLine.Price <= 100_000m)
                         {
                             existingEntry.MinPrice = existingEntry.MinPrice == 0 ? manualLine.Price : Math.Min(existingEntry.MinPrice, manualLine.Price);
                             existingEntry.MaxPrice = Math.Max(existingEntry.MaxPrice, manualLine.Price);
@@ -2367,6 +2368,7 @@ namespace McStudDesktop.Services
                     }
                     else
                     {
+                        var safePrice = manualLine.Price <= 100_000m ? manualLine.Price : 0m;
                         existingPattern.ManualLines.Add(new ManualLineEntry
                         {
                             Description = cleanDesc,
@@ -2379,10 +2381,10 @@ namespace McStudDesktop.Services
                             MinRefinishUnits = manualLine.RefinishHours,
                             MaxRefinishUnits = manualLine.RefinishHours,
                             TimesUsed = 1,
-                            Price = manualLine.Price,
-                            MinPrice = manualLine.Price,
-                            MaxPrice = manualLine.Price,
-                            AvgPrice = manualLine.Price,
+                            Price = safePrice,
+                            MinPrice = safePrice,
+                            MaxPrice = safePrice,
+                            AvgPrice = safePrice,
                             LaborType = manualLine.LaborType,
                             FirstSeen = DateTime.Now,
                             LastSeen = DateTime.Now,
@@ -2407,6 +2409,7 @@ namespace McStudDesktop.Services
                     if (IsGarbagePattern(cleanDesc, cleanPartName))
                         continue;
 
+                    var safePrice = ml.Price <= 100_000m ? ml.Price : 0m;
                     cleanLines.Add(new ManualLineEntry
                     {
                         Description = cleanDesc,
@@ -2419,10 +2422,10 @@ namespace McStudDesktop.Services
                         MinRefinishUnits = ml.RefinishHours,
                         MaxRefinishUnits = ml.RefinishHours,
                         TimesUsed = 1,
-                        Price = ml.Price,
-                        MinPrice = ml.Price,
-                        MaxPrice = ml.Price,
-                        AvgPrice = ml.Price,
+                        Price = safePrice,
+                        MinPrice = safePrice,
+                        MaxPrice = safePrice,
+                        AvgPrice = safePrice,
                         LaborType = ml.LaborType,
                         FirstSeen = DateTime.Now,
                         LastSeen = DateTime.Now,
@@ -2554,9 +2557,27 @@ namespace McStudDesktop.Services
             if (alphaChars < 3 || (double)alphaChars / description.Length < 0.3)
                 return true;
 
+            // Very long descriptions are almost always boilerplate text, not operation names
+            if (description.Length > 120)
+                return true;
+
+            // Abbreviation legend lines (contain "X=" definitions)
+            if (Regex.Matches(description, @"[A-Za-z]\.?=").Count >= 2)
+                return true;
+
             // Known non-operation markers
             var garbageMarkers = new[] { "Price $", "CAPA=Certified", "Judgment Item", "CC Included",
-                "Betterment", "Prior Damage", "Customer Resp", "Deductible", "Tax", "Total Loss" };
+                "Betterment", "Prior Damage", "Customer Resp", "Deductible", "Tax", "Total Loss",
+                // Boilerplate fragments
+                "may differ", "otherwise noted", "educated guess", "inherent nature",
+                "insurance estimate", "third party", "alternate data source",
+                "discounted pricing", "manual entries", "benchmark prices",
+                "local dealership", "applicable vehicles", "labor operation times",
+                "additional abbreviations", "symbols that may", "separate procedure",
+                "charge for new tires", "lead-acid battery", "manufacturer are",
+                // Abbreviation legends
+                "Adj.=", "Algn.=", "D&R=", "Incl.=", "LKQ=", "O/H=", "Qty=",
+                "Refn=", "Repl=", "R&I=", "R&R=", "Rpr=", "UHS=", "HSS=", "PDR=", "VIN=" };
             foreach (var marker in garbageMarkers)
             {
                 if (description.Contains(marker, StringComparison.OrdinalIgnoreCase))
@@ -2569,13 +2590,72 @@ namespace McStudDesktop.Services
                 if (parentPartName.Contains('$') || Regex.IsMatch(parentPartName, @"^\d"))
                     return true;
                 // Sentence fragments: "Cover, and", "for Refinish", etc.
-                if (Regex.IsMatch(parentPartName, @"^(for|and|or|the|a|an|of)\s", RegexOptions.IgnoreCase))
+                if (Regex.IsMatch(parentPartName, @"^(for|and|or|the|a|an|of|may|are|not|some|the|provided|otherwise)\s", RegexOptions.IgnoreCase))
                     return true;
                 if (parentPartName.EndsWith(",", StringComparison.Ordinal) || parentPartName.EndsWith(" and", StringComparison.OrdinalIgnoreCase))
                     return true;
+                // Parent part name is too long to be a real part (boilerplate fragment)
+                if (parentPartName.Length > 60)
+                    return true;
             }
 
+            // Also filter via the PDF parser's boilerplate detection
+            if (EstimatePdfParser.IsHeaderOrFooter(description))
+                return true;
+
             return false;
+        }
+
+        /// <summary>
+        /// One-time post-load scrub: remove garbage entries and cap absurd prices in existing learned data.
+        /// </summary>
+        private void ScrubExistingGarbage()
+        {
+            if (_database?.ManualLinePatterns == null)
+                return;
+
+            int removedEntries = 0;
+            int cappedPrices = 0;
+            var emptyPatternKeys = new List<string>();
+
+            foreach (var kvp in _database.ManualLinePatterns)
+            {
+                var pattern = kvp.Value;
+                var beforeCount = pattern.ManualLines.Count;
+
+                // Remove garbage manual lines
+                pattern.ManualLines.RemoveAll(ml =>
+                {
+                    if (IsGarbagePattern(ml.Description, ml.ParentPartName))
+                        return true;
+                    return false;
+                });
+
+                removedEntries += beforeCount - pattern.ManualLines.Count;
+
+                // Cap absurd prices on surviving entries
+                foreach (var ml in pattern.ManualLines)
+                {
+                    if (ml.Price > 100_000m) { ml.Price = 0; cappedPrices++; }
+                    if (ml.AvgPrice > 100_000m) ml.AvgPrice = 0;
+                    if (ml.MinPrice > 100_000m) ml.MinPrice = 0;
+                    if (ml.MaxPrice > 100_000m) ml.MaxPrice = 0;
+                }
+
+                if (pattern.ManualLines.Count == 0)
+                    emptyPatternKeys.Add(kvp.Key);
+            }
+
+            // Remove patterns that became empty
+            foreach (var key in emptyPatternKeys)
+                _database.ManualLinePatterns.Remove(key);
+
+            if (removedEntries > 0 || cappedPrices > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Learning] Scrub: removed {removedEntries} garbage entries, capped {cappedPrices} prices, removed {emptyPatternKeys.Count} empty patterns");
+                // Save the cleaned database
+                SaveDatabase();
+            }
         }
 
         /// <summary>

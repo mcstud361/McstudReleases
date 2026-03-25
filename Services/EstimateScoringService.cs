@@ -901,9 +901,20 @@ namespace McStudDesktop.Services
             }
             System.Diagnostics.Debug.WriteLine($"[MustHaves] Checking {mustHaves.Count} must-haves against {lines.Count} parsed lines");
 
+            // Build combined text blob for condition evaluation
+            var combinedTextLower = string.Join(" ",
+                lines.Select(l => $"{l.Description} {l.PartName} {l.OperationType}")).ToLowerInvariant();
+
             foreach (var mh in mustHaves)
             {
                 if (!mh.Enabled || string.IsNullOrWhiteSpace(mh.Description)) continue;
+
+                // Skip must-haves whose condition is not met by the estimate context
+                if (!EstimateConditionEvaluator.Evaluate(mh.Conditions, combinedTextLower))
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MustHaves] '{mh.Description}': condition '{mh.Conditions}' not met — skipping");
+                    continue;
+                }
 
                 // Skip junk entries (e.g., "Description", "Setup" from header rows that leaked into config)
                 var descLower = mh.Description.ToLowerInvariant().Trim();

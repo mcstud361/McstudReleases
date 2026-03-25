@@ -1809,10 +1809,17 @@ namespace McStudDesktop.Views
             System.Diagnostics.Debug.WriteLine($"[MustHave] accumulatedOps count: {accumulatedOps.Count}");
             System.Diagnostics.Debug.WriteLine($"[MustHave] allTexts ({allTexts.Count}): {string.Join(" | ", allTexts)}");
 
+            // Build combined text for condition evaluation
+            var combinedTextLower = string.Join(" ", allTexts);
+
             foreach (var category in categories)
             {
                 foreach (var op in category.Operations)
                 {
+                    // Skip operations whose condition is not met by the estimate context
+                    if (!EstimateConditionEvaluator.Evaluate(op.Conditions, combinedTextLower))
+                        continue;
+
                     var opNorm = NormalizeForMatch(op.Description);
                     var opWords = ExtractSignificantWords(opNorm);
 

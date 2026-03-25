@@ -248,10 +248,17 @@ namespace McStudDesktop.Services
                 .Distinct()
                 .ToList();
 
+            // Build combined text for condition evaluation
+            var combinedTextLower = string.Join(" ", allTexts);
+
             foreach (var category in _mustHaveCategories)
             {
                 foreach (var op in category.Operations)
                 {
+                    // Skip operations whose condition is not met by the estimate context
+                    if (!EstimateConditionEvaluator.Evaluate(op.Conditions, combinedTextLower))
+                        continue;
+
                     var opNorm = NormalizeForMatch(op.Description);
                     var opWords = opNorm.Split(' ').Where(w => w.Length > 3).Distinct().ToArray();
 

@@ -63,6 +63,7 @@ namespace McStudDesktop.Services
                     ExpectedHours = d.Hours,
                     RefinishHours = d.RefinishHours,
                     PointDeduction = d.Points,
+                    Conditions = d.Conditions,
                     Enabled = true
                 });
             }
@@ -73,48 +74,102 @@ namespace McStudDesktop.Services
         /// Canonical list of all must-have operations — single source of truth.
         /// Used for seeding new configs and migrating existing ones.
         /// </summary>
-        private static List<(string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points)> GetCanonicalMustHaves()
+        private static List<(string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points, string Conditions)> GetCanonicalMustHaves()
         {
             return new()
             {
                 // === MISCELLANEOUS OPERATIONS ===
-                ("Clean for Delivery",                              "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     1.0m, 0m,   0m,      3),
-                ("Glass Cleaner",                                   "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   2.00m,   2),
-                ("Mask and Protect Removed Components",             "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0.5m, 10.00m,  3),
-                ("Parts Disposal",                                  "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   25.00m,  3),
-                ("Hazardous Waste Disposal",                        "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   7.50m,   3),
-                ("Misc Hardware",                                   "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   15.00m,  2),
-                ("Steering Wheel Cover, Seat Cover, and Floor Mat", "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0.2m, 5.00m,   2),
-                ("Refinish Material Invoice",                       "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   1.00m,   2),
-                ("Color Tint (2-Stage)",                            "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      3),
-                ("Spray Out Cards (2-Stage)",                       "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      3),
-                ("Cover Car for Overspray",                         "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2),
-                ("Cover for Edging",                                "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.3m, 0m,      2),
-                ("Mask for Buffing",                                "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      2),
-                ("Cover Engine Compartment",                        "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2),
-                ("Cover Interior and Jambs for Refinish",           "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2),
-                ("Clean and Cover Car for Primer",                  "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.3m, 0m,      2),
-                ("Cover Interior and Jambs for Repairs",            "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2),
+                ("Clean for Delivery",                              "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     1.0m, 0m,   0m,      3, "always"),
+                ("Glass Cleaner",                                   "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   2.00m,   2, "always"),
+                ("Mask and Protect Removed Components",             "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0.5m, 10.00m,  3, "always"),
+                ("Parts Disposal",                                  "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   25.00m,  3, "always"),
+                ("Hazardous Waste Disposal",                        "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   7.50m,   3, "always"),
+                ("Misc Hardware",                                   "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   15.00m,  2, "always"),
+                ("Steering Wheel Cover, Seat Cover, and Floor Mat", "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0.2m, 5.00m,   2, "always"),
+                ("Refinish Material Invoice",                       "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   1.00m,   2, "always"),
+                ("Color Tint (2-Stage)",                            "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      3, "when refinish"),
+                ("Spray Out Cards (2-Stage)",                       "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      3, "when refinish"),
+                ("Cover Car for Overspray",                         "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
+                ("Cover for Edging",                                "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.3m, 0m,      2, "always"),
+                ("Mask for Buffing",                                "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      2, "always"),
+                ("Cover Engine Compartment",                        "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
+                ("Cover Interior and Jambs for Refinish",           "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
+                ("Clean and Cover Car for Primer",                  "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.3m, 0m,      2, "always"),
+                ("Cover Interior and Jambs for Repairs",            "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
 
                 // === VEHICLE DIAGNOSTICS ===
-                ("Pre-Scan",                                        "VEHICLE DIAGNOSTICS", "Sublet", "Scanning",              0m,   0m,   150.00m, 5),
-                ("In-Process Scan",                                 "VEHICLE DIAGNOSTICS", "Sublet", "Scanning",              0m,   0m,   150.00m, 5),
-                ("Post Scan",                                       "VEHICLE DIAGNOSTICS", "Sublet", "Scanning",              0m,   0m,   150.00m, 5),
-                ("Setup Scan Tool",                                 "VEHICLE DIAGNOSTICS", "Mech",   "Scanning",              0.2m, 0m,   0m,      2),
-                ("Dynamic Systems Verification",                    "VEHICLE DIAGNOSTICS", "Mech",   "Scanning",              1.0m, 0m,   0m,      3),
-                ("OEM Research",                                    "VEHICLE DIAGNOSTICS", "Mech",   "Scanning",              1.0m, 0m,   50.00m,  3),
-                ("ADAS Diagnostic Report",                          "VEHICLE DIAGNOSTICS", "Body",   "Calibration",           0m,   0m,   25.00m,  3),
-                ("Simulate Full Fluids for ADAS Calibrations",      "VEHICLE DIAGNOSTICS", "Mech",   "Calibration",           0.2m, 0m,   0m,      2),
-                ("Check and Adjust Tire Pressure for ADAS",         "VEHICLE DIAGNOSTICS", "Mech",   "Calibration",           0.2m, 0m,   0m,      2),
-                ("Remove Customer Belongings for ADAS",             "VEHICLE DIAGNOSTICS", "Body",   "Calibration",           0.2m, 0m,   0m,      2),
+                ("Pre-Scan",                                        "VEHICLE DIAGNOSTICS", "Sublet", "Scanning",              0m,   0m,   150.00m, 5, "always"),
+                ("In-Process Scan",                                 "VEHICLE DIAGNOSTICS", "Sublet", "Scanning",              0m,   0m,   150.00m, 5, "always"),
+                ("Post Scan",                                       "VEHICLE DIAGNOSTICS", "Sublet", "Scanning",              0m,   0m,   150.00m, 5, "always"),
+                ("Setup Scan Tool",                                 "VEHICLE DIAGNOSTICS", "Mech",   "Scanning",              0.2m, 0m,   0m,      2, "always"),
+                ("Dynamic Systems Verification",                    "VEHICLE DIAGNOSTICS", "Mech",   "Scanning",              1.0m, 0m,   0m,      3, "always"),
+                ("OEM Research",                                    "VEHICLE DIAGNOSTICS", "Mech",   "Scanning",              1.0m, 0m,   50.00m,  3, "always"),
+                ("ADAS Diagnostic Report",                          "VEHICLE DIAGNOSTICS", "Body",   "Calibration",           0m,   0m,   25.00m,  3, "when adas"),
+                ("Simulate Full Fluids for ADAS Calibrations",      "VEHICLE DIAGNOSTICS", "Mech",   "Calibration",           0.2m, 0m,   0m,      2, "when adas"),
+                ("Check and Adjust Tire Pressure for ADAS",         "VEHICLE DIAGNOSTICS", "Mech",   "Calibration",           0.2m, 0m,   0m,      2, "when adas"),
+                ("Remove Customer Belongings for ADAS",             "VEHICLE DIAGNOSTICS", "Body",   "Calibration",           0.2m, 0m,   0m,      2, "when adas"),
 
                 // === ELECTRICAL ===
-                ("Disconnect and Reconnect Battery",                "ELECTRICAL", "Mech", "Mechanical Operations",            0.4m, 0m,   0m,      3),
-                ("Test Battery Condition",                          "ELECTRICAL", "Mech", "Mechanical Operations",            0.2m, 0m,   0m,      2),
-                ("Electronic Reset",                                "ELECTRICAL", "Mech", "Mechanical Operations",            0.5m, 0m,   0m,      3),
-                ("Cover and Protect Electrical Connections",        "ELECTRICAL", "Mech", "Mechanical Operations",            0.3m, 0m,   5.00m,   2),
-                ("Battery Support",                                 "ELECTRICAL", "Mech", "Mechanical Operations",            0.2m, 0m,   0m,      2),
-                ("Charge and Maintain Battery during ADAS",         "ELECTRICAL", "Mech", "Mechanical Operations",            0.6m, 0m,   0m,      2),
+                ("Disconnect and Reconnect Battery",                "ELECTRICAL", "Mech", "Mechanical Operations",            0.4m, 0m,   0m,      3, "always"),
+                ("Test Battery Condition",                          "ELECTRICAL", "Mech", "Mechanical Operations",            0.2m, 0m,   0m,      2, "always"),
+                ("Electronic Reset",                                "ELECTRICAL", "Mech", "Mechanical Operations",            0.5m, 0m,   0m,      3, "always"),
+                ("Cover and Protect Electrical Connections",        "ELECTRICAL", "Mech", "Mechanical Operations",            0.3m, 0m,   5.00m,   2, "always"),
+                ("Battery Support",                                 "ELECTRICAL", "Mech", "Mechanical Operations",            0.2m, 0m,   0m,      2, "always"),
+                ("Charge and Maintain Battery during ADAS",         "ELECTRICAL", "Mech", "Mechanical Operations",            0.6m, 0m,   0m,      2, "when adas"),
+                ("Verify No High Voltage",                         "ELECTRICAL", "Mech", "Mechanical Operations",            0.2m, 0m,   0m,      3, "when high voltage"),
+
+                // === WELDING OPERATIONS ===
+                ("Weld Blankets",                                  "WELDING OPERATIONS", "Body", "Body Operations",          0m,   0m,   25.00m,  3, "when welding"),
+                ("Welder Setup",                                   "WELDING OPERATIONS", "Body", "Body Operations",          0.3m, 0m,   0m,      3, "when welding"),
+                ("Welding Consumables",                            "WELDING OPERATIONS", "Body", "Body Operations",          0m,   0m,   35.00m,  3, "when welding"),
+                ("Weld Through Primer",                            "WELDING OPERATIONS", "Body", "Body Operations",          0m,   0m,   15.00m,  3, "when welding"),
+                ("Destructive Test Weld",                          "WELDING OPERATIONS", "Body", "Body Operations",          0.3m, 0m,   0m,      3, "when welding"),
+                ("Remove and Cleanup Debris from Welding",         "WELDING OPERATIONS", "Body", "Body Operations",          0.5m, 0m,   0m,      2, "when welding"),
+                ("R&I Electronics Within Weld Zones",              "WELDING OPERATIONS", "Body", "Body Operations",          0.3m, 0m,   0m,      3, "when welding"),
+
+                // === MEASUREMENT ===
+                ("Setup for Measurement",                          "MEASUREMENT", "Body", "Body Operations",                 0.5m, 0m,   0m,      3, "when structural"),
+                ("Pre and Post Repair Measurements",               "MEASUREMENT", "Body", "Body Operations",                 1.0m, 0m,   0m,      3, "when structural"),
+
+                // === AC AND CLIMATE ===
+                ("R1234yf Refrigerant and Refrigerant Oil",        "AC AND CLIMATE", "Mech", "Mechanical Operations",        0m,   0m,   75.00m,  3, "when ac"),
+                ("Cover and Protect AC Lines",                     "AC AND CLIMATE", "Mech", "Mechanical Operations",        0.2m, 0m,   0m,      2, "when ac"),
+                ("Climate Control System Check",                   "AC AND CLIMATE", "Mech", "Mechanical Operations",        0.3m, 0m,   0m,      2, "when ac"),
+                ("Bring Vehicle to Operating Temperatures",        "AC AND CLIMATE", "Mech", "Mechanical Operations",        0.3m, 0m,   0m,      2, "when ac"),
+                ("Coolant",                                        "AC AND CLIMATE", "Mech", "Mechanical Operations",        0m,   0m,   25.00m,  2, "when ac"),
+
+                // === WHEEL AND TIRE ===
+                ("Torque Wheels to Spec",                          "WHEEL AND TIRE", "Mech", "Mechanical Operations",        0.2m, 0m,   0m,      3, "when wheels"),
+                ("Mount and Balance Tires",                        "WHEEL AND TIRE", "Mech", "Mechanical Operations",        0.3m, 0m,   0m,      2, "when wheels"),
+                ("Wheel Weights",                                  "WHEEL AND TIRE", "Mech", "Mechanical Operations",        0m,   0m,   10.00m,  2, "when wheels"),
+                ("Tire Mounting Paste",                            "WHEEL AND TIRE", "Mech", "Mechanical Operations",        0m,   0m,   5.00m,   1, "when wheels"),
+                ("Tire Disposal Fee",                              "WHEEL AND TIRE", "Mech", "Mechanical Operations",        0m,   0m,   5.00m,   1, "when wheels"),
+
+                // === SRS AND RESTRAINTS ===
+                ("Disable and Enable SRS",                         "SRS AND RESTRAINTS", "Mech", "Mechanical Operations",    0.3m, 0m,   0m,      3, "when srs"),
+                ("SRS Safety Inspections",                         "SRS AND RESTRAINTS", "Mech", "Mechanical Operations",    0.5m, 0m,   0m,      3, "when srs"),
+                ("Seatbelt and Steering Column Inspection",        "SRS AND RESTRAINTS", "Mech", "Mechanical Operations",    0.5m, 0m,   0m,      3, "when srs"),
+                ("Airbag Residue Cleanup",                         "SRS AND RESTRAINTS", "Body", "Body Operations",          0.3m, 0m,   0m,      2, "when srs"),
+                ("Restraint Control Module Program",               "SRS AND RESTRAINTS", "Sublet", "Mechanical Operations",  0m,   0m,   100.00m, 3, "when srs"),
+
+                // === ADDITIONAL MISCELLANEOUS ===
+                ("Touch Up Painted Bolts",                         "MISCELLANEOUS OPERATIONS", "Rfn",  "Refinish Operations", 0m,  0.5m, 0m,      3, "when refinish"),
+                ("Setup ADAS Equipment",                           "VEHICLE DIAGNOSTICS", "Mech", "Calibration",             0.5m, 0m,   0m,      3, "when adas"),
+                ("Steering Wheel Lock",                            "MISCELLANEOUS OPERATIONS", "Body", "Body Operations",    0m,   0m,   15.00m,  2, "always"),
+
+                // === BODY ON FRAME ===
+                ("Cut Up Shipping Crate",                          "BODY ON FRAME", "Body", "Body Operations",              0.5m, 0m,   0m,      2, "when body on frame"),
+                ("Drain and Replace Fuel",                         "BODY ON FRAME", "Mech", "Mechanical Operations",        0.5m, 0m,   0m,      2, "when body on frame"),
+                ("Depressurize Fuel Tank",                         "BODY ON FRAME", "Mech", "Mechanical Operations",        0.2m, 0m,   0m,      2, "when body on frame"),
+
+                // === TOTAL LOSS ===
+                ("Administration Fee",                             "TOTAL LOSS", "Body", "Body Operations",                  0m,   0m,   150.00m, 2, "when total loss"),
+                ("Yard Fee",                                       "TOTAL LOSS", "Body", "Body Operations",                  0m,   0m,   50.00m,  2, "when total loss"),
+
+                // === STOLEN RECOVERY ===
+                ("Inspect Vehicle",                                "STOLEN RECOVERY", "Body", "Body Operations",             1.0m, 0m,   0m,      2, "when stolen recovery"),
+                ("Fingerprint Powder Cleanup",                     "STOLEN RECOVERY", "Body", "Body Operations",             0.5m, 0m,   0m,      2, "when stolen recovery"),
+                ("Wheel Lock Set",                                 "STOLEN RECOVERY", "Body", "Body Operations",             0m,   0m,   35.00m,  2, "when stolen recovery"),
             };
         }
 
@@ -128,7 +183,7 @@ namespace McStudDesktop.Services
             bool changed = false;
 
             // Build lookup from canonical list by lowercase description
-            var canonicalByDesc = new Dictionary<string, (string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points)>(StringComparer.OrdinalIgnoreCase);
+            var canonicalByDesc = new Dictionary<string, (string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points, string Conditions)>(StringComparer.OrdinalIgnoreCase);
             foreach (var c in canonical)
                 canonicalByDesc[c.Desc] = c;
 
@@ -170,6 +225,12 @@ namespace McStudDesktop.Services
                         mh.Description = match.Desc;
                         changed = true;
                     }
+                    // Migrate Conditions: update if still "always" but canonical says otherwise
+                    if (mh.Conditions == "always" && match.Conditions != "always")
+                    {
+                        mh.Conditions = match.Conditions;
+                        changed = true;
+                    }
                 }
             }
 
@@ -193,6 +254,7 @@ namespace McStudDesktop.Services
                     ExpectedHours = c.Hours,
                     RefinishHours = c.RefinishHours,
                     PointDeduction = c.Points,
+                    Conditions = c.Conditions,
                     Enabled = true
                 });
                 changed = true;
@@ -208,8 +270,8 @@ namespace McStudDesktop.Services
         /// </summary>
         private static bool TryFuzzyMatchCanonical(
             string description,
-            Dictionary<string, (string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points)> canonical,
-            out (string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points) match)
+            Dictionary<string, (string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points, string Conditions)> canonical,
+            out (string Desc, string Section, string OpType, string Category, decimal Hours, decimal RefinishHours, decimal Price, int Points, string Conditions) match)
         {
             match = default;
             if (string.IsNullOrWhiteSpace(description)) return false;
@@ -502,6 +564,7 @@ namespace McStudDesktop.Services
         public decimal ExpectedPrice { get; set; }
         public decimal ExpectedHours { get; set; }
         public decimal RefinishHours { get; set; }
+        public string Conditions { get; set; } = "always";
         public bool Enabled { get; set; } = true;
     }
 

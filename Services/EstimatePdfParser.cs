@@ -1257,6 +1257,43 @@ namespace McStudDesktop.Services
             if (legalPatterns.Any(p => upper.Contains(p))) return true;
             if (pagePatterns.Any(p => upper.Contains(p))) return true;
 
+            // === ABBREVIATION LEGENDS ===
+            // Lines containing abbreviation definitions (e.g., "Adj.=Adjacent. Algn.=Align.")
+            // Count occurrences of "X=" pattern — abbreviation legends have multiple
+            if (Regex.Matches(trimmed, @"[A-Za-z]\.?=").Count >= 2)
+                return true;
+
+            // Single abbreviation definitions that are clearly legend entries
+            var abbreviationPatterns = new[]
+            {
+                "ADJ.=", "ALGN.=", "D&R=", "INCL.=", "LKQ=", "NON-ADJ.=", "NSF=",
+                "O/H=", "QTY=", "REFN=", "REPL=", "R&I=", "R&R=", "RPR=", "SUBL=",
+                "UHS=", "HSS=", "HYD=", "MAG=", "CFC=", "PDR=", "VIN=",
+            };
+            if (abbreviationPatterns.Any(p => upper.Contains(p)))
+                return true;
+
+            // === BOILERPLATE CONTINUATION FRAGMENTS ===
+            // These are fragments of legal/disclaimer text that span multiple PDF lines
+            var boilerplateFragments = new[]
+            {
+                "MAY DIFFER IN SUBSTANCE", "OTHERWISE NOTED", "EDUCATED GUESS",
+                "ARE AVAILABLE AT", "OEM VEHICLE DEALERSHIPS", "ALTERNATE SOURCES",
+                "ALTERNATE DATA SOURCE", "DISCOUNTED PRICING", "ASTERISK (*)",
+                "DOUBLE ASTERISK (**)", "TILDE SIGN", "POUND SIGN (#)",
+                "MANUAL ENTRIES", "THIRD PARTY SOURCES", "MODIFIED OR MAY HAVE",
+                "SEPARATE PROCEDURE", "NON-ORIGINAL", "RECYCLED PART",
+                "LIKE KIND AND QUALITY", "AFTERMARKET REPLACEMENT", "NOT INCLUDED",
+                "BENCHMARK PRICES", "NATIONAL AUTO GLASS", "LABOR OPERATION TIMES",
+                "APPLICABLE VEHICLES", "LOCAL DEALERSHIP",
+                "ADDITIONAL ABBREVIATIONS", "SYMBOLS THAT MAY",
+                "CHARGE FOR NEW TIRES", "LEAD-ACID BATTERY",
+                "MANUFACTURER ARE", "PARTS AND/OR LABOR DATA",
+                "INHERENT NATURE", "INSURANCE ESTIMATE",
+            };
+            if (boilerplateFragments.Any(p => upper.Contains(p)))
+                return true;
+
             // === SPECIFIC FORMAT CHECKS ===
 
             // Phone number pattern: (xxx) xxx-xxxx
@@ -1461,12 +1498,14 @@ namespace McStudDesktop.Services
         /// </summary>
         private decimal ExtractPrice(string line)
         {
+            const decimal MaxReasonablePrice = 100_000m; // No single collision part/op costs $100K+
+
             // Look for dollar amounts
             var priceMatch = Regex.Match(line, @"\$\s*([\d,]+\.?\d*)");
             if (priceMatch.Success)
             {
                 var priceStr = priceMatch.Groups[1].Value.Replace(",", "");
-                if (decimal.TryParse(priceStr, out var price))
+                if (decimal.TryParse(priceStr, out var price) && price <= MaxReasonablePrice)
                     return price;
             }
 
@@ -1475,7 +1514,7 @@ namespace McStudDesktop.Services
             if (amountMatch.Success)
             {
                 var amountStr = amountMatch.Groups[1].Value.Replace(",", "");
-                if (decimal.TryParse(amountStr, out var amount) && amount > 10)
+                if (decimal.TryParse(amountStr, out var amount) && amount > 10 && amount <= MaxReasonablePrice)
                     return amount;
             }
 

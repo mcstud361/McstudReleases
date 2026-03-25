@@ -108,10 +108,10 @@ public sealed class MainWindow : Window
         {
             ShowAdminTool();
         }
-        else if (LoginAuthService.IsSessionValid())
+        else if (LoginAuthService.LoadSession() != null)
         {
-            // Auto-login: session exists, skip login page
-            ShowUserTool();
+            // Session exists — validate it online before showing the app
+            _ = ValidateSessionAndRouteAsync();
         }
         else
         {
@@ -136,7 +136,35 @@ public sealed class MainWindow : Window
         }
     }
 
-    private void ShowLoginPage()
+    private async Task ValidateSessionAndRouteAsync()
+    {
+        if (_contentGrid == null) return;
+
+        // Show a brief loading state while validating
+        _contentGrid.Children.Clear();
+        var loadingText = new TextBlock
+        {
+            Text = "Validating license...",
+            FontSize = 16,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        _contentGrid.Children.Add(loadingText);
+
+        var result = await LoginAuthService.ValidateSessionAsync();
+
+        if (result.Success)
+        {
+            ShowUserTool();
+        }
+        else
+        {
+            ShowLoginPage(result.Message);
+        }
+    }
+
+    private void ShowLoginPage(string? errorMessage = null)
     {
         if (_contentGrid == null) return;
 
@@ -167,7 +195,7 @@ public sealed class MainWindow : Window
 
         _contentGrid.Children.Clear();
 
-        var loginView = new LoginView();
+        var loginView = new LoginView { InitialError = errorMessage };
         loginView.LoginSuccessful += (s, e) =>
         {
             ShowUserTool();

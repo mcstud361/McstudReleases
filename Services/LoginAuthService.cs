@@ -1,6 +1,5 @@
 #nullable enable
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 
 namespace McStudDesktop.Services;
@@ -29,50 +28,64 @@ public class LoginAuthService
     private static readonly string SessionFile = Path.Combine(SessionDir, "session.json");
 
     /// <summary>
-    /// Authenticate against Google Sheets via Apps Script.
-    /// If no URL configured, returns failure with dev-mode message.
+    /// Validate an email against Google Sheets via Apps Script GET request.
+    /// Returns VALID, INVALID, or NO_EMAIL as plain text.
     /// </summary>
-    public static async Task<LoginResult> LoginAsync(string email, string password)
+    public static async Task<LoginResult> LoginAsync(string email)
     {
         if (string.IsNullOrWhiteSpace(AppsScriptUrl))
         {
             return new LoginResult
             {
                 Success = false,
-                Message = "Login service not configured (no Apps Script URL)"
+                Message = "License service not configured (no Apps Script URL)"
             };
         }
 
         try
         {
-            var payload = new { email, password };
-            var json = JsonSerializer.Serialize(payload);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await _httpClient.PostAsync(AppsScriptUrl, content);
-            var responseBody = await response.Content.ReadAsStringAsync();
+            var url = $"{AppsScriptUrl}?email={Uri.EscapeDataString(email)}";
+            var response = await _httpClient.GetAsync(url);
+            var responseBody = (await response.Content.ReadAsStringAsync()).Trim();
 
             System.Diagnostics.Debug.WriteLine($"[LoginAuth] Response: {responseBody}");
 
-            var result = JsonSerializer.Deserialize<LoginResult>(responseBody, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-
-            return result ?? new LoginResult { Success = false, Message = "Invalid server response" };
+            return responseBody.Equals("VALID", StringComparison.OrdinalIgnoreCase)
+                ? new LoginResult { Success = true, Message = "License activated" }
+                : new LoginResult { Success = false, Message = "Invalid license email. Contact support if you believe this is an error." };
         }
         catch (TaskCanceledException)
         {
-            return new LoginResult { Success = false, Message = "Login server timeout - check internet connection" };
+            return new LoginResult { Success = false, Message = "License server timeout — check your internet connection" };
         }
         catch (HttpRequestException ex)
         {
-            return new LoginResult { Success = false, Message = $"Cannot reach login server: {ex.Message}" };
+            return new LoginResult { Success = false, Message = $"Cannot reach license server: {ex.Message}" };
         }
         catch (Exception ex)
         {
-            return new LoginResult { Success = false, Message = $"Login error: {ex.Message}" };
+            return new LoginResult { Success = false, Message = $"License check error: {ex.Message}" };
         }
+    }
+
+    /// <summary>
+    /// Re-validate the saved session email on startup.
+    /// Returns a LoginResult indicating whether the session is still valid.
+    /// </summary>
+    public static async Task<LoginResult> ValidateSessionAsync()
+    {
+        var email = LoadSession();
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return new LoginResult { Success = false, Message = "No saved session" };
+        }
+
+        var result = await LoginAsync(email);
+        if (!result.Success)
+        {
+            ClearSession();
+        }
+        return result;
     }
 
     /// <summary>
@@ -128,13 +141,5 @@ public class LoginAuthService
         {
             System.Diagnostics.Debug.WriteLine($"[LoginAuth] Error clearing session: {ex.Message}");
         }
-    }
-
-    /// <summary>
-    /// Check if a saved session exists (for auto-login on startup).
-    /// </summary>
-    public static bool IsSessionValid()
-    {
-        return LoadSession() != null;
     }
 }
