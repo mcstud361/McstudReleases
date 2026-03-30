@@ -142,6 +142,10 @@ public class ShopDocTemplateService
         {
             CreateDefaultLaborRatesTemplate();
         }
+        if (!_originalTemplates[ShopDocType.VehicleIntakeForm].Any())
+        {
+            CreateDefaultVehicleIntakeTemplate();
+        }
     }
 
     #endregion
@@ -535,6 +539,179 @@ public class ShopDocTemplateService
         SaveOriginalTemplate(template);
     }
 
+    private void CreateDefaultVehicleIntakeTemplate()
+    {
+        var template = new ShopDocTemplate
+        {
+            Id = "vehicle-intake-standard",
+            DocType = ShopDocType.VehicleIntakeForm,
+            Name = "Vehicle Check-In Report",
+            Description = "Standard vehicle intake form with customer info, interior/exterior condition, and equipment checklist",
+            Version = "1.0",
+            IsOriginal = true,
+            IsReadOnly = true,
+            Sections = new List<TemplateSection>
+            {
+                new TemplateSection
+                {
+                    Id = "header",
+                    Title = "Report Details",
+                    Icon = "\uE8A5",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "date", Label = "Date", FieldType = FieldType.Date, IsRequired = true, DefaultValue = "TODAY" },
+                        new TemplateField { Id = "writtenBy", Label = "Written By", FieldType = FieldType.Text },
+                        new TemplateField { Id = "received", Label = "Received (Date/Time)", FieldType = FieldType.Text, Placeholder = "e.g. 3/26 10:30 AM" },
+                        new TemplateField { Id = "promised", Label = "Promised (Date/Time)", FieldType = FieldType.Text, Placeholder = "e.g. 4/2 5:00 PM" }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "customer",
+                    Title = "Customer Information",
+                    Icon = "\uE77B",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "customerName", Label = "Name", FieldType = FieldType.Text, IsRequired = true },
+                        new TemplateField { Id = "address", Label = "Address", FieldType = FieldType.Text },
+                        new TemplateField { Id = "city", Label = "City / State / ZIP", FieldType = FieldType.Text },
+                        new TemplateField { Id = "businessPhone", Label = "Business Phone", FieldType = FieldType.Phone },
+                        new TemplateField { Id = "homePhone", Label = "Home Phone", FieldType = FieldType.Phone }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "vehicle",
+                    Title = "Vehicle Information",
+                    Icon = "\uE804",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "year", Label = "Year", FieldType = FieldType.Text },
+                        new TemplateField { Id = "make", Label = "Make", FieldType = FieldType.Text },
+                        new TemplateField { Id = "model", Label = "Model", FieldType = FieldType.Text },
+                        new TemplateField { Id = "color", Label = "Color", FieldType = FieldType.Text },
+                        new TemplateField { Id = "trim", Label = "Trim", FieldType = FieldType.Text },
+                        new TemplateField { Id = "vin", Label = "VIN", FieldType = FieldType.Text, MaxLength = 17 },
+                        new TemplateField { Id = "odometerIn", Label = "Odometer In", FieldType = FieldType.Number },
+                        new TemplateField { Id = "odometerOut", Label = "Odometer Out", FieldType = FieldType.Number }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "insurance",
+                    Title = "Insurance Information",
+                    Icon = "\uE8C7",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "insuranceCompany", Label = "Insurance Company", FieldType = FieldType.Text },
+                        new TemplateField { Id = "insurancePhone", Label = "Insurance Phone", FieldType = FieldType.Phone },
+                        new TemplateField { Id = "claimNumber", Label = "Claim #", FieldType = FieldType.Text },
+                        new TemplateField { Id = "adjuster", Label = "Adjuster", FieldType = FieldType.Text }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "interiorCondition",
+                    Title = "Interior Condition & Equipment",
+                    Icon = "\uE7C8",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "doorPanels", Label = "Door Panels", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "seats", Label = "Seats", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "centerConsole", Label = "Center Console", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "dashPanel", Label = "Dash Panel", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "headliner", Label = "Headliner", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "carpets", Label = "Carpets", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "floormats", Label = "Floormats", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "floormatCount", Label = "Floormat Count", FieldType = FieldType.Number, DefaultValue = "0" },
+                        new TemplateField { Id = "tintedWindows", Label = "Tinted Windows", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "mirrors", Label = "Mirrors", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "interiorLights", Label = "Interior Lights", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "alarmSystem", Label = "Alarm System", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "alarmSystemCode", Label = "Alarm System Code", FieldType = FieldType.Text }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "miscEquipment",
+                    Title = "Miscellaneous / Equipment",
+                    Icon = "\uE74C",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "radioCode", Label = "Radio-Code", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "radioAntenna", Label = "Radio / Antenna", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "phoneAntenna", Label = "Phone / Antenna", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "cbAntenna", Label = "C.B. / Antenna", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "horn", Label = "Horn", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "sunroof", Label = "Sunroof", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "powerWindows", Label = "Power Windows", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "powerLocks", Label = "Power Locks", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "climateControl", Label = "Climate Control", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "exteriorLights", Label = "Exterior Lights", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "runningBoards", Label = "Running Boards", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "mudGuards", Label = "Mud Guards", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "wiperArmsBlades", Label = "Wiper Arms / Blades", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "spareTire", Label = "Spare Tire", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "jack", Label = "Jack", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "wheelCovers", Label = "Wheel Covers", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "wheelLock", Label = "Wheel Lock", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "pinstripe", Label = "Pinstripe Paint / Tape", FieldType = FieldType.Checkbox }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "paintCondition",
+                    Title = "Paint Condition",
+                    Icon = "\uE790",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "fallout", Label = "Fallout", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "fade", Label = "Fade", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "overspray", Label = "Overspray", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "checking", Label = "Checking", FieldType = FieldType.Checkbox },
+                        new TemplateField { Id = "colorMatch", Label = "Color Match", FieldType = FieldType.Checkbox }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "exteriorNotes",
+                    Title = "Exterior Condition Notes",
+                    Icon = "\uE70B",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "exteriorNotes", Label = "Exterior condition notes, prior damage, dents, scratches, etc.", FieldType = FieldType.MultilineText }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "notes",
+                    Title = "Additional Notes",
+                    Icon = "\uE70B",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "notes", Label = "Additional Notes", FieldType = FieldType.MultilineText }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "signatures",
+                    Title = "Signatures",
+                    Icon = "\uE8D2",
+                    Fields = new List<TemplateField>
+                    {
+                        new TemplateField { Id = "inspectedBy", Label = "Inspected By", FieldType = FieldType.Text },
+                        new TemplateField { Id = "inspectedDate", Label = "Inspection Date", FieldType = FieldType.Date },
+                        new TemplateField { Id = "customerSignature", Label = "Customer Signature", FieldType = FieldType.Text, HelpText = "Customer acknowledges this is a true representation of the vehicle's current condition" },
+                        new TemplateField { Id = "customerSignDate", Label = "Customer Sign Date", FieldType = FieldType.Date }
+                    }
+                }
+            }
+        };
+
+        _originalTemplates[ShopDocType.VehicleIntakeForm].Add(template);
+        SaveOriginalTemplate(template);
+    }
+
     #endregion
 
     #region Public API
@@ -746,6 +923,7 @@ public enum ShopDocType
     ShopStockInvoice,
     PPFPricing,
     LaborRates,
+    VehicleIntakeForm,
     Custom
 }
 

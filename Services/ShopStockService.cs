@@ -26,7 +26,18 @@ public class ShopStockService
     private ShopStockService()
     {
         _partsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ShopStockParts.json");
-        _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ShopStockSettings.json");
+        var appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "McStudDesktop");
+        _settingsPath = Path.Combine(appDataDir, "ShopStockSettings.json");
+
+        // Migrate from old app-directory location
+        var oldSettings = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ShopStockSettings.json");
+        if (File.Exists(oldSettings) && !File.Exists(_settingsPath))
+        {
+            try { Directory.CreateDirectory(appDataDir); File.Copy(oldSettings, _settingsPath); }
+            catch { /* best effort */ }
+        }
+
         _data = new ShopStockData();
         LoadParts();
         LoadSettings();

@@ -464,12 +464,18 @@ namespace McStudDesktop.Services
             if (stats.TotalExports > 0)
             {
                 stats.AvgOperationsPerExport = stats.TotalOperations / (decimal)stats.TotalExports;
-                stats.AvgValuePerExport = stats.TotalValue / stats.TotalExports;
             }
 
-            if (stats.TotalOperations > 0)
+            // Only count exports/ops with actual dollar value for value averages
+            var exportsWithValue = exports.Count(t => t.TotalPrice > 0);
+            var opsWithValue = exports.Where(t => t.TotalPrice > 0).Sum(t => t.OperationCount);
+            if (exportsWithValue > 0)
             {
-                stats.AvgValuePerOperation = stats.TotalValue / stats.TotalOperations;
+                stats.AvgValuePerExport = stats.TotalValue / exportsWithValue;
+            }
+            if (opsWithValue > 0)
+            {
+                stats.AvgValuePerOperation = stats.TotalValue / opsWithValue;
             }
 
             return stats;
@@ -803,7 +809,7 @@ namespace McStudDesktop.Services
             // Calculate trends (compare to previous period)
             var (estimatesTrend, operationsTrend, valueTrend) = CalculateTrends(userId, period);
 
-            var totalEstimates = transactions.Count;
+            var totalExports = transactions.Count;
             var totalOperations = transactions.Sum(t => t.OperationCount);
             var totalValue = transactions.Sum(t => t.TotalPrice);
             // Cap per-operation labor at 50h to fix historical data where dollar amounts
@@ -813,28 +819,33 @@ namespace McStudDesktop.Services
                     ? t.Operations.Sum(o => Math.Min(o.Labor, 50m))
                     : Math.Min(t.TotalLabor, t.OperationCount * 50m));
 
+            // Only count exports/operations that had a price when computing value averages
+            // Labor-only exports ($0 price) shouldn't drag the dollar average down
+            var exportsWithValue = transactions.Count(t => t.TotalPrice > 0);
+            var opsWithValue = transactions.Where(t => t.TotalPrice > 0).Sum(t => t.OperationCount);
+
             var totalTime = TimeSpan.FromTicks(sessions.Sum(s => s.Duration.Ticks));
 
             return new EnhancedStats
             {
-                TotalEstimates = totalEstimates,
+                TotalExports = totalExports,
                 TotalOperations = totalOperations,
                 TotalValue = totalValue,
                 TotalLaborHours = totalLabor,
 
-                AvgOperationsPerEstimate = totalEstimates > 0 ? (double)totalOperations / totalEstimates : 0,
-                AvgValuePerEstimate = totalEstimates > 0 ? totalValue / totalEstimates : 0,
-                AvgValuePerOperation = totalOperations > 0 ? totalValue / totalOperations : 0,
+                AvgOperationsPerExport = totalExports > 0 ? (double)totalOperations / totalExports : 0,
+                AvgValuePerExport = exportsWithValue > 0 ? totalValue / exportsWithValue : 0,
+                AvgValuePerOperation = opsWithValue > 0 ? totalValue / opsWithValue : 0,
 
                 TotalSessions = sessions.Count,
                 TotalTimeSpent = totalTime,
-                AvgEstimatesPerSession = sessions.Count > 0 ? (double)totalEstimates / sessions.Count : 0,
+                AvgExportsPerSession = sessions.Count > 0 ? (double)totalExports / sessions.Count : 0,
                 AvgSessionDuration = sessions.Count > 0 ? TimeSpan.FromTicks(totalTime.Ticks / sessions.Count) : TimeSpan.Zero,
 
                 CurrentStreak = currentStreak,
                 LongestStreak = longestStreak,
 
-                EstimatesTrend = estimatesTrend,
+                ExportsTrend = estimatesTrend,
                 OperationsTrend = operationsTrend,
                 ValueTrend = valueTrend
             };
@@ -1185,6 +1196,8 @@ namespace McStudDesktop.Services
             var totalValue = transactions.Sum(t => t.TotalPrice);
             var totalOps = transactions.Sum(t => t.OperationCount);
             var estimateCount = transactions.Count;
+            // Only count exports with actual dollar value for the average
+            var exportsWithValue = transactions.Count(t => t.TotalPrice > 0);
 
             // Estimate what would have been missed without the tool
             // Industry average is ~30% of operations are commonly missed
@@ -1197,8 +1210,8 @@ namespace McStudDesktop.Services
             {
                 TotalValueCaptured = totalValue,
                 TotalOperationsAdded = totalOps,
-                EstimatesProcessed = estimateCount,
-                AvgValuePerEstimate = estimateCount > 0 ? totalValue / estimateCount : 0,
+                ExportsProcessed = estimateCount,
+                AvgValuePerExport = exportsWithValue > 0 ? totalValue / exportsWithValue : 0,
                 EstimatedMissedWithoutTool = estimatedMissed,
                 TimeSaved = TimeSpan.FromMinutes(timeSavedMinutes)
             };
@@ -1318,6 +1331,11 @@ namespace McStudDesktop.Services
             int totalInvoices = usageSummary.TotalInvoices;
             int totalPdfs = usageSummary.TotalPdfExports;
             int distinctTabs = tabVisits.Count;
+            int maxTabVisits = tabVisits.Count > 0 ? tabVisits.Max(t => t.VisitCount) : 0;
+            int chatTabVisits = tabVisits.FirstOrDefault(t => t.TabName == "Chat")?.VisitCount ?? 0;
+            int guideTabVisits = tabVisits.FirstOrDefault(t => t.TabName == "Guide")?.VisitCount ?? 0;
+            int referenceTabVisits = tabVisits.FirstOrDefault(t => t.TabName == "Reference")?.VisitCount ?? 0;
+            int shopDocsTabVisits = tabVisits.FirstOrDefault(t => t.TabName == "Shop Docs")?.VisitCount ?? 0;
             int presetCount = presets.Count;
             int totalPresetUses = presets.Sum(p => p.TimesUsed);
             int accurateCount = accuracy.AccurateCount;
@@ -1325,6 +1343,19 @@ namespace McStudDesktop.Services
             int estimatesImported = learningStats.EstimatesImported;
             int totalSessions = allTimeStats.TotalSessions;
             double totalHours = allTimeStats.TotalTimeSpent.TotalHours;
+
+            // Export target & milestone data
+            var combinedStats = GetCombinedStats(StatsPeriod.AllTime);
+            int cccExports = combinedStats.CCCDesktopOps;
+            int mitchellExports = combinedStats.MitchellOps;
+            var exportTransactions = _data.Transactions
+                .Where(t => t.Type == TransactionType.Export).ToList();
+            bool hasWeekendExport = exportTransactions
+                .Any(t => t.Timestamp.DayOfWeek == DayOfWeek.Saturday || t.Timestamp.DayOfWeek == DayOfWeek.Sunday);
+            bool hasEarlyExport = exportTransactions.Any(t => t.Timestamp.Hour < 7);
+            bool hasLateExport = exportTransactions.Any(t => t.Timestamp.Hour >= 18);
+            var firstExport = exportTransactions.OrderBy(t => t.Timestamp).FirstOrDefault();
+            int daysSinceFirst = firstExport != null ? (int)(DateTime.Now - firstExport.Timestamp).TotalDays : 0;
 
             // === Export Stats (7) ===
             achievements.Add(new Achievement
@@ -1353,79 +1384,123 @@ namespace McStudDesktop.Services
             });
             achievements.Add(new Achievement
             {
-                Id = "est_25", Name = "First Fleet", Description = "Export 25 estimates",
-                Icon = "\uE8B8", Target = 25, Progress = Math.Min(25, allTimeStats.TotalEstimates),
-                IsUnlocked = allTimeStats.TotalEstimates >= 25, Tier = "Bronze", Category = "Export Stats"
+                Id = "est_25", Name = "First Fleet", Description = "Complete 25 Excel exports",
+                Icon = "\uE8B8", Target = 25, Progress = Math.Min(25, allTimeStats.TotalExports),
+                IsUnlocked = allTimeStats.TotalExports >= 25, Tier = "Bronze", Category = "Export Stats"
             });
             achievements.Add(new Achievement
             {
-                Id = "est_100", Name = "Centurion", Description = "Export 100 estimates",
-                Icon = "\uE8B8", Target = 100, Progress = Math.Min(100, allTimeStats.TotalEstimates),
-                IsUnlocked = allTimeStats.TotalEstimates >= 100, Tier = "Silver", Category = "Export Stats"
+                Id = "est_100", Name = "Centurion", Description = "Complete 100 Excel exports",
+                Icon = "\uE8B8", Target = 100, Progress = Math.Min(100, allTimeStats.TotalExports),
+                IsUnlocked = allTimeStats.TotalExports >= 100, Tier = "Silver", Category = "Export Stats"
             });
             achievements.Add(new Achievement
             {
-                Id = "est_500", Name = "Estimate Titan", Description = "Export 500 estimates",
-                Icon = "\uE8B8", Target = 500, Progress = Math.Min(500, allTimeStats.TotalEstimates),
-                IsUnlocked = allTimeStats.TotalEstimates >= 500, Tier = "Gold", Category = "Export Stats"
-            });
-
-            // === Value (3) ===
-            achievements.Add(new Achievement
-            {
-                Id = "value_10k", Name = "Value Hunter", Description = "Capture $10,000 in value",
-                Icon = "\uE8C8", Target = 10000, Progress = Math.Min(10000, (int)allTimeStats.TotalValue),
-                IsUnlocked = allTimeStats.TotalValue >= 10000, Tier = "Bronze", Category = "Value"
-            });
-            achievements.Add(new Achievement
-            {
-                Id = "value_50k", Name = "Value Champion", Description = "Capture $50,000 in value",
-                Icon = "\uE8C8", Target = 50000, Progress = Math.Min(50000, (int)allTimeStats.TotalValue),
-                IsUnlocked = allTimeStats.TotalValue >= 50000, Tier = "Silver", Category = "Value"
-            });
-            achievements.Add(new Achievement
-            {
-                Id = "value_100k", Name = "Six Figure Club", Description = "Capture $100,000 in value",
-                Icon = "\uE8C8", Target = 100000, Progress = Math.Min(100000, (int)allTimeStats.TotalValue),
-                IsUnlocked = allTimeStats.TotalValue >= 100000, Tier = "Gold", Category = "Value"
+                Id = "est_500", Name = "Export Titan", Description = "Complete 500 Excel exports",
+                Icon = "\uE8B8", Target = 500, Progress = Math.Min(500, allTimeStats.TotalExports),
+                IsUnlocked = allTimeStats.TotalExports >= 500, Tier = "Gold", Category = "Export Stats"
             });
 
-            // === Streaks (6) ===
+            // === Tab Engagement (5) ===
             achievements.Add(new Achievement
             {
-                Id = "streak_3", Name = "Hat Trick", Description = "3-day streak",
-                Icon = "\uE735", Target = 3, Progress = Math.Min(3, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 3, Tier = "Bronze", Category = "Streaks"
+                Id = "tabs_all", Name = "Completionist", Description = "Visit all 8 tabs at least once",
+                Icon = "\uE8A9", Target = 8, Progress = Math.Min(8, distinctTabs),
+                IsUnlocked = distinctTabs >= 8, Tier = "Bronze", Category = "Tab Engagement"
             });
             achievements.Add(new Achievement
             {
-                Id = "streak_7", Name = "Week Warrior", Description = "7-day streak",
-                Icon = "\uE735", Target = 7, Progress = Math.Min(7, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 7, Tier = "Bronze", Category = "Streaks"
+                Id = "tab_100", Name = "Tab Specialist", Description = "Visit any tab 100 times",
+                Icon = "\uE8A9", Target = 100, Progress = Math.Min(100, maxTabVisits),
+                IsUnlocked = maxTabVisits >= 100, Tier = "Silver", Category = "Tab Engagement"
             });
             achievements.Add(new Achievement
             {
-                Id = "streak_14", Name = "Fortnight Force", Description = "14-day streak",
-                Icon = "\uE735", Target = 14, Progress = Math.Min(14, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 14, Tier = "Silver", Category = "Streaks"
+                Id = "tab_500", Name = "Tab Master", Description = "Visit any tab 500 times",
+                Icon = "\uE8A9", Target = 500, Progress = Math.Min(500, maxTabVisits),
+                IsUnlocked = maxTabVisits >= 500, Tier = "Gold", Category = "Tab Engagement"
             });
             achievements.Add(new Achievement
             {
-                Id = "streak_30", Name = "Monthly Machine", Description = "30-day streak",
-                Icon = "\uE735", Target = 30, Progress = Math.Min(30, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 30, Tier = "Gold", Category = "Streaks"
+                Id = "chat_25", Name = "Chat Regular", Description = "Visit the Chat tab 25 times",
+                Icon = "\uE8BD", Target = 25, Progress = Math.Min(25, chatTabVisits),
+                IsUnlocked = chatTabVisits >= 25, Tier = "Bronze", Category = "Tab Engagement"
             });
             achievements.Add(new Achievement
             {
-                Id = "streak_60", Name = "Iron Will", Description = "60-day streak",
-                Icon = "\uE735", Target = 60, Progress = Math.Min(60, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 60, Tier = "Gold", Category = "Streaks"
+                Id = "chat_100", Name = "Chat Enthusiast", Description = "Visit the Chat tab 100 times",
+                Icon = "\uE8BD", Target = 100, Progress = Math.Min(100, chatTabVisits),
+                IsUnlocked = chatTabVisits >= 100, Tier = "Silver", Category = "Tab Engagement"
+            });
+
+            // === Feature Use (6) ===
+            achievements.Add(new Achievement
+            {
+                Id = "guide_25", Name = "Guide Reader", Description = "Visit the Guide tab 25 times",
+                Icon = "\uE82D", Target = 25, Progress = Math.Min(25, guideTabVisits),
+                IsUnlocked = guideTabVisits >= 25, Tier = "Bronze", Category = "Feature Use"
             });
             achievements.Add(new Achievement
             {
-                Id = "streak_90", Name = "Unstoppable", Description = "90-day streak",
-                Icon = "\uE735", Target = 90, Progress = Math.Min(90, allTimeStats.LongestStreak),
-                IsUnlocked = allTimeStats.LongestStreak >= 90, Tier = "Platinum", Category = "Streaks"
+                Id = "ref_50", Name = "Reference Scholar", Description = "Visit Reference tab 50 times",
+                Icon = "\uE82D", Target = 50, Progress = Math.Min(50, referenceTabVisits),
+                IsUnlocked = referenceTabVisits >= 50, Tier = "Silver", Category = "Feature Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "shopdocs_25", Name = "Paperwork Pro", Description = "Visit Shop Docs tab 25 times",
+                Icon = "\uE8A5", Target = 25, Progress = Math.Min(25, shopDocsTabVisits),
+                IsUnlocked = shopDocsTabVisits >= 25, Tier = "Bronze", Category = "Feature Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "ccc_50", Name = "CCC Veteran", Description = "Export 50+ ops to CCC",
+                Icon = "\uE8B8", Target = 50, Progress = Math.Min(50, cccExports),
+                IsUnlocked = cccExports >= 50, Tier = "Bronze", Category = "Feature Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "ccc_500", Name = "CCC Power User", Description = "Export 500+ ops to CCC",
+                Icon = "\uE8B8", Target = 500, Progress = Math.Min(500, cccExports),
+                IsUnlocked = cccExports >= 500, Tier = "Silver", Category = "Feature Use"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "mitchell_50", Name = "Mitchell Vet", Description = "Export 50+ ops to Mitchell",
+                Icon = "\uE8B8", Target = 50, Progress = Math.Min(50, mitchellExports),
+                IsUnlocked = mitchellExports >= 50, Tier = "Bronze", Category = "Feature Use"
+            });
+
+            // === Milestones (5) ===
+            achievements.Add(new Achievement
+            {
+                Id = "first_export", Name = "Day One", Description = "Complete your first export",
+                Icon = "\uE734", Target = 1, Progress = Math.Min(1, allTimeStats.TotalExports),
+                IsUnlocked = allTimeStats.TotalExports >= 1, Tier = "Bronze", Category = "Milestones"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "weekend_export", Name = "Weekend Warrior", Description = "Export on a weekend",
+                Icon = "\uE734", Target = 1, Progress = hasWeekendExport ? 1 : 0,
+                IsUnlocked = hasWeekendExport, Tier = "Silver", Category = "Milestones"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "early_export", Name = "Early Bird", Description = "Export before 7 AM",
+                Icon = "\uE706", Target = 1, Progress = hasEarlyExport ? 1 : 0,
+                IsUnlocked = hasEarlyExport, Tier = "Silver", Category = "Milestones"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "late_export", Name = "Night Owl", Description = "Export after 6 PM",
+                Icon = "\uE706", Target = 1, Progress = hasLateExport ? 1 : 0,
+                IsUnlocked = hasLateExport, Tier = "Silver", Category = "Milestones"
+            });
+            achievements.Add(new Achievement
+            {
+                Id = "anniversary", Name = "One Year Strong", Description = "Use McStud for a full year",
+                Icon = "\uE734", Target = 365, Progress = Math.Min(365, daysSinceFirst),
+                IsUnlocked = daysSinceFirst >= 365, Tier = "Platinum", Category = "Milestones"
             });
 
             // === Time Use (5) ===
@@ -1551,17 +1626,17 @@ namespace McStudDesktop.Services
             });
 
             // === Accuracy (4) ===
-            var avgOps = allTimeStats.TotalEstimates > 0
-                ? (double)allTimeStats.TotalOperations / allTimeStats.TotalEstimates : 0;
+            var avgOps = allTimeStats.TotalExports > 0
+                ? (double)allTimeStats.TotalOperations / allTimeStats.TotalExports : 0;
             achievements.Add(new Achievement
             {
-                Id = "efficiency_5", Name = "Efficient Estimator", Description = "Average 5+ ops per estimate",
+                Id = "efficiency_5", Name = "Efficient Exporter", Description = "Average 5+ ops per export",
                 Icon = "\uE9D9", Target = 5, Progress = Math.Min(5, (int)avgOps),
                 IsUnlocked = avgOps >= 5, Tier = "Silver", Category = "Accuracy"
             });
             achievements.Add(new Achievement
             {
-                Id = "efficiency_8", Name = "Thoroughness Pro", Description = "Average 8+ ops per estimate",
+                Id = "efficiency_8", Name = "Thoroughness Pro", Description = "Average 8+ ops per export",
                 Icon = "\uE9D9", Target = 8, Progress = Math.Min(8, (int)avgOps),
                 IsUnlocked = avgOps >= 8, Tier = "Gold", Category = "Accuracy"
             });
@@ -1647,12 +1722,12 @@ namespace McStudDesktop.Services
             }
 
             // Value insights
-            if (monthStats.AvgValuePerEstimate > 500)
+            if (monthStats.AvgValuePerExport > 500)
             {
                 insights.Add(new SmartInsight
                 {
-                    Type = "Milestone", Title = "High-Value Estimator",
-                    Message = $"Your average estimate value is {monthStats.AvgValuePerEstimate:C0}. Keep it up!",
+                    Type = "Milestone", Title = "High-Value Exporter",
+                    Message = $"Your average export value is {monthStats.AvgValuePerExport:C0}. Keep it up!",
                     Icon = "\uE8C8", Color = "#00B050"
                 });
             }
@@ -1987,20 +2062,20 @@ namespace McStudDesktop.Services
     public class EnhancedStats
     {
         // Current period stats
-        public int TotalEstimates { get; set; }
+        public int TotalExports { get; set; }
         public int TotalOperations { get; set; }
         public decimal TotalValue { get; set; }
         public decimal TotalLaborHours { get; set; }
 
         // Averages
-        public double AvgOperationsPerEstimate { get; set; }
-        public decimal AvgValuePerEstimate { get; set; }
+        public double AvgOperationsPerExport { get; set; }
+        public decimal AvgValuePerExport { get; set; }
         public decimal AvgValuePerOperation { get; set; }
 
         // Session stats
         public int TotalSessions { get; set; }
         public TimeSpan TotalTimeSpent { get; set; }
-        public double AvgEstimatesPerSession { get; set; }
+        public double AvgExportsPerSession { get; set; }
         public TimeSpan AvgSessionDuration { get; set; }
 
         // Streaks
@@ -2008,12 +2083,12 @@ namespace McStudDesktop.Services
         public int LongestStreak { get; set; }
 
         // Trends (compared to previous period)
-        public double EstimatesTrend { get; set; }  // % change
+        public double ExportsTrend { get; set; }  // % change
         public double OperationsTrend { get; set; }
         public double ValueTrend { get; set; }
 
         public string FormattedValue => TotalValue.ToString("C0");
-        public string FormattedAvgValue => AvgValuePerEstimate.ToString("C0");
+        public string FormattedAvgValue => AvgValuePerExport.ToString("C0");
         public string FormattedTimeSpent
         {
             get
@@ -2107,13 +2182,14 @@ namespace McStudDesktop.Services
     {
         public decimal TotalValueCaptured { get; set; }
         public int TotalOperationsAdded { get; set; }
-        public int EstimatesProcessed { get; set; }
-        public decimal AvgValuePerEstimate { get; set; }
+        public int ExportsProcessed { get; set; }
+        public decimal AvgValuePerExport { get; set; }
         public decimal EstimatedMissedWithoutTool { get; set; }  // What would have been missed
         public TimeSpan TimeSaved { get; set; }  // Estimated time saved
 
         public string FormattedValueCaptured => TotalValueCaptured.ToString("C0");
-        public string FormattedAvgPerEstimate => AvgValuePerEstimate.ToString("C0");
+        public string FormattedAvgPerExport => AvgValuePerExport.ToString("C0");
+        public string FormattedAvgPerEstimate => FormattedAvgPerExport;
         public string FormattedMissed => EstimatedMissedWithoutTool.ToString("C0");
         public string FormattedTimeSaved => TimeSaved.TotalHours >= 1
             ? $"{TimeSaved.TotalHours:F1} hrs"
@@ -2205,8 +2281,9 @@ namespace McStudDesktop.Services
         public static string CategoryIcon(string category) => category switch
         {
             "Export Stats" => "\uE8B8",   // Clipboard
-            "Value" => "\uE8C8",          // Money
-            "Streaks" => "\uE735",        // Star
+            "Tab Engagement" => "\uE8A9", // Tabs
+            "Feature Use" => "\uE8B8",    // Clipboard
+            "Milestones" => "\uE734",     // Star outline
             "Time Use" => "\uE823",       // Clock
             "Usage" => "\uE8A5",          // Document
             "Customization" => "\uE771",  // Settings

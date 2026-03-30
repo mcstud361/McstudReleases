@@ -991,9 +991,17 @@ namespace McStudDesktop.Views
             }
         }
 
+        private static readonly string[] TabNames = { "Export", "Chat", "Guide", "Import", "Reference", "Settings", "Shop Docs", "Stats" };
+
         internal void SelectTab(int tabIndex)
         {
             _selectedTabIndex = tabIndex;
+
+            // Track tab visit
+            if (tabIndex >= 0 && tabIndex < TabNames.Length)
+            {
+                try { DocumentUsageTrackingService.Instance.RecordTabVisit(TabNames[tabIndex]); } catch { }
+            }
 
             // Update tab button styles
             UpdateTabButtonStyle(_exportTabButton, 0);

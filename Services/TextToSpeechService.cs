@@ -11,7 +11,8 @@ public class TextToSpeechService
     public static TextToSpeechService Instance => _instance.Value;
 
     private static readonly string SettingsPath = System.IO.Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "tts_settings.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "McStudDesktop", "tts_settings.json");
 
     private readonly SpeechSynthesizer _synthesizer;
     private MediaPlayer? _player;

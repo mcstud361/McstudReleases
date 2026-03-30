@@ -925,7 +925,7 @@ namespace McStudDesktop.Services
                 // This handles truncated names ("Disconnect and" matches "Disconnect and Reconnect Battery"),
                 // hyphen/space differences ("Pre-Scan" matches "Pre-repair scan"),
                 // and parenthetical suffixes ("Color Tint (2-Stage)" matches "Color Tint").
-                int matchCount = lines.Count(l => MustHaveFuzzyMatch(descLower, l));
+                int matchCount = lines.Count(l => GhostConfigService.LineMatchesMustHave(mh.Description, l));
 
                 System.Diagnostics.Debug.WriteLine($"[MustHaves] '{mh.Description}': {matchCount}/{mh.MinCount} matches → {(matchCount >= mh.MinCount ? "PRESENT" : "MISSING")}");
 

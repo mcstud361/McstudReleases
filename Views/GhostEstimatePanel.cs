@@ -27,7 +27,7 @@ namespace McStudDesktop.Views
         private readonly VehicleDiagramControl _vehicleDiagram;
 
         // Input fields
-        private TextBox? _vehicleInfoBox;
+        private ComboBox? _vehicleCombo;
         private TextBox? _damageDescriptionBox;
         private ComboBox? _severityCombo;
         private Button? _generateGhostButton;
@@ -173,6 +173,40 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Colors.White)
             });
 
+            // Must-Haves button
+            var mustHavesButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE73E", FontSize = 14 },
+                        new TextBlock { Text = "Must-Haves", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 90)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6),
+                CornerRadius = new CornerRadius(4),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 0, 0)
+            };
+            ToolTipService.SetToolTip(mustHavesButton,
+                "Configure which operations must appear on every estimate.\n" +
+                "These are automatically included in generated guidance.");
+            mustHavesButton.Click += async (s, e) =>
+            {
+                var saved = await MustHavesDialog.ShowAsync(this.XamlRoot);
+                if (saved)
+                {
+                    var enabledCount = GhostConfigService.Instance.GetMustHaves().Count(m => m.Enabled);
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] Must-haves updated: {enabledCount} enabled");
+                }
+            };
+            titleRow.Children.Add(mustHavesButton);
+
             // Settings gear button
             var settingsButton = new Button
             {
@@ -182,7 +216,7 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(8, 4, 8, 4),
                 CornerRadius = new CornerRadius(4),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 0, 0)
+                Margin = new Thickness(4, 0, 0, 0)
             };
             ToolTipService.SetToolTip(settingsButton, "Ghost Estimate Settings");
             settingsButton.Click += SettingsButton_Click;
@@ -312,14 +346,17 @@ namespace McStudDesktop.Views
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180))
             });
-            _vehicleInfoBox = new TextBox
+            _vehicleCombo = new ComboBox
             {
-                PlaceholderText = "e.g., 2022 Toyota Camry LE",
+                PlaceholderText = "Select vehicle type",
                 FontSize = 13,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
                 Background = new SolidColorBrush(Color.FromArgb(255, 45, 50, 58)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 65, 70, 80))
             };
-            vehicleStack.Children.Add(_vehicleInfoBox);
+            foreach (var style in PPFPricingService.Instance.GetVehicleStyles())
+                _vehicleCombo.Items.Add(new ComboBoxItem { Content = style.Name, Tag = style.Name });
+            vehicleStack.Children.Add(_vehicleCombo);
             inputStack.Children.Add(vehicleStack);
 
             // Damage description
@@ -553,7 +590,7 @@ namespace McStudDesktop.Views
 
         private async void GenerateGhostButton_Click(object sender, RoutedEventArgs e)
         {
-            var vehicleInfo = _vehicleInfoBox?.Text?.Trim() ?? "";
+            var vehicleInfo = (_vehicleCombo?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
             var damageDesc = _damageDescriptionBox?.Text?.Trim() ?? "";
 
             if (string.IsNullOrEmpty(damageDesc))
@@ -670,7 +707,7 @@ namespace McStudDesktop.Views
             _summaryCardsPanel?.Children.Clear();
 
             // Clear input fields
-            if (_vehicleInfoBox != null) _vehicleInfoBox.Text = "";
+            if (_vehicleCombo != null) _vehicleCombo.SelectedIndex = -1;
             if (_damageDescriptionBox != null) _damageDescriptionBox.Text = "";
 
             // Hide toolbar and results
@@ -770,7 +807,7 @@ namespace McStudDesktop.Views
         {
             try
             {
-                var vehicleInfo = _vehicleInfoBox?.Text?.Trim();
+                var vehicleInfo = (_vehicleCombo?.SelectedItem as ComboBoxItem)?.Content?.ToString();
                 _advisorService.SetSessionContext(vehicleInfo, null);
 
                 // Track what's already in the guide so advisor can find gaps

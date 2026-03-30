@@ -2,13 +2,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Text;
 using Windows.UI;
+using Windows.ApplicationModel.DataTransfer;
 using McStudDesktop.Services;
+using QuestPDF.Fluent;
 
 namespace McStudDesktop.Views;
 
@@ -60,6 +63,9 @@ public class TemplateFormBuilder : UserControl
     private Button? _editButton;
     private Button? _saveButton;
     private Button? _deleteButton;
+    private Button? _copyButton;
+    private Button? _clearButton;
+    private Button? _exportPdfButton;
     private StackPanel? _formContent;
     private Border? _editModeIndicator;
 
@@ -245,6 +251,53 @@ public class TemplateFormBuilder : UserControl
         _deleteButton.Click += OnDeleteClick;
         buttonsStack.Children.Add(_deleteButton);
 
+        // Separator
+        buttonsStack.Children.Add(new Border { Width = 1, Background = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)), Margin = new Thickness(4, 2, 4, 2) });
+
+        // Copy to Clipboard button
+        var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 14, Foreground = new SolidColorBrush(Colors.White) });
+        copyContent.Children.Add(new TextBlock { Text = "Copy", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        _copyButton = new Button
+        {
+            Content = copyContent,
+            Padding = new Thickness(12, 8, 12, 8),
+            Background = new SolidColorBrush(AccentBlue),
+            IsEnabled = false
+        };
+        _copyButton.Click += OnCopyToClipboardClick;
+        buttonsStack.Children.Add(_copyButton);
+
+        // Clear Form button
+        var clearContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        clearContent.Children.Add(new FontIcon { Glyph = "\uE74D", FontSize = 14 });
+        clearContent.Children.Add(new TextBlock { Text = "Clear", VerticalAlignment = VerticalAlignment.Center });
+
+        _clearButton = new Button
+        {
+            Content = clearContent,
+            Padding = new Thickness(12, 8, 12, 8),
+            IsEnabled = false
+        };
+        _clearButton.Click += (s, e) => ClearForm();
+        buttonsStack.Children.Add(_clearButton);
+
+        // Export to PDF button
+        var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        exportContent.Children.Add(new FontIcon { Glyph = "\uE749", FontSize = 14, Foreground = new SolidColorBrush(Colors.White) });
+        exportContent.Children.Add(new TextBlock { Text = "Export to PDF", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        _exportPdfButton = new Button
+        {
+            Content = exportContent,
+            Padding = new Thickness(12, 8, 12, 8),
+            Background = new SolidColorBrush(AccentGreen),
+            IsEnabled = false
+        };
+        _exportPdfButton.Click += OnExportPdfClick;
+        buttonsStack.Children.Add(_exportPdfButton);
+
         Grid.SetColumn(buttonsStack, 1);
         selectorRow.Children.Add(buttonsStack);
 
@@ -366,6 +419,9 @@ public class TemplateFormBuilder : UserControl
         _saveButton!.Visibility = Visibility.Collapsed;
         _deleteButton!.Visibility = template.IsReadOnly ? Visibility.Collapsed : Visibility.Visible;
         _editModeIndicator!.Visibility = Visibility.Collapsed;
+        if (_copyButton != null) _copyButton.IsEnabled = true;
+        if (_clearButton != null) _clearButton.IsEnabled = true;
+        if (_exportPdfButton != null) _exportPdfButton.IsEnabled = true;
 
         // Render the form
         RenderForm();
@@ -1214,6 +1270,235 @@ public class TemplateFormBuilder : UserControl
                 return;
             }
         }
+    }
+
+    #endregion
+
+    #region Copy / Export Handlers
+
+    private async void OnCopyToClipboardClick(object sender, RoutedEventArgs e)
+    {
+        if (_currentTemplate == null) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine(_currentTemplate.Name);
+        sb.AppendLine(new string('=', _currentTemplate.Name.Length));
+        sb.AppendLine();
+
+        foreach (var section in _currentTemplate.Sections)
+        {
+            sb.AppendLine($"--- {section.Title} ---");
+
+            // Regular fields
+            foreach (var field in section.Fields)
+            {
+                var value = _fieldValues.TryGetValue(field.Id, out var v) ? v?.ToString() ?? "" : "";
+                if (field.FieldType == FieldType.Checkbox)
+                {
+                    sb.AppendLine($"  [{(value == "true" ? "X" : " ")}] {field.Label}");
+                }
+                else if (!string.IsNullOrEmpty(value))
+                {
+                    sb.AppendLine($"  {field.Label}: {value}");
+                }
+            }
+
+            // Charge items
+            if (section.IsChargeSection)
+            {
+                foreach (var item in section.ChargeItems)
+                {
+                    if (_chargeStates.TryGetValue(item.Id, out var state) && state.Selected)
+                    {
+                        var amount = state.Amount * state.Quantity;
+                        if (amount > 0)
+                            sb.AppendLine($"  [{(state.Selected ? "X" : " ")}] {item.Name}: ${amount:F2}");
+                        else
+                            sb.AppendLine($"  [X] {item.Name}");
+                    }
+                }
+            }
+
+            sb.AppendLine();
+        }
+
+        var dataPackage = new DataPackage();
+        dataPackage.SetText(sb.ToString());
+        Clipboard.SetContent(dataPackage);
+
+        // Flash button feedback
+        if (sender is Button btn)
+        {
+            var originalContent = btn.Content;
+            var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            stack.Children.Add(new FontIcon { Glyph = "\uE73E", FontSize = 14, Foreground = new SolidColorBrush(Colors.White) });
+            stack.Children.Add(new TextBlock { Text = "Copied!", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+            btn.Content = stack;
+
+            await System.Threading.Tasks.Task.Delay(1500);
+            btn.Content = originalContent;
+        }
+    }
+
+    private void OnExportPdfClick(object sender, RoutedEventArgs e)
+    {
+        if (_currentTemplate == null) return;
+
+        var data = GetAllData();
+
+        // Let wrapper views handle via event first
+        ExportRequested?.Invoke(this, data);
+
+        // Generic PDF export
+        try
+        {
+            var pdfPath = GenerateGenericPdf(data, _currentTemplate);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = pdfPath,
+                UseShellExecute = true
+            });
+
+            DocumentUsageTrackingService.Instance.RecordPdfExport(
+                _currentTemplate.DocType.ToString(),
+                System.IO.Path.GetFileName(pdfPath), 1);
+
+            // Flash button feedback
+            if (sender is Button btn)
+            {
+                FlashButtonFeedback(btn, "Exported!");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[TemplateFormBuilder] PDF export error: {ex.Message}");
+        }
+    }
+
+    private async void FlashButtonFeedback(Button btn, string text)
+    {
+        var originalContent = btn.Content;
+        var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        stack.Children.Add(new FontIcon { Glyph = "\uE73E", FontSize = 14, Foreground = new SolidColorBrush(Colors.White) });
+        stack.Children.Add(new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+        btn.Content = stack;
+
+        await System.Threading.Tasks.Task.Delay(2000);
+        btn.Content = originalContent;
+    }
+
+    private string GenerateGenericPdf(Dictionary<string, object> data, ShopDocTemplate template)
+    {
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+        var tempPath = System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            $"{template.DocType}_{DateTime.Now:yyyyMMddHHmmss}.pdf");
+
+        QuestPDF.Fluent.Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(QuestPDF.Helpers.PageSizes.Letter);
+                page.Margin(0.5f, QuestPDF.Infrastructure.Unit.Inch);
+                page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
+
+                // Header
+                page.Header().Background(QuestPDF.Helpers.Colors.Grey.Darken3).Padding(12).Row(row =>
+                {
+                    row.RelativeItem().Text(template.Name.ToUpperInvariant())
+                        .FontSize(18).Bold().FontColor(QuestPDF.Helpers.Colors.White);
+                    row.ConstantItem(150).AlignRight().Column(col =>
+                    {
+                        var dateStr = data.TryGetValue("date", out var d) ? d?.ToString() : DateTime.Today.ToString("MM/dd/yyyy");
+                        col.Item().Text($"Date: {dateStr}").FontSize(10).FontColor(QuestPDF.Helpers.Colors.Grey.Lighten2);
+                    });
+                });
+
+                // Content
+                page.Content().PaddingVertical(8).Column(column =>
+                {
+                    foreach (var section in template.Sections)
+                    {
+                        column.Item().PaddingBottom(6).Border(0.5f)
+                            .BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten1).Column(secCol =>
+                        {
+                            // Section header
+                            secCol.Item().Background(QuestPDF.Helpers.Colors.Grey.Darken2).Padding(6)
+                                .Text(section.Title).FontSize(11).Bold()
+                                .FontColor(QuestPDF.Helpers.Colors.White);
+
+                            // Fields
+                            foreach (var field in section.Fields)
+                            {
+                                var value = data.TryGetValue(field.Id, out var v) ? v?.ToString() ?? "" : "";
+                                if (field.FieldType == FieldType.Checkbox)
+                                {
+                                    secCol.Item().Padding(3).Row(r =>
+                                    {
+                                        r.ConstantItem(14).Text(value == "true" ? "\u2611" : "\u2610").FontSize(11);
+                                        r.RelativeItem().Text(field.Label).FontSize(9);
+                                    });
+                                }
+                                else
+                                {
+                                    secCol.Item().BorderBottom(0.25f)
+                                        .BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2)
+                                        .Padding(4).Row(r =>
+                                    {
+                                        r.ConstantItem(140).Text(field.Label + ":").FontSize(9).Bold();
+                                        r.RelativeItem().Text(string.IsNullOrEmpty(value) ? " " : value).FontSize(9);
+                                    });
+                                }
+                            }
+
+                            // Charge items
+                            if (section.IsChargeSection)
+                            {
+                                foreach (var item in section.ChargeItems)
+                                {
+                                    if (_chargeStates.TryGetValue(item.Id, out var state) && state.Selected)
+                                    {
+                                        var amt = state.Amount * state.Quantity;
+                                        secCol.Item().BorderBottom(0.25f)
+                                            .BorderColor(QuestPDF.Helpers.Colors.Grey.Lighten2)
+                                            .Padding(4).Row(r =>
+                                        {
+                                            if (section.IsCheckboxSection)
+                                            {
+                                                r.ConstantItem(14).Text("\u2611").FontSize(11);
+                                                r.RelativeItem().Text(item.Name).FontSize(9);
+                                            }
+                                            else
+                                            {
+                                                r.RelativeItem().Text(item.Name).FontSize(9);
+                                            }
+                                            if (amt > 0)
+                                                r.ConstantItem(80).AlignRight().Text($"${amt:F2}").FontSize(9);
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // Totals if applicable
+                    if (data.TryGetValue("total", out var total) && Convert.ToDecimal(total) > 0)
+                    {
+                        column.Item().PaddingTop(8).AlignRight().Row(r =>
+                        {
+                            if (data.TryGetValue("subtotal", out var sub))
+                                r.ConstantItem(200).Text($"Subtotal: ${Convert.ToDecimal(sub):F2}").FontSize(11);
+                            if (data.TryGetValue("tax", out var tax))
+                                r.ConstantItem(150).Text($"Tax: ${Convert.ToDecimal(tax):F2}").FontSize(11);
+                            r.ConstantItem(150).Text($"Total: ${Convert.ToDecimal(total):F2}").FontSize(12).Bold();
+                        });
+                    }
+                });
+            });
+        }).GeneratePdf(tempPath);
+
+        return tempPath;
     }
 
     #endregion

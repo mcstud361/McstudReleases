@@ -30,16 +30,30 @@ namespace McstudDesktop.Services
         // Common OCR misreads — applied to raw text before pattern matching
         private static readonly (string Wrong, string Right)[] _ocrCorrections = new[]
         {
+            // Battery misreads (most common OCR failure)
             ("batten,'", "battery"), ("batten,\"", "battery"), ("batten'", "battery"),
             ("batten,", "battery"), ("batteiy", "battery"), ("batter,'", "battery"),
-            ("battey", "battery"), ("batt ery", "battery"),
-            ("bumpe r", "bumper"), ("bumpe,", "bumper"), ("bumper,", "bumper"),
-            ("electr onic", "electronic"), ("electr0nic", "electronic"),
-            ("reinf orcement", "reinforcement"), ("reinf0rcement", "reinforcement"),
-            ("calibrat ion", "calibration"), ("calibrat1on", "calibration"),
+            ("battey", "battery"), ("batt ery", "battery"), ("battefy", "battery"),
+            ("baftery", "battery"), ("bat tery", "battery"), ("batiery", "battery"),
+            // Full-phrase battery corrections
             ("disconnect and reconnect batten", "disconnect and reconnect battery"),
             ("disconnect and reconnect batte", "disconnect and reconnect battery"),
             ("test batten", "test battery"), ("charge and maintain batten", "charge and maintain battery"),
+            ("battery sup port", "battery support"), ("batt ery support", "battery support"),
+            // Bumper misreads
+            ("bumpe r", "bumper"), ("bumpe,", "bumper"), ("bumper,", "bumper"),
+            // Electronic/Electrical misreads
+            ("electr onic", "electronic"), ("electr0nic", "electronic"),
+            ("electr ical", "electrical"), ("electr1cal", "electrical"),
+            ("electro nic", "electronic"), ("elect ronic", "electronic"),
+            // Structural/Parts misreads
+            ("reinf orcement", "reinforcement"), ("reinf0rcement", "reinforcement"),
+            ("calibrat ion", "calibration"), ("calibrat1on", "calibration"),
+            ("dispo sal", "disposal"), ("disp0sal", "disposal"),
+            ("haz ardous", "hazardous"), ("hazard ous", "hazardous"),
+            ("steer ing", "steering"), ("steeling", "steering"),
+            ("diag nostic", "diagnostic"), ("diagn0stic", "diagnostic"),
+            ("verif ication", "verification"), ("verifi cation", "verification"),
         };
 
         // Hardware / part-number keywords — these are parts, not estimating operations
@@ -208,12 +222,23 @@ namespace McstudDesktop.Services
                 // Parse operations from recognized text
                 result.DetectedOperations = ParseOperations(result.Lines, result.EstimateSource);
 
-                // Optional AI-powered OCR cleanup for better accuracy
-                var aiCleanedOps = await TryAiOcrCleanupAsync(result.RawText, result.EstimateSource);
-                if (aiCleanedOps != null && aiCleanedOps.Count > 0)
+                // Layer 2: Detect dialog content after OCR — catches dialogs that slipped past the title check
+                if (DetectDialogContent(result.RawText))
                 {
-                    Debug.WriteLine($"[ScreenOCR] AI cleanup returned {aiCleanedOps.Count} ops (was {result.DetectedOperations.Count})");
-                    result.DetectedOperations = aiCleanedOps;
+                    Debug.WriteLine($"[ScreenOCR] Dialog content detected in OCR text — clearing {result.DetectedOperations.Count} ops");
+                    result.IsDialogCapture = true;
+                    result.DetectedOperations.Clear();
+                    // Skip AI cleanup — dialog text would produce garbage
+                }
+                else
+                {
+                    // Optional AI-powered OCR cleanup for better accuracy
+                    var aiCleanedOps = await TryAiOcrCleanupAsync(result.RawText, result.EstimateSource);
+                    if (aiCleanedOps != null && aiCleanedOps.Count > 0)
+                    {
+                        Debug.WriteLine($"[ScreenOCR] AI cleanup returned {aiCleanedOps.Count} ops (was {result.DetectedOperations.Count})");
+                        result.DetectedOperations = aiCleanedOps;
+                    }
                 }
 
                 // Detect changes from previous capture
@@ -234,6 +259,36 @@ namespace McstudDesktop.Services
             }
 
             return result;
+        }
+
+        // Strong markers that indicate the captured content is a dialog/popup, not the main estimate grid.
+        private static readonly string[] _dialogContentMarkers = new[]
+        {
+            "predefined notes", "add to line notes", "add by code",
+            "estimate line properties", "line properties",
+            "note type", "note category", "select note", "edit note",
+            "rate override", "labor allocation", "paint material",
+            "betterment", "operation detail", "line detail",
+            "note entry", "part search", "part lookup",
+        };
+
+        /// <summary>
+        /// Checks if the raw OCR text contains strong markers indicating a dialog/popup was captured.
+        /// </summary>
+        private static bool DetectDialogContent(string rawText)
+        {
+            if (string.IsNullOrWhiteSpace(rawText)) return false;
+
+            int hits = 0;
+            foreach (var marker in _dialogContentMarkers)
+            {
+                if (rawText.Contains(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    hits++;
+                    if (hits >= 2) return true; // Two or more markers = high confidence it's a dialog
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -306,6 +361,15 @@ namespace McstudDesktop.Services
             // CCC ONE additional UI
             "Photo Gallery", "Photos & Documents", "Assignment Sheet", "Supplement",
             "Profile Menu", "User Settings", "Log Out", "Sign Out",
+
+            // ── CCC/Mitchell/Audatex dialog & popup elements ──
+            "Predefined Notes", "Add to Line Notes", "Add by Code", "Line Notes",
+            "Estimate Line Properties", "Line Properties",
+            "Note Type", "Note Category", "Select Note", "Edit Note",
+            "Rate Override", "Betterment",
+            "Labor Allocation", "Paint Material",
+            "Line Detail", "Operation Detail", "Note Entry",
+            "Part Search", "Part Lookup",
 
             // ── CCC Web (browser-based) ──
             "New Tab", "Bookmarks", "Extensions", "Downloads", "History",

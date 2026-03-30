@@ -41,6 +41,7 @@ public class ScreenOcrResult
     public string SourceWindow { get; set; } = string.Empty;
     public OcrEstimateSource EstimateSource { get; set; } = OcrEstimateSource.Unknown;
     public bool HasChanges { get; set; }
+    public bool IsDialogCapture { get; set; }
     public string? ErrorMessage { get; set; }
     public string? DetectedVin { get; set; }
 

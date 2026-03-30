@@ -33,25 +33,36 @@ namespace McStudDesktop.Views
         private readonly LearningFeedbackService _feedbackService;
         private readonly LearningHealthService _healthService;
 
-        // UI Elements
+        // Header
         private TextBlock? _statsText;
-        private TextBlock? _statusText;
-        private Button? _uploadButton;
-        private Button? _learnButton;
-        private Button? _buildLinesButton;
-        private Button? _clearButton;
-        private Button? _mustHavesButton;
-        private Button? _publishButton;
-        private Button? _exportBaselineButton;
-        private TextBox? _pasteArea;
-        private ListView? _parsedItemsList;
-        private ProgressRing? _progressRing;
-        private Border? _resultsSection;
-        private TextBlock? _resultsTitle;
-        private Border? _clientModeBanner;
-        private TextBlock? _clientModeText;
 
-        // Quality Assessment UI
+        // Inner tab infrastructure
+        private Border? _scrubberTabButton;
+        private Border? _learningTabButton;
+        private StackPanel? _scrubberTabContent;
+        private StackPanel? _learningTabContent;
+        private int _activeSubTab = 0; // 0=Scrubber, 1=Learning
+
+        // Scrubber tab UI
+        private Border? _scrubUploadDropZone;
+        private TextBlock? _scrubDropZoneText;
+        private Button? _scrubUploadButton;
+        private TextBox? _scrubPasteArea;
+        private Grid? _scrubSideBySideGrid;
+        private Border? _scrubLeftPanel;
+        private ScrollViewer? _scrubRightScroll;
+        private Button? _layoutToggleButton;
+        private bool _isSideBySideLayout = true;
+        private TextBlock? _scrubResultsTitle;
+        private ListView? _scrubParsedItemsList;
+        private ProgressRing? _scrubProgressRing;
+        private Button? _scrubClearButton;
+        private Button? _scrubCopyButton;
+        private Button? _scrubMustHavesButton;
+        private TextBlock? _scrubStatusText;
+        private Border? _scrubClientModeBanner;
+
+        // Scrubber-only: Quality Assessment UI
         private Border? _qualitySection;
         private TextBlock? _qualityScoreText;
         private TextBlock? _qualityGradeText;
@@ -60,9 +71,10 @@ namespace McStudDesktop.Views
         private CheckBox? _includeOutliersCheckbox;
         private EstimateQualityRecord? _currentQualityRecord;
 
-        // Estimate Completeness Scoring
+        // Scrubber-only: Estimate Completeness Scoring
         private EstimateScoringPanel? _scoringPanel;
         private readonly EstimateScoringService _scoringService;
+        private TextBlock? _refMatchStatusText;
 
         // Smart analysis (data only — UI merged into scoring panel)
         private readonly SmartEstimateAnalyzerService _analyzerService;
@@ -70,21 +82,33 @@ namespace McStudDesktop.Views
 
         // Reference matching
         private readonly EstimateReferenceMatcherService _referenceMatcher;
-        private TextBlock? _refMatchStatusText;
+
+        // Learning tab UI
+        private Border? _learnUploadDropZone;
+        private TextBlock? _learnDropZoneText;
+        private Button? _learnUploadButton;
+        private TextBox? _learnPasteArea;
+        private Border? _learnResultsSection;
+        private TextBlock? _learnResultsTitle;
+        private ListView? _learnParsedItemsList;
+        private ProgressRing? _learnProgressRing;
+        private Button? _learnClearButton;
+        private Button? _learnButton;
+        private TextBlock? _learnStatusText;
+        private Border? _learnClientModeBanner;
+        private Button? _publishButton;
+        private Button? _exportBaselineButton;
+        private Border? _learningSummarySection;
+        private StackPanel? _learningSummaryContent;
 
         // Events
         public event EventHandler<TrainingCompletedEventArgs>? OnTrainingCompleted;
 
-        // Parsed data
+        // Parsed data (shared between tabs)
         private List<ParsedEstimateLine> _parsedLines = new();
 
-        // Learning summary
-        private Border? _learningSummarySection;
-        private StackPanel? _learningSummaryContent;
-
-        // Drag and drop
-        private Border? _uploadDropZone;
-        private TextBlock? _dropZoneText;
+        // Parse context
+        private enum ParseContext { Scrubber, Learning }
 
         public EstimateUploadView()
         {
@@ -109,11 +133,11 @@ namespace McStudDesktop.Views
             bool canTrain = _learningService.CanTrain;
             bool canTrainStandard = _learningService.CanTrainStandard;
 
-            // Show/hide client mode banner
-            if (_clientModeBanner != null)
-            {
-                _clientModeBanner.Visibility = canTrain ? Visibility.Collapsed : Visibility.Visible;
-            }
+            // Show/hide client mode banners (both tabs)
+            if (_scrubClientModeBanner != null)
+                _scrubClientModeBanner.Visibility = canTrain ? Visibility.Collapsed : Visibility.Visible;
+            if (_learnClientModeBanner != null)
+                _learnClientModeBanner.Visibility = canTrain ? Visibility.Collapsed : Visibility.Visible;
 
             // Update learn button state and label based on tier
             if (_learnButton != null)
@@ -136,28 +160,21 @@ namespace McStudDesktop.Views
                 }
                 else if (canTrainStandard)
                 {
-                    // Admin: imports go to standard knowledge
                     ToolTipService.SetToolTip(_learnButton, "Admin: Imported estimates train the STANDARD knowledge base for all users.");
                 }
                 else
                 {
-                    // Shop: imports go to personal only
                     ToolTipService.SetToolTip(_learnButton, "Your imported estimates are saved to your personal learning data.");
                 }
             }
 
-            // Show/hide publish button (Admin only — they build the standard)
+            // Show/hide publish button (Admin only)
             if (_publishButton != null)
-            {
                 _publishButton.Visibility = canTrainStandard ? Visibility.Visible : Visibility.Collapsed;
-            }
 
             // Show/hide publish knowledge button (Admin only)
             if (_exportBaselineButton != null)
-            {
-                _exportBaselineButton.Visibility = canTrainStandard
-                    ? Visibility.Visible : Visibility.Collapsed;
-            }
+                _exportBaselineButton.Visibility = canTrainStandard ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void BuildUI()
@@ -187,7 +204,7 @@ namespace McStudDesktop.Views
             var titleStack = new StackPanel { Spacing = 4 };
             titleStack.Children.Add(new TextBlock
             {
-                Text = "Import & Learn",
+                Text = "Estimate Upload",
                 FontSize = 24,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White)
@@ -201,236 +218,218 @@ namespace McStudDesktop.Views
             Grid.SetColumn(titleStack, 0);
             headerGrid.Children.Add(titleStack);
 
-            // Stats and Publish section
-            var statsSection = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 16,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
             _statsText = new TextBlock
             {
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            statsSection.Children.Add(_statsText);
-
-            // Publish button (Shop/Admin only) - Bakes learning into app for distribution
-            _publishButton = new Button
-            {
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE898", FontSize = 12 }, // Share/Export icon
-                        new TextBlock { Text = "Publish Learning", FontSize = 11 }
-                    }
-                },
-                Background = new SolidColorBrush(Color.FromArgb(255, 100, 80, 140)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 6, 12, 6),
-                CornerRadius = new CornerRadius(4)
-            };
-            _publishButton.Click += PublishButton_Click;
-            ToolTipService.SetToolTip(_publishButton, "Bake learned knowledge into app for distribution. Other users will get your learning when they receive the app.");
-            statsSection.Children.Add(_publishButton);
-
-            // Publish Knowledge button (Shop/Admin only) - Exports sanitized data for distribution to all users
-            _exportBaselineButton = new Button
-            {
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE72D", FontSize = 12 }, // Upload/cloud icon
-                        new TextBlock { Text = "Publish Knowledge to Users", FontSize = 11 }
-                    }
-                },
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 120, 80)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 6, 12, 6),
-                CornerRadius = new CornerRadius(4),
-                Visibility = _learningService.CurrentTier != LicenseTier.Client ? Visibility.Visible : Visibility.Collapsed
-            };
-            _exportBaselineButton.Click += ExportBaselineButton_Click;
-            ToolTipService.SetToolTip(_exportBaselineButton, "Sanitize and export all learning data, bump version, then push to GitHub so all users receive your knowledge.");
-            statsSection.Children.Add(_exportBaselineButton);
-
-            Grid.SetColumn(statsSection, 1);
-            headerGrid.Children.Add(statsSection);
+            Grid.SetColumn(_statsText, 1);
+            headerGrid.Children.Add(_statsText);
 
             mainStack.Children.Add(headerGrid);
 
-            // === CLIENT MODE BANNER (hidden for shop/admin) ===
-            _clientModeBanner = new Border
+            // === INNER TAB BAR (styled like main app tabs) ===
+            var innerTabBar = new StackPanel
             {
-                Background = new SolidColorBrush(Color.FromArgb(255, 50, 40, 20)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 180, 140, 60)),
-                BorderThickness = new Thickness(1),
+                Orientation = Orientation.Horizontal,
+                Spacing = 0,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            _scrubberTabButton = CreateInnerTabButton("\uE7BA", "Scrubber", 0);
+            _learningTabButton = CreateInnerTabButton("\uE7BE", "Estimate Learning", 1);
+            innerTabBar.Children.Add(_scrubberTabButton);
+            innerTabBar.Children.Add(_learningTabButton);
+            mainStack.Children.Add(innerTabBar);
+
+            // === TAB CONTENTS ===
+            _scrubberTabContent = BuildScrubberTab();
+            _learningTabContent = BuildLearningTab();
+            mainStack.Children.Add(_scrubberTabContent);
+            mainStack.Children.Add(_learningTabContent);
+
+            // === HELP TEXT (shared) ===
+            var helpBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 35)),
                 CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(12, 8, 12, 8),
-                Margin = new Thickness(0, 0, 0, 8),
-                Visibility = Visibility.Collapsed // Hidden by default, shown for clients
-            };
-            var clientBannerStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-            clientBannerStack.Children.Add(new FontIcon
-            {
-                Glyph = "\uE8D7", // Info icon
-                FontSize = 16,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100))
-            });
-            _clientModeText = new TextBlock
-            {
-                Text = "Client Mode: You can parse estimates and scrub for missing ops, but learning is disabled. Contact your shop for full access.",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 200, 150)),
-                TextWrapping = TextWrapping.Wrap,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            clientBannerStack.Children.Add(_clientModeText);
-            _clientModeBanner.Child = clientBannerStack;
-            mainStack.Children.Add(_clientModeBanner);
-
-            // === UPLOAD SECTION (with drag and drop) ===
-            _uploadDropZone = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 40)),
-                CornerRadius = new CornerRadius(8),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 70, 80)),
-                BorderThickness = new Thickness(2),
-                Padding = new Thickness(24),
-                MinHeight = 150,
-                AllowDrop = true
-            };
-
-            // Wire up drag and drop events
-            _uploadDropZone.DragOver += UploadDropZone_DragOver;
-            _uploadDropZone.DragLeave += UploadDropZone_DragLeave;
-            _uploadDropZone.Drop += UploadDropZone_Drop;
-
-            var uploadStack = new StackPanel
-            {
-                Spacing = 16,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-
-            var uploadIcon = new FontIcon
-            {
-                Glyph = "\uE898", // Upload icon
-                FontSize = 40,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 150, 200))
-            };
-            uploadStack.Children.Add(uploadIcon);
-
-            _uploadButton = new Button
-            {
-                Content = "Upload Estimate Files",
-                Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 215)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(24, 12, 24, 12),
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-            _uploadButton.Click += UploadButton_Click;
-            uploadStack.Children.Add(_uploadButton);
-
-            _dropZoneText = new TextBlock
-            {
-                Text = "Drag & drop files here, or click to browse\nSupports PDF, TXT, CSV - Multiple files for batch learning",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                TextAlignment = TextAlignment.Center
-            };
-            uploadStack.Children.Add(_dropZoneText);
-
-            _uploadDropZone.Child = uploadStack;
-            mainStack.Children.Add(_uploadDropZone);
-
-            // === OR PASTE ===
-            var orText = new TextBlock
-            {
-                Text = "— or paste estimate text —",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-            mainStack.Children.Add(orText);
-
-            _pasteArea = new TextBox
-            {
-                PlaceholderText = "Paste estimate text here...",
-                AcceptsReturn = true,
-                TextWrapping = TextWrapping.Wrap,
-                Height = 120,
-                Background = new SolidColorBrush(Color.FromArgb(255, 25, 25, 25)),
-                Foreground = new SolidColorBrush(Colors.White),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 11
-            };
-            mainStack.Children.Add(_pasteArea);
-
-            // Parse button for pasted text
-            var parseButton = new Button
-            {
-                Content = "Parse Pasted Text",
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(16, 8, 16, 8),
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
-            parseButton.Click += ParsePastedText_Click;
-            mainStack.Children.Add(parseButton);
-
-            // === RESULTS SECTION (hidden until data parsed) ===
-            _resultsSection = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 25, 30, 25)),
-                CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(16),
-                Visibility = Visibility.Collapsed,
                 Margin = new Thickness(0, 8, 0, 0)
             };
 
-            var resultsStack = new StackPanel { Spacing = 12 };
-
-            // Results header
-            var resultsHeader = new Grid();
-            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            _resultsTitle = new TextBlock
+            var helpText = new TextBlock
             {
-                Text = "Parsed Lines",
+                Text = "WHAT THIS TAB DOES\n" +
+                       "Feed it an estimate (PDF or pasted text) and it reads every line \u2014 parts, labor,\n" +
+                       "refinish, additional ops \u2014 so you can analyze it, learn from it, or scrub for missing ops.\n\n" +
+                       "SCRUBBER TAB\n" +
+                       "Parse an estimate and it automatically scores for missing operations.\n" +
+                       "Use \u201cCopy to Clipboard\u201d to grab the missing items list for CCC.\n\n" +
+                       "ESTIMATE LEARNING TAB\n" +
+                       "Parse an estimate and hit \u201cLearn from This\u201d to save the part\u2192operation patterns.\n" +
+                       "Next time you see that part, McStud remembers what ops usually go with it.\n\n" +
+                       "GETTING ESTIMATES IN\n" +
+                       "   \u2022 PDF: Click \"Upload\" or drag-drop the file onto the upload area.\n" +
+                       "   \u2022 Paste: Ctrl+A / Ctrl+C from CCC ONE, paste into the text box, hit Parse.\n" +
+                       "   \u2022 Batch: Drop multiple PDFs at once for bulk processing.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
+                TextWrapping = TextWrapping.Wrap,
+                LineHeight = 20
+            };
+            helpBorder.Child = helpText;
+            mainStack.Children.Add(helpBorder);
+
+            scroll.Content = mainStack;
+            mainBorder.Child = scroll;
+            Content = mainBorder;
+
+            // Default to Scrubber tab
+            SelectInnerTab(0);
+        }
+
+        #region Inner Tab Infrastructure
+
+        private Border CreateInnerTabButton(string glyph, string text, int tabIndex)
+        {
+            bool isSelected = tabIndex == _activeSubTab;
+
+            var border = new Border
+            {
+                Background = new SolidColorBrush(isSelected
+                    ? Color.FromArgb(255, 18, 18, 18)
+                    : Color.FromArgb(255, 35, 35, 35)),
+                CornerRadius = new CornerRadius(6, 6, 0, 0),
+                Padding = new Thickness(8, 8, 8, 8),
+                Margin = new Thickness(2, 0, 2, 0),
+                BorderBrush = new SolidColorBrush(isSelected
+                    ? Color.FromArgb(255, 0, 120, 215)
+                    : Color.FromArgb(255, 50, 50, 50)),
+                BorderThickness = new Thickness(1, 1, 1, 0)
+            };
+
+            var stack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Spacing = 6
+            };
+
+            var icon = new FontIcon
+            {
+                Glyph = glyph,
                 FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White),
+                Foreground = new SolidColorBrush(isSelected
+                    ? Color.FromArgb(255, 0, 150, 255)
+                    : Color.FromArgb(255, 120, 120, 120))
+            };
+
+            var label = new TextBlock
+            {
+                Text = text,
+                FontSize = 12,
+                FontWeight = isSelected
+                    ? Microsoft.UI.Text.FontWeights.SemiBold
+                    : Microsoft.UI.Text.FontWeights.Normal,
+                Foreground = new SolidColorBrush(isSelected
+                    ? Colors.White
+                    : Color.FromArgb(255, 150, 150, 150)),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            Grid.SetColumn(_resultsTitle, 0);
-            resultsHeader.Children.Add(_resultsTitle);
 
-            _progressRing = new ProgressRing
+            stack.Children.Add(icon);
+            stack.Children.Add(label);
+            border.Child = stack;
+
+            border.PointerPressed += (s, e) => SelectInnerTab(tabIndex);
+            border.PointerEntered += (s, e) =>
             {
-                Width = 20,
-                Height = 20,
-                IsActive = false,
-                Visibility = Visibility.Collapsed
+                if (tabIndex != _activeSubTab)
+                    border.Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45));
             };
-            Grid.SetColumn(_progressRing, 1);
-            resultsHeader.Children.Add(_progressRing);
+            border.PointerExited += (s, e) =>
+            {
+                if (tabIndex != _activeSubTab)
+                    border.Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35));
+            };
 
-            // Scrubber button (works for all tiers)
-            _buildLinesButton = new Button
+            return border;
+        }
+
+        private void UpdateInnerTabButtonStyle(Border? button, int tabIndex)
+        {
+            if (button == null) return;
+
+            bool isSelected = tabIndex == _activeSubTab;
+
+            button.Background = new SolidColorBrush(isSelected
+                ? Color.FromArgb(255, 18, 18, 18)
+                : Color.FromArgb(255, 35, 35, 35));
+            button.BorderBrush = new SolidColorBrush(isSelected
+                ? Color.FromArgb(255, 0, 120, 215)
+                : Color.FromArgb(255, 50, 50, 50));
+
+            if (button.Child is StackPanel stack)
+            {
+                foreach (var child in stack.Children)
+                {
+                    if (child is FontIcon icon)
+                    {
+                        icon.Foreground = new SolidColorBrush(isSelected
+                            ? Color.FromArgb(255, 0, 150, 255)
+                            : Color.FromArgb(255, 120, 120, 120));
+                    }
+                    else if (child is TextBlock lbl)
+                    {
+                        lbl.FontWeight = isSelected
+                            ? Microsoft.UI.Text.FontWeights.SemiBold
+                            : Microsoft.UI.Text.FontWeights.Normal;
+                        lbl.Foreground = new SolidColorBrush(isSelected
+                            ? Colors.White
+                            : Color.FromArgb(255, 150, 150, 150));
+                    }
+                }
+            }
+        }
+
+        private void SelectInnerTab(int index)
+        {
+            _activeSubTab = index;
+
+            if (_scrubberTabContent != null)
+                _scrubberTabContent.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (_learningTabContent != null)
+                _learningTabContent.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+
+            UpdateInnerTabButtonStyle(_scrubberTabButton, 0);
+            UpdateInnerTabButtonStyle(_learningTabButton, 1);
+        }
+
+        #endregion
+
+        #region Tab Content Builders
+
+        private StackPanel BuildScrubberTab()
+        {
+            var content = new StackPanel { Spacing = 16 };
+
+            // Top bar: description + Must-Haves gear button (prominent, right-aligned)
+            var topBar = new Grid();
+            topBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            topBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var descText = new TextBlock
+            {
+                Text = "Scrub an estimate for missing operations. Parse a PDF or pasted text \u2014 quality + scoring appear automatically.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 165, 200)),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(descText, 0);
+            topBar.Children.Add(descText);
+
+            _scrubMustHavesButton = new Button
             {
                 Content = new StackPanel
                 {
@@ -438,8 +437,54 @@ namespace McStudDesktop.Views
                     Spacing = 8,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uE7BA", FontSize = 14 }, // Shield/scrub icon
-                        new TextBlock { Text = "Scrubber", FontSize = 12 }
+                        new FontIcon { Glyph = "\uE713", FontSize = 16 },
+                        new TextBlock { Text = "Must-Haves", FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 90)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(16, 10, 16, 10),
+                CornerRadius = new CornerRadius(6)
+            };
+            _scrubMustHavesButton.Click += MustHavesButton_Click;
+            ToolTipService.SetToolTip(_scrubMustHavesButton,
+                "Configure which operations must appear on every estimate.\n" +
+                "The Scrubber checks for these plus commonly missed items.");
+            Grid.SetColumn(_scrubMustHavesButton, 1);
+            topBar.Children.Add(_scrubMustHavesButton);
+
+            content.Children.Add(topBar);
+
+            // Upload section
+            var uploadSection = BuildUploadSection(
+                out _scrubUploadDropZone, out _scrubDropZoneText, out _scrubUploadButton,
+                out _scrubPasteArea, out var scrubParseBtn);
+
+            _scrubUploadButton.Click += (s, e) => HandleUpload(ParseContext.Scrubber);
+            _scrubUploadDropZone.DragOver += (s, e) => HandleDragOver(s, e, _scrubUploadDropZone, _scrubDropZoneText);
+            _scrubUploadDropZone.DragLeave += (s, e) => ResetDropZoneAppearance(_scrubUploadDropZone, _scrubDropZoneText);
+            _scrubUploadDropZone.Drop += async (s, e) => await HandleDrop(e, ParseContext.Scrubber);
+            scrubParseBtn.Click += (s, e) => HandleParsePaste(ParseContext.Scrubber);
+
+            content.Children.Add(uploadSection);
+
+            // Client mode banner
+            _scrubClientModeBanner = BuildClientModeBanner();
+            content.Children.Add(_scrubClientModeBanner);
+
+            // Action buttons: Copy to Clipboard + Clear
+            var scrubActions = new StackPanel { Orientation = Orientation.Horizontal };
+
+            _scrubCopyButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE8C8", FontSize = 14 },
+                        new TextBlock { Text = "Copy to Clipboard", FontSize = 12 }
                     }
                 },
                 Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 180)),
@@ -447,37 +492,13 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(16, 8, 16, 8),
                 Margin = new Thickness(8, 0, 0, 0)
             };
-            _buildLinesButton.Click += BuildLinesButton_Click;
-            ToolTipService.SetToolTip(_buildLinesButton,
-                "SCRUBBER: Copy all missing items to clipboard.\n" +
+            _scrubCopyButton.Click += CopyToClipboard_Click;
+            ToolTipService.SetToolTip(_scrubCopyButton,
+                "Copy all missing items to clipboard.\n" +
                 "Includes must-haves, commonly missed, and learned pattern suggestions.");
+            scrubActions.Children.Add(_scrubCopyButton);
 
-            // Learn button (Shop/Admin only)
-            _learnButton = new Button
-            {
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 8,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE7BE", FontSize = 14 }, // Brain icon
-                        new TextBlock { Text = "Learn from This", FontSize = 12 }
-                    }
-                },
-                Background = new SolidColorBrush(Color.FromArgb(255, 0, 150, 80)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(16, 8, 16, 8),
-                Margin = new Thickness(8, 0, 0, 0)
-            };
-            _learnButton.Click += LearnButton_Click;
-            ToolTipService.SetToolTip(_learnButton,
-                "LEARN: Save patterns from this estimate for FUTURE reference.\n" +
-                "Remembers what manual ops you added for each part type.\n" +
-                "Data appears in the 'Learned' tab for searching later.");
-
-            // Clear button
-            _clearButton = new Button
+            _scrubClearButton = new Button
             {
                 Content = new StackPanel
                 {
@@ -494,10 +515,11 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(16, 8, 16, 8),
                 Margin = new Thickness(8, 0, 0, 0)
             };
-            _clearButton.Click += ClearButton_Click;
+            _scrubClearButton.Click += (s, e) => ClearForTab(ParseContext.Scrubber);
+            scrubActions.Children.Add(_scrubClearButton);
 
-            // Must-Haves settings button
-            _mustHavesButton = new Button
+            // Layout toggle button
+            _layoutToggleButton = new Button
             {
                 Content = new StackPanel
                 {
@@ -505,32 +527,482 @@ namespace McStudDesktop.Views
                     Spacing = 6,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uE713", FontSize = 13 }, // Gear icon
-                        new TextBlock { Text = "Must-Haves", FontSize = 12 }
+                        new FontIcon { Glyph = "\uE8A4", FontSize = 12 },
+                        new TextBlock { Text = "Stacked", FontSize = 11 }
                     }
                 },
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 90)),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 60)),
                 Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 8, 12, 8),
+                Padding = new Thickness(10, 6, 10, 6),
+                Margin = new Thickness(8, 0, 0, 0),
+                CornerRadius = new CornerRadius(4)
+            };
+            _layoutToggleButton.Click += (s, e) => ToggleScrubLayout();
+            ToolTipService.SetToolTip(_layoutToggleButton, "Switch between side-by-side and stacked layout");
+            scrubActions.Children.Add(_layoutToggleButton);
+
+            // === Results container grid ===
+            _scrubSideBySideGrid = new Grid
+            {
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0),
+                ColumnSpacing = 12
+            };
+            _scrubSideBySideGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.2, GridUnitType.Star) });
+            _scrubSideBySideGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // -- Left panel: "Your Estimate" --
+            _scrubLeftPanel = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 25, 30, 25)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16)
+            };
+            var leftStack = new StackPanel { Spacing = 8 };
+
+            leftStack.Children.Add(new TextBlock
+            {
+                Text = "\uE8A5  Your Estimate",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)),
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            var resultsHeader = new Grid();
+            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            _scrubResultsTitle = new TextBlock
+            {
+                Text = "Parsed Lines",
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(_scrubResultsTitle, 0);
+            resultsHeader.Children.Add(_scrubResultsTitle);
+
+            _scrubProgressRing = new ProgressRing
+            {
+                Width = 20,
+                Height = 20,
+                IsActive = false,
+                Visibility = Visibility.Collapsed
+            };
+            Grid.SetColumn(_scrubProgressRing, 1);
+            resultsHeader.Children.Add(_scrubProgressRing);
+
+            Grid.SetColumn(scrubActions, 2);
+            resultsHeader.Children.Add(scrubActions);
+
+            leftStack.Children.Add(resultsHeader);
+            leftStack.Children.Add(BuildLegendPanel());
+
+            _scrubParsedItemsList = new ListView
+            {
+                MaxHeight = 550,
+                Background = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20)),
+                SelectionMode = ListViewSelectionMode.None,
+                Padding = new Thickness(4)
+            };
+            leftStack.Children.Add(_scrubParsedItemsList);
+
+            _scrubLeftPanel.Child = leftStack;
+            Grid.SetColumn(_scrubLeftPanel, 0);
+            _scrubSideBySideGrid.Children.Add(_scrubLeftPanel);
+
+            // -- Right panel: "Scrubber" --
+            var rightBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 25, 30)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16)
+            };
+            var rightStack = new StackPanel { Spacing = 8 };
+
+            rightStack.Children.Add(new TextBlock
+            {
+                Text = "\uE7BA  Scrubber Results",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 180, 100)),
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            BuildQualitySection();
+            rightStack.Children.Add(_qualitySection!);
+
+            _scoringPanel = new EstimateScoringPanel
+            {
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            _scoringPanel.OnAddItems += ScoringPanel_OnAddItems;
+            rightStack.Children.Add(_scoringPanel);
+
+            _refMatchStatusText = new TextBlock
+            {
+                Text = "",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            rightStack.Children.Add(_refMatchStatusText);
+
+            rightBorder.Child = rightStack;
+
+            _scrubRightScroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                MaxHeight = 600,
+                Content = rightBorder
+            };
+            Grid.SetColumn(_scrubRightScroll, 1);
+            _scrubSideBySideGrid.Children.Add(_scrubRightScroll);
+
+            content.Children.Add(_scrubSideBySideGrid);
+
+            // Status text
+            _scrubStatusText = new TextBlock
+            {
+                Text = "",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            content.Children.Add(_scrubStatusText);
+
+            return content;
+        }
+
+        private StackPanel BuildLearningTab()
+        {
+            var content = new StackPanel { Spacing = 16 };
+
+            // Top bar: description
+            content.Children.Add(new TextBlock
+            {
+                Text = "Teach McStud from your estimates. Parse an estimate and hit Learn to save the part\u2192operation patterns for future use. Next time you see that part, McStud remembers what ops usually go with it.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 165, 200)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            // Upload section
+            var uploadSection = BuildUploadSection(
+                out _learnUploadDropZone, out _learnDropZoneText, out _learnUploadButton,
+                out _learnPasteArea, out var learnParseBtn);
+
+            _learnUploadButton.Click += (s, e) => HandleUpload(ParseContext.Learning);
+            _learnUploadDropZone.DragOver += (s, e) => HandleDragOver(s, e, _learnUploadDropZone, _learnDropZoneText);
+            _learnUploadDropZone.DragLeave += (s, e) => ResetDropZoneAppearance(_learnUploadDropZone, _learnDropZoneText);
+            _learnUploadDropZone.Drop += async (s, e) => await HandleDrop(e, ParseContext.Learning);
+            learnParseBtn.Click += (s, e) => HandleParsePaste(ParseContext.Learning);
+
+            content.Children.Add(uploadSection);
+
+            // Client mode banner
+            _learnClientModeBanner = BuildClientModeBanner();
+            content.Children.Add(_learnClientModeBanner);
+
+            // Action buttons: Learn + Clear + Publish + Publish KB
+            var learnActions = new StackPanel { Orientation = Orientation.Horizontal };
+
+            _learnButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE7BE", FontSize = 14 },
+                        new TextBlock { Text = "Learn from This", FontSize = 12 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 0, 150, 80)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(16, 8, 16, 8),
                 Margin = new Thickness(8, 0, 0, 0)
             };
-            _mustHavesButton.Click += MustHavesButton_Click;
-            ToolTipService.SetToolTip(_mustHavesButton,
-                "Configure which operations must appear on every estimate.\n" +
-                "The Scrub button checks for these plus commonly missed items.");
+            _learnButton.Click += LearnButton_Click;
+            ToolTipService.SetToolTip(_learnButton,
+                "LEARN: Save patterns from this estimate for FUTURE reference.\n" +
+                "Remembers what manual ops you added for each part type.\n" +
+                "Data appears in the 'Learned' tab for searching later.");
+            learnActions.Children.Add(_learnButton);
 
-            // Add buttons to a panel
-            var buttonsPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            buttonsPanel.Children.Add(_buildLinesButton);
-            buttonsPanel.Children.Add(_mustHavesButton);
-            buttonsPanel.Children.Add(_learnButton);
-            buttonsPanel.Children.Add(_clearButton);
-            Grid.SetColumn(buttonsPanel, 2);
-            resultsHeader.Children.Add(buttonsPanel);
+            _learnClearButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE74D", FontSize = 14 },
+                        new TextBlock { Text = "Clear", FontSize = 12 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 100, 40, 40)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(16, 8, 16, 8),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            _learnClearButton.Click += (s, e) => ClearForTab(ParseContext.Learning);
+            learnActions.Children.Add(_learnClearButton);
+
+            _publishButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE898", FontSize = 12 },
+                        new TextBlock { Text = "Publish Learning", FontSize = 11 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 100, 80, 140)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            _publishButton.Click += PublishButton_Click;
+            ToolTipService.SetToolTip(_publishButton, "Bake learned knowledge into app for distribution.");
+            learnActions.Children.Add(_publishButton);
+
+            _exportBaselineButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE72D", FontSize = 12 },
+                        new TextBlock { Text = "Publish KB", FontSize = 11 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 120, 80)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(8, 0, 0, 0),
+                Visibility = _learningService.CurrentTier != LicenseTier.Client ? Visibility.Visible : Visibility.Collapsed
+            };
+            _exportBaselineButton.Click += ExportBaselineButton_Click;
+            ToolTipService.SetToolTip(_exportBaselineButton, "Sanitize and export all learning data, bump version, then push to GitHub.");
+            learnActions.Children.Add(_exportBaselineButton);
+
+            // Results section
+            BuildResultsSection(learnActions,
+                out _learnResultsSection, out _learnResultsTitle,
+                out _learnParsedItemsList, out _learnProgressRing);
+            content.Children.Add(_learnResultsSection);
+
+            // Learning summary (hidden until learn completes)
+            _learningSummarySection = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 20, 35, 25)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16),
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 12, 0, 0),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 140, 80)),
+                BorderThickness = new Thickness(1)
+            };
+            _learningSummaryContent = new StackPanel { Spacing = 8 };
+            _learningSummarySection.Child = _learningSummaryContent;
+            content.Children.Add(_learningSummarySection);
+
+            // Status text
+            _learnStatusText = new TextBlock
+            {
+                Text = "",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            content.Children.Add(_learnStatusText);
+
+            return content;
+        }
+
+        #endregion
+
+        #region UI Builder Helpers
+
+        private StackPanel BuildUploadSection(
+            out Border dropZone, out TextBlock dropText, out Button uploadBtn,
+            out TextBox pasteArea, out Button parseBtn)
+        {
+            var section = new StackPanel { Spacing = 12 };
+
+            // Drop zone
+            dropZone = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 40)),
+                CornerRadius = new CornerRadius(8),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 70, 80)),
+                BorderThickness = new Thickness(2),
+                Padding = new Thickness(24),
+                MinHeight = 150,
+                AllowDrop = true
+            };
+
+            var uploadStack = new StackPanel
+            {
+                Spacing = 16,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+
+            uploadStack.Children.Add(new FontIcon
+            {
+                Glyph = "\uE898",
+                FontSize = 40,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 150, 200))
+            });
+
+            uploadBtn = new Button
+            {
+                Content = "Upload Estimate Files",
+                Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 215)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(24, 12, 24, 12),
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            uploadStack.Children.Add(uploadBtn);
+
+            dropText = new TextBlock
+            {
+                Text = "Drag & drop files here, or click to browse\nSupports PDF, TXT, CSV - Multiple files for batch processing",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center
+            };
+            uploadStack.Children.Add(dropText);
+
+            dropZone.Child = uploadStack;
+            section.Children.Add(dropZone);
+
+            // "or" text
+            section.Children.Add(new TextBlock
+            {
+                Text = "\u2014 or paste estimate text \u2014",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            // Paste area
+            pasteArea = new TextBox
+            {
+                PlaceholderText = "Paste estimate text here...",
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                Height = 120,
+                Background = new SolidColorBrush(Color.FromArgb(255, 25, 25, 25)),
+                Foreground = new SolidColorBrush(Colors.White),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11
+            };
+            section.Children.Add(pasteArea);
+
+            // Parse button
+            parseBtn = new Button
+            {
+                Content = "Parse Pasted Text",
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(16, 8, 16, 8),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            section.Children.Add(parseBtn);
+
+            return section;
+        }
+
+        private void BuildResultsSection(
+            StackPanel actionButtons,
+            out Border section, out TextBlock title,
+            out ListView list, out ProgressRing ring)
+        {
+            section = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 25, 30, 25)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16),
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var resultsStack = new StackPanel { Spacing = 12 };
+
+            // Results header
+            var resultsHeader = new Grid();
+            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            resultsHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            title = new TextBlock
+            {
+                Text = "Parsed Lines",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(title, 0);
+            resultsHeader.Children.Add(title);
+
+            ring = new ProgressRing
+            {
+                Width = 20,
+                Height = 20,
+                IsActive = false,
+                Visibility = Visibility.Collapsed
+            };
+            Grid.SetColumn(ring, 1);
+            resultsHeader.Children.Add(ring);
+
+            Grid.SetColumn(actionButtons, 2);
+            resultsHeader.Children.Add(actionButtons);
 
             resultsStack.Children.Add(resultsHeader);
 
-            // Legend bar
+            // Legend
+            resultsStack.Children.Add(BuildLegendPanel());
+
+            // Parsed items list
+            list = new ListView
+            {
+                MaxHeight = 350,
+                Background = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20)),
+                SelectionMode = ListViewSelectionMode.None,
+                Padding = new Thickness(4)
+            };
+            resultsStack.Children.Add(list);
+
+            section.Child = resultsStack;
+        }
+
+        private StackPanel BuildLegendPanel()
+        {
             var legendPanel = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -538,7 +1010,6 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(4, 4, 4, 2)
             };
 
-            // PART legend
             var partLegend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
             partLegend.Children.Add(new Border
             {
@@ -556,7 +1027,6 @@ namespace McStudDesktop.Views
             });
             legendPanel.Children.Add(partLegend);
 
-            // ADD legend
             var addLegend = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
             addLegend.Children.Add(new Border
             {
@@ -574,7 +1044,6 @@ namespace McStudDesktop.Views
             });
             legendPanel.Children.Add(addLegend);
 
-            // Indent hint
             legendPanel.Children.Add(new TextBlock
             {
                 Text = "\u21b3 indented = belongs to part above",
@@ -583,22 +1052,42 @@ namespace McStudDesktop.Views
                 VerticalAlignment = VerticalAlignment.Center
             });
 
-            resultsStack.Children.Add(legendPanel);
+            return legendPanel;
+        }
 
-            // Parsed items list
-            _parsedItemsList = new ListView
+        private Border BuildClientModeBanner()
+        {
+            var banner = new Border
             {
-                MaxHeight = 350,
-                Background = new SolidColorBrush(Color.FromArgb(255, 20, 20, 20)),
-                SelectionMode = ListViewSelectionMode.None,
-                Padding = new Thickness(4)
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 40, 20)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 180, 140, 60)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 0, 0, 8),
+                Visibility = Visibility.Collapsed
             };
-            resultsStack.Children.Add(_parsedItemsList);
+            var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            stack.Children.Add(new FontIcon
+            {
+                Glyph = "\uE8D7",
+                FontSize = 16,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100))
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Client Mode: You can parse estimates and scrub for missing ops, but learning is disabled. Contact your shop for full access.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 200, 150)),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            banner.Child = stack;
+            return banner;
+        }
 
-            _resultsSection.Child = resultsStack;
-            mainStack.Children.Add(_resultsSection);
-
-            // === QUALITY ASSESSMENT SECTION (hidden until parse runs) ===
+        private void BuildQualitySection()
+        {
             _qualitySection = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 25, 30, 35)),
@@ -612,11 +1101,10 @@ namespace McStudDesktop.Views
 
             var qualityStack = new StackPanel { Spacing = 8 };
 
-            // Quality header
             var qualityHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
             qualityHeader.Children.Add(new FontIcon
             {
-                Glyph = "\uE9D9", // Shield/check icon
+                Glyph = "\uE9D9",
                 FontSize = 16,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255))
             });
@@ -629,7 +1117,6 @@ namespace McStudDesktop.Views
             });
             qualityStack.Children.Add(qualityHeader);
 
-            // Explanation note
             qualityStack.Children.Add(new TextBlock
             {
                 Text = "Measures data cleanliness \u2014 how well the estimate parsed and whether the numbers " +
@@ -643,7 +1130,6 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(0, 0, 0, 4)
             });
 
-            // Score and grade row
             var scoreRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Margin = new Thickness(0, 4, 0, 0) };
 
             _qualityScoreText = new TextBlock
@@ -671,11 +1157,9 @@ namespace McStudDesktop.Views
             scoreRow.Children.Add(_qualityWeightText);
             qualityStack.Children.Add(scoreRow);
 
-            // Flags panel
             _qualityFlagsPanel = new StackPanel { Spacing = 4, Margin = new Thickness(0, 8, 0, 0) };
             qualityStack.Children.Add(_qualityFlagsPanel);
 
-            // Include outliers checkbox
             _includeOutliersCheckbox = new CheckBox
             {
                 Content = "Include outliers in training anyway",
@@ -687,112 +1171,13 @@ namespace McStudDesktop.Views
             qualityStack.Children.Add(_includeOutliersCheckbox);
 
             _qualitySection.Child = qualityStack;
-            mainStack.Children.Add(_qualitySection);
-
-            // === ESTIMATE COMPLETENESS SCORING PANEL ===
-            _scoringPanel = new EstimateScoringPanel
-            {
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, 12, 0, 0)
-            };
-            _scoringPanel.OnAddItems += ScoringPanel_OnAddItems;
-            mainStack.Children.Add(_scoringPanel);
-
-            // === REFERENCE MATCH STATUS ===
-            _refMatchStatusText = new TextBlock
-            {
-                Text = "",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
-                FontStyle = Windows.UI.Text.FontStyle.Italic,
-                TextWrapping = TextWrapping.Wrap,
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-            mainStack.Children.Add(_refMatchStatusText);
-
-            // === STATUS ===
-            _statusText = new TextBlock
-            {
-                Text = "",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 100)),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-            mainStack.Children.Add(_statusText);
-
-
-            // === LEARNING SUMMARY (hidden until learn completes) ===
-            _learningSummarySection = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 20, 35, 25)),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(16),
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, 12, 0, 0),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 140, 80)),
-                BorderThickness = new Thickness(1)
-            };
-            _learningSummaryContent = new StackPanel { Spacing = 8 };
-            _learningSummarySection.Child = _learningSummaryContent;
-            mainStack.Children.Add(_learningSummarySection);
-
-            // === HELP TEXT ===
-            var helpBorder = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 35)),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(16),
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-
-            var helpText = new TextBlock
-            {
-                Text = "WHAT THIS TAB DOES\n" +
-                       "Feed it an estimate (PDF or pasted text) and it reads every line — parts, labor,\n" +
-                       "refinish, additional ops — so you can analyze it, learn from it, or scrub for missing ops.\n\n" +
-                       "STEP BY STEP\n" +
-                       "1. GET THE ESTIMATE IN\n" +
-                       "   • PDF: Click \"Upload Estimate Files\" or drag-drop the file onto the box above.\n" +
-                       "   • Paste: Open the estimate in CCC ONE, Ctrl+A to select all, Ctrl+C to copy,\n" +
-                       "     then Ctrl+V into the paste box above. Hit \"Parse Pasted Text\".\n" +
-                       "   • Batch: Drop multiple PDFs at once to learn from a stack of estimates.\n\n" +
-                       "2. REVIEW PARSED LINES\n" +
-                       "   Once parsed, every part and operation shows up in the green \"Parsed Lines\" section.\n" +
-                       "   The parser auto-detects CCC ONE, Mitchell, or Audatex format and normalizes\n" +
-                       "   shorthand (LT→Left, Frt→Front, Bpr→Bumper, R&I→Remove & Install, etc.).\n\n" +
-                       "3. CHOOSE WHAT TO DO WITH IT\n" +
-                       "   • \"Scrub Estimate\" — Scrubs this estimate for missing operations right now.\n" +
-                       "     Uses the knowledge base to find ops you might be missing.\n" +
-                       "     Nothing is saved — just gives you lines you can copy into CCC.\n" +
-                       "   • \"Learn from This\" — Saves the patterns from this estimate for the FUTURE.\n" +
-                       "     Next time you see \"Front Bumper + Replace\", McStud remembers what ops\n" +
-                       "     usually go with it. Data goes to the Learned tab for searching later.\n\n" +
-                       "4. COMPLETENESS SCORING (appears after parsing)\n" +
-                       "   Scores your estimate for missing items (adhesion promoter, flex additive,\n" +
-                       "   blend operations, scans, calibrations, etc.). Items from both the scoring\n" +
-                       "   engine and smart analyzer are combined in one unified panel.\n" +
-                       "   Hit \"Fix All Critical\" to grab the important ones, or cherry-pick individually.\n\n" +
-                       "5. QUALITY SCORE (appears after parsing)\n" +
-                       "   Shows how complete/consistent the estimate looks. Outlier estimates can still\n" +
-                       "   be learned from — just check the \"Include outliers\" box if you want to keep them.",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
-                TextWrapping = TextWrapping.Wrap,
-                LineHeight = 20
-            };
-            helpBorder.Child = helpText;
-            mainStack.Children.Add(helpBorder);
-
-            scroll.Content = mainStack;
-            mainBorder.Child = scroll;
-            Content = mainBorder;
         }
+
+        #endregion
 
         private void UpdateStats()
         {
-            var estimatesImported = _learningService.EstimatesImported;
+            var estimatesImported = EstimateHistoryDatabase.Instance.EstimateCount;
             var avgValue = _learningService.AverageEstimateValue;
             var patterns = _learningService.PatternCount;
             var manualPatterns = _learningService.ManualLinePatternCount;
@@ -809,7 +1194,9 @@ namespace McStudDesktop.Views
             }
         }
 
-        private async void UploadButton_Click(object sender, RoutedEventArgs e)
+        #region Upload, Drag/Drop, Parse Handlers
+
+        private async void HandleUpload(ParseContext ctx)
         {
             try
             {
@@ -826,20 +1213,17 @@ namespace McStudDesktop.Views
                 var files = await picker.PickMultipleFilesAsync();
                 if (files != null && files.Count > 0)
                 {
-                    await ProcessFilesAsync(files.ToList());
+                    await ProcessFilesAsync(files.ToList(), ctx);
                 }
             }
             catch (Exception ex)
             {
-                ShowStatus($"Error: {ex.Message}", isError: true);
+                ShowStatusForContext($"Error: {ex.Message}", ctx, isError: true);
             }
         }
 
-        #region Drag and Drop
-
-        private void UploadDropZone_DragOver(object sender, DragEventArgs e)
+        private void HandleDragOver(object sender, DragEventArgs e, Border? dropZone, TextBlock? dropText)
         {
-            // Check if files are being dragged
             if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
             {
                 e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
@@ -848,18 +1232,17 @@ namespace McStudDesktop.Views
                 e.DragUIOverride.IsGlyphVisible = true;
                 e.DragUIOverride.IsContentVisible = true;
 
-                // Visual feedback - highlight the drop zone
-                if (_uploadDropZone != null)
+                if (dropZone != null)
                 {
-                    _uploadDropZone.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 0, 150, 255));
-                    _uploadDropZone.BorderThickness = new Thickness(3);
-                    _uploadDropZone.Background = new SolidColorBrush(Color.FromArgb(255, 35, 45, 55));
+                    dropZone.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 0, 150, 255));
+                    dropZone.BorderThickness = new Thickness(3);
+                    dropZone.Background = new SolidColorBrush(Color.FromArgb(255, 35, 45, 55));
                 }
 
-                if (_dropZoneText != null)
+                if (dropText != null)
                 {
-                    _dropZoneText.Text = "Drop files to import...";
-                    _dropZoneText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255));
+                    dropText.Text = "Drop files to import...";
+                    dropText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255));
                 }
             }
             else
@@ -868,16 +1251,11 @@ namespace McStudDesktop.Views
             }
         }
 
-        private void UploadDropZone_DragLeave(object sender, DragEventArgs e)
+        private async Task HandleDrop(DragEventArgs e, ParseContext ctx)
         {
-            // Reset visual appearance
-            ResetDropZoneAppearance();
-        }
-
-        private async void UploadDropZone_Drop(object sender, DragEventArgs e)
-        {
-            // Reset visual appearance
-            ResetDropZoneAppearance();
+            var dropZone = ctx == ParseContext.Scrubber ? _scrubUploadDropZone : _learnUploadDropZone;
+            var dropText = ctx == ParseContext.Scrubber ? _scrubDropZoneText : _learnDropZoneText;
+            ResetDropZoneAppearance(dropZone, dropText);
 
             if (e.DataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
             {
@@ -890,7 +1268,6 @@ namespace McStudDesktop.Views
                     {
                         if (item is StorageFile file)
                         {
-                            // Filter to supported file types
                             var ext = file.FileType.ToLowerInvariant();
                             if (ext == ".pdf" || ext == ".txt" || ext == ".csv")
                             {
@@ -903,7 +1280,6 @@ namespace McStudDesktop.Views
                         }
                         else if (item is StorageFolder folder)
                         {
-                            // Recursively get files from folder
                             var folderFiles = await GetFilesFromFolderAsync(folder);
                             files.AddRange(folderFiles);
                         }
@@ -911,17 +1287,17 @@ namespace McStudDesktop.Views
 
                     if (files.Count > 0)
                     {
-                        ShowStatus($"Processing {files.Count} dropped file(s)...");
-                        await ProcessFilesAsync(files);
+                        ShowStatusForContext($"Processing {files.Count} dropped file(s)...", ctx);
+                        await ProcessFilesAsync(files, ctx);
                     }
                     else
                     {
-                        ShowStatus("No supported files found. Drop PDF, TXT, or CSV files.", isError: true);
+                        ShowStatusForContext("No supported files found. Drop PDF, TXT, or CSV files.", ctx, isError: true);
                     }
                 }
                 catch (Exception ex)
                 {
-                    ShowStatus($"Error processing dropped files: {ex.Message}", isError: true);
+                    ShowStatusForContext($"Error processing dropped files: {ex.Message}", ctx, isError: true);
                 }
             }
         }
@@ -942,7 +1318,6 @@ namespace McStudDesktop.Views
                     }
                 }
 
-                // Also check subfolders (one level deep)
                 var subfolders = await folder.GetFoldersAsync();
                 foreach (var subfolder in subfolders)
                 {
@@ -965,29 +1340,30 @@ namespace McStudDesktop.Views
             return result;
         }
 
-        private void ResetDropZoneAppearance()
+        private void ResetDropZoneAppearance(Border? dropZone, TextBlock? dropText)
         {
-            if (_uploadDropZone != null)
+            if (dropZone != null)
             {
-                _uploadDropZone.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 70, 80));
-                _uploadDropZone.BorderThickness = new Thickness(2);
-                _uploadDropZone.Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 40));
+                dropZone.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 70, 80));
+                dropZone.BorderThickness = new Thickness(2);
+                dropZone.Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 40));
             }
 
-            if (_dropZoneText != null)
+            if (dropText != null)
             {
-                _dropZoneText.Text = "Drag & drop files here, or click to browse\nSupports PDF, TXT, CSV - Multiple files for batch learning";
-                _dropZoneText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100));
+                dropText.Text = "Drag & drop files here, or click to browse\nSupports PDF, TXT, CSV - Multiple files for batch processing";
+                dropText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100));
             }
         }
 
         #endregion
 
-        private async Task ProcessFilesAsync(List<StorageFile> files)
+        private async Task ProcessFilesAsync(List<StorageFile> files, ParseContext ctx)
         {
-            ShowProgress(true);
+            var targetList = ctx == ParseContext.Scrubber ? _scrubParsedItemsList! : _learnParsedItemsList!;
+            ShowProgress(true, ctx);
             _parsedLines.Clear();
-            _parsedItemsList!.Items.Clear();
+            targetList.Items.Clear();
 
             int totalLines = 0;
             int totalParts = 0;
@@ -999,18 +1375,16 @@ namespace McStudDesktop.Views
             {
                 try
                 {
-                    ShowStatus($"Processing: {file.Name}...");
+                    ShowStatusForContext($"Processing: {file.Name}...", ctx);
 
                     if (file.FileType.ToLower() == ".pdf")
                     {
-                        // Use SMART PDF parser for structured extraction
                         var estimate = await ReadPdfSmartAsync(file);
                         if (estimate != null && estimate.LineItems.Count > 0)
                         {
                             detectedSource = estimate.Source;
                             vehicleInfo = estimate.VehicleInfo;
 
-                            // Convert to ParsedEstimateLine format
                             foreach (var item in estimate.LineItems)
                             {
                                 var parsed = ConvertToParsedLine(item);
@@ -1023,13 +1397,11 @@ namespace McStudDesktop.Views
 
                             System.Diagnostics.Debug.WriteLine($"[Import] {file.Name}: {estimate.Source} estimate, {estimate.LineItems.Count} items, Vehicle: {estimate.VehicleInfo}");
 
-                            // Auto-save to Estimate History Database and mine for patterns (background)
                             var est = estimate;
                             _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(est));
                         }
                         else
                         {
-                            // Fallback to text extraction if structured parsing fails
                             var text = await ReadPdfAsTextAsync(file);
                             if (!string.IsNullOrWhiteSpace(text))
                             {
@@ -1039,7 +1411,6 @@ namespace McStudDesktop.Views
                                 totalParts += parsed.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                                 totalManualLines += parsed.Count(p => p.IsManualLine);
 
-                                // Persist fallback-parsed PDF to history (background)
                                 var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
                                 _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(fallbackEstimate));
                             }
@@ -1047,7 +1418,6 @@ namespace McStudDesktop.Views
                     }
                     else
                     {
-                        // Text/CSV files - use learning service parser
                         var text = await FileIO.ReadTextAsync(file);
                         if (!string.IsNullOrWhiteSpace(text))
                         {
@@ -1057,7 +1427,6 @@ namespace McStudDesktop.Views
                             totalParts += parsed.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                             totalManualLines += parsed.Count(p => p.IsManualLine);
 
-                            // Persist text/CSV file to history (background)
                             var csvEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
                             _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(csvEstimate));
                         }
@@ -1066,25 +1435,26 @@ namespace McStudDesktop.Views
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Error processing {file.Name}: {ex.Message}");
-                    ShowStatus($"Error processing {file.Name}: {ex.Message}", isError: true);
+                    ShowStatusForContext($"Error processing {file.Name}: {ex.Message}", ctx, isError: true);
                 }
             }
 
-            // Display parsed lines
-            DisplayParsedLines();
+            DisplayParsedLines(targetList);
 
-            ShowProgress(false);
-            _resultsSection!.Visibility = Visibility.Visible;
+            ShowProgress(false, ctx);
+            FrameworkElement resultsSection = ctx == ParseContext.Scrubber ? (FrameworkElement)_scrubSideBySideGrid! : _learnResultsSection!;
+            var resultsTitle = ctx == ParseContext.Scrubber ? _scrubResultsTitle! : _learnResultsTitle!;
+            resultsSection.Visibility = Visibility.Visible;
 
-            // Update results title with source info
             var sourceInfo = !string.IsNullOrEmpty(detectedSource) ? $" ({detectedSource})" : "";
             var vehicleInfoText = !string.IsNullOrEmpty(vehicleInfo) ? $" - {vehicleInfo}" : "";
-            _resultsTitle!.Text = $"Parsed: {totalParts} parts, {totalManualLines} additional ops{sourceInfo}{vehicleInfoText}";
+            resultsTitle.Text = $"Parsed: {totalParts} parts, {totalManualLines} additional ops{sourceInfo}{vehicleInfoText}";
 
-            ShowStatus($"Processed {files.Count} file(s): {totalParts} parts, {totalManualLines} additional operations ready to learn");
+            ShowStatusForContext($"Processed {files.Count} file(s): {totalParts} parts, {totalManualLines} additional operations", ctx);
 
-            // Run SMART analysis for suggestions
-            await RunSmartAnalysisAsync();
+            // Auto-scrub only in Scrubber tab
+            if (ctx == ParseContext.Scrubber)
+                await RunSmartAnalysisAsync();
         }
 
         /// <summary>
@@ -1169,18 +1539,21 @@ namespace McStudDesktop.Views
             };
         }
 
-        private async void ParsePastedText_Click(object sender, RoutedEventArgs e)
+        private async void HandleParsePaste(ParseContext ctx)
         {
-            var text = _pasteArea?.Text;
+            var pasteArea = ctx == ParseContext.Scrubber ? _scrubPasteArea : _learnPasteArea;
+            var text = pasteArea?.Text;
             if (string.IsNullOrWhiteSpace(text))
             {
-                ShowStatus("Please paste estimate text first", isError: true);
+                ShowStatusForContext("Please paste estimate text first", ctx, isError: true);
                 return;
             }
 
             _parsedLines.Clear();
+            var targetList = ctx == ParseContext.Scrubber ? _scrubParsedItemsList! : _learnParsedItemsList!;
+            FrameworkElement resultsSection = ctx == ParseContext.Scrubber ? (FrameworkElement)_scrubSideBySideGrid! : _learnResultsSection!;
+            var resultsTitle = ctx == ParseContext.Scrubber ? _scrubResultsTitle! : _learnResultsTitle!;
 
-            // Use SMART parser for pasted text too
             var estimate = EstimatePdfParser.Instance.ParseText(text);
             if (estimate.LineItems.Count > 0)
             {
@@ -1196,50 +1569,47 @@ namespace McStudDesktop.Views
                     ? $" - {estimate.VehicleInfo}"
                     : "";
 
-                DisplayParsedLines();
+                DisplayParsedLines(targetList);
 
                 var parts = _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                 var additionalOps = _parsedLines.Count(p => p.IsManualLine);
 
-                _resultsSection!.Visibility = Visibility.Visible;
-                _resultsTitle!.Text = $"Parsed: {parts} parts, {additionalOps} additional ops{sourceInfo}{vehicleInfo}";
+                resultsSection.Visibility = Visibility.Visible;
+                resultsTitle.Text = $"Parsed: {parts} parts, {additionalOps} additional ops{sourceInfo}{vehicleInfo}";
 
-                ShowStatus($"SMART Parse: {parts} parts, {additionalOps} additional operations detected", isSuccess: true);
+                ShowStatusForContext($"SMART Parse: {parts} parts, {additionalOps} additional operations detected", ctx, isSuccess: true);
 
-                // Persist pasted text estimate to history (background)
                 estimate.SourceFile = "TextPaste";
                 _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
 
-                // Run SMART analysis for suggestions
-                await RunSmartAnalysisAsync();
+                if (ctx == ParseContext.Scrubber)
+                    await RunSmartAnalysisAsync();
             }
             else
             {
-                // Fallback to old parser
                 _parsedLines = _learningService.ParseWithManualLineDetection(text);
 
-                DisplayParsedLines();
+                DisplayParsedLines(targetList);
 
                 var parts = _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                 var manualLines = _parsedLines.Count(p => p.IsManualLine);
 
-                _resultsSection!.Visibility = Visibility.Visible;
-                _resultsTitle!.Text = $"Parsed: {parts} parts, {manualLines} manual lines (#)";
+                resultsSection.Visibility = Visibility.Visible;
+                resultsTitle.Text = $"Parsed: {parts} parts, {manualLines} manual lines (#)";
 
-                ShowStatus($"Parsed {_parsedLines.Count} lines: {parts} parts, {manualLines} manual lines");
+                ShowStatusForContext($"Parsed {_parsedLines.Count} lines: {parts} parts, {manualLines} manual lines", ctx);
 
-                // Persist fallback-parsed text paste to history (background)
                 var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(_parsedLines, text, "TextPaste");
                 _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(fallbackEstimate));
 
-                // Run SMART analysis for suggestions
-                await RunSmartAnalysisAsync();
+                if (ctx == ParseContext.Scrubber)
+                    await RunSmartAnalysisAsync();
             }
         }
 
-        private void DisplayParsedLines()
+        private void DisplayParsedLines(ListView targetList)
         {
-            _parsedItemsList!.Items.Clear();
+            targetList.Items.Clear();
 
             string? currentSection = null;
 
@@ -1266,17 +1636,17 @@ namespace McStudDesktop.Views
                         FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                         Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 180, 220))
                     };
-                    _parsedItemsList.Items.Add(sectionHeader);
+                    targetList.Items.Add(sectionHeader);
                     continue;
                 }
 
                 var item = CreateParsedLineItem(line);
-                _parsedItemsList.Items.Add(item);
+                targetList.Items.Add(item);
             }
 
             if (_parsedLines.Count > 100)
             {
-                _parsedItemsList.Items.Add(new TextBlock
+                targetList.Items.Add(new TextBlock
                 {
                     Text = $"... and {_parsedLines.Count - 100} more lines",
                     FontStyle = Windows.UI.Text.FontStyle.Italic,
@@ -1489,13 +1859,36 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
-        /// Scrubber: copy scoring results to clipboard.
+        /// Copy scoring results to clipboard.
         /// Reads from the scoring panel's current result (which already includes
         /// must-haves, commonly missed, smart suggestions, and learned patterns).
         /// </summary>
-        private void BuildLinesButton_Click(object sender, RoutedEventArgs e)
+        private void CopyToClipboard_Click(object sender, RoutedEventArgs e)
         {
             var result = _scoringPanel?.CurrentResult;
+
+            // Fallback: if scoring result is missing (e.g., background scoring failed silently),
+            // run scoring on-demand so the scrubber always works when there's parsed data.
+            if (result == null && _parsedLines.Count > 0)
+            {
+                try
+                {
+                    System.Diagnostics.Debug.WriteLine("[Scrubber] No cached scoring result — running on-demand scoring");
+                    result = RunEstimateScoringAndReturn();
+                    if (result != null)
+                    {
+                        // Tag sources and store for future use
+                        foreach (var issue in result.Issues)
+                            issue.Source ??= "Scoring";
+                        _scoringPanel?.UpdateScore(result);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Scrubber] On-demand scoring failed: {ex.Message}");
+                }
+            }
+
             if (result == null || result.Issues.Count == 0)
             {
                 if (_parsedLines.Count == 0)
@@ -1609,24 +2002,94 @@ namespace McStudDesktop.Views
             }
         }
 
-        private void ClearButton_Click(object sender, RoutedEventArgs e)
+        private void ClearForTab(ParseContext ctx)
         {
             _parsedLines.Clear();
-            _parsedItemsList!.Items.Clear();
             _currentAnalysis = null;
-            _currentQualityRecord = null;
-            _resultsSection!.Visibility = Visibility.Collapsed;
-            _qualitySection!.Visibility = Visibility.Collapsed;
-            _scoringPanel!.Reset();
-            _scoringPanel.Visibility = Visibility.Collapsed;
-            if (_learningSummarySection != null)
-                _learningSummarySection.Visibility = Visibility.Collapsed;
-            if (_pasteArea != null)
-                _pasteArea.Text = "";
-            ShowProgress(false);
-            ShowStatus("Cleared. Drop or paste a new estimate to start over.");
+
+            if (ctx == ParseContext.Scrubber)
+            {
+                _scrubParsedItemsList!.Items.Clear();
+                _currentQualityRecord = null;
+                _scrubSideBySideGrid!.Visibility = Visibility.Collapsed;
+                _qualitySection!.Visibility = Visibility.Collapsed;
+                _scoringPanel!.Reset();
+                _scoringPanel.Visibility = Visibility.Collapsed;
+                if (_scrubPasteArea != null) _scrubPasteArea.Text = "";
+                ShowProgress(false, ParseContext.Scrubber);
+                ShowStatusForContext("Cleared. Drop or paste a new estimate to start over.", ParseContext.Scrubber);
+            }
+            else
+            {
+                _learnParsedItemsList!.Items.Clear();
+                _learnResultsSection!.Visibility = Visibility.Collapsed;
+                if (_learningSummarySection != null)
+                    _learningSummarySection.Visibility = Visibility.Collapsed;
+                if (_learnPasteArea != null) _learnPasteArea.Text = "";
+                ShowProgress(false, ParseContext.Learning);
+                ShowStatusForContext("Cleared. Drop or paste a new estimate to start over.", ParseContext.Learning);
+            }
         }
 
+        private void ToggleScrubLayout()
+        {
+            if (_scrubSideBySideGrid == null || _scrubLeftPanel == null || _scrubRightScroll == null) return;
+
+            _isSideBySideLayout = !_isSideBySideLayout;
+
+            _scrubSideBySideGrid.ColumnDefinitions.Clear();
+            _scrubSideBySideGrid.RowDefinitions.Clear();
+
+            if (_isSideBySideLayout)
+            {
+                // Side-by-side: two columns
+                _scrubSideBySideGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.2, GridUnitType.Star) });
+                _scrubSideBySideGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                _scrubSideBySideGrid.ColumnSpacing = 12;
+                _scrubSideBySideGrid.RowSpacing = 0;
+
+                Grid.SetRow(_scrubLeftPanel, 0);
+                Grid.SetColumn(_scrubLeftPanel, 0);
+                Grid.SetColumnSpan(_scrubLeftPanel, 1);
+
+                Grid.SetRow(_scrubRightScroll, 0);
+                Grid.SetColumn(_scrubRightScroll, 1);
+                Grid.SetColumnSpan(_scrubRightScroll, 1);
+
+                _scrubRightScroll.MaxHeight = 600;
+            }
+            else
+            {
+                // Stacked: single column, two rows
+                _scrubSideBySideGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                _scrubSideBySideGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                _scrubSideBySideGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                _scrubSideBySideGrid.ColumnSpacing = 0;
+                _scrubSideBySideGrid.RowSpacing = 16;
+
+                Grid.SetRow(_scrubLeftPanel, 0);
+                Grid.SetColumn(_scrubLeftPanel, 0);
+                Grid.SetColumnSpan(_scrubLeftPanel, 1);
+
+                Grid.SetRow(_scrubRightScroll, 1);
+                Grid.SetColumn(_scrubRightScroll, 0);
+                Grid.SetColumnSpan(_scrubRightScroll, 1);
+
+                _scrubRightScroll.MaxHeight = double.PositiveInfinity;
+            }
+
+            // Update button label
+            if (_layoutToggleButton?.Content is StackPanel btnStack)
+            {
+                foreach (var child in btnStack.Children)
+                {
+                    if (child is FontIcon icon)
+                        icon.Glyph = _isSideBySideLayout ? "\uE8A4" : "\uE89F";
+                    else if (child is TextBlock lbl)
+                        lbl.Text = _isSideBySideLayout ? "Stacked" : "Side by Side";
+                }
+            }
+        }
 
         private async void MustHavesButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1634,22 +2097,30 @@ namespace McStudDesktop.Views
             if (saved)
             {
                 var enabledCount = GhostConfigService.Instance.GetMustHaves().Count(m => m.Enabled);
-                ShowStatus($"Must-haves updated: {enabledCount} items enabled. Hit Scrub to check the estimate.", isSuccess: true);
+                if (_parsedLines.Count > 0)
+                {
+                    ShowStatus($"Must-haves updated: {enabledCount} items enabled. Re-analyzing...", isSuccess: true);
+                    await RunSmartAnalysisAsync();
+                    ShowStatus($"Must-haves updated: {enabledCount} items enabled. Results updated.", isSuccess: true);
+                }
+                else
+                {
+                    ShowStatus($"Must-haves updated: {enabledCount} items enabled. Parse an estimate to see results.", isSuccess: true);
+                }
             }
         }
 
         private async void LearnButton_Click(object sender, RoutedEventArgs e)
         {
-            // Check license tier
             if (!_learningService.CanTrain)
             {
-                ShowStatus("Learning is locked for Client licenses. Contact your shop admin for Shop/Admin access.", isError: true);
+                ShowStatusForContext("Learning is locked for Client licenses. Contact your shop admin for Shop/Admin access.", ParseContext.Learning, isError: true);
                 return;
             }
 
             if (_parsedLines.Count == 0)
             {
-                ShowStatus("No data to learn from", isError: true);
+                ShowStatusForContext("No data to learn from", ParseContext.Learning, isError: true);
                 return;
             }
 
@@ -1665,25 +2136,22 @@ namespace McStudDesktop.Views
                 _currentQualityRecord.Grade == QualityGrade.Rejected &&
                 _includeOutliersCheckbox?.IsChecked != true)
             {
-                ShowStatus($"Quality too low ({_currentQualityRecord.QualityScore}/100). Check 'Include outliers' to override.", isError: true);
+                ShowStatusForContext($"Quality too low ({_currentQualityRecord.QualityScore}/100). Switch to Scrubber tab and check 'Include outliers' to override.", ParseContext.Learning, isError: true);
                 return;
             }
 
-            ShowProgress(true);
+            ShowProgress(true, ParseContext.Learning);
             _learnButton!.IsEnabled = false;
 
             try
             {
-                // Calculate estimate total from all prices
                 var estimateTotal = _parsedLines.Sum(p => p.Price);
                 var learningWeight = _currentQualityRecord.LearningWeight;
 
                 await Task.Run(() =>
                 {
-                    // Learn manual line patterns (routed to personal file for imports)
                     _learningService.LearnManualLinePatterns(_parsedLines, fromImport: true);
 
-                    // Build and learn operation patterns
                     var trainingData = new EstimateTrainingData
                     {
                         Source = "Import",
@@ -1719,24 +2187,19 @@ namespace McStudDesktop.Views
                         _learningService.LearnFromEstimate(trainingData);
                     }
 
-                    // Record this estimate for stats tracking
                     _learningService.RecordEstimateImport(estimateTotal);
                 });
 
-                // Mark quality record as used for training
                 _currentQualityRecord.WasUsedForTraining = true;
 
                 var parts = _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
                 var manual = _parsedLines.Count(p => p.IsManualLine);
 
-                // Record learn event for Stats tab charts (fingerprinted to track repeats)
                 var fingerprint = ComputeEstimateFingerprint(_parsedLines, estimateTotal);
                 var occurrence = new ExportStatisticsService().RecordLearn(parts, manual, estimateTotal, fingerprint);
 
-                // Notify health service
                 _healthService.OnTrainingCompleted(parts, 1);
 
-                // Build detailed learning summary before clearing
                 BuildLearningSummary(_parsedLines, estimateTotal, _currentQualityRecord);
 
                 UpdateStats();
@@ -1745,9 +2208,8 @@ namespace McStudDesktop.Views
 
                 var destination = _learningService.CanTrainStandard ? "standard" : "personal";
                 var repeatNote = occurrence > 1 ? $" (seen {occurrence}x)" : "";
-                ShowStatus($"Learned to {destination} (${estimateTotal:N0}): {parts} parts, {manual} operations{qualityNote}{repeatNote}", isSuccess: true);
+                ShowStatusForContext($"Learned to {destination} (${estimateTotal:N0}): {parts} parts, {manual} operations{qualityNote}{repeatNote}", ParseContext.Learning, isSuccess: true);
 
-                // Notify listeners about training completion
                 OnTrainingCompleted?.Invoke(this, new TrainingCompletedEventArgs
                 {
                     PartsCount = parts,
@@ -1756,27 +2218,22 @@ namespace McStudDesktop.Views
                     QualityScore = _currentQualityRecord?.QualityScore ?? 0
                 });
 
-                // Post AI summary to chat feed
                 PostTrainingSummaryToChat(parts, manual, estimateTotal);
 
                 // Clear parsed data but keep UI visible so Clear button stays accessible
                 _parsedLines.Clear();
-                _parsedItemsList!.Items.Clear();
-                if (_pasteArea != null)
-                    _pasteArea.Text = "";
-                // Don't collapse _resultsSection — the Clear button is inside it
-                _qualitySection!.Visibility = Visibility.Collapsed;
-                _scoringPanel!.Reset();
-                _scoringPanel.Visibility = Visibility.Collapsed;
+                _learnParsedItemsList!.Items.Clear();
+                if (_learnPasteArea != null)
+                    _learnPasteArea.Text = "";
                 _currentQualityRecord = null;
             }
             catch (Exception ex)
             {
-                ShowStatus($"Error learning: {ex.Message}", isError: true);
+                ShowStatusForContext($"Error learning: {ex.Message}", ParseContext.Learning, isError: true);
             }
             finally
             {
-                ShowProgress(false);
+                ShowProgress(false, ParseContext.Learning);
                 _learnButton!.IsEnabled = true;
             }
         }
@@ -1873,10 +2330,9 @@ namespace McStudDesktop.Views
 
         private async void PublishButton_Click(object sender, RoutedEventArgs e)
         {
-            // Check license tier
             if (!_learningService.CanTrain)
             {
-                ShowStatus("Publishing is only available for Shop/Admin users.", isError: true);
+                ShowStatusForContext("Publishing is only available for Shop/Admin users.", ParseContext.Learning, isError: true);
                 return;
             }
 
@@ -1922,9 +2378,8 @@ namespace McStudDesktop.Views
                 var (success, message) = _learningService.PublishLearning();
                 if (success)
                 {
-                    ShowStatus("✓ Learning published! Ready for distribution.", isSuccess: true);
+                    ShowStatusForContext("Learning published! Ready for distribution.", ParseContext.Learning, isSuccess: true);
 
-                    // Show success dialog with path
                     var successDialog = new ContentDialog
                     {
                         Title = "Published Successfully",
@@ -1936,7 +2391,7 @@ namespace McStudDesktop.Views
                 }
                 else
                 {
-                    ShowStatus($"Error publishing: {message}", isError: true);
+                    ShowStatusForContext($"Error publishing: {message}", ParseContext.Learning, isError: true);
                 }
             }
         }
@@ -1945,7 +2400,7 @@ namespace McStudDesktop.Views
         {
             if (_learningService.CurrentTier == LicenseTier.Client)
             {
-                ShowStatus("Publishing knowledge is only available for Shop/Admin users.", isError: true);
+                ShowStatusForContext("Publishing knowledge is only available for Shop/Admin users.", ParseContext.Learning, isError: true);
                 return;
             }
 
@@ -1985,13 +2440,13 @@ namespace McStudDesktop.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                ShowStatus("Publishing knowledge...");
+                ShowStatusForContext("Publishing knowledge...", ParseContext.Learning);
 
                 var exportResult = BaselineExportTool.ExportAndSanitize();
 
                 if (exportResult.Success)
                 {
-                    ShowStatus($"Knowledge published as v{exportResult.NewVersion}!", isSuccess: true);
+                    ShowStatusForContext($"Knowledge published as v{exportResult.NewVersion}!", ParseContext.Learning, isSuccess: true);
 
                     var successDialog = new ContentDialog
                     {
@@ -2030,15 +2485,21 @@ namespace McStudDesktop.Views
                 }
                 else
                 {
-                    ShowStatus($"Publish failed: {exportResult.Message}", isError: true);
+                    ShowStatusForContext($"Publish failed: {exportResult.Message}", ParseContext.Learning, isError: true);
                 }
             }
         }
 
         private void ShowStatus(string message, bool isError = false, bool isSuccess = false)
         {
-            _statusText!.Text = message;
-            _statusText.Foreground = new SolidColorBrush(
+            ShowStatusForContext(message, ParseContext.Scrubber, isError, isSuccess);
+        }
+
+        private void ShowStatusForContext(string message, ParseContext ctx, bool isError = false, bool isSuccess = false)
+        {
+            var statusText = ctx == ParseContext.Scrubber ? _scrubStatusText! : _learnStatusText!;
+            statusText.Text = message;
+            statusText.Foreground = new SolidColorBrush(
                 isError ? Color.FromArgb(255, 255, 120, 120) :
                 isSuccess ? Color.FromArgb(255, 100, 220, 150) :
                 Color.FromArgb(255, 180, 180, 180)
@@ -2345,9 +2806,16 @@ namespace McStudDesktop.Views
 
         private void ShowProgress(bool show)
         {
-            _progressRing!.IsActive = show;
-            _progressRing.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            _uploadButton!.IsEnabled = !show;
+            ShowProgress(show, ParseContext.Scrubber);
+        }
+
+        private void ShowProgress(bool show, ParseContext ctx)
+        {
+            var ring = ctx == ParseContext.Scrubber ? _scrubProgressRing! : _learnProgressRing!;
+            ring.IsActive = show;
+            ring.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            var uploadBtn = ctx == ParseContext.Scrubber ? _scrubUploadButton! : _learnUploadButton!;
+            uploadBtn.IsEnabled = !show;
         }
 
         #region Smart Analysis
@@ -2444,7 +2912,12 @@ namespace McStudDesktop.Views
                 {
                     _scoringPanel!.UpdateScore(scoringResult);
                     _scoringPanel.Visibility = Visibility.Visible;
+                    ShowStatusForContext($"Scrubber: {scoringResult.OverallScore}% score, {scoringResult.Issues.Count} items found", ParseContext.Scrubber, isSuccess: scoringResult.Issues.Count > 0);
                     System.Diagnostics.Debug.WriteLine($"[Scoring] Unified score: {scoringResult.OverallScore}%, Issues: {scoringResult.Issues.Count}");
+                }
+                else
+                {
+                    ShowStatusForContext("Scrubber: scoring returned no results", ParseContext.Scrubber);
                 }
 
                 _currentAnalysis = analysis;
@@ -2454,7 +2927,8 @@ namespace McStudDesktop.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Error: {ex.Message}");
+                ShowStatusForContext($"Scrubber error: {ex.Message}", ParseContext.Scrubber, isError: true);
+                System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Error: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
@@ -2626,7 +3100,7 @@ namespace McStudDesktop.Views
                     ShowStatus($"Adding {addedCount} items...", isSuccess: true);
 
                     // Refresh the display
-                    DisplayParsedLines();
+                    DisplayParsedLines(_scrubParsedItemsList!);
 
                     // Re-run unified scoring + smart merge flow (async - won't freeze UI)
                     await RunSmartAnalysisAsync();

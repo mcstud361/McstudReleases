@@ -89,9 +89,15 @@ namespace McStudDesktop.Services
 
         private bool IsMustHaveDescription(string descLower)
         {
+            var descNorm = GhostConfigService.NormalizeMustHaveDesc(descLower);
             return _ghostConfig.GetMustHaves()
                 .Where(m => m.Enabled)
-                .Any(m => descLower.Contains(m.Description.ToLowerInvariant()));
+                .Any(m =>
+                {
+                    var mhNorm = GhostConfigService.NormalizeMustHaveDesc(m.Description);
+                    var mhWords = GhostConfigService.ExtractSignificantWords(mhNorm);
+                    return GhostConfigService.MatchesMustHave(descNorm, mhNorm, mhWords);
+                });
         }
 
         // Damage severity multipliers for labor time estimation
@@ -737,14 +743,17 @@ namespace McStudDesktop.Services
         /// </summary>
         private void AddMustHaveOperations(GuidanceEstimateResult result)
         {
-            var existingDescs = new HashSet<string>(
-                result.GuidanceOperations.Select(o => (o.Description ?? "").ToLowerInvariant().Trim()),
-                StringComparer.OrdinalIgnoreCase);
+            var existingNorms = result.GuidanceOperations
+                .Select(o => GhostConfigService.NormalizeMustHaveDesc(o.Description ?? ""))
+                .Where(d => d.Length > 0)
+                .ToList();
 
             foreach (var mh in _ghostConfig.GetMustHaves().Where(m => m.Enabled))
             {
-                // Skip if already present (fuzzy match on description)
-                if (existingDescs.Any(d => d.Contains(mh.Description.ToLowerInvariant())))
+                // Skip if already present (unified fuzzy match)
+                var mhNorm = GhostConfigService.NormalizeMustHaveDesc(mh.Description);
+                var mhWords = GhostConfigService.ExtractSignificantWords(mhNorm);
+                if (existingNorms.Any(d => GhostConfigService.MatchesMustHave(d, mhNorm, mhWords)))
                     continue;
 
                 result.GuidanceOperations.Add(new GuidanceOperation

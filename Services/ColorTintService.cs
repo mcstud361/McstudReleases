@@ -26,7 +26,18 @@ public class ColorTintService
     private ColorTintService()
     {
         _dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ColorTints.json");
-        _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ColorTintSettings.json");
+        var appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "McStudDesktop");
+        _settingsPath = Path.Combine(appDataDir, "ColorTintSettings.json");
+
+        // Migrate from old app-directory location
+        var oldSettings = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "ColorTintSettings.json");
+        if (File.Exists(oldSettings) && !File.Exists(_settingsPath))
+        {
+            try { Directory.CreateDirectory(appDataDir); File.Copy(oldSettings, _settingsPath); }
+            catch { /* best effort */ }
+        }
+
         _data = new ColorTintData();
         LoadData();
         LoadSettings();

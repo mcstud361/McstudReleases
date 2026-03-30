@@ -50,6 +50,9 @@ namespace McStudDesktop.Views
         private TextBlock? _captureCountText;
         private TextBlock? _changeCountText;
         private TextBlock? _lastChangeText;
+        private TextBlock? _vehicleStatText;
+        private TextBlock? _vinStatText;
+        private Grid? _vehicleStatRow;
 
         // Results display
         private TextBox? _rawTextBox;
@@ -147,6 +150,40 @@ namespace McStudDesktop.Views
             });
             Grid.SetColumn(titleContent, 0);
             titleRow.Children.Add(titleContent);
+
+            // Must-Haves button
+            var mustHavesButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE73E", FontSize = 14 },
+                        new TextBlock { Text = "Must-Haves", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 90)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6),
+                CornerRadius = new CornerRadius(4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(mustHavesButton,
+                "Configure which operations must appear on every estimate.\n" +
+                "The screen monitor checks for these as it reads your estimate.");
+            mustHavesButton.Click += async (s, e) =>
+            {
+                var saved = await MustHavesDialog.ShowAsync(this.XamlRoot);
+                if (saved)
+                {
+                    var enabledCount = GhostConfigService.Instance.GetMustHaves().Count(m => m.Enabled);
+                    System.Diagnostics.Debug.WriteLine($"[ScreenOCR] Must-haves updated: {enabledCount} enabled");
+                }
+            };
+            Grid.SetColumn(mustHavesButton, 1);
+            titleRow.Children.Add(mustHavesButton);
 
             headerPanel.Children.Add(titleRow);
 
@@ -520,9 +557,52 @@ namespace McStudDesktop.Views
             Grid.SetColumn(lastChangeStack, 3);
             grid.Children.Add(lastChangeStack);
 
+            // Vehicle info row (below stats, hidden until detected)
+            _vehicleStatRow = new Grid { Margin = new Thickness(0, 6, 0, 0), Visibility = Visibility.Collapsed };
+            var vehicleGrid = _vehicleStatRow;
+            vehicleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            vehicleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var vehicleStatStack = new StackPanel { Spacing = 2 };
+            vehicleStatStack.Children.Add(new TextBlock
+            {
+                Text = "VEHICLE",
+                FontSize = 9,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            _vehicleStatText = new TextBlock
+            {
+                Text = "--",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 200, 255))
+            };
+            vehicleStatStack.Children.Add(_vehicleStatText);
+            Grid.SetColumn(vehicleStatStack, 0);
+            vehicleGrid.Children.Add(vehicleStatStack);
+
+            var vinStatStack = new StackPanel { Spacing = 2 };
+            vinStatStack.Children.Add(new TextBlock
+            {
+                Text = "VIN",
+                FontSize = 9,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            _vinStatText = new TextBlock
+            {
+                Text = "--",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 200, 255))
+            };
+            vinStatStack.Children.Add(_vinStatText);
+            Grid.SetColumn(vinStatStack, 1);
+            vehicleGrid.Children.Add(vinStatStack);
+
             // Status text below
             var outerStack = new StackPanel { Spacing = 8 };
             outerStack.Children.Add(grid);
+            outerStack.Children.Add(vehicleGrid);
 
             _statusText = new TextBlock
             {
@@ -1757,43 +1837,30 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
-        /// Normalize text for matching: lowercase, replace & with and, / with space, collapse whitespace.
-        /// This handles canonical name differences like "battery disconnect/reconnect" vs "disconnect and reconnect battery".
+        /// Normalize text for matching — delegates to shared GhostConfigService utility.
         /// </summary>
-        private static string NormalizeForMatch(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return "";
-            return System.Text.RegularExpressions.Regex.Replace(
-                text.ToLowerInvariant()
-                    .Replace("&", " and ")
-                    .Replace("/", " ")
-                    .Replace("-", " "),
-                @"\s+", " ").Trim();
-        }
+        private static string NormalizeForMatch(string text) => GhostConfigService.NormalizeMustHaveDesc(text);
 
         /// <summary>
-        /// Extract significant words (> 3 chars) from normalized text for word-overlap matching.
+        /// Extract significant words — delegates to shared GhostConfigService utility.
         /// </summary>
-        private static string[] ExtractSignificantWords(string normalizedText)
-        {
-            return normalizedText.Split(' ')
-                .Where(w => w.Length > 3)
-                .Distinct()
-                .ToArray();
-        }
+        private static string[] ExtractSignificantWords(string normalizedText) => GhostConfigService.ExtractSignificantWords(normalizedText);
 
         /// <summary>
         /// Cross-references accumulated screen operations against must-have operations.
         /// Returns a checklist with IsPresent set based on fuzzy matching.
+        /// Uses both parsed operation fields AND raw OCR text as a fallback
+        /// (catches operations in truncated/scrolled areas that the parser couldn't extract).
         /// </summary>
         private List<MustHaveChecklistItem> BuildScreenMustHaveChecklist(IReadOnlyList<ParsedEstimateLine> accumulatedOps)
         {
             var checklist = new List<MustHaveChecklistItem>();
-            var categories = EstimateContextService.Instance.GetMustHaveCategories();
-            if (categories.Count == 0) return checklist;
+
+            // Use user-configurable must-haves from GhostConfigService (same as Import tab & Ghost panel)
+            var mustHaves = GhostConfigService.Instance.GetMustHaves().Where(m => m.Enabled).ToList();
+            if (mustHaves.Count == 0) return checklist;
 
             // Build normalized searchable strings from PartName and Description.
-            // Do NOT use RawLine — it contains full OCR lines with too much noise.
             var allTexts = new List<string>();
             foreach (var o in accumulatedOps)
             {
@@ -1805,77 +1872,55 @@ namespace McStudDesktop.Views
                     allTexts.Add(descNorm);
             }
 
-            // Debug: log all texts being matched against
+            // Raw OCR text fallback: catches operations that the parser couldn't extract
+            // (truncated lines, scrolled areas, etc.). Normalized for consistent matching.
+            var rawOcrNormalized = "";
+            if (_latestResult?.RawText != null)
+                rawOcrNormalized = NormalizeForMatch(_latestResult.RawText);
+
             System.Diagnostics.Debug.WriteLine($"[MustHave] accumulatedOps count: {accumulatedOps.Count}");
             System.Diagnostics.Debug.WriteLine($"[MustHave] allTexts ({allTexts.Count}): {string.Join(" | ", allTexts)}");
 
-            // Build combined text for condition evaluation
+            // Build combined text for condition evaluation (include raw text for better context)
             var combinedTextLower = string.Join(" ", allTexts);
+            if (rawOcrNormalized.Length > 0)
+                combinedTextLower += " " + rawOcrNormalized;
 
-            foreach (var category in categories)
+            foreach (var mh in mustHaves)
             {
-                foreach (var op in category.Operations)
+                // Skip operations whose condition is not met by the estimate context
+                if (!EstimateConditionEvaluator.Evaluate(mh.Conditions, combinedTextLower))
+                    continue;
+
+                var opNorm = NormalizeForMatch(mh.Description);
+                var opWords = ExtractSignificantWords(opNorm);
+
+                var isPresent = allTexts.Any(d => MatchesMustHave(d, opNorm, opWords));
+
+                System.Diagnostics.Debug.WriteLine($"[MustHave] {(isPresent ? "MATCH" : "miss ")}: '{mh.Description}' (words: {string.Join(",", opWords)})");
+
+                checklist.Add(new MustHaveChecklistItem
                 {
-                    // Skip operations whose condition is not met by the estimate context
-                    if (!EstimateConditionEvaluator.Evaluate(op.Conditions, combinedTextLower))
-                        continue;
-
-                    var opNorm = NormalizeForMatch(op.Description);
-                    var opWords = ExtractSignificantWords(opNorm);
-
-                    var isPresent = allTexts.Any(d =>
-                    {
-                        // Check 1: Exact match
-                        if (d == opNorm) return true;
-
-                        // Check 2: Detected text contains full must-have (detected is longer/equal)
-                        if (d.Contains(opNorm)) return true;
-
-                        // Check 3: Must-have contains detected text, BUT only if detected text
-                        // is at least 45% of the must-have length. Prevents short detected texts
-                        // like "adas calibration" from matching long must-haves like
-                        // "simulate full fluids for adas calibrations".
-                        if (opNorm.Contains(d) && d.Length >= opNorm.Length * 0.45)
-                            return true;
-
-                        // Check 4: Proportional word overlap — must-have words found in detected text
-                        // Requires 60% of must-have significant words to be present (prevents
-                        // "adas calibration" from matching 5-word ADAS must-haves with only 2 words)
-                        if (opWords.Length > 0)
-                        {
-                            var matchCount = opWords.Count(w => d.Contains(w));
-                            int threshold;
-                            if (opWords.Length <= 2)
-                                threshold = opWords.Length; // Short must-haves: ALL words must match
-                            else
-                                threshold = (int)Math.Ceiling(opWords.Length * 0.6); // 60% for longer
-
-                            if (matchCount >= threshold)
-                                return true;
-                        }
-
-                        return false;
-                    });
-
-                    System.Diagnostics.Debug.WriteLine($"[MustHave] {(isPresent ? "MATCH" : "miss ")}: '{op.Description}' (words: {string.Join(",", opWords)})");
-
-                    checklist.Add(new MustHaveChecklistItem
-                    {
-                        Description = op.Description,
-                        Category = category.Name,
-                        OperationType = op.OperationType,
-                        LaborHours = op.LaborHours,
-                        Price = op.Price,
-                        MaterialsCost = op.MaterialsCost,
-                        WhyNeeded = op.WhyNeeded,
-                        Conditions = op.Conditions,
-                        IsPresent = isPresent
-                    });
-                }
+                    Description = mh.Description,
+                    Category = mh.Section,
+                    OperationType = mh.OpType,
+                    LaborHours = mh.ExpectedHours,
+                    Price = mh.ExpectedPrice,
+                    MaterialsCost = 0,
+                    WhyNeeded = "",
+                    Conditions = mh.Conditions,
+                    IsPresent = isPresent
+                });
             }
 
             return checklist;
         }
+
+        /// <summary>
+        /// Matching logic — delegates to shared GhostConfigService utility.
+        /// </summary>
+        private static bool MatchesMustHave(string detectedNorm, string mustHaveNorm, string[] mustHaveWords)
+            => GhostConfigService.MatchesMustHave(detectedNorm, mustHaveNorm, mustHaveWords);
 
         private Border CreateAccumulatedOperationRow(ParsedEstimateLine op, HashSet<string> confirmedTitles)
         {
@@ -2958,6 +3003,22 @@ namespace McStudDesktop.Views
                 if (_latestResult.HasChanges)
                 {
                     _lastChangeText!.Text = _latestResult.Timestamp.ToString("HH:mm:ss");
+                }
+            }
+
+            // Update vehicle/VIN in stats bar from coaching snapshot
+            var snapshot = _latestSnapshot;
+            var hasVehicleStats = snapshot != null &&
+                (!string.IsNullOrEmpty(snapshot.VehicleInfo) || !string.IsNullOrEmpty(snapshot.VIN));
+
+            if (_vehicleStatRow != null)
+            {
+                _vehicleStatRow.Visibility = hasVehicleStats ? Visibility.Visible : Visibility.Collapsed;
+
+                if (hasVehicleStats)
+                {
+                    _vehicleStatText!.Text = snapshot!.VehicleInfo ?? "--";
+                    _vinStatText!.Text = snapshot.VIN ?? "--";
                 }
             }
         }

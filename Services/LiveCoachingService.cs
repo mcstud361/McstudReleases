@@ -48,6 +48,11 @@ namespace McstudDesktop.Services
         private readonly Dictionary<string, int> _opMissCount = new(StringComparer.OrdinalIgnoreCase);
         private const int MaxMissesBeforeRemoval = 12; // Remove after 12 consecutive absences (allows scrolling through long estimates)
 
+        // Confirmation lock: once a suggestion is confirmed on the estimate, keep it confirmed
+        // for the rest of the session (until vehicle/estimate changes). Prevents OCR variability
+        // from toggling confirmed status back and forth.
+        private readonly HashSet<string> _lockedConfirmations = new(StringComparer.OrdinalIgnoreCase);
+
         private const int DebounceMs = 500;
 
         public event EventHandler<CoachingSnapshot>? SuggestionsUpdated;
@@ -138,6 +143,7 @@ namespace McstudDesktop.Services
             _accumulatedRawText.Clear();
             _opInsertionOrder.Clear();
             _opMissCount.Clear();
+            _lockedConfirmations.Clear();
             _accumulatedOpsOrder = 0;
             _vehicleInfo = null;
             _customerName = null;
@@ -146,6 +152,13 @@ namespace McstudDesktop.Services
 
         private void OnOcrResultReady(object? sender, ScreenOcrResult result)
         {
+            // Skip dialog/popup captures — no useful estimate data
+            if (result.IsDialogCapture)
+            {
+                Debug.WriteLine("[LiveCoaching] Skipping dialog capture");
+                return;
+            }
+
             // Accept results with either structured operations OR raw text
             var hasOps = result.DetectedOperations != null && result.DetectedOperations.Count > 0;
             var hasText = !string.IsNullOrWhiteSpace(result.RawText);
@@ -452,7 +465,16 @@ namespace McstudDesktop.Services
 
             foreach (var s in suggestions)
             {
-                s.IsConfirmedOnEstimate = IsSuggestionOnEstimate(s, combinedSeenText);
+                if (_lockedConfirmations.Contains(s.Title))
+                {
+                    // Already confirmed in a previous cycle — keep it locked
+                    s.IsConfirmedOnEstimate = true;
+                }
+                else if (IsSuggestionOnEstimate(s, combinedSeenText))
+                {
+                    s.IsConfirmedOnEstimate = true;
+                    _lockedConfirmations.Add(s.Title);
+                }
             }
 
             // Apply dismissals

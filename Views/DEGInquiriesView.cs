@@ -402,23 +402,6 @@ namespace McStudDesktop.Views
             // Content
             var contentStack = new StackPanel { Spacing = 12, Margin = new Thickness(0, 8, 0, 0) };
 
-            // Question
-            contentStack.Children.Add(new TextBlock
-            {
-                Text = "QUESTION",
-                FontSize = 10,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 150, 255))
-            });
-            contentStack.Children.Add(new TextBlock
-            {
-                Text = inquiry.Question,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
-                TextWrapping = TextWrapping.Wrap,
-                IsTextSelectionEnabled = true
-            });
-
             // Response
             contentStack.Children.Add(new TextBlock
             {

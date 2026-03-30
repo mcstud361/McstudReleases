@@ -33,6 +33,8 @@ public sealed class ReferenceView : UserControl
     private Border? _ppagesButton;
     private Border? _procsButton;
     private Border? _inclNotInclButton;
+    private Border? _materialsButton;
+    private Border? _oemStatementsButton;
     private int _selectedSection = 0;
 
     // Content panels
@@ -42,14 +44,12 @@ public sealed class ReferenceView : UserControl
     private PPagesView? _ppagesView;
     private ProceduresView? _proceduresView;
     private IncludedNotIncludedView? _inclNotInclView;
-    private Border? _materialsButton;
     private MaterialSuggestionsView? _materialsView;
+    private OEMPositionStatementsView? _oemStatementsView;
 
-    // Update UI elements
-    private Button? _updateButton;
-    private TextBlock? _updateStatusText;
-    private ProgressRing? _updateProgress;
-    private readonly DataUpdateService _dataUpdateService = new();
+
+    // Color legend
+    private Border? _legendPanel;
 
     // Staging panel
     private Border? _stagingPanel;
@@ -121,6 +121,7 @@ public sealed class ReferenceView : UserControl
             Background = new SolidColorBrush(Color.FromArgb(255, 18, 18, 18))
         };
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sub-nav
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Color legend
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Staging Panel
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // PDF Panel
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Content
@@ -151,6 +152,7 @@ public sealed class ReferenceView : UserControl
         _procsButton = CreateSubNavButton("How-To Library", 3);
         _inclNotInclButton = CreateSubNavButton("Incl/Not Incl", 4);
         _materialsButton = CreateSubNavButton("Materials", 5);
+        _oemStatementsButton = CreateSubNavButton("OEM Statements", 6);
 
         subNavStack.Children.Add(_defsButton);
         subNavStack.Children.Add(_degButton);
@@ -158,78 +160,59 @@ public sealed class ReferenceView : UserControl
         subNavStack.Children.Add(_procsButton);
         subNavStack.Children.Add(_inclNotInclButton);
         subNavStack.Children.Add(_materialsButton);
+        subNavStack.Children.Add(_oemStatementsButton);
 
         Grid.SetColumn(subNavStack, 0);
         subNavGrid.Children.Add(subNavStack);
 
-        // Update Data button and status (on the right)
-        var updatePanel = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-
-        _updateStatusText = new TextBlock
-        {
-            Text = "",
-            FontSize = 10,
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        updatePanel.Children.Add(_updateStatusText);
-
-        _updateProgress = new ProgressRing
-        {
-            Width = 16,
-            Height = 16,
-            IsActive = false,
-            Visibility = Visibility.Collapsed
-        };
-        updatePanel.Children.Add(_updateProgress);
-
-        _updateButton = new Button
+        // Color Key toggle button
+        var legendToggle = new Button
         {
             Content = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Spacing = 6,
+                Spacing = 4,
                 Children =
                 {
-                    new FontIcon { Glyph = "\uE895", FontSize = 12 }, // Sync icon
-                    new TextBlock { Text = "Update Data", FontSize = 11 }
+                    new FontIcon { Glyph = "\uE790", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)) },
+                    new TextBlock { Text = "Color Key", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)), VerticalAlignment = VerticalAlignment.Center }
                 }
             },
-            Background = new SolidColorBrush(Color.FromArgb(255, 0, 100, 70)),
-            Foreground = new SolidColorBrush(Colors.White),
-            Padding = new Thickness(10, 4, 10, 4),
-            BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(4)
+            Background = new SolidColorBrush(Colors.Transparent),
+            Padding = new Thickness(8, 4, 8, 4),
+            VerticalAlignment = VerticalAlignment.Center
         };
-        ToolTipService.SetToolTip(_updateButton, "Check for updates to P-Pages, DEG Inquiries, and Definitions");
-        _updateButton.Click += OnUpdateButtonClick;
-        updatePanel.Children.Add(_updateButton);
-
-        Grid.SetColumn(updatePanel, 1);
-        subNavGrid.Children.Add(updatePanel);
+        legendToggle.Click += (s, e) =>
+        {
+            if (_legendPanel != null)
+                _legendPanel.Visibility = _legendPanel.Visibility == Visibility.Visible
+                    ? Visibility.Collapsed : Visibility.Visible;
+        };
+        Grid.SetColumn(legendToggle, 1);
+        subNavGrid.Children.Add(legendToggle);
 
         subNavBorder.Child = subNavGrid;
         Grid.SetRow(subNavBorder, 0);
         mainGrid.Children.Add(subNavBorder);
 
+        // === COLOR LEGEND (collapsed by default) ===
+        _legendPanel = CreateColorLegend();
+        Grid.SetRow(_legendPanel, 1);
+        mainGrid.Children.Add(_legendPanel);
+
         // === STAGING PANEL (collapsed by default) ===
         _stagingPanel = CreateStagingPanel();
-        Grid.SetRow(_stagingPanel, 1);
+        Grid.SetRow(_stagingPanel, 2);
         mainGrid.Children.Add(_stagingPanel);
 
         // === PDF EXPORT PANEL ===
         _pdfPanel = CreatePdfPanel();
-        Grid.SetRow(_pdfPanel, 2);
+        Grid.SetRow(_pdfPanel, 3);
         mainGrid.Children.Add(_pdfPanel);
 
         // === CONTENT AREA ===
         _contentArea = new Grid();
-        Grid.SetRow(_contentArea, 3);
+        Grid.SetRow(_contentArea, 4);
         mainGrid.Children.Add(_contentArea);
 
         // Create all views
@@ -239,6 +222,7 @@ public sealed class ReferenceView : UserControl
         _proceduresView = new ProceduresView { Tag = 3, Visibility = Visibility.Collapsed };
         _inclNotInclView = new IncludedNotIncludedView { Tag = 4, Visibility = Visibility.Collapsed };
         _materialsView = new MaterialSuggestionsView { Tag = 5, Visibility = Visibility.Collapsed };
+        _oemStatementsView = new OEMPositionStatementsView { Tag = 6, Visibility = Visibility.Collapsed };
 
         _contentArea.Children.Add(_definitionsView);
         _contentArea.Children.Add(_degView);
@@ -246,6 +230,7 @@ public sealed class ReferenceView : UserControl
         _contentArea.Children.Add(_proceduresView);
         _contentArea.Children.Add(_inclNotInclView);
         _contentArea.Children.Add(_materialsView);
+        _contentArea.Children.Add(_oemStatementsView);
 
         // Select first section
         SelectSection(0);
@@ -311,6 +296,7 @@ public sealed class ReferenceView : UserControl
         UpdateSubNavButtonStyle(_procsButton, 3);
         UpdateSubNavButtonStyle(_inclNotInclButton, 4);
         UpdateSubNavButtonStyle(_materialsButton, 5);
+        UpdateSubNavButtonStyle(_oemStatementsButton, 6);
 
         // Show selected content
         if (_contentArea == null) return;
@@ -346,75 +332,6 @@ public sealed class ReferenceView : UserControl
         }
     }
 
-    private async void OnUpdateButtonClick(object sender, RoutedEventArgs e)
-    {
-        if (_updateButton == null || _updateStatusText == null || _updateProgress == null)
-            return;
-
-        var dispatcher = DispatcherQueue.GetForCurrentThread();
-
-        // Disable button and show progress
-        _updateButton.IsEnabled = false;
-        _updateProgress.IsActive = true;
-        _updateProgress.Visibility = Visibility.Visible;
-        _updateStatusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150));
-
-        // Subscribe to status updates
-        _dataUpdateService.StatusChanged += status =>
-        {
-            dispatcher?.TryEnqueue(() =>
-            {
-                if (_updateStatusText != null)
-                    _updateStatusText.Text = status;
-            });
-        };
-
-        try
-        {
-            // Check and download updates
-            var result = await _dataUpdateService.UpdateAllAsync();
-
-            dispatcher?.TryEnqueue(() =>
-            {
-                if (result.Success)
-                {
-                    if (result.UpdatedFiles.Count > 0)
-                    {
-                        _updateStatusText!.Text = $"Updated {result.UpdatedFiles.Count} file(s). Restart app to see changes.";
-                        _updateStatusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 255, 100));
-                    }
-                    else
-                    {
-                        _updateStatusText!.Text = result.Message ?? "All data is up to date!";
-                        _updateStatusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255));
-                    }
-                }
-                else
-                {
-                    var errorMsg = result.Errors.Count > 0 ? result.Errors[0] : "Update failed";
-                    _updateStatusText!.Text = errorMsg;
-                    _updateStatusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
-                }
-            });
-        }
-        catch (Exception ex)
-        {
-            dispatcher?.TryEnqueue(() =>
-            {
-                _updateStatusText!.Text = $"Error: {ex.Message}";
-                _updateStatusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
-            });
-        }
-        finally
-        {
-            dispatcher?.TryEnqueue(() =>
-            {
-                _updateButton!.IsEnabled = true;
-                _updateProgress!.IsActive = false;
-                _updateProgress.Visibility = Visibility.Collapsed;
-            });
-        }
-    }
 
     // === STAGING PANEL METHODS ===
 
@@ -727,6 +644,126 @@ public sealed class ReferenceView : UserControl
         "Cross-Reference" => Color.FromArgb(255, 130, 130, 60),
         _ => Color.FromArgb(255, 100, 100, 100)
     };
+
+    private Border CreateColorLegend()
+    {
+        var panel = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 28, 28, 28)),
+            Padding = new Thickness(12, 6, 12, 6),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+            BorderThickness = new Thickness(0, 0, 0, 1)
+        };
+
+        var wrap = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 16
+        };
+
+        // Status dots label
+        wrap.Children.Add(new TextBlock
+        {
+            Text = "Status:",
+            FontSize = 11,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Colors.White),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        // Green dot = Included
+        var greenChip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5 };
+        greenChip.Children.Add(new Border
+        {
+            Width = 10, Height = 10,
+            CornerRadius = new CornerRadius(5),
+            Background = new SolidColorBrush(Color.FromArgb(255, 100, 255, 100)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        greenChip.Children.Add(new TextBlock
+        {
+            Text = "Base Operation",
+            FontSize = 11,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 255, 100)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        wrap.Children.Add(greenChip);
+
+        // Red dot = Not Included
+        var redChip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5 };
+        redChip.Children.Add(new Border
+        {
+            Width = 10, Height = 10,
+            CornerRadius = new CornerRadius(5),
+            Background = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        redChip.Children.Add(new TextBlock
+        {
+            Text = "Not Included",
+            FontSize = 11,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        wrap.Children.Add(redChip);
+
+        // Divider
+        wrap.Children.Add(new Border
+        {
+            Width = 1, Height = 16,
+            Background = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(4, 0, 4, 0)
+        });
+
+        // Source badges label
+        wrap.Children.Add(new TextBlock
+        {
+            Text = "Source:",
+            FontSize = 11,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Colors.White),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        // Source badge categories
+        var categories = new (string Name, Color Color)[]
+        {
+            ("Included/Not Included", GetSourceColor("Included/Not Included")),
+            ("Definition", GetSourceColor("Definition")),
+            ("P-Page", GetSourceColor("P-Page")),
+            ("DEG Inquiry", GetSourceColor("DEG Inquiry")),
+            ("Procedure", GetSourceColor("Procedure")),
+            ("Cross-Reference", GetSourceColor("Cross-Reference"))
+        };
+
+        foreach (var (name, color) in categories)
+        {
+            var chip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5 };
+
+            chip.Children.Add(new Border
+            {
+                Width = 12,
+                Height = 12,
+                CornerRadius = new CornerRadius(2),
+                Background = new SolidColorBrush(color),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            chip.Children.Add(new TextBlock
+            {
+                Text = name,
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 190, 190, 190)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            wrap.Children.Add(chip);
+        }
+
+        panel.Child = wrap;
+        return panel;
+    }
 
     // === PDF EXPORT PANEL METHODS ===
 

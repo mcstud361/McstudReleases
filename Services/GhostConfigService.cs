@@ -40,6 +40,7 @@ namespace McStudDesktop.Services
             _configPath = Path.Combine(appDir, "GhostConfig.json");
             _config = LoadConfig();
             SeedDefaultMustHaves();
+            DeduplicateMustHaves();
             MigrateExistingConfig();
         }
 
@@ -435,8 +436,169 @@ namespace McStudDesktop.Services
 
         public void AddMustHave(MustHaveOperation mh)
         {
+            // Dedup: skip if a must-have with the same description already exists (fuzzy match)
+            var normNew = NormalizeMustHaveDesc(mh.Description);
+            if (_config.MustHaves.Any(existing =>
+                NormalizeMustHaveDesc(existing.Description) == normNew))
+                return;
+
             _config.MustHaves.Add(mh);
             SaveConfig();
+        }
+
+        /// <summary>
+        /// Normalize text for must-have matching: lowercase, replace &amp;/hyphens/slashes,
+        /// collapse whitespace. Shared across Screen OCR, Import Scrubber, and Ghost Estimate.
+        /// </summary>
+        public static string NormalizeMustHaveDesc(string desc)
+        {
+            if (string.IsNullOrWhiteSpace(desc)) return "";
+            return System.Text.RegularExpressions.Regex.Replace(
+                desc.ToLowerInvariant()
+                    .Replace("&", " and ")
+                    .Replace("/", " ")
+                    .Replace("-", " "),
+                @"\s+", " ").Trim();
+        }
+
+        /// <summary>
+        /// Extract significant words (> 3 chars) from normalized text for word-overlap matching.
+        /// </summary>
+        public static string[] ExtractSignificantWords(string normalizedText)
+        {
+            return normalizedText.Split(' ')
+                .Where(w => w.Length > 3)
+                .Distinct()
+                .ToArray();
+        }
+
+        /// <summary>
+        /// Unified must-have matching: checks if a detected text matches a must-have operation.
+        /// Shared across Screen OCR, Import Scrubber, and Ghost Estimate for consistent behavior.
+        /// </summary>
+        public static bool MatchesMustHave(string detectedNorm, string mustHaveNorm, string[] mustHaveWords)
+        {
+            // Check 1: Exact match
+            if (detectedNorm == mustHaveNorm) return true;
+
+            // Check 2: Detected text contains full must-have
+            if (detectedNorm.Contains(mustHaveNorm)) return true;
+
+            // Check 3: Must-have contains detected text (if detected is >= 45% length)
+            if (mustHaveNorm.Contains(detectedNorm) && detectedNorm.Length >= mustHaveNorm.Length * 0.45)
+                return true;
+
+            // Check 4: Proportional word overlap with fuzzy matching for OCR errors
+            if (mustHaveWords.Length > 0)
+            {
+                var matchCount = mustHaveWords.Count(w => FuzzyContainsWord(detectedNorm, w));
+                int threshold = mustHaveWords.Length <= 2
+                    ? mustHaveWords.Length  // Short must-haves: ALL words must match
+                    : (int)Math.Ceiling(mustHaveWords.Length * 0.6); // 60% for longer
+
+                if (matchCount >= threshold)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if text contains a word, with fuzzy matching for OCR misreads.
+        /// Exact match first, then Levenshtein distance for words > 3 chars.
+        /// </summary>
+        public static bool FuzzyContainsWord(string text, string word)
+        {
+            // Exact substring match first (fast path)
+            if (text.Contains(word)) return true;
+
+            // Fuzzy: only for words longer than 3 chars (short words are too ambiguous)
+            if (word.Length <= 3) return false;
+
+            // Max edit distance: 1 for 4-5 char words, 2 for 6+ char words
+            int maxDistance = word.Length <= 5 ? 1 : 2;
+
+            // Split text into words and check each against the target word
+            var textWords = text.Split(' ');
+            foreach (var tw in textWords)
+            {
+                if (tw.Length < word.Length - maxDistance || tw.Length > word.Length + maxDistance)
+                    continue; // Length difference too large, skip
+
+                if (LevenshteinDistance(tw, word) <= maxDistance)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Compute Levenshtein edit distance between two strings.
+        /// </summary>
+        public static int LevenshteinDistance(string a, string b)
+        {
+            if (string.IsNullOrEmpty(a)) return b?.Length ?? 0;
+            if (string.IsNullOrEmpty(b)) return a.Length;
+
+            var prev = new int[b.Length + 1];
+            var curr = new int[b.Length + 1];
+
+            for (int j = 0; j <= b.Length; j++)
+                prev[j] = j;
+
+            for (int i = 1; i <= a.Length; i++)
+            {
+                curr[0] = i;
+                for (int j = 1; j <= b.Length; j++)
+                {
+                    int cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                    curr[j] = Math.Min(
+                        Math.Min(curr[j - 1] + 1, prev[j] + 1),
+                        prev[j - 1] + cost);
+                }
+                (prev, curr) = (curr, prev);
+            }
+
+            return prev[b.Length];
+        }
+
+        /// <summary>
+        /// Convenience: check if a ParsedEstimateLine matches a must-have description.
+        /// Normalizes PartName + Description and checks via MatchesMustHave.
+        /// </summary>
+        public static bool LineMatchesMustHave(string mustHaveDesc, ParsedEstimateLine line)
+        {
+            var mhNorm = NormalizeMustHaveDesc(mustHaveDesc);
+            var mhWords = ExtractSignificantWords(mhNorm);
+
+            var partNorm = NormalizeMustHaveDesc(line.PartName);
+            var descNorm = NormalizeMustHaveDesc(line.Description);
+            var combined = NormalizeMustHaveDesc(line.PartName + " " + line.Description);
+
+            return MatchesMustHave(combined, mhNorm, mhWords)
+                || (!string.IsNullOrEmpty(partNorm) && MatchesMustHave(partNorm, mhNorm, mhWords))
+                || (!string.IsNullOrEmpty(descNorm) && MatchesMustHave(descNorm, mhNorm, mhWords));
+        }
+
+        /// <summary>
+        /// Remove duplicate must-haves (same normalized description). Keeps the first occurrence.
+        /// </summary>
+        public void DeduplicateMustHaves()
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var toRemove = new List<string>();
+            foreach (var mh in _config.MustHaves)
+            {
+                var norm = NormalizeMustHaveDesc(mh.Description);
+                if (!seen.Add(norm))
+                    toRemove.Add(mh.Id);
+            }
+            if (toRemove.Count > 0)
+            {
+                _config.MustHaves.RemoveAll(m => toRemove.Contains(m.Id));
+                System.Diagnostics.Debug.WriteLine($"[GhostConfig] Removed {toRemove.Count} duplicate must-haves");
+                SaveConfig();
+            }
         }
 
         public void UpdateMustHave(MustHaveOperation mh)
@@ -449,6 +611,24 @@ namespace McStudDesktop.Services
         public void RemoveMustHave(string id)
         {
             _config.MustHaves.RemoveAll(m => m.Id == id);
+            SaveConfig();
+        }
+
+        // --- Must-Have Templates ---
+
+        public List<MustHaveTemplate> GetMustHaveTemplates() => _config.MustHaveTemplates;
+
+        public void SaveMustHaveTemplate(MustHaveTemplate template)
+        {
+            // Replace if same name exists
+            _config.MustHaveTemplates.RemoveAll(t => t.Name.Equals(template.Name, StringComparison.OrdinalIgnoreCase));
+            _config.MustHaveTemplates.Add(template);
+            SaveConfig();
+        }
+
+        public void DeleteMustHaveTemplate(string id)
+        {
+            _config.MustHaveTemplates.RemoveAll(t => t.Id == id);
             SaveConfig();
         }
 
@@ -495,6 +675,7 @@ namespace McStudDesktop.Services
         public List<string> DisabledCategories { get; set; } = new();
         public List<GhostCustomOperation> CustomOperations { get; set; } = new();
         public List<MustHaveOperation> MustHaves { get; set; } = new();
+        public List<MustHaveTemplate> MustHaveTemplates { get; set; } = new();
         public ScoringWeights ScoringWeights { get; set; } = new();
     }
 
@@ -566,6 +747,17 @@ namespace McStudDesktop.Services
         public decimal RefinishHours { get; set; }
         public string Conditions { get; set; } = "always";
         public bool Enabled { get; set; } = true;
+    }
+
+    /// <summary>
+    /// User-saved must-have template — a named snapshot of checked operation descriptions.
+    /// </summary>
+    public class MustHaveTemplate
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = "";
+        public List<string> Descriptions { get; set; } = new();  // Must-have descriptions included
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 
     #endregion

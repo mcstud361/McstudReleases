@@ -23,7 +23,27 @@ public class CustomChecklistService
 
     private CustomChecklistService()
     {
-        _customFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "CustomChecklists");
+        var appDataPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "McStudDesktop", "CustomChecklists");
+        _customFolder = appDataPath;
+
+        // Migrate from old app-directory location if needed
+        var oldFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "CustomChecklists");
+        if (Directory.Exists(oldFolder))
+        {
+            EnsureFolder();
+            foreach (var file in Directory.GetFiles(oldFolder, "*.json"))
+            {
+                var dest = Path.Combine(_customFolder, Path.GetFileName(file));
+                if (!File.Exists(dest))
+                {
+                    try { File.Copy(file, dest); }
+                    catch { /* best effort migration */ }
+                }
+            }
+        }
+
         EnsureFolder();
         LoadCustomChecklists();
     }

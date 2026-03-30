@@ -29,6 +29,23 @@ namespace McstudDesktop.Services
             "Estimate"
         };
 
+        // Known CCC/Mitchell/Audatex dialog/popup window titles to skip during Z-order walk.
+        // When these are in front, we want the main estimate grid behind them.
+        private static readonly string[] DIALOG_TITLE_PATTERNS = new[]
+        {
+            "Estimate Line Properties", "Line Properties",
+            "Predefined Notes", "Line Notes", "Note Entry",
+            "Rate Override", "Override",
+            "Line Detail", "Operation Detail",
+            "Properties",
+            "Betterment",
+            "Note Type", "Note Category",
+            "Add by Code", "Add to Line Notes",
+            "Select Note", "Edit Note",
+            "Labor Allocation", "Paint Material",
+            "Part Search", "Part Lookup",
+        };
+
         // P/Invoke declarations
         [DllImport("user32.dll")]
         private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
@@ -137,6 +154,14 @@ namespace McstudDesktop.Services
 
                 if (IsOwnProcess(hWnd)) { hWnd = GetWindow(hWnd, GW_HWNDNEXT); continue; }
 
+                // Skip known estimating-app dialog/popup windows — capture the main grid behind them
+                if (IsDialogWindow(title))
+                {
+                    Debug.WriteLine($"[ScreenCapture] Skipping dialog window: \"{title}\"");
+                    hWnd = GetWindow(hWnd, GW_HWNDNEXT);
+                    continue;
+                }
+
                 // Skip tiny windows (tooltips, overlays, etc.)
                 if (GetWindowRect(hWnd, out var rect) && rect.Width > 200 && rect.Height > 200)
                 {
@@ -148,6 +173,19 @@ namespace McstudDesktop.Services
             }
 
             return IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// Returns true if the window title matches a known estimating-app dialog/popup.
+        /// </summary>
+        private static bool IsDialogWindow(string title)
+        {
+            foreach (var pattern in DIALOG_TITLE_PATTERNS)
+            {
+                if (title.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         private static bool IsOwnProcess(IntPtr hWnd)

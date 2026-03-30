@@ -174,9 +174,8 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(12, 0, 0, 0)
             };
             _viewTypeCombo.Items.Add(new ComboBoxItem { Content = "All Stats", Tag = "all" });
-            _viewTypeCombo.Items.Add(new ComboBoxItem { Content = "Exports", Tag = "exports" });
+            _viewTypeCombo.Items.Add(new ComboBoxItem { Content = "Estimates", Tag = "estimates" });
             _viewTypeCombo.Items.Add(new ComboBoxItem { Content = "Shop Docs & Invoices", Tag = "shopdocs" });
-            _viewTypeCombo.Items.Add(new ComboBoxItem { Content = "Operations", Tag = "operations" });
             _viewTypeCombo.Items.Add(new ComboBoxItem { Content = "Charts", Tag = "charts" });
             _viewTypeCombo.SelectionChanged += (s, e) =>
             {
@@ -278,6 +277,11 @@ namespace McStudDesktop.Views
                 if (_userCombo.SelectedItem is ComboBoxItem first && first.Tag is string userId)
                     _currentUserId = userId;
             }
+
+            // Hide user selector when only 1 user exists
+            _userCombo.Visibility = _userCombo.Items.Count <= 1
+                ? Visibility.Collapsed
+                : Visibility.Visible;
         }
 
         private StatsPeriod GetSelectedPeriod()
@@ -301,9 +305,8 @@ namespace McStudDesktop.Views
             var content = _currentViewType switch
             {
                 "all" => BuildAllStatsView(),
-                "exports" => BuildExportsView(),
+                "estimates" => BuildEstimatesView(),
                 "shopdocs" => BuildShopDocsView(),
-                "operations" => BuildOperationsTab(),
                 "charts" => BuildChartsTab(),
                 _ => BuildAllStatsView()
             };
@@ -339,14 +342,22 @@ namespace McStudDesktop.Views
             return stack;
         }
 
-        private StackPanel BuildExportsView()
+        private StackPanel BuildEstimatesView()
         {
             var stack = new StackPanel { Spacing = 16 };
             var period = GetSelectedPeriod();
 
+            // Export stats summary
             stack.Children.Add(BuildExportStatsSection(period));
+
+            // Operations summary cards + breakdowns
+            stack.Children.Add(BuildOperationsSection());
+
+            // Top parts & operations lists
             stack.Children.Add(BuildTopPartsSection(period));
             stack.Children.Add(BuildTopAddedOperationsSection(period));
+
+            // Recent activity
             stack.Children.Add(BuildRecentActivitySection(period));
 
             return stack;
@@ -400,7 +411,7 @@ namespace McStudDesktop.Views
 
             var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(8), Padding = new Thickness(16) };
             var stack = new StackPanel { Spacing = 8 };
-            stack.Children.Add(new TextBlock { Text = "Most Added Operations", FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White), Margin = new Thickness(0, 0, 0, 8) });
+            stack.Children.Add(new TextBlock { Text = "Most Used Operations", FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White), Margin = new Thickness(0, 0, 0, 8) });
 
             if (!addedOps.Any())
             {
@@ -584,7 +595,7 @@ namespace McStudDesktop.Views
             var grid = new Grid();
             for (int i = 0; i < 5; i++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var est = CreateHeaderMetric("Estimates", exportStats.ExportCount.ToString(), AccentBlue, exportStats.ExportCount, "N0", estSpark);
+            var est = CreateHeaderMetric("Excel Exports", exportStats.ExportCount.ToString(), AccentBlue, exportStats.ExportCount, "N0", estSpark);
             var ops = CreateHeaderMetric("Operations", exportStats.ExportOperations.ToString(), AccentGreen, exportStats.ExportOperations, "N0", opsSpark);
             var val = CreateHeaderMetric("Export Value", exportStats.FormattedExportPrice, AccentOrange, (double)exportStats.ExportPrice, "C0", valSpark);
             var inv = CreateHeaderMetric("Invoices", docSummary.TotalInvoices.ToString(), AccentPurple, docSummary.TotalInvoices, "N0", invSpark);
@@ -683,7 +694,7 @@ namespace McStudDesktop.Views
             });
             avgStack.Children.Add(new TextBlock
             {
-                Text = "Avg Per Estimate",
+                Text = "Avg Per Export",
                 FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 130)),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
@@ -800,7 +811,7 @@ namespace McStudDesktop.Views
             var statsGrid = new Grid();
             for (int i = 0; i < 4; i++) statsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var est = CreateMiniStatCard("Estimates", exportStats.ExportCount.ToString(), AccentBlue, exportStats.ExportCount, "N0");
+            var est = CreateMiniStatCard("Excel Exports", exportStats.ExportCount.ToString(), AccentBlue, exportStats.ExportCount, "N0");
             var ops = CreateMiniStatCard("Operations", exportStats.ExportOperations.ToString(), AccentGreen, exportStats.ExportOperations, "N0");
             var labor = CreateMiniStatCard("Labor Hours", enhancedStats.TotalLaborHours.ToString("F1"), AccentOrange, (double)enhancedStats.TotalLaborHours, "F1");
             var val = CreateMiniStatCard("Total Value", exportStats.FormattedExportPrice, AccentPurple, (double)exportStats.ExportPrice, "C0");
@@ -810,7 +821,7 @@ namespace McStudDesktop.Views
             stack.Children.Add(statsGrid);
 
             var metricsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24, Margin = new Thickness(0, 8, 0, 0) };
-            metricsRow.Children.Add(CreateShopDocSmallMetric("Avg Ops/Est", enhancedStats.AvgOperationsPerEstimate.ToString("F1")));
+            metricsRow.Children.Add(CreateShopDocSmallMetric("Avg Ops/Export", enhancedStats.AvgOperationsPerExport.ToString("F1")));
             metricsRow.Children.Add(CreateShopDocSmallMetric("Avg Value", enhancedStats.FormattedAvgValue));
             metricsRow.Children.Add(CreateShopDocSmallMetric("Sessions", enhancedStats.TotalSessions.ToString()));
             metricsRow.Children.Add(CreateShopDocSmallMetric("Time Spent", enhancedStats.FormattedTimeSpent));
@@ -962,8 +973,8 @@ namespace McStudDesktop.Views
             row1.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
             row1.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var estimatesCard = CreateStatCardWithTrend("ESTIMATES", enhancedStats.TotalEstimates.ToString(),
-                $"Avg {enhancedStats.AvgOperationsPerEstimate:F1} ops/est", AccentBlue, "\uE8A1", enhancedStats.EstimatesTrend, enhancedStats.TotalEstimates, "N0");
+            var estimatesCard = CreateStatCardWithTrend("EXCEL EXPORTS", enhancedStats.TotalExports.ToString(),
+                $"Avg {enhancedStats.AvgOperationsPerExport:F1} ops/export", AccentBlue, "\uE8A1", enhancedStats.ExportsTrend, enhancedStats.TotalExports, "N0");
             var opsCard = CreateStatCardWithTrend("OPERATIONS", enhancedStats.TotalOperations.ToString(),
                 $"{enhancedStats.FormattedAvgValue}/avg", AccentGreen, "\uE8B8", enhancedStats.OperationsTrend, enhancedStats.TotalOperations, "N0");
             var valueCard = CreateStatCardWithTrend("TOTAL VALUE", enhancedStats.FormattedValue,
@@ -988,7 +999,7 @@ namespace McStudDesktop.Views
             var laborCard = CreateStatCard("LABOR HRS", enhancedStats.TotalLaborHours.ToString("F1"),
                 $"Exported", AccentPurple, "\uE823", (double)enhancedStats.TotalLaborHours, "F1");
             var sessionsCard = CreateStatCard("SESSIONS", enhancedStats.TotalSessions.ToString(),
-                $"Avg {enhancedStats.AvgEstimatesPerSession:F1} est/session", AccentCyan, "\uE7EF", enhancedStats.TotalSessions, "N0");
+                $"Avg {enhancedStats.AvgExportsPerSession:F1} exports/session", AccentCyan, "\uE7EF", enhancedStats.TotalSessions, "N0");
             var timeCard = CreateStatCard("TIME SPENT", enhancedStats.FormattedTimeSpent,
                 $"Avg {(enhancedStats.AvgSessionDuration.TotalMinutes > 0 ? enhancedStats.AvgSessionDuration.TotalMinutes.ToString("F0") + "m" : "0m")}/session", Color.FromArgb(255, 100, 200, 150), "\uE916");
 
@@ -1679,8 +1690,8 @@ namespace McStudDesktop.Views
             Grid.SetColumn(opsGoal, 0);
             goalsGrid.Children.Add(opsGoal);
 
-            // Estimates goal
-            var estGoal = CreateGoalProgressBar("Estimates", goals.CurrentDayEstimates, goals.DailyEstimatesTarget, AccentBlue);
+            // Excel exports goal
+            var estGoal = CreateGoalProgressBar("Excel Exports", goals.CurrentDayEstimates, goals.DailyEstimatesTarget, AccentBlue);
             Grid.SetColumn(estGoal, 2);
             goalsGrid.Children.Add(estGoal);
 
@@ -1837,18 +1848,18 @@ namespace McStudDesktop.Views
             Grid.SetColumn(missedStack, 1);
             statsGrid.Children.Add(missedStack);
 
-            // Average per estimate
+            // Average per export
             var avgStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
             avgStack.Children.Add(new TextBlock
             {
-                Text = roi.FormattedAvgPerEstimate,
+                Text = roi.FormattedAvgPerExport,
                 FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(AccentBlue),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
             avgStack.Children.Add(new TextBlock
             {
-                Text = "Avg/Estimate",
+                Text = "Avg/Export",
                 FontSize = 9,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
                 HorizontalAlignment = HorizontalAlignment.Center
@@ -2200,10 +2211,10 @@ namespace McStudDesktop.Views
             Grid.SetColumn(valueStack, 1);
             grid.Children.Add(valueStack);
 
-            // Estimates comparison
+            // Excel exports comparison
             var estChange = comparison.LastWeekEstimates > 0
                 ? (double)(comparison.ThisWeekEstimates - comparison.LastWeekEstimates) / comparison.LastWeekEstimates * 100 : 0;
-            var estStack = CreateComparisonItem("Estimates",
+            var estStack = CreateComparisonItem("Excel Exports",
                 comparison.ThisWeekEstimates, comparison.LastWeekEstimates,
                 estChange, AccentBlue);
             Grid.SetColumn(estStack, 2);
@@ -3200,7 +3211,7 @@ namespace McStudDesktop.Views
             var totalOps = stats.TotalOperations;
             var totalValue = stats.TotalValue;
             var avgPerDay = dailyStats.Count > 0 ? dailyStats.Average(d => d.ExportOperations) : 0;
-            var avgValuePerExport = stats.TotalEstimates > 0 ? totalValue / stats.TotalEstimates : 0;
+            var avgValuePerExport = stats.AvgValuePerExport;
             var peakHour = hourlyActivity.OrderByDescending(h => h.OperationCount).FirstOrDefault();
             var currentStreak = stats.CurrentStreak;
 
@@ -6894,9 +6905,9 @@ namespace McStudDesktop.Views
 
         #endregion
 
-        #region Operations Tab
+        #region Operations Section
 
-        private StackPanel BuildOperationsTab()
+        private StackPanel BuildOperationsSection()
         {
             var stack = new StackPanel { Spacing = 16 };
             var period = GetSelectedPeriod();
@@ -6921,7 +6932,7 @@ namespace McStudDesktop.Views
             var avgOpsPerExport = totalOps > 0 ? totalPrice / totalOps : 0;
 
             var opsCard = CreateStatCard("TOTAL OPERATIONS", totalOps.ToString("N0"), "Operations exported", AccentBlue, "\uE8B8", totalOps, "N0");
-            var valueCard = CreateStatCard("TOTAL VALUE", totalPrice.ToString("C0"), "Dollar amount", AccentGreen, "\uE8D4", (double)totalPrice, "C0");
+            var valueCard = CreateStatCard("TOTAL VALUE", totalPrice.ToString("C0"), "Total billed value", AccentGreen, "\uE8D4", (double)totalPrice, "C0");
             var laborCard = CreateStatCard("LABOR HOURS", totalLabor.ToString("F1"), "Hours billed", AccentPurple, "\uE823", (double)totalLabor, "F1");
             var avgCard = CreateStatCard("AVG $/OPERATION", avgOpsPerExport.ToString("C2"), "Per operation", AccentOrange, "\uE9D9", (double)avgOpsPerExport, "C2");
 
@@ -8042,7 +8053,7 @@ namespace McStudDesktop.Views
             });
             header2.Children.Add(new TextBlock
             {
-                Text = "Estimates Leaderboard",
+                Text = "Excel Exports Leaderboard",
                 FontSize = 14,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White)

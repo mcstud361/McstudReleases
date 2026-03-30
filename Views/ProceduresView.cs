@@ -417,7 +417,7 @@ public class ProceduresView : UserControl
             };
             ppageLink.Click += (s, e) =>
             {
-                var url = $"https://www.cccis.com/motor-guide/{proc.PPageRef.ToLower()}";
+                var url = "https://help.cccis.com/webhelp/motor/gte/guide.htm";
                 try { _ = Windows.System.Launcher.LaunchUriAsync(new Uri(url)); } catch { }
             };
             metaPanel.Children.Add(ppageLink);
@@ -728,6 +728,16 @@ public class ProceduresView : UserControl
             PPageRef = proc.PPageRef,
             Status = proc.Operation
         };
+
+        if (DefinitionsView.PdfQueue.Any(q => q.Id == pdfItem.Id))
+        {
+            button.Content = "Already added";
+            var skipTimer = DispatcherQueue.CreateTimer();
+            skipTimer.Interval = TimeSpan.FromSeconds(2);
+            skipTimer.Tick += (s, e) => { skipTimer.Stop(); button.Content = "Add to PDF"; };
+            skipTimer.Start();
+            return;
+        }
 
         DefinitionsView.PdfQueue.Add(pdfItem);
         DefinitionsView.RaiseItemAddedToPdfQueue(pdfItem);

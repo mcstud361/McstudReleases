@@ -103,12 +103,34 @@ namespace McStudDesktop.Views
             // Use Grid for proper layout with scrolling
             var mainGrid = new Grid();
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header with dropdown
+            mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Privacy banner
             mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Content
 
             // Header with dropdown selector
             var header = BuildHeaderWithDropdown();
             Grid.SetRow(header, 0);
             mainGrid.Children.Add(header);
+
+            // Privacy info banner
+            var privacyBanner = new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x1A, 0x2A, 0x1A)),
+                BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x2E, 0x7D, 0x32)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(12, 4, 12, 4)
+            };
+            var privacyText = new TextBlock
+            {
+                Text = "Standard checklists and templates ship with MET and stay as-is. Copies, custom docs, dealer info, labor rates, and tow bills are saved locally on this device only.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x81, 0xC7, 0x84)),
+                TextWrapping = TextWrapping.Wrap
+            };
+            privacyBanner.Child = privacyText;
+            Grid.SetRow(privacyBanner, 1);
+            mainGrid.Children.Add(privacyBanner);
 
             // Content area (switches based on dropdown)
             _subTabContent = new Grid
@@ -119,7 +141,7 @@ namespace McStudDesktop.Views
             // Build content from layout config
             BuildAllWidgetContent();
 
-            Grid.SetRow(_subTabContent, 1);
+            Grid.SetRow(_subTabContent, 2);
             mainGrid.Children.Add(_subTabContent);
 
             rootBorder.Child = mainGrid;
@@ -183,6 +205,8 @@ namespace McStudDesktop.Views
                     return BuildMyDocsContentInner(widget.Id, index);
                 case WidgetType.TemplateForm:
                     return BuildTemplateFormContent(widget, index);
+                case WidgetType.VehicleIntakeForm:
+                    return BuildVehicleIntakeFormContent(widget, index);
                 default:
                     return null;
             }
@@ -1046,6 +1070,24 @@ namespace McStudDesktop.Views
 
             var formBuilder = new TemplateFormBuilder(ShopDocType.Custom);
             container.Children.Add(formBuilder);
+
+            _viewCache[widget.Id] = container;
+            return container;
+        }
+
+        private UIElement BuildVehicleIntakeFormContent(WidgetEntry widget, int index)
+        {
+            if (_viewCache.TryGetValue(widget.Id, out var cached))
+                return cached;
+
+            var container = new Grid
+            {
+                Tag = widget.Id,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
+            };
+
+            var intakeView = new VehicleIntakeFormView();
+            container.Children.Add(intakeView);
 
             _viewCache[widget.Id] = container;
             return container;

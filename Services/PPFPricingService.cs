@@ -27,7 +27,18 @@ public class PPFPricingService
     private PPFPricingService()
     {
         _dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "PPFPricing.json");
-        _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "PPFUserSettings.json");
+        var appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "McStudDesktop");
+        _settingsPath = Path.Combine(appDataDir, "PPFUserSettings.json");
+
+        // Migrate from old app-directory location
+        var oldSettings = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "PPFUserSettings.json");
+        if (File.Exists(oldSettings) && !File.Exists(_settingsPath))
+        {
+            try { Directory.CreateDirectory(appDataDir); File.Copy(oldSettings, _settingsPath); }
+            catch { /* best effort */ }
+        }
+
         _data = new PPFPricingData();
         _userSettings = new PPFUserSettings();
         LoadData();

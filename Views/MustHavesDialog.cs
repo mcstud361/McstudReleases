@@ -97,6 +97,10 @@ namespace McStudDesktop.Views
             var allCheckBoxes = new Dictionary<CheckBox, (string Description, string Section, decimal Price, decimal Hours)>();
             var sectionPanels = new Dictionary<string, (StackPanel Panel, Border Header, TextBlock CountText, Button CheckAllBtn)>();
 
+            // Track inline edits: CheckBox → (Description, Hours, Price, Condition)
+            // Populated when user clicks pencil and confirms via Done button
+            var pendingEdits = new Dictionary<CheckBox, (string Description, decimal Hours, decimal Price, string Condition)>();
+
             // === SEARCH BOX ===
             var searchBox = new AutoSuggestBox
             {
@@ -152,7 +156,7 @@ namespace McStudDesktop.Views
             var scrollViewer = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                MaxHeight = 420
+                MaxHeight = 560
             };
 
             var sectionsStack = new StackPanel { Spacing = 8 };
@@ -198,9 +202,13 @@ namespace McStudDesktop.Views
 
                 if (cleanOps.Count == 0) continue;
 
-                // Collect for autocomplete
+                // Collect for autocomplete (exclude invalid entries like *Description)
                 foreach (var op in cleanOps)
-                    allKnownOps.Add((op.Description!.Trim(), op.Price, op.LaborHours > 0 ? op.LaborHours : op.RefinishHours));
+                {
+                    var trimmedDesc = op.Description!.Trim();
+                    if (!trimmedDesc.StartsWith("*") && trimmedDesc.Any(char.IsLetter))
+                        allKnownOps.Add((trimmedDesc, op.Price, op.LaborHours > 0 ? op.LaborHours : op.RefinishHours));
+                }
 
                 // Section wrapper
                 var sectionItemsPanel = new StackPanel { Spacing = 2 };
@@ -314,21 +322,35 @@ namespace McStudDesktop.Views
                             m.Description.ToLowerInvariant().Contains(desc.ToLowerInvariant())
                         ));
 
-                    var priceStr = op.Price > 0 ? $"${op.Price:N0}" : "";
-                    var hoursStr = op.LaborHours > 0 ? $"{op.LaborHours:F1}h" :
-                                    op.RefinishHours > 0 ? $"{op.RefinishHours:F1}h refn" : "";
-                    var detail = string.Join("  ", new[] { hoursStr, priceStr }.Where(s => s.Length > 0));
+                    var opPrice = op.Price;
+                    var opHours = op.LaborHours > 0 ? op.LaborHours : op.RefinishHours;
 
-                    // Look up condition from saved config (canonical conditions are on the MustHaveOperation)
+                    // Look up saved values (user may have edited hours/price previously)
                     var savedMh = existingMustHaves.FirstOrDefault(m =>
                         m.Description.Equals(desc, StringComparison.OrdinalIgnoreCase) ||
                         m.Description.Replace("-", " ").Equals(desc.Replace("-", " "), StringComparison.OrdinalIgnoreCase));
                     var condition = savedMh?.Conditions ?? "always";
+                    // Use saved values if they differ from SOP defaults (user edited them)
+                    if (savedMh != null)
+                    {
+                        if (savedMh.ExpectedPrice != opPrice && savedMh.ExpectedPrice > 0)
+                            opPrice = savedMh.ExpectedPrice;
+                        if (savedMh.ExpectedHours != opHours && savedMh.ExpectedHours > 0)
+                            opHours = savedMh.ExpectedHours;
+                    }
 
-                    var rowGrid = new Grid { Margin = new Thickness(8, 0, 0, 0) };
-                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    var priceStr = opPrice > 0 ? $"${opPrice:N0}" : "";
+                    var hoursStr = opHours > 0 ? $"{opHours:F1}h" : "";
+                    var detail = string.Join("  ", new[] { hoursStr, priceStr }.Where(s => s.Length > 0));
+
+                    // Wrapper StackPanel to hold both the row and the edit panel
+                    var rowWrapper = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
+
+                    var rowGrid = new Grid();
+                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 0: checkbox
+                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 1: detail
+                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: condition
+                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 3: pencil
 
                     var cb = new CheckBox
                     {
@@ -344,37 +366,183 @@ namespace McStudDesktop.Views
                     Grid.SetColumn(cb, 0);
                     rowGrid.Children.Add(cb);
 
-                    if (detail.Length > 0)
+                    var detailText = new TextBlock
                     {
-                        var detailText = new TextBlock
-                        {
-                            Text = detail,
-                            FontSize = 10,
-                            Foreground = new SolidColorBrush(GreenAccent),
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Margin = new Thickness(8, 0, 0, 0)
-                        };
-                        Grid.SetColumn(detailText, 1);
-                        rowGrid.Children.Add(detailText);
-                    }
+                        Text = detail,
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(GreenAccent),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0),
+                        Visibility = detail.Length > 0 ? Visibility.Visible : Visibility.Collapsed
+                    };
+                    Grid.SetColumn(detailText, 1);
+                    rowGrid.Children.Add(detailText);
 
-                    // Show condition tag for non-"always" items
-                    if (!string.IsNullOrEmpty(condition) && condition != "always")
+                    var condTag = new TextBlock
                     {
-                        var condTag = new TextBlock
-                        {
-                            Text = $"[{condition}]",
-                            FontSize = 9,
-                            Foreground = new SolidColorBrush(TextDim),
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Margin = new Thickness(6, 0, 0, 0)
-                        };
-                        Grid.SetColumn(condTag, 2);
-                        rowGrid.Children.Add(condTag);
-                    }
+                        Text = (!string.IsNullOrEmpty(condition) && condition != "always") ? $"[{condition}]" : "",
+                        FontSize = 9,
+                        Foreground = new SolidColorBrush(TextDim),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(6, 0, 0, 0),
+                        Visibility = (!string.IsNullOrEmpty(condition) && condition != "always") ? Visibility.Visible : Visibility.Collapsed
+                    };
+                    Grid.SetColumn(condTag, 2);
+                    rowGrid.Children.Add(condTag);
 
-                    sectionItemsPanel.Children.Add(rowGrid);
-                    allCheckBoxes[cb] = (desc, sectionLabel, op.Price, op.LaborHours > 0 ? op.LaborHours : op.RefinishHours);
+                    // Pencil (edit) button
+                    var pencilBtn = new Button
+                    {
+                        Content = new FontIcon { Glyph = "\uE70F", FontSize = 10 },
+                        Padding = new Thickness(4, 2, 4, 2),
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        Foreground = new SolidColorBrush(TextDim),
+                        CornerRadius = new CornerRadius(3),
+                        MinWidth = 0,
+                        Margin = new Thickness(4, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    Grid.SetColumn(pencilBtn, 3);
+                    rowGrid.Children.Add(pencilBtn);
+
+                    // Inline edit panel (hidden by default)
+                    var editPanel = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 42)),
+                        Padding = new Thickness(10, 6, 10, 6),
+                        CornerRadius = new CornerRadius(4),
+                        Margin = new Thickness(20, 2, 0, 4),
+                        Visibility = Visibility.Collapsed
+                    };
+
+                    var editGrid = new Grid();
+                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Hours
+                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Price
+                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Condition
+                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Spacer
+                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Delete
+                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Done
+
+                    var editHoursBox = new NumberBox
+                    {
+                        Header = "Hours", Minimum = 0, Maximum = 50, SmallChange = 0.1,
+                        Value = opHours > 0 ? (double)opHours : double.NaN,
+                        Width = 80, FontSize = 11, Margin = new Thickness(0, 0, 6, 0)
+                    };
+                    var editPriceBox = new NumberBox
+                    {
+                        Header = "Price $", Minimum = 0, Maximum = 5000,
+                        Value = opPrice > 0 ? (double)opPrice : double.NaN,
+                        Width = 80, FontSize = 11, Margin = new Thickness(0, 0, 6, 0)
+                    };
+                    var editCondBox = new ComboBox
+                    {
+                        Header = "Condition", IsEditable = true, Width = 130, FontSize = 11,
+                        Margin = new Thickness(0, 0, 6, 0)
+                    };
+                    foreach (var cond in EstimateConditionEvaluator.AllConditions)
+                        editCondBox.Items.Add(cond);
+                    editCondBox.SelectedItem = condition;
+
+                    var editDeleteBtn = new Button
+                    {
+                        Content = new FontIcon { Glyph = "\uE74D", FontSize = 10 },
+                        Padding = new Thickness(6, 4, 6, 4),
+                        Background = new SolidColorBrush(DeleteBg),
+                        Foreground = new SolidColorBrush(DeleteFg),
+                        CornerRadius = new CornerRadius(3),
+                        MinWidth = 0,
+                        VerticalAlignment = VerticalAlignment.Bottom,
+                        Margin = new Thickness(0, 0, 6, 0)
+                    };
+                    var editDoneBtn = new Button
+                    {
+                        Content = "Done",
+                        Padding = new Thickness(10, 4, 10, 4),
+                        Background = new SolidColorBrush(Color.FromArgb(255, 40, 80, 60)),
+                        Foreground = new SolidColorBrush(GreenAccent),
+                        CornerRadius = new CornerRadius(3),
+                        MinWidth = 0,
+                        VerticalAlignment = VerticalAlignment.Bottom
+                    };
+
+                    Grid.SetColumn(editHoursBox, 0);
+                    Grid.SetColumn(editPriceBox, 1);
+                    Grid.SetColumn(editCondBox, 2);
+                    Grid.SetColumn(editDeleteBtn, 4);
+                    Grid.SetColumn(editDoneBtn, 5);
+                    editGrid.Children.Add(editHoursBox);
+                    editGrid.Children.Add(editPriceBox);
+                    editGrid.Children.Add(editCondBox);
+                    editGrid.Children.Add(editDeleteBtn);
+                    editGrid.Children.Add(editDoneBtn);
+                    editPanel.Child = editGrid;
+
+                    // Capture for closures
+                    var capturedCb = cb;
+                    var capturedDetailText = detailText;
+                    var capturedCondTag = condTag;
+                    var capturedEditPanel = editPanel;
+                    var capturedSectionLabel = sectionLabel;
+                    var capturedRowWrapper = rowWrapper;
+
+                    pencilBtn.Click += (s, ev) =>
+                    {
+                        // Toggle edit panel visibility
+                        capturedEditPanel.Visibility = capturedEditPanel.Visibility == Visibility.Visible
+                            ? Visibility.Collapsed : Visibility.Visible;
+                    };
+
+                    editDoneBtn.Click += (s, ev) =>
+                    {
+                        var newHours = !double.IsNaN(editHoursBox.Value) ? (decimal)editHoursBox.Value : 0;
+                        var newPrice = !double.IsNaN(editPriceBox.Value) ? (decimal)editPriceBox.Value : 0;
+                        var newCond = editCondBox.SelectedItem?.ToString() ?? editCondBox.Text ?? "always";
+                        if (string.IsNullOrWhiteSpace(newCond)) newCond = "always";
+
+                        // Update the display
+                        var newHoursStr = newHours > 0 ? $"{newHours:F1}h" : "";
+                        var newPriceStr = newPrice > 0 ? $"${newPrice:N0}" : "";
+                        var newDetail = string.Join("  ", new[] { newHoursStr, newPriceStr }.Where(str => str.Length > 0));
+                        capturedDetailText.Text = newDetail;
+                        capturedDetailText.Visibility = newDetail.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+                        if (!string.IsNullOrEmpty(newCond) && newCond != "always")
+                        {
+                            capturedCondTag.Text = $"[{newCond}]";
+                            capturedCondTag.Visibility = Visibility.Visible;
+                        }
+                        else
+                        {
+                            capturedCondTag.Text = "";
+                            capturedCondTag.Visibility = Visibility.Collapsed;
+                        }
+
+                        // Update the checkbox map with new values
+                        var currentInfo = allCheckBoxes[capturedCb];
+                        allCheckBoxes[capturedCb] = (currentInfo.Description, currentInfo.Section, newPrice, newHours);
+
+                        // Track this edit for save
+                        pendingEdits[capturedCb] = (currentInfo.Description, newHours, newPrice, newCond);
+
+                        capturedEditPanel.Visibility = Visibility.Collapsed;
+                        UpdateSummary();
+                    };
+
+                    editDeleteBtn.Click += (s, ev) =>
+                    {
+                        capturedCb.IsChecked = false;
+                        capturedRowWrapper.Visibility = Visibility.Collapsed;
+                        allCheckBoxes.Remove(capturedCb);
+                        pendingEdits.Remove(capturedCb);
+                        UpdateSectionCount(capturedSectionLabel);
+                        UpdateSummary();
+                    };
+
+                    rowWrapper.Children.Add(rowGrid);
+                    rowWrapper.Children.Add(editPanel);
+                    sectionItemsPanel.Children.Add(rowWrapper);
+                    allCheckBoxes[cb] = (desc, sectionLabel, opPrice, opHours);
                 }
             }
 
@@ -451,7 +619,7 @@ namespace McStudDesktop.Views
                 VerticalAlignment = VerticalAlignment.Bottom
             };
 
-            // AutoSuggest: filter known ops by text
+            // AutoSuggest: filter known ops by text (exclude invalid entries)
             nameBox.TextChanged += (s, args) =>
             {
                 if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
@@ -460,7 +628,9 @@ namespace McStudDesktop.Views
                     if (query.Length >= 2)
                     {
                         var suggestions = allKnownOps
-                            .Where(o => o.Description.ToLowerInvariant().Contains(query))
+                            .Where(o => o.Description.ToLowerInvariant().Contains(query) &&
+                                        !o.Description.StartsWith("*") &&
+                                        o.Description.Any(char.IsLetter))
                             .Select(o => o.Description)
                             .Distinct()
                             .Take(10)
@@ -498,6 +668,9 @@ namespace McStudDesktop.Views
             addBtn.Click += (s, ev) =>
             {
                 if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
+                var trimmedName = nameBox.Text.Trim();
+                // Reject invalid entries: starts with *, or contains no letters
+                if (trimmedName.StartsWith("*") || !trimmedName.Any(char.IsLetter)) return;
                 var price = !double.IsNaN(priceBox.Value) ? (decimal)priceBox.Value : 0;
                 var hours = !double.IsNaN(hoursBox.Value) ? (decimal)hoursBox.Value : 0;
                 var selectedCondition = conditionBox.SelectedItem?.ToString() ?? conditionBox.Text ?? "always";
@@ -554,12 +727,19 @@ namespace McStudDesktop.Views
                     int visibleCount = 0;
                     foreach (var child in panel.Children)
                     {
-                        if (child is Grid rowGrid)
+                        // Rows are wrapped in StackPanels (containing Grid + edit panel)
+                        var rowContainer = child;
+                        Grid? rowGrid = null;
+                        if (child is StackPanel wrapper && wrapper.Children.Count > 0 && wrapper.Children[0] is Grid g)
+                            rowGrid = g;
+                        else if (child is Grid directGrid)
+                            rowGrid = directGrid;
+
+                        if (rowGrid != null)
                         {
                             bool matches = string.IsNullOrEmpty(query);
                             if (!matches)
                             {
-                                // Search checkbox content
                                 foreach (var element in rowGrid.Children)
                                 {
                                     if (element is CheckBox cb && cb.Tag is string tag)
@@ -569,7 +749,7 @@ namespace McStudDesktop.Views
                                     }
                                 }
                             }
-                            rowGrid.Visibility = matches ? Visibility.Visible : Visibility.Collapsed;
+                            rowContainer.Visibility = matches ? Visibility.Visible : Visibility.Collapsed;
                             if (matches) visibleCount++;
                         }
                     }
@@ -579,7 +759,7 @@ namespace McStudDesktop.Views
                 }
             };
 
-            // === PRESET BUTTONS ===
+            // === BUILT-IN PRESET BUTTONS ===
             foreach (var (presetName, keywords) in Presets)
             {
                 var capturedName = presetName;
@@ -633,8 +813,181 @@ namespace McStudDesktop.Views
                 presetRow.Children.Add(presetBtn);
             }
 
+            // === USER TEMPLATE BUTTONS ===
+            var userTemplateRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+            void RebuildUserTemplateButtons()
+            {
+                userTemplateRow.Children.Clear();
+                var templates = GhostConfigService.Instance.GetMustHaveTemplates();
+                foreach (var tmpl in templates)
+                {
+                    var capturedTmpl = tmpl;
+                    var capturedDescs = tmpl.Descriptions;
+
+                    // Button content: name + small delete X
+                    var btnContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    btnContent.Children.Add(new TextBlock
+                    {
+                        Text = tmpl.Name,
+                        FontSize = 11,
+                        VerticalAlignment = VerticalAlignment.Center
+                    });
+                    var deleteX = new Button
+                    {
+                        Content = new FontIcon { Glyph = "\uE711", FontSize = 8 },
+                        Padding = new Thickness(2),
+                        MinWidth = 0, MinHeight = 0,
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        Foreground = new SolidColorBrush(DeleteFg),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        CornerRadius = new CornerRadius(8)
+                    };
+
+                    var tmplBtn = new Button
+                    {
+                        Content = btnContent,
+                        FontSize = 11,
+                        Background = new SolidColorBrush(Color.FromArgb(255, 45, 40, 55)),
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 210, 190, 240)),
+                        BorderThickness = new Thickness(1),
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 65, 100)),
+                        Padding = new Thickness(10, 4, 4, 4),
+                        CornerRadius = new CornerRadius(12)
+                    };
+
+                    tmplBtn.Click += (s, ev) =>
+                    {
+                        bool isActive = activePresets.Contains(capturedTmpl.Id);
+                        var matching = allCheckBoxes.Where(kv =>
+                            capturedDescs.Any(d => kv.Value.Description.Equals(d, StringComparison.OrdinalIgnoreCase)))
+                            .Select(kv => kv.Key).ToList();
+
+                        if (isActive)
+                        {
+                            foreach (var cb in matching) cb.IsChecked = false;
+                            activePresets.Remove(capturedTmpl.Id);
+                            tmplBtn.Background = new SolidColorBrush(Color.FromArgb(255, 45, 40, 55));
+                            tmplBtn.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 65, 100));
+                        }
+                        else
+                        {
+                            foreach (var cb in matching) cb.IsChecked = true;
+                            activePresets.Add(capturedTmpl.Id);
+                            tmplBtn.Background = new SolidColorBrush(Color.FromArgb(255, 60, 45, 85));
+                            tmplBtn.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 140, 100, 200));
+                        }
+
+                        foreach (var sec in sectionPanels.Keys)
+                            UpdateSectionCount(sec);
+                        UpdateSummary();
+                    };
+
+                    deleteX.Click += async (s, ev) =>
+                    {
+                        var confirmDialog = new ContentDialog
+                        {
+                            Title = "Delete Template",
+                            Content = $"Delete \"{capturedTmpl.Name}\"?",
+                            PrimaryButtonText = "Delete",
+                            CloseButtonText = "Cancel",
+                            XamlRoot = xamlRoot,
+                            RequestedTheme = ElementTheme.Dark
+                        };
+                        if (await confirmDialog.ShowAsync() == ContentDialogResult.Primary)
+                        {
+                            GhostConfigService.Instance.DeleteMustHaveTemplate(capturedTmpl.Id);
+                            activePresets.Remove(capturedTmpl.Id);
+                            RebuildUserTemplateButtons();
+                        }
+                    };
+
+                    btnContent.Children.Add(deleteX);
+                    userTemplateRow.Children.Add(tmplBtn);
+                }
+
+                // "+ Save Template" button
+                var saveTemplateBtn = new Button
+                {
+                    Content = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal, Spacing = 4,
+                        Children =
+                        {
+                            new FontIcon { Glyph = "\uE710", FontSize = 10 },
+                            new TextBlock { Text = "Save Template", FontSize = 11 }
+                        }
+                    },
+                    FontSize = 11,
+                    Background = new SolidColorBrush(Color.FromArgb(255, 35, 55, 45)),
+                    Foreground = new SolidColorBrush(GreenAccent),
+                    BorderThickness = new Thickness(1),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(80, 100, 200, 100)),
+                    Padding = new Thickness(10, 4, 10, 4),
+                    CornerRadius = new CornerRadius(12)
+                };
+
+                saveTemplateBtn.Click += async (s, ev) =>
+                {
+                    // Collect currently checked descriptions
+                    var checkedDescs = allCheckBoxes
+                        .Where(kv => kv.Key.IsChecked == true)
+                        .Select(kv => kv.Value.Description)
+                        .ToList();
+
+                    if (checkedDescs.Count == 0) return;
+
+                    var nameInput = new TextBox
+                    {
+                        PlaceholderText = "Template name...",
+                        FontSize = 13,
+                        Width = 300
+                    };
+
+                    var nameDialog = new ContentDialog
+                    {
+                        Title = "Save Template",
+                        Content = new StackPanel
+                        {
+                            Spacing = 8,
+                            Children =
+                            {
+                                new TextBlock
+                                {
+                                    Text = $"Save {checkedDescs.Count} checked operations as a template:",
+                                    FontSize = 12,
+                                    Foreground = new SolidColorBrush(TextMuted),
+                                    TextWrapping = TextWrapping.Wrap
+                                },
+                                nameInput
+                            }
+                        },
+                        PrimaryButtonText = "Save",
+                        CloseButtonText = "Cancel",
+                        XamlRoot = xamlRoot,
+                        RequestedTheme = ElementTheme.Dark
+                    };
+
+                    if (await nameDialog.ShowAsync() == ContentDialogResult.Primary &&
+                        !string.IsNullOrWhiteSpace(nameInput.Text))
+                    {
+                        GhostConfigService.Instance.SaveMustHaveTemplate(new MustHaveTemplate
+                        {
+                            Name = nameInput.Text.Trim(),
+                            Descriptions = checkedDescs
+                        });
+                        RebuildUserTemplateButtons();
+                    }
+                };
+
+                userTemplateRow.Children.Add(saveTemplateBtn);
+            }
+
+            RebuildUserTemplateButtons();
+
             // === ASSEMBLE DIALOG ===
             dialogStack.Children.Add(presetRow);
+            dialogStack.Children.Add(userTemplateRow);
             dialogStack.Children.Add(searchBox);
             scrollViewer.Content = sectionsStack;
             dialogStack.Children.Add(scrollViewer);
@@ -658,7 +1011,7 @@ namespace McStudDesktop.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                SaveMustHaves(config, allCheckBoxes);
+                SaveMustHaves(config, allCheckBoxes, pendingEdits);
                 return true;
             }
             return false;
@@ -748,34 +1101,48 @@ namespace McStudDesktop.Views
 
         private static void SaveMustHaves(
             GhostConfigService config,
-            Dictionary<CheckBox, (string Description, string Section, decimal Price, decimal Hours)> checkBoxMap)
+            Dictionary<CheckBox, (string Description, string Section, decimal Price, decimal Hours)> checkBoxMap,
+            Dictionary<CheckBox, (string Description, decimal Hours, decimal Price, string Condition)> pendingEdits)
         {
-            // Sync: remove all SOP-based must-haves, re-add checked ones
+            // Sync: remove all SOP-based must-haves using fuzzy matching, then re-add checked ones.
             var currentMustHaves = config.GetMustHaves();
 
-            var sopDescriptions = checkBoxMap.Values
+            var sopNormalizedDescriptions = checkBoxMap.Values
                 .Where(v => v.Section != "Custom")
-                .Select(v => v.Description).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var mh in currentMustHaves.Where(m => sopDescriptions.Contains(m.Description)).ToList())
+                .Select(v => GhostConfigService.NormalizeMustHaveDesc(v.Description))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Remove any existing must-have whose normalized description matches a SOP checkbox
+            foreach (var mh in currentMustHaves
+                .Where(m => m.Section != "Custom" &&
+                    sopNormalizedDescriptions.Contains(GhostConfigService.NormalizeMustHaveDesc(m.Description)))
+                .ToList())
             {
                 config.RemoveMustHave(mh.Id);
             }
 
-            // Add checked SOP items
+            // Add checked SOP items (AddMustHave has built-in dedup)
             foreach (var (cb, info) in checkBoxMap)
             {
                 if (cb.IsChecked == true && info.Section != "Custom")
                 {
-                    if (!config.GetMustHaves().Any(m => m.Description.Equals(info.Description, StringComparison.OrdinalIgnoreCase)))
+                    var newMh = new MustHaveOperation
                     {
-                        config.AddMustHave(new MustHaveOperation
-                        {
-                            Description = info.Description,
-                            Section = info.Section,
-                            ExpectedPrice = info.Price,
-                            ExpectedHours = info.Hours
-                        });
+                        Description = info.Description,
+                        Section = info.Section,
+                        ExpectedPrice = info.Price,
+                        ExpectedHours = info.Hours
+                    };
+
+                    // Apply pending edits if user modified this item
+                    if (pendingEdits.TryGetValue(cb, out var edit))
+                    {
+                        newMh.ExpectedHours = edit.Hours;
+                        newMh.ExpectedPrice = edit.Price;
+                        newMh.Conditions = edit.Condition;
                     }
+
+                    config.AddMustHave(newMh);
                 }
             }
 
@@ -789,6 +1156,13 @@ namespace McStudDesktop.Views
                     if (existing != null)
                     {
                         existing.Enabled = cb.IsChecked == true;
+                        // Apply pending edits for custom items too
+                        if (pendingEdits.TryGetValue(cb, out var edit))
+                        {
+                            existing.ExpectedHours = edit.Hours;
+                            existing.ExpectedPrice = edit.Price;
+                            existing.Conditions = edit.Condition;
+                        }
                         config.UpdateMustHave(existing);
                     }
                 }

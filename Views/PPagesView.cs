@@ -78,7 +78,12 @@ namespace McStudDesktop.Views
 
                     if (data?.Sections != null)
                     {
-                        _allSections = data.Sections.OrderBy(s => s.Section).ToList();
+                        // Sort numerically (G1, G3, G4... G9, G10...) not alphabetically
+                        _allSections = data.Sections.OrderBy(s =>
+                        {
+                            var num = s.Section?.Replace("G", "") ?? "0";
+                            return int.TryParse(num, out var n) ? n : 999;
+                        }).ToList();
                     }
                 }
             }
@@ -245,8 +250,19 @@ namespace McStudDesktop.Views
         {
             search = search.ToLower().Trim();
 
+            // Auto-reset category filter when searching to avoid confusing "no results"
+            if (!string.IsNullOrEmpty(search) && _selectedCategory != "All Categories")
+            {
+                _selectedCategory = "All Categories";
+                if (_categoryFilter != null)
+                    _categoryFilter.SelectedIndex = 0;
+            }
+
             // Normalize P-Page search (handle "P-21", "P21", "p-21", "p21" etc.)
             var normalizedSearch = search.Replace("-", "").Replace(" ", "");
+
+            // Extract pure number if search is just a number (e.g., "9" → match G9, P-9)
+            var isNumericOnly = int.TryParse(normalizedSearch, out _);
 
             _filteredSections = _allSections.Where(s =>
             {
@@ -257,6 +273,13 @@ namespace McStudDesktop.Views
 
                 // Check section number (G9, G10, etc.)
                 if (s.Section?.ToLower().Contains(search) == true) return true;
+
+                // If user typed just a number (e.g., "9"), match against section number portion
+                if (isNumericOnly)
+                {
+                    var sectionNum = s.Section?.Replace("G", "") ?? "";
+                    if (sectionNum == normalizedSearch) return true;
+                }
 
                 // Check P-Page reference (P-9, P-10, etc.)
                 if (s.PPageRef?.ToLower().Replace("-", "").Contains(normalizedSearch) == true) return true;
@@ -703,7 +726,7 @@ namespace McStudDesktop.Views
                             new TextBlock { Text = $"Mitchell {section.MitchellRef}", FontSize = 11 }
                         }
                     },
-                    NavigateUri = new Uri("https://static.mymitchell.com/estimating/"),
+                    NavigateUri = new Uri("http://static.mymitchell.com/static/webhelp/ppages/ceg/1033/Content/ceg010400.htm"),
                     Padding = new Thickness(0)
                 });
             }

@@ -17,7 +17,8 @@ public enum WidgetType
     PPFPricing,
     PriceCatalogs,
     MyDocs,
-    TemplateForm
+    TemplateForm,
+    VehicleIntakeForm
 }
 
 public class WidgetEntry
@@ -69,12 +70,37 @@ public class ShopDocsLayoutService
                 var config = JsonSerializer.Deserialize<ShopDocsLayoutConfig>(json, GetJsonOptions());
                 if (config != null && config.Widgets.Count > 0)
                 {
+                    bool needsSave = false;
+
                     // Migrate old "Labor Rates" title to "Dealer Information"
                     var laborWidget = config.Widgets.FirstOrDefault(w => w.Id == "labor-rates");
                     if (laborWidget != null && laborWidget.Title == "Labor Rates")
                     {
                         laborWidget.Title = "Dealer Information";
                         laborWidget.Description = "Dealer contacts, labor rates & parts info";
+                        needsSave = true;
+                    }
+
+                    // Add Vehicle Intake Form if missing (migration for existing users)
+                    if (!config.Widgets.Any(w => w.Id == "vehicle-intake"))
+                    {
+                        var maxOrder = config.Widgets.Any() ? config.Widgets.Max(w => w.Order) : -1;
+                        config.Widgets.Add(new WidgetEntry
+                        {
+                            Id = "vehicle-intake",
+                            Title = "Vehicle Intake Form",
+                            Icon = "\uE7C8",
+                            Description = "Vehicle check-in report with condition & equipment checklist",
+                            WidgetType = WidgetType.VehicleIntakeForm,
+                            IsBuiltIn = true,
+                            IsVisible = true,
+                            Order = maxOrder + 1
+                        });
+                        needsSave = true;
+                    }
+
+                    if (needsSave)
+                    {
                         try
                         {
                             var json2 = JsonSerializer.Serialize(config, GetJsonOptions());
@@ -170,6 +196,17 @@ public class ShopDocsLayoutService
                 },
                 new WidgetEntry
                 {
+                    Id = "vehicle-intake",
+                    Title = "Vehicle Intake Form",
+                    Icon = "\uE7C8",
+                    Description = "Vehicle check-in report with condition & equipment checklist",
+                    WidgetType = WidgetType.VehicleIntakeForm,
+                    IsBuiltIn = true,
+                    IsVisible = true,
+                    Order = 6
+                },
+                new WidgetEntry
+                {
                     Id = "my-docs",
                     Title = "My Docs",
                     Icon = "\uE8B7",
@@ -177,7 +214,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.MyDocs,
                     IsBuiltIn = true,
                     IsVisible = true,
-                    Order = 6
+                    Order = 7
                 }
             }
         };

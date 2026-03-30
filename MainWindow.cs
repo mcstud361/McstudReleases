@@ -356,7 +356,7 @@ public sealed class MainWindow : Window
         var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
         var workArea = displayArea.WorkArea;
 
-        int width = workArea.Width / 2;
+        int width = (int)(workArea.Width * 0.45);
         int height = workArea.Height;
         int x = workArea.X + workArea.Width - width;
         int y = workArea.Y;
