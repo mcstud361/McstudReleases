@@ -220,6 +220,10 @@ namespace McStudDesktop.Services
                 return true;
             if (description.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase))
                 return true;
+            // Excel placeholder rows: descriptions full of "0" values from unfilled formula cells
+            var tokens = description.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Count(t => t == "0") >= 3)
+                return true;
             return false;
         }
 

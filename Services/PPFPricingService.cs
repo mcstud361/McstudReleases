@@ -715,6 +715,15 @@ public class VehicleStyle
 
     [JsonPropertyName("icon")]
     public string? Icon { get; set; }
+
+    public string DiagramType => Icon switch
+    {
+        "Truck" => "truck",
+        "Van" => "van",
+        "SUV" => "suv",
+        "SportsCar" => "coupe",
+        _ => Id?.Contains("coupe") == true ? "coupe" : "sedan"
+    };
 }
 
 public class PPFPanel

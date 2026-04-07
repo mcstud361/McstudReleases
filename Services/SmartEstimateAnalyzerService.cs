@@ -339,6 +339,15 @@ namespace McStudDesktop.Services
             if (!_isLoaded || lines == null || lines.Count == 0)
                 return result;
 
+            // Pre-build combined lowercase text for all lines (avoids thousands of ToLowerInvariant calls)
+            var sb = new System.Text.StringBuilder(lines.Count * 80);
+            foreach (var l in lines)
+            {
+                sb.Append(l.Description?.ToLowerInvariant() ?? "").Append(' ');
+                sb.Append(l.PartName?.ToLowerInvariant() ?? "").Append(' ');
+            }
+            _cachedAllTextLower = sb.ToString();
+
             // Calculate estimate total for threshold checks
             decimal estimateTotal = lines.Sum(l => l.Price);
 
@@ -898,7 +907,7 @@ namespace McStudDesktop.Services
             { "weld-thru primer", new[] { "weld thru", "weld through", "welding primer" } },
             { "denib", new[] { "de-nib", "de nib", "nib sand" } },
             { "clear coat", new[] { "clearcoat" } },
-            { "battery disconnect", new[] { "disconnect battery" } },
+            { "battery disconnect", new[] { "disconnect battery", "disconnect and reconnect", "d&r battery" } },
             { "4-wheel alignment", new[] { "alignment", "4 wheel", "four wheel", "wheel align" } },
             { "feather, prime & block", new[] { "feather prime", "fpb" } },
             { "r&i", new[] { "r+i", "r/i" } },
@@ -911,41 +920,56 @@ namespace McStudDesktop.Services
             { "oem repair procedures", new[] { "oem research", "oem procedure", "repair procedure" } },
             { "clean for delivery", new[] { "final clean", "detail clean" } },
             { "hazardous waste", new[] { "haz waste", "hazmat", "waste disposal" } },
-            { "battery reconnect", new[] { "reconnect battery", "battery initialize", "battery init" } }
+            { "battery reconnect", new[] { "reconnect battery", "battery initialize", "battery init", "electronic reset" } },
+            { "cover car", new[] { "cover vehicle", "mask and protect", "cover for overspray", "cover interior" } },
+            { "srs", new[] { "airbag", "air bag", "supplemental restraint" } },
+            { "seatbelt inspection", new[] { "inspection: seatbelt", "seat belt inspect", "seatbelt system" } },
+            { "airbag inspection", new[] { "inspection: airbag", "air bag inspect", "airbag system diagnosis" } },
+            { "seat weight sensor", new[] { "calibration: seat weight", "weight sensor calibrat" } },
+            { "restraint control module", new[] { "rcm", "seat weight sensor", "srs module", "calibration: seat" } },
+            { "parts disposal", new[] { "disposal", "parts disp" } },
+            { "misc hardware", new[] { "miscellaneous hardware", "misc hdw" } },
+            { "steering wheel cover", new[] { "seat cover", "floor mat" } },
+            { "collision diagnosis", new[] { "dynamic systems verification", "systems verification" } }
         };
 
         /// <summary>
         /// Check if an item is already on the estimate using fuzzy matching
         /// </summary>
+        /// <summary>
+        /// Pre-built combined lowercase text from all estimate lines.
+        /// Set at the start of AnalyzeEstimate to avoid repeated ToLowerInvariant calls.
+        /// </summary>
+        private string _cachedAllTextLower = "";
+
+        private static readonly HashSet<string> _stopWords = new() { "and", "for", "the", "during", "with", "from", "all", "after", "before" };
+
         private bool IsAlreadyOnEstimateFuzzy(List<ParsedEstimateLine> lines, string item)
         {
             var itemLower = item.ToLowerInvariant();
 
-            // Get all keywords to search for
-            var searchTerms = new List<string> { itemLower };
-
-            // Add fuzzy match alternatives (only direct key match — no cascading expansion)
-            foreach (var kvp in _fuzzyMatchKeywords)
-            {
-                if (itemLower.Contains(kvp.Key.ToLowerInvariant()))
-                {
-                    searchTerms.AddRange(kvp.Value);
-                }
-            }
-
-            // Search all lines for any matching terms
+            // Check each line individually (not concatenated text) to avoid
+            // false matches from unrelated words on different lines
             foreach (var line in lines)
             {
                 var desc = line.Description?.ToLowerInvariant() ?? "";
                 var part = line.PartName?.ToLowerInvariant() ?? "";
                 var combined = $"{desc} {part}";
 
-                foreach (var term in searchTerms.Distinct())
+                // Direct substring match
+                if (combined.Contains(itemLower))
+                    return true;
+
+                // Fuzzy alternatives: check if a known synonym appears on this line
+                foreach (var kvp in _fuzzyMatchKeywords)
                 {
-                    if (combined.Contains(term))
+                    if (itemLower.Contains(kvp.Key.ToLowerInvariant()))
                     {
-                        System.Diagnostics.Debug.WriteLine($"[FuzzyMatch] '{item}' matched by '{term}' in '{combined.Substring(0, Math.Min(50, combined.Length))}'");
-                        return true;
+                        foreach (var alt in kvp.Value)
+                        {
+                            if (combined.Contains(alt))
+                                return true;
+                        }
                     }
                 }
             }
@@ -1202,7 +1226,7 @@ namespace McStudDesktop.Services
                             Item = blendItemName,
                             Description = $"Blend {adjKey} for color match — adjacent to {sourcePart}",
                             WhyNeeded = "New or repaired paint won't match aged paint on adjacent panels without blending",
-                            LaborHours = adjHours,
+                            LaborHours = 0m, // Don't guess — actual blend time comes from the estimating system
                             Priority = adj.Priority,
                             SuggestionType = "AdjacentBlend"
                         });

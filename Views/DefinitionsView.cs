@@ -510,35 +510,74 @@ namespace McStudDesktop.Views
                     var pPageStack = new StackPanel();
                     pPageStack.Children.Add(new TextBlock
                     {
-                        Text = "P-PAGE LOCATION",
+                        Text = "P-PAGE REFERENCE",
                         FontSize = 9,
                         Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
                     });
 
-                    // Make P-Page clickable - opens CCC GTE guide
-                    var pPageLink = new HyperlinkButton
+                    // Only show the CCC link if there's a valid G-number mapping
+                    var cccUrl = GetPPageUrl(def.PPageRef ?? "");
+                    if (cccUrl != null)
                     {
-                        Content = $"{def.PPageLocation ?? ""} ({def.PPageRef}) →",
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                        var pPageLink = new HyperlinkButton
+                        {
+                            Content = $"{def.PPageLocation ?? ""} ({def.PPageRef}) — Open on CCC →",
+                            FontSize = 11,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)),
+                            Padding = new Thickness(0)
+                        };
+                        pPageLink.Click += (s, e) =>
+                        {
+                            try
+                            {
+                                Process.Start(new ProcessStartInfo
+                                {
+                                    FileName = cccUrl,
+                                    UseShellExecute = true
+                                });
+                            }
+                            catch { }
+                        };
+                        ToolTipService.SetToolTip(pPageLink, $"Open {def.PPageRef} directly on the CCC MOTOR Guide website");
+                        pPageStack.Children.Add(pPageLink);
+                    }
+                    else
+                    {
+                        // No CCC page — just show the reference text (no link)
+                        pPageStack.Children.Add(new TextBlock
+                        {
+                            Text = $"{def.PPageLocation ?? ""} ({def.PPageRef})",
+                            FontSize = 11,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                            TextWrapping = TextWrapping.Wrap,
+                            IsTextSelectionEnabled = true
+                        });
+                    }
+
+                    // Google search button for the P-Page
+                    var googleSearchBtn = new HyperlinkButton
+                    {
+                        Content = "Search Google",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 200, 255)),
                         Padding = new Thickness(0)
                     };
-                    pPageLink.Click += (s, e) =>
+                    googleSearchBtn.Click += (s, e) =>
                     {
                         try
                         {
-                            var url = GetPPageUrl(def.PPageRef ?? "");
+                            var query = Uri.EscapeDataString($"CCC MOTOR Guide to Estimating {def.PPageRef} {def.Term}");
                             Process.Start(new ProcessStartInfo
                             {
-                                FileName = url,
+                                FileName = $"https://www.google.com/search?q={query}",
                                 UseShellExecute = true
                             });
                         }
                         catch { }
                     };
-                    ToolTipService.SetToolTip(pPageLink, $"Open {def.PPageRef} in CCC Guide to Estimating");
-                    pPageStack.Children.Add(pPageLink);
+                    ToolTipService.SetToolTip(googleSearchBtn, $"Google search for {def.PPageRef} in the CCC/MOTOR Guide");
+                    pPageStack.Children.Add(googleSearchBtn);
 
                     Grid.SetColumn(pPageStack, 0);
                     infoGrid.Children.Add(pPageStack);
@@ -657,21 +696,77 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
-        /// Gets the direct URL to a specific CCC P-Page section
+        /// Direct URL mapping from G-numbers to actual CCC MOTOR Guide pages.
+        /// Scraped from https://help.cccis.com/webhelp/motor/gte/Data/Tocs/TOC_Chunk0.js
         /// </summary>
-        private static string GetPPageUrl(string pPageRef)
+        internal static readonly Dictionary<string, string> CccPageUrls = new(StringComparer.OrdinalIgnoreCase)
         {
-            // CCC P-Pages are at help.cccis.com with specific page URLs
-            // Format: G1, G9, G33, etc.
+            ["G1"]  = "LABORTIMEPREMISE.htm",
+            ["G3"]  = "ComponentClassification.htm",
+            ["G4"]  = "R_I_Remove_Reinstall_.htm",
+            ["G5"]  = "R_R_Remove_Replace_.htm",
+            ["G6"]  = "ADD%20IF%20REQUIRED.htm",
+            ["G7"]  = "IncludedOperations.htm",
+            ["G9"]  = "ELECTRONICSYSTEMS_ON_BOARDCOMPUTERS.htm",
+            ["G10"] = "Frame%20Machine%20Set%20up.htm",
+            ["G14"] = "PassiveRestraintSystems_AirBagType_.htm",
+            ["G15"] = "Suspension_WheelAlignment.htm",
+            ["G16"] = "RoadWheel_R_R.htm",
+            ["G17"] = "AirConditioner.htm",
+            ["G18"] = "WindshieldGlass.htm",
+            ["G19"] = "Lamps.htm",
+            ["G20"] = "ELECTRONICSYSTEMS_ON_BOARDCOMPUTERS.htm",
+            ["G21"] = "ELECTRONICSYSTEMS_ON_BOARDCOMPUTERS.htm",
+            ["G22"] = "UnprimedBumperPrep.htm",
+            ["G23"] = "DOOR_OUTERPANELR_R.htm",
+            ["G26"] = "SECTIONING.htm",
+            ["G27"] = "PANEL_BONDING.htm",
+            ["G28"] = "SpecialSteels.htm",
+            ["G29"] = "FRAME_UNITIZEDFRAMEVEHICLES.htm",
+            ["G31"] = "STONE_CHOP_GUARD_Protective_Material_.htm",
+            ["G33"] = "CameraSensorAiming.htm",
+            ["G34"] = "REFINISH_TIME_PREMISE.htm",
+            ["G35"] = "BasicColorCoatApplication.htm",
+            ["G36"] = "ColorBlending_AdjacentPanels_.htm",
+            ["G37"] = "StoneChipGuard_ProtectiveMaterial_.htm",
+            ["G38"] = "DE_NIB_POLISH.htm",
+            ["G39"] = "WetSand_Rub_OutAnd_OrBuff.htm",
+            ["G40"] = "TwoToneRefinishing_SecondColorToneApplication_.htm",
+            ["G41"] = "ThreeStageFinishes_Base_Mica_ClearCoat_.htm",
+        };
+
+        private static readonly string CccBaseUrl = "https://help.cccis.com/webhelp/motor/gte/Content/";
+
+        /// <summary>
+        /// Gets the direct URL to a specific CCC P-Page section.
+        /// Returns null if the PPageRef doesn't map to a known CCC page.
+        /// For multi-ref entries, picks the most specific G-number (avoids G9 catch-all when possible).
+        /// </summary>
+        internal static string? GetPPageUrl(string pPageRef)
+        {
             if (string.IsNullOrWhiteSpace(pPageRef))
-                return "https://help.cccis.com/webhelp/motor/gte/guide.htm";
+                return null;
 
-            // Clean the reference (remove spaces, handle multiple refs)
-            var cleanRef = pPageRef.Trim().ToUpperInvariant();
+            // Split multi-ref like "G9, G34, G35" and find the best match
+            var refs = pPageRef.Split(',').Select(r => r.Trim()).ToArray();
 
-            // CCC ONE guide pages use this URL format
-            // The guide.htm page supports hash navigation to specific pages
-            return $"https://help.cccis.com/webhelp/motor/gte/guide.htm#{cleanRef.ToLowerInvariant()}";
+            // First pass: find a specific (non-G9) match
+            foreach (var r in refs)
+            {
+                if (!string.Equals(r, "G9", StringComparison.OrdinalIgnoreCase)
+                    && CccPageUrls.TryGetValue(r, out var specificPage))
+                    return CccBaseUrl + specificPage;
+            }
+
+            // Second pass: accept G9 if it's the only mapped ref
+            foreach (var r in refs)
+            {
+                if (CccPageUrls.TryGetValue(r, out var page))
+                    return CccBaseUrl + page;
+            }
+
+            // No valid G-number found — no link
+            return null;
         }
 
         private void CopyDefinitionToClipboard(DefinitionItem def)

@@ -355,7 +355,8 @@ namespace McStudDesktop.Views
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 65, 70, 80))
             };
             foreach (var style in PPFPricingService.Instance.GetVehicleStyles())
-                _vehicleCombo.Items.Add(new ComboBoxItem { Content = style.Name, Tag = style.Name });
+                _vehicleCombo.Items.Add(new ComboBoxItem { Content = style.Name, Tag = style });
+            _vehicleCombo.SelectionChanged += OnVehicleComboChanged;
             vehicleStack.Children.Add(_vehicleCombo);
             inputStack.Children.Add(vehicleStack);
 
@@ -526,6 +527,39 @@ namespace McStudDesktop.Views
             _exportButton.Click += ExportButton_Click;
             actionsPanel.Children.Add(_exportButton);
 
+            var pdfExportButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE8A5", FontSize = 12 },
+                        new TextBlock { Text = "Export PDF", FontSize = 12 }
+                    }
+                },
+                Padding = new Thickness(12, 6, 12, 6),
+                Background = new SolidColorBrush(Color.FromArgb(255, 40, 120, 60)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(4)
+            };
+            ToolTipService.SetToolTip(pdfExportButton, "Export to PDF document");
+            pdfExportButton.Click += PdfExportButton_Click;
+            actionsPanel.Children.Add(pdfExportButton);
+
+            var pdfSettingsButton = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE713", FontSize = 12 },
+                Padding = new Thickness(6, 6, 6, 6),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 55, 65)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 155, 160)),
+                CornerRadius = new CornerRadius(4)
+            };
+            ToolTipService.SetToolTip(pdfSettingsButton, "PDF Export Settings");
+            pdfSettingsButton.Click += OpenGhostPdfSettings_Click;
+            actionsPanel.Children.Add(pdfSettingsButton);
+
             var clearButton = new Button
             {
                 Content = "Clear",
@@ -583,9 +617,74 @@ namespace McStudDesktop.Views
 
         #region Event Handlers
 
+        private void OnVehicleComboChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_vehicleCombo?.SelectedItem is not ComboBoxItem item || item.Tag is not VehicleStyle style) return;
+            _vehicleDiagram.SetVehicleType(style.DiagramType);
+        }
+
+        private string _lastAutoPanelText = "";
+
         private void VehicleDiagram_SelectionChanged(object? sender, PanelSelectionChangedEventArgs e)
         {
             System.Diagnostics.Debug.WriteLine($"[Guidance] Panels selected: {string.Join(", ", e.SelectedPanelIds)}");
+
+            if (_damageDescriptionBox == null) return;
+
+            // Build new auto-text from selected panel display names
+            var panelNames = e.SelectedPanelIds.Select(GetPanelDisplayName).ToList();
+            var newAutoText = panelNames.Count > 0
+                ? $"Damaged: {string.Join(", ", panelNames)}. "
+                : "";
+
+            var current = _damageDescriptionBox.Text ?? "";
+
+            // If we previously injected auto-text, remove it (preserve any user-typed text)
+            if (!string.IsNullOrEmpty(_lastAutoPanelText) && current.StartsWith(_lastAutoPanelText))
+            {
+                current = current.Substring(_lastAutoPanelText.Length);
+            }
+
+            _damageDescriptionBox.Text = newAutoText + current;
+            _lastAutoPanelText = newAutoText;
+        }
+
+        private static string GetPanelDisplayName(string panelId)
+        {
+            // Spell out sides so the ghost parser can detect Left/Right/Front/Rear
+            return panelId switch
+            {
+                "hood" => "Hood",
+                "front_bumper" => "Front Bumper",
+                "rear_bumper" => "Rear Bumper",
+                "lf_fender" => "Left Front Fender",
+                "rf_fender" => "Right Front Fender",
+                "lf_door" => "Left Front Door",
+                "rf_door" => "Right Front Door",
+                "lr_door" => "Left Rear Door",
+                "rr_door" => "Right Rear Door",
+                "l_door" => "Left Door",
+                "r_door" => "Right Door",
+                "lr_quarter" => "Left Rear Quarter Panel",
+                "rr_quarter" => "Right Rear Quarter Panel",
+                "l_bedside" => "Left Bedside",
+                "r_bedside" => "Right Bedside",
+                "decklid" => "Decklid",
+                "liftgate" => "Liftgate",
+                "tailgate" => "Tailgate",
+                "roof" => "Roof",
+                "l_rocker" => "Left Rocker Panel",
+                "r_rocker" => "Right Rocker Panel",
+                "lf_mirror" => "Left Front Mirror",
+                "rf_mirror" => "Right Front Mirror",
+                "lf_headlight" => "Left Front Headlight",
+                "rf_headlight" => "Right Front Headlight",
+                "lr_taillight" => "Left Rear Tail Light",
+                "rr_taillight" => "Right Rear Tail Light",
+                "sliding_door" => "Sliding Door",
+                "r_side" => "Right Side",
+                _ => panelId.Replace("_", " ")
+            };
         }
 
         private async void GenerateGhostButton_Click(object sender, RoutedEventArgs e)
@@ -709,6 +808,7 @@ namespace McStudDesktop.Views
             // Clear input fields
             if (_vehicleCombo != null) _vehicleCombo.SelectedIndex = -1;
             if (_damageDescriptionBox != null) _damageDescriptionBox.Text = "";
+            _lastAutoPanelText = "";
 
             // Hide toolbar and results
             var mainBorder = Content as Border;
@@ -732,6 +832,174 @@ namespace McStudDesktop.Views
             var ops = GetFilteredOperations(_currentResult.GuidanceOperations);
             CopyOperationsToClipboard(ops, includeDetails: true);
             ShowMessage($"Exported {ops.Count} operations with details to clipboard");
+        }
+
+        private void PdfExportButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentResult == null)
+            {
+                ShowMessage("Generate an estimate first before exporting to PDF.");
+                return;
+            }
+
+            try
+            {
+                var filteredOps = GetFilteredOperations(_currentResult.GuidanceOperations);
+                var pdfService = new GhostPdfExportService();
+                var path = pdfService.GenerateGhostPdf(_currentResult, filteredOps);
+                ShowMessage($"PDF exported: {path}");
+            }
+            catch (Exception ex)
+            {
+                ShowMessage($"PDF export failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[GhostPDF] Export error: {ex}");
+            }
+        }
+
+        private async void OpenGhostPdfSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var configService = GhostExportConfigService.Instance;
+            var config = configService.Config;
+
+            var settingsPanel = new StackPanel { Spacing = 12, MinWidth = 400 };
+
+            // Header/Footer settings
+            settingsPanel.Children.Add(new TextBlock
+            {
+                Text = "Header & Footer",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
+            });
+
+            var titleBox = new TextBox
+            {
+                Header = "Header Title",
+                Text = config.HeaderTitle,
+                FontSize = 13
+            };
+            settingsPanel.Children.Add(titleBox);
+
+            var subtitleBox = new TextBox
+            {
+                Header = "Header Subtitle",
+                Text = config.HeaderSubtitle,
+                FontSize = 13
+            };
+            settingsPanel.Children.Add(subtitleBox);
+
+            var footerBox = new TextBox
+            {
+                Header = "Footer Text",
+                Text = config.FooterText,
+                FontSize = 13
+            };
+            settingsPanel.Children.Add(footerBox);
+
+            var dateFormatBox = new TextBox
+            {
+                Header = "Date Format",
+                Text = config.DateFormat,
+                FontSize = 13
+            };
+            settingsPanel.Children.Add(dateFormatBox);
+
+            // Toggles
+            settingsPanel.Children.Add(new TextBlock
+            {
+                Text = "Display Options",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+
+            var showDateToggle = new ToggleSwitch { Header = "Show Date", IsOn = config.ShowDate };
+            var showPageNumToggle = new ToggleSwitch { Header = "Show Page Numbers", IsOn = config.ShowPageNumbers };
+            var showVehicleToggle = new ToggleSwitch { Header = "Show Vehicle Info", IsOn = config.ShowVehicleInfo };
+            var showSummaryToggle = new ToggleSwitch { Header = "Show Summary Cards", IsOn = config.ShowSummaryCards };
+            var showWarningsToggle = new ToggleSwitch { Header = "Show Warnings", IsOn = config.ShowWarnings };
+            var showTipsToggle = new ToggleSwitch { Header = "Show Pro Tips", IsOn = config.ShowProTips };
+            var showDetailsToggle = new ToggleSwitch { Header = "Show Operation Details", IsOn = config.ShowOperationDetails };
+            var showSubtotalsToggle = new ToggleSwitch { Header = "Show Section Subtotals", IsOn = config.ShowSectionSubtotals };
+            var showConfidenceToggle = new ToggleSwitch { Header = "Show Confidence Labels", IsOn = config.ShowConfidenceLabels };
+
+            settingsPanel.Children.Add(showDateToggle);
+            settingsPanel.Children.Add(showPageNumToggle);
+            settingsPanel.Children.Add(showVehicleToggle);
+            settingsPanel.Children.Add(showSummaryToggle);
+            settingsPanel.Children.Add(showWarningsToggle);
+            settingsPanel.Children.Add(showTipsToggle);
+            settingsPanel.Children.Add(showDetailsToggle);
+            settingsPanel.Children.Add(showSubtotalsToggle);
+            settingsPanel.Children.Add(showConfidenceToggle);
+
+            // Reset button
+            var resetButton = new Button
+            {
+                Content = "Reset to Defaults",
+                Margin = new Thickness(0, 8, 0, 0),
+                Background = new SolidColorBrush(Color.FromArgb(255, 80, 40, 40)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 140, 140)),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(12, 6, 12, 6)
+            };
+            resetButton.Click += (s, args) =>
+            {
+                configService.ResetToDefaults();
+                var defaults = configService.Config;
+                titleBox.Text = defaults.HeaderTitle;
+                subtitleBox.Text = defaults.HeaderSubtitle;
+                footerBox.Text = defaults.FooterText;
+                dateFormatBox.Text = defaults.DateFormat;
+                showDateToggle.IsOn = defaults.ShowDate;
+                showPageNumToggle.IsOn = defaults.ShowPageNumbers;
+                showVehicleToggle.IsOn = defaults.ShowVehicleInfo;
+                showSummaryToggle.IsOn = defaults.ShowSummaryCards;
+                showWarningsToggle.IsOn = defaults.ShowWarnings;
+                showTipsToggle.IsOn = defaults.ShowProTips;
+                showDetailsToggle.IsOn = defaults.ShowOperationDetails;
+                showSubtotalsToggle.IsOn = defaults.ShowSectionSubtotals;
+                showConfidenceToggle.IsOn = defaults.ShowConfidenceLabels;
+            };
+            settingsPanel.Children.Add(resetButton);
+
+            var scrollViewer = new ScrollViewer
+            {
+                Content = settingsPanel,
+                MaxHeight = 500,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = "PDF Export Settings",
+                Content = scrollViewer,
+                PrimaryButtonText = "Save",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot,
+                RequestedTheme = ElementTheme.Dark
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                config.HeaderTitle = titleBox.Text;
+                config.HeaderSubtitle = subtitleBox.Text;
+                config.FooterText = footerBox.Text;
+                config.DateFormat = dateFormatBox.Text;
+                config.ShowDate = showDateToggle.IsOn;
+                config.ShowPageNumbers = showPageNumToggle.IsOn;
+                config.ShowVehicleInfo = showVehicleToggle.IsOn;
+                config.ShowSummaryCards = showSummaryToggle.IsOn;
+                config.ShowWarnings = showWarningsToggle.IsOn;
+                config.ShowProTips = showTipsToggle.IsOn;
+                config.ShowOperationDetails = showDetailsToggle.IsOn;
+                config.ShowSectionSubtotals = showSubtotalsToggle.IsOn;
+                config.ShowConfidenceLabels = showConfidenceToggle.IsOn;
+                configService.SaveConfig();
+                ShowMessage("PDF export settings saved.");
+            }
         }
 
         #endregion

@@ -42,6 +42,7 @@ namespace McStudDesktop.Services
             SeedDefaultMustHaves();
             DeduplicateMustHaves();
             MigrateExistingConfig();
+            SeedMustHaveGroups();
         }
 
         /// <summary>
@@ -430,6 +431,82 @@ namespace McStudDesktop.Services
 
         #endregion
 
+        #region Must-Have Groups
+
+        /// <summary>
+        /// Seed built-in must-have groups from canonical sections if none exist.
+        /// </summary>
+        private void SeedMustHaveGroups()
+        {
+            if (_config.MustHaveGroups.Count > 0) return;
+
+            var groups = new (string Name, string Color, int Order)[]
+            {
+                ("MISCELLANEOUS OPERATIONS", "#C8B464", 0),
+                ("VEHICLE DIAGNOSTICS",      "#50C8DC", 1),
+                ("ELECTRICAL",               "#64B4FF", 2),
+                ("WELDING OPERATIONS",       "#FF9664", 3),
+                ("MEASUREMENT",              "#C8B4FF", 4),
+                ("AC AND CLIMATE",           "#64DCDC", 5),
+                ("WHEEL AND TIRE",           "#64C896", 6),
+                ("SRS AND RESTRAINTS",       "#FF6464", 7),
+                ("BODY ON FRAME",            "#C89664", 8),
+                ("TOTAL LOSS",               "#DC6464", 9),
+                ("STOLEN RECOVERY",          "#9664C8", 10),
+            };
+
+            foreach (var (name, color, order) in groups)
+            {
+                _config.MustHaveGroups.Add(new MustHaveGroup
+                {
+                    Name = name,
+                    AccentColor = color,
+                    SortOrder = order,
+                    IsBuiltIn = true
+                });
+            }
+            SaveConfig();
+        }
+
+        public List<MustHaveGroup> GetMustHaveGroups() =>
+            _config.MustHaveGroups.OrderBy(g => g.SortOrder).ToList();
+
+        public void AddMustHaveGroup(MustHaveGroup group)
+        {
+            if (_config.MustHaveGroups.Count > 0)
+                group.SortOrder = _config.MustHaveGroups.Max(g => g.SortOrder) + 1;
+            _config.MustHaveGroups.Add(group);
+            SaveConfig();
+        }
+
+        public void UpdateMustHaveGroup(MustHaveGroup group)
+        {
+            var idx = _config.MustHaveGroups.FindIndex(g => g.Id == group.Id);
+            if (idx >= 0) _config.MustHaveGroups[idx] = group;
+            SaveConfig();
+        }
+
+        public void DeleteMustHaveGroup(string groupId)
+        {
+            // Unassign operations back to Section-based grouping
+            foreach (var mh in _config.MustHaves.Where(m => m.GroupId == groupId))
+                mh.GroupId = null;
+            _config.MustHaveGroups.RemoveAll(g => g.Id == groupId);
+            SaveConfig();
+        }
+
+        public void MoveOperationToGroup(string operationId, string? groupId)
+        {
+            var mh = _config.MustHaves.FirstOrDefault(m => m.Id == operationId);
+            if (mh != null)
+            {
+                mh.GroupId = groupId;
+                SaveConfig();
+            }
+        }
+
+        #endregion
+
         #region Must-Haves
 
         public List<MustHaveOperation> GetMustHaves() => _config.MustHaves;
@@ -676,6 +753,7 @@ namespace McStudDesktop.Services
         public List<GhostCustomOperation> CustomOperations { get; set; } = new();
         public List<MustHaveOperation> MustHaves { get; set; } = new();
         public List<MustHaveTemplate> MustHaveTemplates { get; set; } = new();
+        public List<MustHaveGroup> MustHaveGroups { get; set; } = new();
         public ScoringWeights ScoringWeights { get; set; } = new();
     }
 
@@ -738,8 +816,12 @@ namespace McStudDesktop.Services
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Description { get; set; } = "";
         public string Section { get; set; } = "";  // Electrical, Vehicle Diagnostics, Misc, Refinish
-        public string OpType { get; set; } = "Body";  // Body, Rfn, Mech, Sublet
+        public string? GroupId { get; set; }  // null = groups by Section (backward compat)
+        public string OpType { get; set; } = "Body";  // Body, Rfn, Mech, Sublet (legacy labor type)
         public string Category { get; set; } = "";  // Body Operations, Refinish Operations, Scanning, Calibration, Mechanical Operations
+        public string CccOperationType { get; set; } = "";  // Repl, Rpr, Refn, R&I, Sect, Algn, Subl, Blnd
+        public string BodyLaborCategory { get; set; } = "";  // Body, Mechanical, Frame, Structural, Diagnostic, Electrical, Glass, PDR, User Defined 1-4
+        public int Quantity { get; set; } = 1;
         public int MinCount { get; set; } = 1;
         public int PointDeduction { get; set; } = 5;
         public decimal ExpectedPrice { get; set; }
@@ -757,6 +839,20 @@ namespace McStudDesktop.Services
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = "";
         public List<string> Descriptions { get; set; } = new();  // Must-have descriptions included
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+    }
+
+    /// <summary>
+    /// A named group for organizing must-have operations in the UI.
+    /// Built-in groups correspond to canonical sections; custom groups are user-created.
+    /// </summary>
+    public class MustHaveGroup
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = "";
+        public string AccentColor { get; set; } = "#64B4FF";
+        public int SortOrder { get; set; }
+        public bool IsBuiltIn { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 

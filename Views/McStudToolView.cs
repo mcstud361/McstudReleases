@@ -444,6 +444,31 @@ namespace McStudDesktop.Views
             compactBtn.Click += (s, e) => (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.SnapCompact();
             snapStack.Children.Add(compactBtn);
 
+            // Pin/unpin (always on top) toggle button — reflect persisted state
+            var initialPinned = (McstudDesktop.App.MainWindow as McstudDesktop.MainWindow)?.IsAlwaysOnTop ?? true;
+            var pinIcon = new FontIcon { Glyph = initialPinned ? "\uE718" : "\uE77A", FontSize = 10 };
+            var pinBtn = new Button
+            {
+                Content = pinIcon,
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(4, 2, 4, 2),
+                MinWidth = 24, MinHeight = 24
+            };
+            ToolTipService.SetToolTip(pinBtn, initialPinned
+                ? "Pinned — always on top (click to unpin)"
+                : "Unpinned — normal window (click to pin)");
+            pinBtn.Click += (s, e) =>
+            {
+                var mainWin = McstudDesktop.App.MainWindow as McstudDesktop.MainWindow;
+                if (mainWin == null) return;
+                bool nowOnTop = mainWin.ToggleAlwaysOnTop();
+                pinIcon.Glyph = nowOnTop ? "\uE718" : "\uE77A"; // E718 = Pin filled, E77A = Pin outline
+                ToolTipService.SetToolTip(pinBtn, nowOnTop
+                    ? "Pinned — always on top (click to unpin)"
+                    : "Unpinned — normal window (click to pin)");
+            };
+            snapStack.Children.Add(pinBtn);
+
             Grid.SetColumn(snapStack, 9);
             _tabHeader.Children.Add(snapStack);
 

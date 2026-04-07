@@ -1152,6 +1152,37 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Fast direct-key lookup only (no fuzzy matching). For scrubber scoring where speed matters.
+        /// Returns operations only if there's an exact pattern match.
+        /// </summary>
+        public List<GeneratedOperation> GenerateOperationsFast(ParsedEstimateLine line)
+        {
+            if (string.IsNullOrEmpty(line.PartName)) return new List<GeneratedOperation>();
+
+            var directKey = $"{line.PartName.ToLowerInvariant()}|{line.OperationType?.ToLowerInvariant() ?? ""}";
+            if (!_database.Patterns.TryGetValue(directKey, out var pattern))
+                return new List<GeneratedOperation>();
+
+            var operations = new List<GeneratedOperation>();
+            foreach (var patternOp in pattern.Operations)
+            {
+                operations.Add(new GeneratedOperation
+                {
+                    OperationType = patternOp.OperationType,
+                    Description = patternOp.Description,
+                    Category = patternOp.Category,
+                    Confidence = pattern.Confidence,
+                    Source = $"Learned from {pattern.ExampleCount} examples",
+                    RepairHours = line.RepairHours > 0 ? line.RepairHours : patternOp.RepairHours,
+                    LaborHours = patternOp.LaborHours,
+                    RefinishHours = line.RefinishHours > 0 ? line.RefinishHours : patternOp.RefinishHours,
+                    Price = line.Price > 0 ? line.Price : patternOp.Price
+                });
+            }
+            return operations;
+        }
+
+        /// <summary>
         /// Generate operations for an estimate based on learned patterns
         /// </summary>
         public List<GeneratedOperation> GenerateOperations(ParsedEstimateLine line)

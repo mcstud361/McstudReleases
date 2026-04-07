@@ -62,6 +62,9 @@ namespace McStudDesktop.Views
         private TextBlock? _scrubStatusText;
         private Border? _scrubClientModeBanner;
 
+        // Scrubber right panel loading indicator
+        private StackPanel? _scrubLoadingPanel;
+
         // Scrubber-only: Quality Assessment UI
         private Border? _qualitySection;
         private TextBlock? _qualityScoreText;
@@ -632,8 +635,31 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(0, 0, 0, 4)
             });
 
-            BuildQualitySection();
-            rightStack.Children.Add(_qualitySection!);
+            // Loading indicator for scoring analysis
+            _scrubLoadingPanel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Spacing = 12,
+                Margin = new Thickness(0, 40, 0, 40),
+                Visibility = Visibility.Collapsed
+            };
+            _scrubLoadingPanel.Children.Add(new ProgressRing
+            {
+                IsActive = true,
+                Width = 40,
+                Height = 40,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 180, 100))
+            });
+            _scrubLoadingPanel.Children.Add(new TextBlock
+            {
+                Text = "Analyzing estimate...",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+            rightStack.Children.Add(_scrubLoadingPanel);
 
             _scoringPanel = new EstimateScoringPanel
             {
@@ -642,6 +668,9 @@ namespace McStudDesktop.Views
             };
             _scoringPanel.OnAddItems += ScoringPanel_OnAddItems;
             rightStack.Children.Add(_scoringPanel);
+
+            BuildQualitySection();
+            rightStack.Children.Add(_qualitySection!);
 
             _refMatchStatusText = new TextBlock
             {
@@ -1881,6 +1910,8 @@ namespace McStudDesktop.Views
                         foreach (var issue in result.Issues)
                             issue.Source ??= "Scoring";
                         _scoringPanel?.UpdateScore(result);
+                        if (_scoringPanel != null)
+                            _scoringPanel.Visibility = Visibility.Visible;
                     }
                 }
                 catch (Exception ex)
@@ -1902,9 +1933,17 @@ namespace McStudDesktop.Views
             {
                 var outputLines = new List<string>();
 
-                // Section A — Must-have / Scoring issues
+                // Separate blend items from scoring issues — blends are considerations, not misses
+                var blendIssues = result.Issues
+                    .Where(i => i.Category == IssueCategoryType.Blend ||
+                                (i.SuggestedFix?.OperationType == "Blend") ||
+                                (i.Title?.StartsWith("Blend ") == true))
+                    .ToList();
+                var blendTitles = new HashSet<string>(blendIssues.Select(i => i.Title ?? ""));
+
+                // Section A — Must-have / Scoring issues (excluding blends)
                 var scoringIssues = result.Issues
-                    .Where(i => i.Source == "Scoring" || i.Source == null)
+                    .Where(i => (i.Source == "Scoring" || i.Source == null) && !blendTitles.Contains(i.Title ?? ""))
                     .ToList();
                 if (scoringIssues.Count > 0)
                 {
@@ -1925,9 +1964,9 @@ namespace McStudDesktop.Views
                     outputLines.Add("");
                 }
 
-                // Section B — Smart / commonly missed
+                // Section B — Smart / commonly missed (excluding blends)
                 var smartIssues = result.Issues
-                    .Where(i => i.Source == "Smart")
+                    .Where(i => i.Source == "Smart" && !blendTitles.Contains(i.Title ?? ""))
                     .ToList();
                 if (smartIssues.Count > 0)
                 {
@@ -1939,6 +1978,20 @@ namespace McStudDesktop.Views
                             line += $" | Labor: {issue.SuggestedFix.LaborHours:F1}";
                         if (issue.SuggestedFix?.EstimatedCost > 0)
                             line += $" | ~${issue.SuggestedFix.EstimatedCost:N2}";
+                        if (!string.IsNullOrEmpty(issue.WhyNeeded))
+                            line += $" | {issue.WhyNeeded}";
+                        outputLines.Add(line);
+                    }
+                    outputLines.Add("");
+                }
+
+                // Section — Blend considerations (not scored, just awareness)
+                if (blendIssues.Count > 0)
+                {
+                    outputLines.Add($"\u2550\u2550\u2550 CONSIDER ({blendIssues.Count} items) \u2550\u2550\u2550");
+                    foreach (var issue in blendIssues)
+                    {
+                        var line = $"\u25cb {issue.Title}";
                         if (!string.IsNullOrEmpty(issue.WhyNeeded))
                             line += $" | {issue.WhyNeeded}";
                         outputLines.Add(line);
@@ -1992,6 +2045,7 @@ namespace McStudDesktop.Views
                 var parts = new List<string>();
                 if (scoringIssues.Count > 0) parts.Add($"{scoringIssues.Count} scoring");
                 if (smartIssues.Count > 0) parts.Add($"{smartIssues.Count} commonly missed");
+                if (blendIssues.Count > 0) parts.Add($"{blendIssues.Count} blend");
                 if (learnedIssues.Count > 0) parts.Add($"{learnedIssues.Count} learned");
                 if (pPageIssues.Count > 0) parts.Add($"{pPageIssues.Count} P-Page");
                 ShowStatus($"Scrubber: {totalSuggestions} items ({string.Join(", ", parts)}) — copied to clipboard!", isSuccess: true);
@@ -2584,7 +2638,11 @@ namespace McStudDesktop.Views
             headerRow.Children.Add(dismissBtn);
             _learningSummaryContent.Children.Add(headerRow);
 
-            // Estimate value
+            // Estimate value + stats
+            var manualCount = parsedLines.Count(p => p.IsManualLine);
+            var partCount = parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
+            var destination = _learningService.CanTrainStandard ? "standard knowledge" : "personal knowledge";
+
             _learningSummaryContent.Children.Add(new TextBlock
             {
                 Text = $"Estimate value: {estimateTotal:C0}",
@@ -2593,11 +2651,35 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(0, 4, 0, 0)
             });
 
+            // Explanation of what was learned
+            var explanation = $"Saved {partCount} part patterns and {manualCount} manual operations to {destination}. " +
+                "Next time you upload an estimate with similar parts, the scrubber will suggest these operations automatically.";
+            _learningSummaryContent.Children.Add(new TextBlock
+            {
+                Text = explanation,
+                FontSize = 11,
+                Foreground = new SolidColorBrush(dimText),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 4)
+            });
+
+            // Overall stats
+            var statsText = $"Total patterns in database: {stats.TotalPatterns} | " +
+                $"Estimates trained: {stats.TotalEstimatesTrained} | " +
+                $"Avg confidence: {stats.AverageConfidence:P0}";
+            _learningSummaryContent.Children.Add(new TextBlock
+            {
+                Text = statsText,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 140, 120)),
+                Margin = new Thickness(0, 0, 0, 6)
+            });
+
             // === PARTS LEARNED ===
             var partLines = parsedLines.Where(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName)).ToList();
             if (partLines.Count > 0)
             {
-                _learningSummaryContent.Children.Add(CreateSummarySubheader($"Parts Learned ({partLines.Count})"));
+                _learningSummaryContent.Children.Add(CreateSummarySubheader($"Parts Learned ({partLines.Count}) \u2014 will suggest these for similar parts"));
 
                 var partsGrid = new Grid { Margin = new Thickness(8, 0, 0, 0) };
                 partsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -2665,7 +2747,7 @@ namespace McStudDesktop.Views
             var manualLines = parsedLines.Where(p => p.IsManualLine).ToList();
             if (manualLines.Count > 0)
             {
-                _learningSummaryContent.Children.Add(CreateSummarySubheader($"Additional Operations Learned ({manualLines.Count})"));
+                _learningSummaryContent.Children.Add(CreateSummarySubheader($"Manual Operations Learned ({manualLines.Count}) \u2014 # lines auto-suggested next time"));
 
                 // Group manual lines by their parent part
                 ParsedEstimateLine? currentParent = null;
@@ -2828,6 +2910,7 @@ namespace McStudDesktop.Views
         {
             if (_parsedLines.Count == 0)
             {
+                _scrubLoadingPanel!.Visibility = Visibility.Collapsed;
                 _qualitySection!.Visibility = Visibility.Collapsed;
                 _scoringPanel!.Visibility = Visibility.Collapsed;
                 return;
@@ -2835,14 +2918,22 @@ namespace McStudDesktop.Views
 
             try
             {
+                // Show loading indicator
+                _scrubLoadingPanel!.Visibility = Visibility.Visible;
+                _qualitySection!.Visibility = Visibility.Collapsed;
+                _scoringPanel!.Visibility = Visibility.Collapsed;
+
                 // Snapshot the lines for background processing
                 var linesSnapshot = _parsedLines.ToList();
 
                 // Run heavy computation on background thread
                 var (qualityRecord, scoringResult, analysis) = await Task.Run(() =>
                 {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+
                     // Run quality assessment
                     var qr = _qualityService.AssessQuality(linesSnapshot);
+                    Console.Error.WriteLine($"[Perf] Quality: {sw.ElapsedMilliseconds}ms");
 
                     // Run estimate completeness scoring
                     EstimateScoringResult? sr = null;
@@ -2857,7 +2948,9 @@ namespace McStudDesktop.Views
                         if (vehicleLine != null)
                             vehicleInfo = vehicleLine.PartName;
 
+                        sw.Restart();
                         sr = _scoringService.ScoreEstimate(linesSnapshot, vehicleInfo);
+                        Console.Error.WriteLine($"[Perf] Scoring: {sw.ElapsedMilliseconds}ms");
                     }
                     catch (Exception ex)
                     {
@@ -2871,31 +2964,93 @@ namespace McStudDesktop.Views
                         foreach (var issue in sr.Issues)
                             issue.Source ??= "Scoring";
 
+                        sw.Restart();
                         sa = _analyzerService.AnalyzeEstimate(linesSnapshot);
+                        Console.Error.WriteLine($"[Perf] SmartAnalyzer: {sw.ElapsedMilliseconds}ms");
 
                         if (sa.Suggestions.Count > 0)
                         {
                             var smartIssues = EstimateScoringService.ConvertFromSuggestions(sa.Suggestions);
                             MergeIssuesWithDedup(sr, smartIssues);
-                            System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Merged {smartIssues.Count} smart suggestions into scoring panel");
                         }
 
-                        // Merge learned patterns into scoring
+                        // Merge learned patterns into scoring (fast path — direct key lookup only)
+                        sw.Restart();
+
+                        // Build text blob for synonym-aware dedup
+                        var estimateTextBlob = string.Join(" ", linesSnapshot.Select(l =>
+                            ((l.PartName ?? "") + " " + (l.Description ?? "")).ToLowerInvariant()));
+
+                        // Detect primary damage side from the estimate (which side has the most line items)
+                        var leftIndicators = new[] { "lt", "lh", "left" };
+                        var rightIndicators = new[] { "rt", "rh", "right" };
+                        int leftCount = 0, rightCount = 0;
+                        foreach (var l in linesSnapshot)
+                        {
+                            var pWords = (l.PartName?.ToLowerInvariant() ?? "")
+                                .Split(new[] { ' ', '-', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (pWords.Any(w => leftIndicators.Contains(w))) leftCount++;
+                            if (pWords.Any(w => rightIndicators.Contains(w))) rightCount++;
+                        }
+                        // Only filter sides if there's a clear bias (>= 2 items on one side, 2:1 ratio)
+                        string? primarySide = null;
+                        if (leftCount >= 2 && leftCount > rightCount * 2) primarySide = "left";
+                        else if (rightCount >= 2 && rightCount > leftCount * 2) primarySide = "right";
+
                         var learnedIssues = new List<ScoringIssue>();
                         foreach (var line in linesSnapshot.Where(l => !string.IsNullOrEmpty(l.PartName)))
                         {
-                            var ops = _learningService.GenerateOperations(line);
+                            var ops = _learningService.GenerateOperationsFast(line);
                             var manualPattern = _learningService.GetManualLinesForPart(line.PartName, line.OperationType);
                             if (ops.Count > 0 || manualPattern != null)
                             {
                                 var converted = EstimateScoringService.ConvertFromLearnedOperations(ops, manualPattern, line.PartName);
-                                learnedIssues.AddRange(converted);
+                                foreach (var issue in converted)
+                                {
+                                    var desc = issue.Title?.ToLowerInvariant() ?? "";
+                                    if (desc.Length < 3) continue;
+
+                                    // Fix 5: Wrong-side filter — skip learned items tagged for the opposite side
+                                    if (primarySide != null)
+                                    {
+                                        var descWords = desc.Split(new[] { ' ', '-', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                                        if (primarySide == "left" && descWords.Any(w => rightIndicators.Contains(w)))
+                                            continue;
+                                        if (primarySide == "right" && descWords.Any(w => leftIndicators.Contains(w)))
+                                            continue;
+                                    }
+
+                                    // Check if learned item is already on the estimate (per-line exact check)
+                                    bool found = linesSnapshot.Any(l =>
+                                    {
+                                        var combined = ((l.PartName ?? "") + " " + (l.Description ?? "")).ToLowerInvariant();
+                                        return combined.Contains(desc);
+                                    });
+
+                                    // Fix 6: Synonym-aware dedup — also check synonym equivalents
+                                    if (!found)
+                                    {
+                                        foreach (var synGroup in EstimateScoringService.SynonymGroups)
+                                        {
+                                            bool descMatchesSynonym = synGroup.Any(s => desc.Contains(s));
+                                            if (descMatchesSynonym && synGroup.Any(s => estimateTextBlob.Contains(s)))
+                                            {
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (!found)
+                                        learnedIssues.Add(issue);
+                                }
                             }
                         }
+                        Console.Error.WriteLine($"[Perf] LearnedPatterns: {sw.ElapsedMilliseconds}ms");
+
                         if (learnedIssues.Count > 0)
                         {
                             MergeIssuesWithDedup(sr, learnedIssues);
-                            System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Merged {learnedIssues.Count} learned patterns into scoring panel");
                         }
 
                         _scoringService.RecalculateScore(sr);
@@ -2904,7 +3059,8 @@ namespace McStudDesktop.Views
                     return (qr, sr, sa);
                 });
 
-                // Update UI on main thread
+                // Hide loading indicator, update UI on main thread
+                _scrubLoadingPanel!.Visibility = Visibility.Collapsed;
                 _currentQualityRecord = qualityRecord;
                 UpdateQualityPanel(qualityRecord);
 
@@ -2927,15 +3083,20 @@ namespace McStudDesktop.Views
             }
             catch (Exception ex)
             {
+                _scrubLoadingPanel!.Visibility = Visibility.Collapsed;
                 ShowStatusForContext($"Scrubber error: {ex.Message}", ParseContext.Scrubber, isError: true);
                 System.Diagnostics.Debug.WriteLine($"[SmartAnalysis] Error: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
         /// <summary>
-        /// Normalize a dedup key by stripping "Missing: " and "Need N more: " prefixes
-        /// so that the same underlying item doesn't appear multiple times.
+        /// Normalize a dedup key by stripping prefixes and extracting core words,
+        /// so that the same underlying item doesn't appear multiple times even with
+        /// slightly different wording.
         /// </summary>
+        private static readonly HashSet<string> _dedupStopWords = new()
+            { "and", "for", "the", "during", "with", "from", "all", "after", "before", "required" };
+
         private static string NormalizeDedupKey(string title)
         {
             var t = title.ToLowerInvariant().Trim();
@@ -2947,21 +3108,29 @@ namespace McStudDesktop.Views
                 if (colonIdx > 0 && colonIdx < t.Length - 1)
                     t = t.Substring(colonIdx + 1).TrimStart();
             }
-            return t;
+            // Extract sorted significant words for order-independent matching
+            var words = t.Split(new[] { ' ', '-', '/', '&', '(', ')', ',', '.' },
+                StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length >= 3 && !_dedupStopWords.Contains(w))
+                .OrderBy(w => w)
+                .ToArray();
+            return words.Length > 0 ? string.Join("|", words) : t;
         }
 
         /// <summary>
-        /// Merge smart-sourced issues into the scoring result, deduplicating by normalized title+category.
+        /// Merge smart-sourced issues into the scoring result, deduplicating by normalized title.
+        /// Category is ignored for dedup since different sources may categorize the same item differently.
         /// Scoring issues win on collision (they have full-weight point deductions).
         /// </summary>
         private static void MergeIssuesWithDedup(EstimateScoringResult result, List<ScoringIssue> smartIssues)
         {
+            // Use title-only dedup (ignore category) to catch cross-category duplicates
             var existingKeys = new HashSet<string>(
-                result.Issues.Select(i => $"{NormalizeDedupKey(i.Title)}|{i.Category}"));
+                result.Issues.Select(i => NormalizeDedupKey(i.Title)));
 
             foreach (var smart in smartIssues)
             {
-                var key = $"{NormalizeDedupKey(smart.Title)}|{smart.Category}";
+                var key = NormalizeDedupKey(smart.Title);
                 if (!existingKeys.Contains(key))
                 {
                     result.Issues.Add(smart);

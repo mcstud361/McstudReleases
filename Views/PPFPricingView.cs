@@ -450,7 +450,7 @@ public class PPFPricingView : UserControl
         if (_vehicleCombo?.SelectedItem is not ComboBoxItem item || item.Tag is not VehicleStyle style) return;
 
         _activeVehicleStyle = style;
-        var diagramType = GetDiagramType(style);
+        var diagramType = style.DiagramType;
 
         _panelPrices.Clear();
         _panelDisplayNames.Clear();
@@ -782,15 +782,6 @@ public class PPFPricingView : UserControl
         RebuildServiceToggles();
         RecalculateAllPrices();
     }
-
-    private static string GetDiagramType(VehicleStyle style) => style.Icon switch
-    {
-        "Truck" => "truck",
-        "Van" => "van",
-        "SUV" => "suv",
-        "SportsCar" => "coupe",
-        _ => style.Id?.Contains("coupe") == true ? "coupe" : "sedan"
-    };
 
     private void ShowNotification(string message, InfoBarSeverity severity)
     {

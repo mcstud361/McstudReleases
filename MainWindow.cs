@@ -30,6 +30,39 @@ public sealed class MainWindow : Window
     private Grid? _contentGrid;
     private bool _isAdminMode = false;
     private bool _isLearningMode = false;
+    private bool _isAlwaysOnTop = LoadPinState();
+
+    private static string PinStatePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "McStudDesktop", "PinState.txt");
+
+    private static bool LoadPinState()
+    {
+        try
+        {
+            if (File.Exists(PinStatePath))
+                return File.ReadAllText(PinStatePath).Trim().Equals("false", StringComparison.OrdinalIgnoreCase) ? false : true;
+        }
+        catch { }
+        return true; // Default: pinned
+    }
+
+    private void SavePinState()
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(PinStatePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            File.WriteAllText(PinStatePath, _isAlwaysOnTop ? "true" : "false");
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Whether the window is currently pinned (always on top).
+    /// </summary>
+    public bool IsAlwaysOnTop => _isAlwaysOnTop;
 
     public MainWindow()
     {
@@ -62,19 +95,21 @@ public sealed class MainWindow : Window
 
         appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
 
-        // Make window always on top so it stays visible when switching to CCC
+        // Apply persisted pin state (defaults to pinned/always-on-top)
         // Use BOTH WinUI 3 presenter AND Win32 API for reliable always-on-top behavior
         var presenter = appWindow.Presenter as OverlappedPresenter;
         if (presenter != null)
         {
-            presenter.IsAlwaysOnTop = true;
+            presenter.IsAlwaysOnTop = _isAlwaysOnTop;
         }
-        SetWindowAlwaysOnTop(hWnd);
+        if (_isAlwaysOnTop)
+            SetWindowAlwaysOnTop(hWnd);
 
-        // Reapply after activation to ensure it sticks
+        // Reapply after activation to ensure it sticks (only when pinned)
         this.Activated += (s, e) =>
         {
-            SetWindowAlwaysOnTop(hWnd);
+            if (_isAlwaysOnTop)
+                SetWindowAlwaysOnTop(hWnd);
         };
 
         // Create the main content grid with dark background
@@ -320,6 +355,39 @@ public sealed class MainWindow : Window
     }
 
     /// <summary>
+    /// Toggle always-on-top (pin/unpin). Returns the new state.
+    /// </summary>
+    public bool ToggleAlwaysOnTop()
+    {
+        _isAlwaysOnTop = !_isAlwaysOnTop;
+        ApplyAlwaysOnTop();
+        SavePinState();
+        return _isAlwaysOnTop;
+    }
+
+    /// <summary>
+    /// Apply the current always-on-top state to the window.
+    /// </summary>
+    private void ApplyAlwaysOnTop()
+    {
+        var hWnd = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+        var presenter = appWindow.Presenter as OverlappedPresenter;
+
+        if (_isAlwaysOnTop)
+        {
+            if (presenter != null) presenter.IsAlwaysOnTop = true;
+            SetWindowAlwaysOnTop(hWnd);
+        }
+        else
+        {
+            if (presenter != null) presenter.IsAlwaysOnTop = false;
+            SetWindowPos(hWnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+    }
+
+    /// <summary>
     /// Snap window to quarter screen (bottom-right corner).
     /// </summary>
     public void SnapQuarterScreen()
@@ -336,13 +404,7 @@ public sealed class MainWindow : Window
         int y = workArea.Y + workArea.Height - height;
 
         appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
-
-        var presenter = appWindow.Presenter as OverlappedPresenter;
-        if (presenter != null)
-        {
-            presenter.IsAlwaysOnTop = true;
-        }
-        SetWindowAlwaysOnTop(hWnd);
+        ApplyAlwaysOnTop();
     }
 
     /// <summary>
@@ -362,13 +424,7 @@ public sealed class MainWindow : Window
         int y = workArea.Y;
 
         appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
-
-        var presenter = appWindow.Presenter as OverlappedPresenter;
-        if (presenter != null)
-        {
-            presenter.IsAlwaysOnTop = true;
-        }
-        SetWindowAlwaysOnTop(hWnd);
+        ApplyAlwaysOnTop();
     }
 
     /// <summary>
@@ -388,13 +444,7 @@ public sealed class MainWindow : Window
         int y = workArea.Height - height - 60 + workArea.Y;
 
         appWindow.MoveAndResize(new Windows.Graphics.RectInt32(x, y, width, height));
-
-        var presenter = appWindow.Presenter as OverlappedPresenter;
-        if (presenter != null)
-        {
-            presenter.IsAlwaysOnTop = true;
-        }
-        SetWindowAlwaysOnTop(hWnd);
+        ApplyAlwaysOnTop();
     }
 
     /// <summary>

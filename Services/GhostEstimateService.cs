@@ -880,6 +880,10 @@ namespace McStudDesktop.Services
                         excelOp.Description.Contains("\U0001f3a8") ||
                         excelOp.Description.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase))
                         continue;
+                    // Skip Excel placeholder rows full of zeros from unfilled formula cells
+                    if (excelOp.Description.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Count(t => t == "0") >= 3)
+                        continue;
                     if (_excelProvider.IsOperationDisabled(excelOp.Description)) continue;
 
                     var normalizedKey = NormalizeOperationKey(excelOp.Description.ToLower(), excelOp.OperationType ?? "Body");
@@ -3051,6 +3055,46 @@ namespace McStudDesktop.Services
 
                     // Filter operations with part numbers (7+ digits = OEM part number)
                     if (Regex.IsMatch(descLower, @"\d{7,}"))
+                        return false;
+
+                    // Filter "Note:" lines — notes are not operations
+                    if (Regex.IsMatch(descLower, @"^note\s*:"))
+                        return false;
+
+                    // Filter vehicle description lines (engine displacement, body type codes)
+                    if (Regex.IsMatch(descLower, @"\d[.\-]\d\s*l\b"))
+                        return false;
+                    if (Regex.IsMatch(op.Description ?? "", @"\b[24]D\s+(SED|UTV|SUV|CPE|CNV|HBK|VAN|TRK|CUV|WAG)\b", RegexOptions.IgnoreCase))
+                        return false;
+
+                    // Filter product codes (3M 08308, etc.)
+                    if (Regex.IsMatch(op.Description ?? "", @"\b3M\s+\d{4,}", RegexOptions.IgnoreCase))
+                        return false;
+
+                    // Filter prose/sentence lines — real ops are short, not paragraphs
+                    var descWords = (op.Description ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (descWords.Length >= 8)
+                    {
+                        var funcWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            "the", "of", "and", "for", "or", "a", "an", "in", "to", "with",
+                            "is", "are", "by", "from", "at", "on", "as", "be", "has", "been",
+                            "this", "that", "these", "those", "may", "will", "shall", "any",
+                            "not", "your", "our", "their", "its", "who", "which", "such"
+                        };
+                        var funcCount = descWords.Count(w => funcWords.Contains(w.TrimEnd(',', '.', ';', ':')));
+                        if (funcCount >= 4)
+                            return false; // Prose, not an operation
+                    }
+
+                    // Filter legal boilerplate fragments that leaked into learned data
+                    if (descLower.Contains("actual repair") || descLower.Contains("insurance company") ||
+                        descLower.Contains("civil penalty") || descLower.Contains("false report") ||
+                        descLower.Contains("law agency") || descLower.Contains("motor vehicle to a") ||
+                        descLower.Contains("crash parts") || descLower.Contains("entitled to the return") ||
+                        descLower.Contains("authorize work") || descLower.Contains("pick up the vehicle") ||
+                        descLower.Contains("original equipment manufacturer") || descLower.Contains("u.s. distribution") ||
+                        descLower.Contains("repair plan is based") || descLower.Contains("sublet activities"))
                         return false;
 
                     // Filter truncated junk lines — raw RMC/estimate data that leaked through

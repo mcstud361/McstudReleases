@@ -30,6 +30,12 @@ namespace McStudDesktop.Services
         private readonly Dictionary<string, List<BlendRule>> _blendRules;
         private readonly Dictionary<string, List<string>> _operationChains;
 
+        // Pre-computed line index for current scoring run (avoids thousands of repeated ToLowerInvariant + regex calls)
+        private List<string> _idxPartsLower = new();
+        private List<string> _idxDescsLower = new();
+        private List<string> _idxOpsLower = new();
+        private string _idxAllText = "";  // all parts+descs concatenated for quick global search
+
         public EstimateScoringService()
         {
             _missedItemsData = LoadCommonlyMissedItems();
@@ -45,6 +51,35 @@ namespace McStudDesktop.Services
 
         // Cache compiled word-boundary regexes to avoid re-creating them in hot loops
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Regex> _wordBoundaryCache = new();
+
+        /// <summary>
+        /// Synonym groups: if the scoring checks for any of these items, it should also
+        /// accept any of the other items in the same group as a match.
+        /// Exposed publicly for synonym-aware dedup in learned pattern filtering.
+        /// </summary>
+        public static string[][] SynonymGroups => _synonymGroups;
+        private static readonly string[][] _synonymGroups = new[]
+        {
+            new[] { "corrosion protection", "cavity wax", "anti-corrosion", "rust protection", "corrosion resist", "e-coat", "ecoat" },
+            new[] { "battery disconnect", "disconnect battery", "disconnect and reconnect battery", "d&r battery" },
+            new[] { "seam sealer", "seam seal", "sealer application" },
+            new[] { "weld-thru primer", "weld thru primer", "weld through primer", "welding primer" },
+            new[] { "adhesion promoter", "ad pro", "adpro" },
+            new[] { "flex additive", "flex add", "flexitive" },
+            new[] { "pre-repair scan", "pre scan", "pre-scan", "prescan" },
+            new[] { "post-repair scan", "post scan", "post-scan", "postscan", "post repair scan" },
+            new[] { "clean for delivery", "final clean", "detail clean", "clean delivery" },
+            new[] { "hazardous waste", "haz waste", "hazmat disposal", "waste disposal" },
+            new[] { "srs", "airbag", "air bag", "supplemental restraint", "restraint system" },
+            new[] { "seatbelt", "seat belt", "safety belt" },
+            new[] { "disable and enable srs", "srs disable", "disable srs", "air bag system diagnosis" },
+            new[] { "cover car", "cover vehicle", "mask and protect", "cover for overspray", "cover interior" },
+            new[] { "tire pressure", "tpms", "tire monitor" },
+            new[] { "customer belongings", "personal items", "remove belongings" },
+            new[] { "restraint control module", "rcm program", "seat weight sensor", "srs module" },
+            new[] { "torque wheels", "torque lug nuts", "spec torque", "torque to spec", "torque wheel", "torque wheels to spec" },
+            new[] { "dynamic systems verification", "collision diagnosis", "post repair verification", "systems verification" },
+        };
 
         /// <summary>
         /// Word-boundary-aware keyword match.
@@ -82,6 +117,98 @@ namespace McStudDesktop.Services
             return _vehicleInfoPattern.IsMatch(text);
         }
 
+        /// <summary>
+        /// Build a pre-computed index of all line text (lowercase) for the current scoring run.
+        /// Called once at the start of ScoreEstimate — all check methods use the index instead of
+        /// repeatedly calling ToLowerInvariant() and scanning all lines.
+        /// </summary>
+        private void BuildLineIndex(List<ParsedEstimateLine> lines)
+        {
+            _idxPartsLower = new List<string>(lines.Count);
+            _idxDescsLower = new List<string>(lines.Count);
+            _idxOpsLower = new List<string>(lines.Count);
+            var sb = new System.Text.StringBuilder(lines.Count * 80);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var p = lines[i].PartName?.ToLowerInvariant() ?? "";
+                var d = lines[i].Description?.ToLowerInvariant() ?? "";
+                var o = lines[i].OperationType?.ToLowerInvariant() ?? "";
+                _idxPartsLower.Add(p);
+                _idxDescsLower.Add(d);
+                _idxOpsLower.Add(o);
+                sb.Append(p).Append(' ').Append(d).Append(' ');
+            }
+            _idxAllText = sb.ToString();
+        }
+
+        /// <summary>
+        /// Fast check: is this keyword present anywhere in the estimate?
+        /// Uses the pre-computed concatenated text instead of scanning all lines with regex.
+        /// </summary>
+        private bool IsItemInEstimate(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            var kw = keyword.ToLowerInvariant();
+
+            // Quick pre-check: if substring is present, confirm with regex
+            if (_idxAllText.Contains(kw))
+            {
+                if (kw.Length < 3)
+                {
+                    var tokens = _idxAllText.Split(new[] { ' ', ',', ';', '/', '-', '(', ')', '&', '.', '\t' },
+                        StringSplitOptions.RemoveEmptyEntries);
+                    if (tokens.Any(t => t == kw)) return true;
+                }
+                else
+                {
+                    var regex = _wordBoundaryCache.GetOrAdd(kw, k =>
+                        new Regex(@"\b" + Regex.Escape(k) + @"\b", RegexOptions.Compiled));
+                    if (regex.IsMatch(_idxAllText)) return true;
+                }
+            }
+
+            // Check synonyms: if the keyword is part of a synonym group,
+            // check if any alternative appears as a coherent phrase on a single line
+            // (NOT against concatenated text — that causes false matches across unrelated lines)
+            foreach (var group in _synonymGroups)
+            {
+                bool keywordInGroup = false;
+                for (int i = 0; i < group.Length; i++)
+                {
+                    if (kw.Contains(group[i]) || group[i].Contains(kw))
+                    { keywordInGroup = true; break; }
+                }
+                if (keywordInGroup)
+                {
+                    for (int i = 0; i < group.Length; i++)
+                    {
+                        var alt = group[i];
+                        for (int j = 0; j < _idxPartsLower.Count; j++)
+                        {
+                            if (_idxPartsLower[j].Contains(alt) || _idxDescsLower[j].Contains(alt))
+                                return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Check if any line's part name or description contains the given substring (pre-lowered).
+        /// Uses indexed lowercase text.
+        /// </summary>
+        private bool AnyLineContains(string substringLower)
+        {
+            for (int i = 0; i < _idxPartsLower.Count; i++)
+            {
+                if (_idxPartsLower[i].Contains(substringLower) || _idxDescsLower[i].Contains(substringLower))
+                    return true;
+            }
+            return false;
+        }
+
         #endregion
 
         #region Main Scoring Method
@@ -110,6 +237,9 @@ namespace McStudDesktop.Services
             lines = lines.Where(l =>
                 !IsVehicleInfoLine(l.PartName ?? "") || !string.IsNullOrEmpty(l.OperationType))
                 .ToList();
+
+            // Pre-compute lowercase index for all lines (avoids thousands of repeated ToLowerInvariant calls)
+            BuildLineIndex(lines);
 
             var result = new EstimateScoringResult
             {
@@ -169,10 +299,14 @@ namespace McStudDesktop.Services
         {
             if (_missedItemsData?.OperationChecks == null) return;
 
-            foreach (var line in lines.Where(l => !l.IsManualLine && !string.IsNullOrEmpty(l.PartName)))
+            var issueTitles = new HashSet<string>();
+
+            for (int li = 0; li < lines.Count; li++)
             {
-                var partLower = line.PartName.ToLowerInvariant();
-                var opLower = line.OperationType?.ToLowerInvariant() ?? "";
+                if (lines[li].IsManualLine || string.IsNullOrEmpty(lines[li].PartName)) continue;
+
+                var partLower = _idxPartsLower[li];
+                var opLower = _idxOpsLower[li];
 
                 foreach (var check in _missedItemsData.OperationChecks)
                 {
@@ -191,38 +325,31 @@ namespace McStudDesktop.Services
                     {
                         foreach (var missedItem in checkData.MissedItems)
                         {
-                            // Check if this item is already in the estimate (word-boundary match)
-                            bool isPresent = lines.Any(l =>
-                                IsWordMatch(l.PartName ?? "", missedItem.Item) ||
-                                IsWordMatch(l.Description ?? "", missedItem.Item));
+                            if (issueTitles.Contains(missedItem.Item)) continue;
 
-                            if (!isPresent)
+                            // Use pre-computed index instead of scanning all lines
+                            if (!IsItemInEstimate(missedItem.Item))
                             {
-                                var issue = new ScoringIssue
+                                issueTitles.Add(missedItem.Item);
+                                result.Issues.Add(new ScoringIssue
                                 {
                                     Category = GetIssueCategory(missedItem.Category ?? "Other"),
                                     Severity = GetSeverity(missedItem.Priority ?? "medium"),
                                     Title = missedItem.Item,
                                     Description = missedItem.Description ?? "",
                                     WhyNeeded = missedItem.WhyNeeded ?? "",
-                                    TriggeredBy = line.PartName,
+                                    TriggeredBy = lines[li].PartName,
                                     SuggestedFix = new SuggestedFix
                                     {
                                         OperationType = GetOperationType(missedItem.Category ?? "Labor"),
                                         Description = missedItem.Item,
                                         LaborHours = missedItem.LaborHours,
                                         EstimatedCost = missedItem.TypicalCost,
-                                        DegReference = missedItem.DegReference
+                                        DegReference = missedItem.DegReference,
+                                        LaborCategory = MapLaborCategory(missedItem.Category)
                                     },
                                     PointDeduction = GetPointDeduction(missedItem.Priority ?? "medium")
-                                };
-
-                                // Avoid duplicates (title-only dedup - prevents synonym panels
-                                // like "Quarter Panel" and "L Quarter" from both triggering the same issue)
-                                if (!result.Issues.Any(i => i.Title == issue.Title))
-                                {
-                                    result.Issues.Add(issue);
-                                }
+                                });
                             }
                         }
                     }
@@ -236,16 +363,18 @@ namespace McStudDesktop.Services
 
         private void CheckBlendOperations(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
-            var refinishPanels = lines.Where(l =>
-                !l.IsManualLine &&
-                (l.OperationType?.ToLowerInvariant().Contains("repl") == true ||
-                 l.OperationType?.ToLowerInvariant().Contains("rfn") == true ||
-                 l.OperationType?.ToLowerInvariant().Contains("refinish") == true ||
-                 l.RefinishHours > 0)).ToList();
-
-            foreach (var panel in refinishPanels)
+            var refinishPanels = new List<int>();
+            for (int i = 0; i < lines.Count; i++)
             {
-                var partLower = panel.PartName?.ToLowerInvariant() ?? "";
+                if (!lines[i].IsManualLine &&
+                    (_idxOpsLower[i].Contains("repl") || _idxOpsLower[i].Contains("rfn") ||
+                     _idxOpsLower[i].Contains("refinish") || lines[i].RefinishHours > 0))
+                    refinishPanels.Add(i);
+            }
+
+            foreach (var li in refinishPanels)
+            {
+                var partLower = _idxPartsLower[li];
 
                 foreach (var rule in _blendRules)
                 {
@@ -253,29 +382,35 @@ namespace McStudDesktop.Services
                     {
                         foreach (var blendRule in rule.Value)
                         {
-                            // Check if blend panel is already in estimate
-                            bool hasBlend = lines.Any(l =>
-                                l.PartName?.ToLowerInvariant().Contains(blendRule.AdjacentPanel.ToLowerInvariant()) == true &&
-                                (l.OperationType?.ToLowerInvariant().Contains("blend") == true ||
-                                 l.Description?.ToLowerInvariant().Contains("blend") == true));
+                            // Check if blend panel is already in estimate using index
+                            var adjLower = blendRule.AdjacentPanel.ToLowerInvariant();
+                            bool hasBlend = false;
+                            for (int j = 0; j < lines.Count; j++)
+                            {
+                                if (_idxPartsLower[j].Contains(adjLower) &&
+                                    (_idxOpsLower[j].Contains("blend") || _idxOpsLower[j].Contains("blnd") ||
+                                     _idxDescsLower[j].Contains("blend") || _idxDescsLower[j].Contains("blnd")))
+                                { hasBlend = true; break; }
+                            }
 
                             if (!hasBlend)
                             {
                                 var issue = new ScoringIssue
                                 {
                                     Category = IssueCategoryType.Blend,
-                                    Severity = blendRule.IsRequired ? IssueSeverity.High : IssueSeverity.Medium,
+                                    Severity = IssueSeverity.Low, // Blends are considerations, not misses
                                     Title = $"Blend {blendRule.AdjacentPanel}",
                                     Description = $"Adjacent panel blend for color match",
-                                    WhyNeeded = $"New paint on {panel.PartName} won't match aged paint on {blendRule.AdjacentPanel}",
-                                    TriggeredBy = panel.PartName ?? "",
+                                    WhyNeeded = $"New paint on {lines[li].PartName} won't match aged paint on {blendRule.AdjacentPanel}",
+                                    TriggeredBy = lines[li].PartName ?? "",
                                     SuggestedFix = new SuggestedFix
                                     {
                                         OperationType = "Blend",
                                         Description = $"Blend {blendRule.AdjacentPanel}",
-                                        LaborHours = blendRule.TypicalHours
+                                        LaborHours = 0m, // Actual time comes from estimating system
+                                        LaborCategory = "Paint"
                                     },
-                                    PointDeduction = blendRule.IsRequired ? 5 : 3
+                                    PointDeduction = 0 // Don't penalize — blend is a consideration
                                 };
 
                                 if (!result.Issues.Any(i => i.Title == issue.Title))
@@ -298,29 +433,28 @@ namespace McStudDesktop.Services
             var existingTitles = new HashSet<string>(
                 result.Issues.Select(i => i.Title.ToLowerInvariant()));
 
-            foreach (var line in lines.Where(l => !l.IsManualLine && !string.IsNullOrEmpty(l.PartName)))
+            for (int li = 0; li < lines.Count; li++)
             {
-                var opType = line.OperationType ?? "";
+                if (lines[li].IsManualLine || string.IsNullOrEmpty(lines[li].PartName)) continue;
+
+                var opType = lines[li].OperationType ?? "";
+                var opLower = _idxOpsLower[li];
 
                 // Skip lines that don't involve paint or structural work
-                bool involvesPaint = OperationRulesEngine.Instance.InvolvesPaint(opType) || line.RefinishHours > 0;
-                bool isReplace = opType.ToLowerInvariant().Contains("repl") ||
-                                 opType.ToLowerInvariant().Contains("r&r") ||
-                                 opType.ToLowerInvariant().Contains("section");
+                bool involvesPaint = OperationRulesEngine.Instance.InvolvesPaint(opType) || lines[li].RefinishHours > 0;
+                bool isReplace = opLower.Contains("repl") || opLower.Contains("r&r") || opLower.Contains("section");
                 if (!involvesPaint && !isReplace) continue;
 
-                var suggestions = OperationRulesEngine.Instance.GetSuggestedOperations(line.PartName!, opType);
+                var suggestions = OperationRulesEngine.Instance.GetSuggestedOperations(lines[li].PartName!, opType);
 
                 foreach (var suggestion in suggestions)
                 {
                     // Skip if already flagged
                     if (existingTitles.Contains(suggestion.Name.ToLowerInvariant())) continue;
 
-                    // Check if the operation already exists in the estimate
+                    // Use pre-computed index for presence check
                     var nameLower = suggestion.Name.ToLowerInvariant();
-                    bool isPresent = lines.Any(l =>
-                        l.PartName?.ToLowerInvariant().Contains(nameLower) == true ||
-                        l.Description?.ToLowerInvariant().Contains(nameLower) == true);
+                    bool isPresent = AnyLineContains(nameLower);
 
                     if (isPresent) continue;
 
@@ -344,13 +478,14 @@ namespace McStudDesktop.Services
                         Title = suggestion.Name,
                         Description = suggestion.Description,
                         WhyNeeded = suggestion.WhyNeeded,
-                        TriggeredBy = line.PartName ?? "",
+                        TriggeredBy = lines[li].PartName ?? "",
                         SuggestedFix = new SuggestedFix
                         {
                             Description = suggestion.Description,
                             LaborHours = suggestion.DefaultHours,
                             OperationType = suggestion.OperationType,
-                            DegReference = degRef
+                            DegReference = degRef,
+                            LaborCategory = suggestion.DefaultHours > 0 ? "Paint" : "Parts"
                         },
                         PointDeduction = GetPointDeduction(severity == IssueSeverity.Critical ? "critical" : "high")
                     };
@@ -372,10 +507,12 @@ namespace McStudDesktop.Services
             var dedupKeys = new HashSet<string>(
                 result.Issues.Select(i => $"{i.Title.ToLowerInvariant()}|{i.Category}"));
 
-            foreach (var line in lines.Where(l => !l.IsManualLine && !string.IsNullOrEmpty(l.PartName)))
+            for (int li = 0; li < lines.Count; li++)
             {
-                var partLower = line.PartName.ToLowerInvariant();
-                var opLower = line.OperationType?.ToLowerInvariant() ?? "";
+                if (lines[li].IsManualLine || string.IsNullOrEmpty(lines[li].PartName)) continue;
+
+                var partLower = _idxPartsLower[li];
+                var opLower = _idxOpsLower[li];
 
                 foreach (var pPageOp in _pPageData.Operations)
                 {
@@ -405,10 +542,8 @@ namespace McStudDesktop.Services
                         if (parenIdx > 0)
                             operationName = notIncludedText.Substring(0, parenIdx).Trim();
 
-                        // Search all estimate lines for this operation (word-boundary match)
-                        bool isPresent = lines.Any(l =>
-                            IsWordMatch(l.PartName ?? "", operationName) ||
-                            IsWordMatch(l.Description ?? "", operationName));
+                        // Use pre-computed index instead of scanning all lines
+                        bool isPresent = IsItemInEstimate(operationName);
 
                         if (isPresent) continue;
 
@@ -443,8 +578,8 @@ namespace McStudDesktop.Services
                             Title = operationName,
                             Description = notIncludedText,
                             WhyNeeded = !string.IsNullOrEmpty(sourceCitation) ? $"Per {sourceCitation}" : "",
-                            TriggeredBy = line.PartName ?? "",
-                            SourceDetail = line.PartName ?? "",
+                            TriggeredBy = lines[li].PartName ?? "",
+                            SourceDetail = lines[li].PartName ?? "",
                             SuggestedFix = suggestedFix
                         });
                     }
@@ -458,125 +593,95 @@ namespace McStudDesktop.Services
 
         private void CheckRIOperations(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
-            // Check bumper work for R&I items — split front vs rear
-            var bumperWork = lines.Where(l =>
-                !l.IsManualLine &&
-                (l.PartName?.ToLowerInvariant().Contains("bumper") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("fascia") == true)).ToList();
+            // Collect bumper/door/quarter/hood/fender work using index
+            string? frontBumperTrigger = null, rearBumperTrigger = null, doorTrigger = null;
+            string? quarterTrigger = null, hoodTrigger = null, fenderTrigger = null;
 
-            if (bumperWork.Count > 0)
+            for (int i = 0; i < lines.Count; i++)
             {
-                var frontBumperWork = bumperWork.Where(l =>
-                {
-                    var name = l.PartName?.ToLowerInvariant() ?? "";
-                    return name.Contains("front") || name.Contains("frt") ||
-                           (!name.Contains("rear") && !name.Contains("rr ") && !name.Contains("r bumper") && !name.Contains("r fascia"));
-                }).ToList();
+                if (lines[i].IsManualLine) continue;
+                var p = _idxPartsLower[i];
 
-                var rearBumperWork = bumperWork.Where(l =>
+                if (p.Contains("bumper") || p.Contains("fascia"))
                 {
-                    var name = l.PartName?.ToLowerInvariant() ?? "";
-                    return name.Contains("rear") || name.Contains("rr ") || name.Contains("r bumper") || name.Contains("r fascia");
-                }).ToList();
-
-                if (frontBumperWork.Count > 0)
-                {
-                    var trigger = frontBumperWork.First().PartName ?? "Front Bumper";
-                    CheckForMissingRI(lines, result, trigger, new[] {
-                        ("R&I Fog Lamps", 0.3m, new[] { "fog" }),
-                        ("R&I Parking Sensors", 0.2m, new[] { "sensor", "park" }),
-                        ("R&I Front Camera", 0.3m, new[] { "camera", "front camera" })
-                    });
+                    if (p.Contains("rear") || p.Contains("rr ") || p.Contains("r bumper") || p.Contains("r fascia"))
+                        rearBumperTrigger ??= lines[i].PartName ?? "Rear Bumper";
+                    else
+                        frontBumperTrigger ??= lines[i].PartName ?? "Front Bumper";
                 }
-
-                if (rearBumperWork.Count > 0)
-                {
-                    var trigger = rearBumperWork.First().PartName ?? "Rear Bumper";
-                    CheckForMissingRI(lines, result, trigger, new[] {
-                        ("R&I Parking Sensors", 0.2m, new[] { "sensor", "park" }),
-                        ("R&I Rear Camera", 0.3m, new[] { "camera", "rear camera", "backup camera" })
-                    });
-                }
+                if ((p.Contains("door") && !p.Contains("fuel")) && doorTrigger == null)
+                    doorTrigger = lines[i].PartName ?? "Door";
+                if ((p.Contains("quarter") || p.Contains("qtr")) && quarterTrigger == null)
+                    quarterTrigger = lines[i].PartName ?? "Quarter Panel";
+                if (p.Contains("hood") && hoodTrigger == null)
+                    hoodTrigger = "Hood";
+                if (p.Contains("fender") && fenderTrigger == null)
+                    fenderTrigger = lines[i].PartName ?? "Fender";
             }
 
-            // Check door work for R&I items
-            var doorWork = lines.Where(l =>
-                !l.IsManualLine &&
-                l.PartName?.ToLowerInvariant().Contains("door") == true &&
-                !l.PartName.ToLowerInvariant().Contains("fuel")).ToList();
-
-            if (doorWork.Count > 0)
-            {
-                var trigger = doorWork.First().PartName ?? "Door";
-                CheckForMissingRI(lines, result, trigger, new[] {
+            if (frontBumperTrigger != null)
+                CheckForMissingRI(result, frontBumperTrigger, new[] {
+                    ("R&I Fog Lamps", 0.3m, new[] { "fog" }),
+                    ("R&I Parking Sensors", 0.2m, new[] { "sensor", "park" }),
+                    ("R&I Front Camera", 0.3m, new[] { "camera", "front camera" })
+                });
+            if (rearBumperTrigger != null)
+                CheckForMissingRI(result, rearBumperTrigger, new[] {
+                    ("R&I Parking Sensors", 0.2m, new[] { "sensor", "park" }),
+                    ("R&I Rear Camera", 0.3m, new[] { "camera", "rear camera", "backup camera" })
+                });
+            if (doorTrigger != null)
+                CheckForMissingRI(result, doorTrigger, new[] {
                     ("R&I Mirror", 0.3m, new[] { "mirror" }),
                     ("R&I Door Handle", 0.3m, new[] { "handle" }),
                     ("R&I Door Trim Panel", 0.3m, new[] { "trim", "molding" })
                 });
-            }
-
-            // Check quarter panel for R&I items
-            var quarterWork = lines.Where(l =>
-                !l.IsManualLine &&
-                (l.PartName?.ToLowerInvariant().Contains("quarter") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("qtr") == true)).ToList();
-
-            if (quarterWork.Count > 0)
-            {
-                var trigger = quarterWork.First().PartName ?? "Quarter Panel";
-                CheckForMissingRI(lines, result, trigger, new[] {
+            if (quarterTrigger != null)
+                CheckForMissingRI(result, quarterTrigger, new[] {
                     ("R&I Tail Light", 0.3m, new[] { "tail" }),
                     ("R&I Fuel Door", 0.2m, new[] { "fuel door", "fuel" }),
                     ("R&I Quarter Moldings", 0.2m, new[] { "molding", "moulding" })
                 });
-            }
-
-            // Check hood for R&I items
-            var hoodWork = lines.Where(l =>
-                !l.IsManualLine &&
-                l.PartName?.ToLowerInvariant().Contains("hood") == true).ToList();
-
-            if (hoodWork.Count > 0)
-            {
-                CheckForMissingRI(lines, result, "Hood", new[] {
+            if (hoodTrigger != null)
+                CheckForMissingRI(result, hoodTrigger, new[] {
                     ("R&I Hood Insulator", 0.3m, new[] { "insulator", "insulation" }),
                     ("R&I Hood Struts", 0.2m, new[] { "strut" })
                 });
-            }
-
-            // Check fender for R&I items
-            var fenderWork = lines.Where(l =>
-                !l.IsManualLine &&
-                l.PartName?.ToLowerInvariant().Contains("fender") == true).ToList();
-
-            if (fenderWork.Count > 0)
-            {
-                var trigger = fenderWork.First().PartName ?? "Fender";
-                CheckForMissingRI(lines, result, trigger, new[] {
+            if (fenderTrigger != null)
+                CheckForMissingRI(result, fenderTrigger, new[] {
                     ("R&I Fender Liner", 0.3m, new[] { "liner", "splash" }),
                     ("R&I Tire/Wheel", 0.2m, new[] { "wheel", "tire" })
                 });
-            }
         }
 
-        private void CheckForMissingRI(List<ParsedEstimateLine> lines, EstimateScoringResult result,
+        private void CheckForMissingRI(EstimateScoringResult result,
             string triggeredBy, (string Name, decimal Hours, string[] Keywords)[] riItems)
         {
             foreach (var item in riItems)
             {
                 // Only suggest R&I if the component is actually referenced in the estimate
-                bool componentMentioned = lines.Any(l =>
-                    item.Keywords.Any(k =>
-                        l.Description?.ToLowerInvariant().Contains(k) == true ||
-                        l.PartName?.ToLowerInvariant().Contains(k) == true));
+                bool componentMentioned = item.Keywords.Any(k => AnyLineContains(k));
 
                 if (!componentMentioned) continue;
 
                 // Check if the R&I itself is already on the estimate
-                var itemLower = item.Name.ToLowerInvariant();
-                bool hasRI = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains(itemLower) == true ||
-                    l.PartName?.ToLowerInvariant().Contains(itemLower) == true);
+                // Use keyword-based matching: look for any line with R&I/R&R/Repl/Incl operation
+                // that also contains one of the component keywords
+                bool hasRI = false;
+                for (int i = 0; i < _idxPartsLower.Count; i++)
+                {
+                    var combined = _idxPartsLower[i] + " " + _idxDescsLower[i];
+                    bool isRiOrReplOp = _idxOpsLower[i].Contains("r&i") || _idxOpsLower[i].Contains("r&r") ||
+                                  _idxOpsLower[i].Contains("repl") || _idxOpsLower[i].Contains("rpr") ||
+                                  combined.Contains("r&i") || combined.Contains("r&r") ||
+                                  combined.Contains("remove") || combined.Contains("aim") ||
+                                  _idxOpsLower[i] == "incl.";
+                    if (isRiOrReplOp && item.Keywords.Any(k => combined.Contains(k)))
+                    { hasRI = true; break; }
+                }
+                // Also check via the full substring as fallback
+                if (!hasRI)
+                    hasRI = AnyLineContains(item.Name.ToLowerInvariant());
 
                 if (!hasRI)
                 {
@@ -595,7 +700,8 @@ namespace McStudDesktop.Services
                             {
                                 OperationType = "R&I",
                                 Description = item.Name,
-                                LaborHours = item.Hours
+                                LaborHours = item.Hours,
+                                LaborCategory = "Body"
                             },
                             PointDeduction = 2
                         });
@@ -610,43 +716,27 @@ namespace McStudDesktop.Services
 
         private void CheckDiagnosticScans(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
-            // Any body panel work should have pre/post scans per OEM position statements
+            // Use pre-computed index for all checks
             bool needsScans = result.EstimateTotal > 2500 ||
-                lines.Any(l =>
-                    l.PartName?.ToLowerInvariant().Contains("bumper") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("fender") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("hood") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("door") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("quarter") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("roof") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("windshield") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("frame") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("rail") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("strut tower") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("structural") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("airbag") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("srs") == true);
+                _idxPartsLower.Any(p =>
+                    p.Contains("bumper") || p.Contains("fender") || p.Contains("hood") ||
+                    p.Contains("door") || p.Contains("quarter") || p.Contains("roof") ||
+                    p.Contains("windshield") || p.Contains("frame") || p.Contains("rail") ||
+                    p.Contains("strut tower") || p.Contains("structural") ||
+                    p.Contains("airbag") || p.Contains("srs"));
 
             if (needsScans)
             {
-                // Check both Description AND PartName — CCC estimates often put scan text in PartName
-                bool hasPreScan = lines.Any(l =>
+                bool hasPreScan = false, hasPostScan = false;
+                for (int i = 0; i < lines.Count; i++)
                 {
-                    var desc = l.Description?.ToLowerInvariant() ?? "";
-                    var part = l.PartName?.ToLowerInvariant() ?? "";
-                    var combined = $"{desc} {part}";
-                    return (combined.Contains("pre") || combined.Contains("before")) &&
-                           combined.Contains("scan");
-                });
-
-                bool hasPostScan = lines.Any(l =>
-                {
-                    var desc = l.Description?.ToLowerInvariant() ?? "";
-                    var part = l.PartName?.ToLowerInvariant() ?? "";
-                    var combined = $"{desc} {part}";
-                    return (combined.Contains("post") || combined.Contains("after")) &&
-                           combined.Contains("scan");
-                });
+                    var combined = _idxDescsLower[i] + " " + _idxPartsLower[i];
+                    if (!hasPreScan && (combined.Contains("pre") || combined.Contains("before")) && combined.Contains("scan"))
+                        hasPreScan = true;
+                    if (!hasPostScan && (combined.Contains("post") || combined.Contains("after")) && combined.Contains("scan"))
+                        hasPostScan = true;
+                    if (hasPreScan && hasPostScan) break;
+                }
 
                 // Also check for generic scan operations
                 bool hasAnyScan = lines.Any(l =>
@@ -671,7 +761,8 @@ namespace McStudDesktop.Services
                         {
                             OperationType = "Add",
                             Description = "Pre-Repair Diagnostic Scan",
-                            LaborHours = 0.5m
+                            LaborHours = 0.5m,
+                            LaborCategory = "Mech"
                         },
                         PointDeduction = 8
                     });
@@ -691,7 +782,8 @@ namespace McStudDesktop.Services
                         {
                             OperationType = "Add",
                             Description = "Post-Repair Diagnostic Scan",
-                            LaborHours = 0.5m
+                            LaborHours = 0.5m,
+                            LaborCategory = "Mech"
                         },
                         PointDeduction = 8
                     });
@@ -705,17 +797,12 @@ namespace McStudDesktop.Services
 
         private void CheckADASCalibrations(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
-            // Check windshield work
-            bool hasWindshield = lines.Any(l =>
-                l.PartName?.ToLowerInvariant().Contains("windshield") == true ||
-                l.PartName?.ToLowerInvariant().Contains("w/s") == true);
+            // Use pre-computed index
+            bool hasWindshield = _idxPartsLower.Any(p => p.Contains("windshield") || p.Contains("w/s"));
 
             if (hasWindshield)
             {
-                bool hasCalibration = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("calibrat") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("calibrat") == true ||
-                    l.Description?.ToLowerInvariant().Contains("adas") == true);
+                bool hasCalibration = AnyLineContains("calibrat") || AnyLineContains("adas");
 
                 if (!hasCalibration)
                 {
@@ -731,7 +818,8 @@ namespace McStudDesktop.Services
                         {
                             OperationType = "Sublet",
                             Description = "ADAS Camera Calibration",
-                            EstimatedCost = 350
+                            EstimatedCost = 350,
+                            LaborCategory = "Parts"
                         },
                         PointDeduction = 10
                     });
@@ -739,14 +827,11 @@ namespace McStudDesktop.Services
             }
 
             // Check for alignment with ADAS implications
-            bool hasAlignment = lines.Any(l =>
-                l.Description?.ToLowerInvariant().Contains("align") == true);
+            bool hasAlignment = _idxDescsLower.Any(d => d.Contains("align"));
 
-            bool hasSuspensionWork = lines.Any(l =>
-                l.PartName?.ToLowerInvariant().Contains("strut") == true ||
-                l.PartName?.ToLowerInvariant().Contains("control arm") == true ||
-                l.PartName?.ToLowerInvariant().Contains("tie rod") == true ||
-                l.PartName?.ToLowerInvariant().Contains("suspension") == true);
+            bool hasSuspensionWork = _idxPartsLower.Any(p =>
+                p.Contains("strut") || p.Contains("control arm") ||
+                p.Contains("tie rod") || p.Contains("suspension"));
 
             if (hasSuspensionWork && !hasAlignment)
             {
@@ -762,22 +847,20 @@ namespace McStudDesktop.Services
                     {
                         OperationType = "Add",
                         Description = "4-Wheel Alignment",
-                        LaborHours = 1.0m
+                        LaborHours = 1.0m,
+                        LaborCategory = "Mech"
                     },
                     PointDeduction = 5
                 });
             }
 
             // Check radar/sensor work
-            bool hasRadarSensor = lines.Any(l =>
-                l.PartName?.ToLowerInvariant().Contains("radar") == true ||
-                l.PartName?.ToLowerInvariant().Contains("sensor") == true ||
-                l.PartName?.ToLowerInvariant().Contains("camera") == true);
+            bool hasRadarSensor = _idxPartsLower.Any(p =>
+                p.Contains("radar") || p.Contains("sensor") || p.Contains("camera"));
 
             if (hasRadarSensor)
             {
-                bool hasSensorCalibration = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("calibrat") == true);
+                bool hasSensorCalibration = _idxDescsLower.Any(d => d.Contains("calibrat"));
 
                 if (!hasSensorCalibration)
                 {
@@ -793,7 +876,8 @@ namespace McStudDesktop.Services
                         {
                             OperationType = "Sublet",
                             Description = "ADAS Sensor Calibration",
-                            EstimatedCost = 250
+                            EstimatedCost = 250,
+                            LaborCategory = "Parts"
                         },
                         PointDeduction = 6
                     });
@@ -811,22 +895,20 @@ namespace McStudDesktop.Services
             bool hasRefinish = lines.Any(l => l.RefinishHours > 0);
             if (hasRefinish)
             {
-                bool hasClearCoat = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("clear") == true ||
-                    l.PartName?.ToLowerInvariant().Contains("clear") == true);
+                bool hasClearCoat = AnyLineContains("clear");
 
                 // Clear coat is usually included, but check for 2-stage/3-stage
-                bool hasTriCoat = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("tri-coat") == true ||
-                    l.Description?.ToLowerInvariant().Contains("3-stage") == true ||
-                    l.Description?.ToLowerInvariant().Contains("three stage") == true ||
-                    l.Description?.ToLowerInvariant().Contains("pearl") == true);
+                bool hasTriCoat = _idxDescsLower.Any(d =>
+                    d.Contains("tri-coat") || d.Contains("3-stage") ||
+                    d.Contains("three stage") || d.Contains("pearl"));
 
                 if (hasTriCoat)
                 {
-                    bool hasTriCoatTime = lines.Any(l =>
-                        l.Description?.ToLowerInvariant().Contains("tri-coat") == true ||
-                        l.Description?.ToLowerInvariant().Contains("additional") == true);
+                    bool hasTriCoatTime = _idxDescsLower.Any(d =>
+                        d.Contains("tri-coat") || d.Contains("tricoat") ||
+                        d.Contains("three stage") || d.Contains("3-stage") || d.Contains("3 stage") ||
+                        d.Contains("additional") || d.Contains("add for three") ||
+                        d.Contains("add for 3"));
 
                     if (!hasTriCoatTime)
                     {
@@ -842,7 +924,8 @@ namespace McStudDesktop.Services
                             {
                                 OperationType = "Add",
                                 Description = "3-Stage Paint Additional Time",
-                                LaborHours = 0.5m
+                                LaborHours = 0.5m,
+                                LaborCategory = "Paint"
                             },
                             PointDeduction = 4
                         });
@@ -851,19 +934,27 @@ namespace McStudDesktop.Services
             }
 
             // Check for battery disconnect on structural work
-            bool hasStructuralWelding = lines.Any(l =>
-                (l.PartName?.ToLowerInvariant().Contains("quarter") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("rocker") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("rail") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("pillar") == true ||
-                 l.PartName?.ToLowerInvariant().Contains("roof") == true) &&
-                l.OperationType?.ToLowerInvariant().Contains("repl") == true);
+            bool hasStructuralWelding = false;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if ((_idxPartsLower[i].Contains("quarter") || _idxPartsLower[i].Contains("rocker") ||
+                     _idxPartsLower[i].Contains("rail") || _idxPartsLower[i].Contains("pillar") ||
+                     _idxPartsLower[i].Contains("roof")) && _idxOpsLower[i].Contains("repl"))
+                { hasStructuralWelding = true; break; }
+            }
 
             if (hasStructuralWelding)
             {
-                bool hasBatteryDisconnect = lines.Any(l =>
-                    l.Description?.ToLowerInvariant().Contains("battery") == true &&
-                    l.Description?.ToLowerInvariant().Contains("disconnect") == true);
+                bool hasBatteryDisconnect = false;
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    var combined = _idxPartsLower[i] + " " + _idxDescsLower[i];
+                    if ((combined.Contains("battery") && combined.Contains("disconnect")) ||
+                        (combined.Contains("battery") && combined.Contains("d&r")) ||
+                        combined.Contains("battery disconnect") || combined.Contains("disconnect battery") ||
+                        combined.Contains("disconnect and reconnect"))
+                    { hasBatteryDisconnect = true; break; }
+                }
 
                 if (!hasBatteryDisconnect)
                 {
@@ -879,7 +970,8 @@ namespace McStudDesktop.Services
                         {
                             OperationType = "Add",
                             Description = "Battery Disconnect/Reconnect & Initialize",
-                            LaborHours = 0.6m
+                            LaborHours = 0.6m,
+                            LaborCategory = "Mech"
                         },
                         PointDeduction = 4
                     });
@@ -894,16 +986,19 @@ namespace McStudDesktop.Services
         private void CheckMustHaves(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
             var mustHaves = GhostConfigService.Instance.GetMustHaves();
-            if (mustHaves == null || mustHaves.Count == 0)
-            {
-                System.Diagnostics.Debug.WriteLine("[MustHaves] No must-haves configured — skipping");
-                return;
-            }
-            System.Diagnostics.Debug.WriteLine($"[MustHaves] Checking {mustHaves.Count} must-haves against {lines.Count} parsed lines");
+            if (mustHaves == null || mustHaves.Count == 0) return;
 
-            // Build combined text blob for condition evaluation
-            var combinedTextLower = string.Join(" ",
-                lines.Select(l => $"{l.Description} {l.PartName} {l.OperationType}")).ToLowerInvariant();
+            // Build combined text blob for condition evaluation (reuse indexed data)
+            var combinedTextLower = _idxAllText + " " + string.Join(" ", _idxOpsLower);
+
+            // Pre-normalize all lines ONCE for must-have matching (avoids re-normalizing per must-have)
+            var preNormalizedLines = new List<string>(lines.Count);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var combined = GhostConfigService.NormalizeMustHaveDesc(
+                    (lines[i].PartName ?? "") + " " + (lines[i].Description ?? ""));
+                preNormalizedLines.Add(combined);
+            }
 
             foreach (var mh in mustHaves)
             {
@@ -911,23 +1006,28 @@ namespace McStudDesktop.Services
 
                 // Skip must-haves whose condition is not met by the estimate context
                 if (!EstimateConditionEvaluator.Evaluate(mh.Conditions, combinedTextLower))
-                {
-                    System.Diagnostics.Debug.WriteLine($"[MustHaves] '{mh.Description}': condition '{mh.Conditions}' not met — skipping");
                     continue;
-                }
 
-                // Skip junk entries (e.g., "Description", "Setup" from header rows that leaked into config)
+                // Skip junk entries
                 var descLower = mh.Description.ToLowerInvariant().Trim();
                 if (descLower is "description" or "category" or "operation" or "setup" or "")
                     continue;
 
-                // Count how many lines match this must-have using fuzzy word-based matching.
-                // This handles truncated names ("Disconnect and" matches "Disconnect and Reconnect Battery"),
-                // hyphen/space differences ("Pre-Scan" matches "Pre-repair scan"),
-                // and parenthetical suffixes ("Color Tint (2-Stage)" matches "Color Tint").
-                int matchCount = lines.Count(l => GhostConfigService.LineMatchesMustHave(mh.Description, l));
+                // Pre-normalize the must-have ONCE (not per-line)
+                var mhNorm = GhostConfigService.NormalizeMustHaveDesc(mh.Description);
+                var mhWords = GhostConfigService.ExtractSignificantWords(mhNorm);
 
-                System.Diagnostics.Debug.WriteLine($"[MustHaves] '{mh.Description}': {matchCount}/{mh.MinCount} matches → {(matchCount >= mh.MinCount ? "PRESENT" : "MISSING")}");
+                // Count matches using pre-normalized data
+                int matchCount = 0;
+                for (int i = 0; i < preNormalizedLines.Count; i++)
+                {
+                    if (GhostConfigService.MatchesMustHave(preNormalizedLines[i], mhNorm, mhWords))
+                        matchCount++;
+                }
+
+                // Synonym fallback: if no direct matches, check if a synonym is on the estimate
+                if (matchCount == 0 && IsItemInEstimate(mh.Description))
+                    matchCount = mh.MinCount; // treat as found via synonym
 
                 if (matchCount < mh.MinCount)
                 {
@@ -948,7 +1048,10 @@ namespace McStudDesktop.Services
                         SuggestedFix = new SuggestedFix
                         {
                             OperationType = "Add",
-                            Description = mh.Description
+                            Description = mh.Description,
+                            LaborHours = mh.ExpectedHours + mh.RefinishHours,
+                            EstimatedCost = mh.ExpectedPrice,
+                            LaborCategory = MapOpTypeToLaborCategory(mh.OpType)
                         },
                         PointDeduction = mh.PointDeduction * missing
                     });
@@ -1055,7 +1158,8 @@ namespace McStudDesktop.Services
                         Description = s.Description ?? s.Item,
                         LaborHours = s.LaborHours,
                         EstimatedCost = s.TypicalCost,
-                        DegReference = s.DegReference
+                        DegReference = s.DegReference,
+                        LaborCategory = MapIssueCategoryToLaborCategory(category)
                     }
                 });
             }
@@ -1118,7 +1222,8 @@ namespace McStudDesktop.Services
                         OperationType = op.OperationType,
                         Description = op.Description,
                         LaborHours = op.LaborHours + op.RepairHours,
-                        EstimatedCost = op.Price
+                        EstimatedCost = op.Price,
+                        LaborCategory = MapIssueCategoryToLaborCategory(category)
                     }
                 });
             }
@@ -1156,7 +1261,8 @@ namespace McStudDesktop.Services
                             OperationType = "Manual",
                             Description = manual.ManualLineType,
                             LaborHours = manual.LaborUnits + manual.RefinishUnits,
-                            EstimatedCost = manual.AvgPrice
+                            EstimatedCost = manual.AvgPrice,
+                            LaborCategory = manual.RefinishUnits > 0 ? "Paint" : "Body"
                         }
                     });
                 }
@@ -1175,10 +1281,32 @@ namespace McStudDesktop.Services
             // Start at 100
             int baseScore = 100;
 
-            // Calculate total deductions (cap at 100)
-            int totalDeductions = Math.Min(100, result.Issues.Sum(i => i.PointDeduction));
+            // Apply diminishing returns: sort deductions descending, each successive one decays
+            const double decayFactor = 0.92;
+            const int maxTotalDeduction = 60; // Minimum possible score = 40
 
-            result.OverallScore = Math.Max(0, baseScore - totalDeductions);
+            var deductions = result.Issues
+                .Where(i => i.Category != IssueCategoryType.Blend) // Exclude blend considerations from score
+                .Select(i =>
+                {
+                    // Cap Low severity items at 1 point
+                    int pts = i.PointDeduction;
+                    if (i.Severity == IssueSeverity.Low && pts > 1) pts = 1;
+                    return pts;
+                })
+                .OrderByDescending(d => d)
+                .ToList();
+
+            double totalDeduction = 0;
+            double multiplier = 1.0;
+            foreach (var d in deductions)
+            {
+                totalDeduction += d * multiplier;
+                multiplier *= decayFactor;
+            }
+
+            int cappedDeduction = Math.Min(maxTotalDeduction, (int)Math.Round(totalDeduction));
+            result.OverallScore = Math.Max(baseScore - maxTotalDeduction, baseScore - cappedDeduction);
 
             // Calculate category breakdown
             result.CategoryScores = new Dictionary<string, int>
@@ -1191,16 +1319,16 @@ namespace McStudDesktop.Services
                 ["Refinish"] = CalculateCategoryScore(result.Issues, IssueCategoryType.Refinish)
             };
 
-            // Set grade
+            // Set grade (softer thresholds)
             result.Grade = result.OverallScore switch
             {
-                >= 95 => "A+",
-                >= 90 => "A",
-                >= 85 => "B+",
-                >= 80 => "B",
-                >= 75 => "C+",
-                >= 70 => "C",
-                >= 60 => "D",
+                >= 92 => "A+",
+                >= 85 => "A",
+                >= 78 => "B+",
+                >= 70 => "B",
+                >= 62 => "C+",
+                >= 55 => "C",
+                >= 40 => "D",
                 _ => "F"
             };
 
@@ -1210,9 +1338,53 @@ namespace McStudDesktop.Services
             result.MediumCount = result.Issues.Count(i => i.Severity == IssueSeverity.Medium);
             result.LowCount = result.Issues.Count(i => i.Severity == IssueSeverity.Low);
 
-            // Calculate potential recovery
-            result.PotentialLaborRecovery = result.Issues.Sum(i => i.SuggestedFix?.LaborHours ?? 0);
-            result.PotentialCostRecovery = result.Issues.Sum(i => i.SuggestedFix?.EstimatedCost ?? 0);
+            // Calculate potential recovery per category using actual labor rates
+            var ghostConfig = GhostConfigService.Instance;
+            decimal bodyRate = ghostConfig.GetEffectiveBodyRate();
+            decimal paintRate = ghostConfig.GetEffectivePaintRate();
+            decimal mechRate = ghostConfig.GetEffectiveMechRate();
+
+            decimal bodyLaborHrs = 0, paintLaborHrs = 0, mechLaborHrs = 0, partsRecovery = 0;
+
+            foreach (var issue in result.Issues.Where(i => i.Category != IssueCategoryType.Blend))
+            {
+                var fix = issue.SuggestedFix;
+                if (fix == null) continue;
+
+                var cat = fix.LaborCategory ?? "";
+                switch (cat.ToLowerInvariant())
+                {
+                    case "paint":
+                    case "refinish":
+                    case "rfn":
+                        paintLaborHrs += fix.LaborHours;
+                        partsRecovery += fix.EstimatedCost;
+                        break;
+                    case "mechanical":
+                    case "mech":
+                        mechLaborHrs += fix.LaborHours;
+                        partsRecovery += fix.EstimatedCost;
+                        break;
+                    case "parts":
+                        partsRecovery += fix.EstimatedCost;
+                        break;
+                    default: // Body or unset
+                        bodyLaborHrs += fix.LaborHours;
+                        partsRecovery += fix.EstimatedCost;
+                        break;
+                }
+            }
+
+            result.BodyLaborRecovery = bodyLaborHrs;
+            result.PaintLaborRecovery = paintLaborHrs;
+            result.MechLaborRecovery = mechLaborHrs;
+            result.PartsRecovery = partsRecovery;
+            result.BodyRate = bodyRate;
+            result.PaintRate = paintRate;
+            result.MechRate = mechRate;
+
+            result.PotentialLaborRecovery = bodyLaborHrs + paintLaborHrs + mechLaborHrs;
+            result.PotentialCostRecovery = (bodyLaborHrs * bodyRate) + (paintLaborHrs * paintRate) + (mechLaborHrs * mechRate) + partsRecovery;
 
             // Classify action types
             foreach (var issue in result.Issues)
@@ -1221,15 +1393,15 @@ namespace McStudDesktop.Services
             }
 
             // Generate summary
-            if (result.OverallScore >= 90)
+            if (result.OverallScore >= 85)
             {
                 result.Summary = "Excellent! This estimate is very complete.";
             }
-            else if (result.OverallScore >= 75)
+            else if (result.OverallScore >= 70)
             {
                 result.Summary = $"Good estimate. Found {result.Issues.Count} potential improvements.";
             }
-            else if (result.OverallScore >= 60)
+            else if (result.OverallScore >= 55)
             {
                 result.Summary = $"Fair estimate. Missing {result.CriticalCount + result.HighCount} important items.";
             }
@@ -1483,16 +1655,18 @@ namespace McStudDesktop.Services
 
         private Dictionary<string, List<BlendRule>> InitializeBlendRules()
         {
+            // Hours set to 0 — actual blend time comes from the estimating system,
+            // not from us. We only flag that a blend is needed.
             return new Dictionary<string, List<BlendRule>>
             {
-                ["hood"] = new() { new("Fender", 0.5m, true), new("Fender", 0.5m, true) },
-                ["fender"] = new() { new("Hood", 0.5m, true), new("Door", 0.5m, true) },
-                ["door"] = new() { new("Fender", 0.5m, false), new("Quarter Panel", 0.5m, false) },
-                ["quarter"] = new() { new("Door", 0.5m, true), new("Bumper", 0.3m, false) },
-                ["bumper"] = new() { new("Fender", 0.3m, false) },
-                ["roof"] = new() { new("Quarter Panel", 0.5m, false) },
-                ["deck"] = new() { new("Quarter Panel", 0.5m, true) },
-                ["trunk"] = new() { new("Quarter Panel", 0.5m, true) }
+                ["hood"] = new() { new("Fender", 0m, true), new("Fender", 0m, true) },
+                ["fender"] = new() { new("Hood", 0m, true), new("Door", 0m, true) },
+                ["door"] = new() { new("Fender", 0m, false), new("Quarter Panel", 0m, false) },
+                ["quarter"] = new() { new("Door", 0m, true), new("Bumper", 0m, false) },
+                ["bumper"] = new() { new("Fender", 0m, false) },
+                ["roof"] = new() { new("Quarter Panel", 0m, false) },
+                ["deck"] = new() { new("Quarter Panel", 0m, true) },
+                ["trunk"] = new() { new("Quarter Panel", 0m, true) }
             };
         }
 
@@ -1565,6 +1739,51 @@ namespace McStudDesktop.Services
             };
         }
 
+        /// <summary>
+        /// Map a commonly-missed item's category string to a labor category for rate-based recovery.
+        /// </summary>
+        private static string MapLaborCategory(string? category)
+        {
+            if (string.IsNullOrEmpty(category)) return "Body";
+            var c = category.ToLowerInvariant();
+            if (c.Contains("refinish") || c.Contains("paint") || c.Contains("rfn") || c.Contains("blend"))
+                return "Paint";
+            if (c.Contains("mech") || c.Contains("electrical") || c.Contains("diagnostic") || c.Contains("scan"))
+                return "Mech";
+            if (c.Contains("calibrat") || c.Contains("sublet"))
+                return "Parts";
+            return "Body";
+        }
+
+        /// <summary>
+        /// Map a must-have OpType (Body, Rfn, Mech, Sublet) to a labor category.
+        /// </summary>
+        private static string MapOpTypeToLaborCategory(string? opType)
+        {
+            return (opType?.ToLowerInvariant()) switch
+            {
+                "rfn" or "refinish" or "paint" => "Paint",
+                "mech" or "mechanical" => "Mech",
+                "sublet" => "Parts",
+                _ => "Body"
+            };
+        }
+
+        /// <summary>
+        /// Map an IssueCategoryType enum to a labor category string.
+        /// </summary>
+        private static string MapIssueCategoryToLaborCategory(IssueCategoryType cat)
+        {
+            return cat switch
+            {
+                IssueCategoryType.Refinish or IssueCategoryType.Blend => "Paint",
+                IssueCategoryType.Mechanical or IssueCategoryType.Electrical or IssueCategoryType.Diagnostic => "Mech",
+                IssueCategoryType.Calibration => "Parts",
+                IssueCategoryType.Materials => "Parts",
+                _ => "Body"
+            };
+        }
+
         private IssueCategoryType MapNotIncludedToCategory(string operationText)
         {
             var lower = operationText.ToLowerInvariant();
@@ -1623,6 +1842,15 @@ namespace McStudDesktop.Services
 
         public decimal PotentialLaborRecovery { get; set; }
         public decimal PotentialCostRecovery { get; set; }
+
+        // Per-category recovery breakdown
+        public decimal BodyLaborRecovery { get; set; }
+        public decimal PaintLaborRecovery { get; set; }
+        public decimal MechLaborRecovery { get; set; }
+        public decimal PartsRecovery { get; set; }
+        public decimal BodyRate { get; set; }
+        public decimal PaintRate { get; set; }
+        public decimal MechRate { get; set; }
     }
 
     public class CategorizedEstimateLine
@@ -1659,6 +1887,10 @@ namespace McStudDesktop.Services
         public decimal LaborHours { get; set; }
         public decimal EstimatedCost { get; set; }
         public string? DegReference { get; set; }
+        /// <summary>
+        /// Labor category for per-rate recovery: Body, Paint/Rfn, Mech, Parts
+        /// </summary>
+        public string? LaborCategory { get; set; }
     }
 
     public enum IssueCategoryType

@@ -1643,49 +1643,13 @@ namespace McStudDesktop.Views
                 PlaceholderText = "Optional",
                 Background = new SolidColorBrush(SectionBg)
             };
+            _roNumberBox.TextChanged += (s, e) =>
+            {
+                if (_currentChecklist != null)
+                    LoadChecklist(_currentChecklist, preserveChecked: true);
+            };
             roStack.Children.Add(_roNumberBox);
 
-            // RO line length preview/editor
-            var roLineLabel = new TextBlock
-            {
-                Text = "Line:",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12, 0, 0, 0)
-            };
-            roStack.Children.Add(roLineLabel);
-
-            var roLinePreview = new TextBlock
-            {
-                Text = new string('_', _checklistService.RoLineLength),
-                FontSize = 11,
-                Foreground = new SolidColorBrush(TextGray),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var roLineBox = new NumberBox
-            {
-                Value = _checklistService.RoLineLength,
-                Minimum = 5,
-                Maximum = 60,
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
-                Width = 90,
-                FontSize = 11,
-                SmallChange = 5,
-                LargeChange = 10
-            };
-            roLineBox.ValueChanged += (s, args) =>
-            {
-                if (!double.IsNaN(args.NewValue))
-                {
-                    var len = (int)args.NewValue;
-                    _checklistService.RoLineLength = len;
-                    roLinePreview.Text = new string('_', len);
-                }
-            };
-            roStack.Children.Add(roLineBox);
-            roStack.Children.Add(roLinePreview);
 
             Grid.SetColumn(roStack, 1);
             grid.Children.Add(roStack);
@@ -1959,11 +1923,11 @@ namespace McStudDesktop.Views
             };
         }
 
-        private void LoadChecklist(Checklist checklist)
+        private void LoadChecklist(Checklist checklist, bool preserveChecked = false)
         {
             _currentChecklist = checklist;
-            _checkedItems.Clear(); // Clear checked items when loading new checklist
-            _sectionStatusIndicators.Clear();
+            if (!preserveChecked)
+                _checkedItems.Clear();
             _checklistContent?.Children.Clear();
 
             if (_checklistContent == null || checklist.Sections == null) return;
@@ -2005,12 +1969,25 @@ namespace McStudDesktop.Views
                 });
             }
 
+            // Show RO# in header if entered
+            var roNumber = _roNumberBox?.Text?.Trim();
+            if (!string.IsNullOrEmpty(roNumber))
+            {
+                titleStack.Children.Add(new TextBlock
+                {
+                    Text = $"RO # {roNumber}",
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 220, 120)),
+                    Margin = new Thickness(0, 2, 0, 0)
+                });
+            }
+
             Grid.SetColumn(titleStack, 0);
             headerGrid.Children.Add(titleStack);
 
             // Stats panel
             var totalItems = checklist.Sections.Sum(s => s.Items?.Count ?? 0);
-            var requiredItems = checklist.Sections.Sum(s => s.Items?.Count(i => i.Required) ?? 0);
             var sectionCount = checklist.Sections.Count;
 
             var statsPanel = new StackPanel
@@ -2021,7 +1998,6 @@ namespace McStudDesktop.Views
 
             statsPanel.Children.Add(CreateStatBox(sectionCount.ToString(), "Sections"));
             statsPanel.Children.Add(CreateStatBox(totalItems.ToString(), "Items"));
-            statsPanel.Children.Add(CreateStatBox(requiredItems.ToString(), "Required"));
 
             Grid.SetColumn(statsPanel, 1);
             headerGrid.Children.Add(statsPanel);
@@ -2054,7 +2030,7 @@ namespace McStudDesktop.Views
 
             _progressText = new TextBlock
             {
-                Text = $"0/{totalItems} checked (0/{requiredItems} required)",
+                Text = $"0/{totalItems} checked",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(TextGray),
                 HorizontalAlignment = HorizontalAlignment.Right
@@ -2093,7 +2069,7 @@ namespace McStudDesktop.Views
             clearAllBtn.Click += (s, e) =>
             {
                 _checkedItems.Clear();
-                LoadChecklist(_currentChecklist!); // Reload to update checkboxes
+                LoadChecklist(_currentChecklist!, preserveChecked: true); // Reload without re-clearing
             };
             buttonRow.Children.Add(clearAllBtn);
 
@@ -2115,33 +2091,9 @@ namespace McStudDesktop.Views
                         _checkedItems.Add($"{si}_{ii}");
                     }
                 }
-                LoadChecklist(_currentChecklist!); // Reload to update checkboxes
+                LoadChecklist(_currentChecklist!, preserveChecked: true); // Reload without re-clearing
             };
             buttonRow.Children.Add(checkAllBtn);
-
-            var checkRequiredBtn = new Button
-            {
-                Content = "Check Required Only",
-                FontSize = 10,
-                Padding = new Thickness(8, 4, 8, 4),
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60))
-            };
-            checkRequiredBtn.Click += (s, e) =>
-            {
-                if (_currentChecklist?.Sections == null) return;
-                _checkedItems.Clear();
-                for (int si = 0; si < _currentChecklist.Sections.Count; si++)
-                {
-                    var items = _currentChecklist.Sections[si].Items ?? new List<ChecklistItem>();
-                    for (int ii = 0; ii < items.Count; ii++)
-                    {
-                        if (items[ii].Required)
-                            _checkedItems.Add($"{si}_{ii}");
-                    }
-                }
-                LoadChecklist(_currentChecklist!); // Reload to update checkboxes
-            };
-            buttonRow.Children.Add(checkRequiredBtn);
 
             progressStack.Children.Add(buttonRow);
 
@@ -2185,23 +2137,20 @@ namespace McStudDesktop.Views
                 }
             }
 
-            // Legend footer
-            var legend = new Border
+            // Version footer
+            _checklistContent.Children.Add(new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
                 CornerRadius = new CornerRadius(4),
                 Padding = new Thickness(10, 6, 10, 6),
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-            var legendText = new TextBlock
-            {
-                FontSize = 10,
-                Foreground = new SolidColorBrush(TextGray)
-            };
-            legendText.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "* ", Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 80, 80)), FontWeight = Microsoft.UI.Text.FontWeights.Bold });
-            legendText.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "= Required Item   |   Version " + (checklist.Version ?? "1.0") });
-            legend.Child = legendText;
-            _checklistContent.Children.Add(legend);
+                Margin = new Thickness(0, 8, 0, 0),
+                Child = new TextBlock
+                {
+                    Text = "Version " + (checklist.Version ?? "1.0"),
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(TextGray)
+                }
+            });
         }
 
         private StackPanel CreateStatBox(string value, string label)
@@ -2279,10 +2228,9 @@ namespace McStudDesktop.Views
             });
 
             var itemCount = section.Items?.Count ?? 0;
-            var reqCount = section.Items?.Count(i => i.Required) ?? 0;
             headerStack.Children.Add(new TextBlock
             {
-                Text = reqCount > 0 ? $"({itemCount} items, {reqCount} req)" : $"({itemCount} items)",
+                Text = $"({itemCount} items)",
                 FontSize = 10,
                 Foreground = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
                 VerticalAlignment = VerticalAlignment.Center
@@ -2307,49 +2255,6 @@ namespace McStudDesktop.Views
             }
 
             mainStack.Children.Add(itemsContainer);
-
-            // Per-section status indicator (only for driveable checklist)
-            if (_currentChecklist?.Id == "driveable-checklist")
-            {
-                var hasRequired = section.Items?.Any(i => i.Required) ?? false;
-                if (hasRequired)
-                {
-                    var statusBorder = new Border
-                    {
-                        Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30)),
-                        Padding = new Thickness(10, 6, 10, 6),
-                        Margin = new Thickness(0),
-                        CornerRadius = new CornerRadius(0, 0, 5, 5)
-                    };
-
-                    var statusPanel = new StackPanel
-                    {
-                        Orientation = Orientation.Horizontal,
-                        Spacing = 6,
-                        HorizontalAlignment = HorizontalAlignment.Center
-                    };
-
-                    statusPanel.Children.Add(new FontIcon
-                    {
-                        Glyph = "\uE7BA",
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100))
-                    });
-
-                    statusPanel.Children.Add(new TextBlock
-                    {
-                        Text = "Vehicle should NOT be driven — required items not confirmed",
-                        FontSize = 10,
-                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100)),
-                        VerticalAlignment = VerticalAlignment.Center
-                    });
-
-                    statusBorder.Child = statusPanel;
-                    mainStack.Children.Add(statusBorder);
-                    _sectionStatusIndicators[sectionIndex] = statusBorder;
-                }
-            }
 
             border.Child = mainStack;
             return border;
@@ -2409,21 +2314,6 @@ namespace McStudDesktop.Views
             grid.Children.Add(checkBox);
             grid.Children.Add(text);
 
-            if (item.Required)
-            {
-                var required = new TextBlock
-                {
-                    Text = "*",
-                    FontSize = 12,
-                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 80, 80)),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(4, 0, 0, 0)
-                };
-                Grid.SetColumn(required, 2);
-                grid.Children.Add(required);
-            }
-
             border.Child = grid;
             return border;
         }
@@ -2431,7 +2321,6 @@ namespace McStudDesktop.Views
         // Progress tracking UI elements
         private TextBlock? _progressText;
         private ProgressBar? _progressBar;
-        private Dictionary<int, Border> _sectionStatusIndicators = new();
 
         private void UpdateChecklistProgress()
         {
@@ -2439,69 +2328,18 @@ namespace McStudDesktop.Views
 
             var totalItems = _currentChecklist.Sections.Sum(s => s.Items?.Count ?? 0);
             var checkedCount = _checkedItems.Count;
-            var requiredItems = _currentChecklist.Sections
-                .SelectMany((s, si) => (s.Items ?? new List<ChecklistItem>())
-                    .Select((item, ii) => new { Key = $"{si}_{ii}", Required = item.Required }))
-                .Where(x => x.Required)
-                .ToList();
-
-            var requiredChecked = requiredItems.Count(r => _checkedItems.Contains(r.Key));
-            var requiredTotal = requiredItems.Count;
 
             if (_progressText != null)
             {
-                _progressText.Text = $"{checkedCount}/{totalItems} checked ({requiredChecked}/{requiredTotal} required)";
+                _progressText.Text = $"{checkedCount}/{totalItems} checked";
                 _progressText.Foreground = new SolidColorBrush(
-                    requiredChecked == requiredTotal ? AccentGreen : TextGray);
+                    checkedCount == totalItems ? AccentGreen : TextGray);
             }
 
             if (_progressBar != null)
             {
                 _progressBar.Maximum = totalItems;
                 _progressBar.Value = checkedCount;
-            }
-
-            // Update per-section drivability status indicators (driveable checklist only)
-            if (_currentChecklist.Id == "driveable-checklist")
-            {
-                for (int si = 0; si < _currentChecklist.Sections.Count; si++)
-                {
-                    if (!_sectionStatusIndicators.TryGetValue(si, out var statusBorder)) continue;
-
-                    var sectionItems = _currentChecklist.Sections[si].Items ?? new List<ChecklistItem>();
-                    var allRequiredChecked = true;
-                    for (int ii = 0; ii < sectionItems.Count; ii++)
-                    {
-                        if (sectionItems[ii].Required && !_checkedItems.Contains($"{si}_{ii}"))
-                        {
-                            allRequiredChecked = false;
-                            break;
-                        }
-                    }
-
-                    if (allRequiredChecked)
-                    {
-                        statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 20, 50, 30));
-                        var panel = (StackPanel)statusBorder.Child;
-                        var icon = (FontIcon)panel.Children[0];
-                        var text = (TextBlock)panel.Children[1];
-                        icon.Glyph = "\uE73E";
-                        icon.Foreground = new SolidColorBrush(AccentGreen);
-                        text.Text = "PASS — Vehicle is safe to drive";
-                        text.Foreground = new SolidColorBrush(AccentGreen);
-                    }
-                    else
-                    {
-                        statusBorder.Background = new SolidColorBrush(Color.FromArgb(255, 60, 30, 30));
-                        var panel = (StackPanel)statusBorder.Child;
-                        var icon = (FontIcon)panel.Children[0];
-                        var text = (TextBlock)panel.Children[1];
-                        icon.Glyph = "\uE7BA";
-                        icon.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
-                        text.Text = "Vehicle should NOT be driven — required items not confirmed";
-                        text.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 100, 100));
-                    }
-                }
             }
         }
 

@@ -692,8 +692,8 @@ namespace McStudDesktop.Views
             // Links row
             var linksRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 6, 0, 0) };
 
-            // CCC Link - Open CCC Online Help
-            var cccLink = new HyperlinkButton
+            // Direct CCC link - opens the exact page on CCC MOTOR Guide
+            var cccDirectLink = new Button
             {
                 Content = new StackPanel
                 {
@@ -702,14 +702,28 @@ namespace McStudDesktop.Views
                     Children =
                     {
                         new FontIcon { Glyph = "\uE774", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 180, 100)) },
-                        new TextBlock { Text = "Open CCC Guide to Estimating", FontSize = 11 }
+                        new TextBlock { Text = $"Open {sectionRef} on CCC Guide", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 150)) }
                     }
                 },
-                NavigateUri = new Uri("https://help.cccis.com/webhelp/motor/gte/guide.htm"),
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
                 Padding = new Thickness(0)
             };
-            ToolTipService.SetToolTip(cccLink, $"Opens CCC Guide to Estimating - use Ctrl+F to search for '{sectionRef}'");
-            linksRow.Children.Add(cccLink);
+            cccDirectLink.Click += (s, e) =>
+            {
+                try
+                {
+                    var url = DefinitionsView.GetPPageUrl(sectionRef);
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
+            };
+            ToolTipService.SetToolTip(cccDirectLink, $"Opens the {sectionRef} page directly on the CCC MOTOR Guide website");
+            linksRow.Children.Add(cccDirectLink);
 
             // Mitchell Link
             if (!string.IsNullOrEmpty(section.MitchellRef))

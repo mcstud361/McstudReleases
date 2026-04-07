@@ -492,12 +492,18 @@ namespace McStudDesktop.Services
             {
                 var token = tokens[i];
 
-                // Part number detection (alphanumeric, 3+ chars, has both letters and digits — CCC codes like FR1, LS1)
-                if (string.IsNullOrEmpty(item.PartNumber) && token.Length >= 3 &&
-                    token.Any(char.IsDigit) && token.Any(char.IsLetter) && !token.Contains("."))
+                // Part number detection — two patterns:
+                // 1. Alphanumeric with both letters and digits (5211903907 → no, but FR1, 5211102E60 → yes)
+                // 2. Pure-digit, 7+ chars — OEM part numbers (9046707214, 5211903907)
+                if (string.IsNullOrEmpty(item.PartNumber) && token.Length >= 3 && !token.Contains(".") && !token.Contains("$"))
                 {
-                    item.PartNumber = token;
-                    continue;
+                    bool isAlphanumericPart = token.Any(char.IsDigit) && token.Any(char.IsLetter);
+                    bool isPureDigitPart = token.Length >= 7 && token.All(char.IsDigit);
+                    if (isAlphanumericPart || isPureDigitPart)
+                    {
+                        item.PartNumber = token;
+                        continue;
+                    }
                 }
 
                 // Price detection (contains comma or large decimal)
@@ -654,12 +660,17 @@ namespace McStudDesktop.Services
                     continue;
                 }
 
-                // Part number detection (3+ chars — CCC codes like FR1, LS1)
+                // Part number detection — alphanumeric codes or pure-digit OEM numbers (7+ digits)
                 if (string.IsNullOrEmpty(item.PartNumber) && token.Length >= 3 &&
                     token.Any(char.IsDigit) && !token.Contains("$") && !token.Contains("."))
                 {
-                    item.PartNumber = token;
-                    continue;
+                    bool hasLetters = token.Any(char.IsLetter);
+                    bool isPureDigitPart = !hasLetters && token.Length >= 7 && token.All(char.IsDigit);
+                    if (hasLetters || isPureDigitPart)
+                    {
+                        item.PartNumber = token;
+                        continue;
+                    }
                 }
 
                 // Price detection
@@ -757,13 +768,33 @@ namespace McStudDesktop.Services
         private bool TryParsePrice(string token, out decimal price)
         {
             price = 0;
-            // Remove $ and commas
+
+            // Guard: pure-digit tokens (no $ or .) that are 7+ digits are OEM part numbers, not prices
+            // Examples: 9046707214, 5211903907, 1392212100
+            var stripped = token.Replace(",", "").Replace("$", "").Trim();
+            if (!token.Contains("$") && !token.Contains(".") && stripped.Length >= 7 && stripped.All(char.IsDigit))
+                return false;
+
+            // Guard: comma-separated pure digits without $ or decimal are mileage/IDs (e.g., "66,988")
+            if (!token.Contains("$") && !token.Contains(".") && token.Contains(",") && stripped.All(char.IsDigit))
+                return false;
+
+            // Remove $ and commas for parsing
             var cleaned = token.Replace("$", "").Replace(",", "").Trim();
+
             if (decimal.TryParse(cleaned, out var val))
             {
-                // Prices are typically > $10 and have 2 decimal places
-                if (val > 10 && (token.Contains(".") || token.Contains(",")))
+                // Prices should have a decimal point OR a $ sign to be valid
+                // Pure comma-only numbers without $ are ambiguous (could be mileage, quantities)
+                bool hasDollarSign = token.Contains("$");
+                bool hasDecimalPoint = token.Contains(".");
+
+                if (val > 10 && (hasDollarSign || hasDecimalPoint || token.Contains(",")))
                 {
+                    // Reject if it looks like a mileage or large ID (> $10K, no $ sign, no cents)
+                    if (!hasDollarSign && !hasDecimalPoint && val > 10_000m)
+                        return false;
+
                     price = val;
                     return true;
                 }
@@ -1205,6 +1236,7 @@ namespace McStudDesktop.Services
                 "LINE OPER DESCRIPTION", "PART NUMBER QTY", "EXTENDED PRICE",
                 "LABOR PAINT", "TOTAL UNITS", "CEG TYPE",
                 "LINE #", "LINE#", "OPERATION TYPE", "QTY TOTAL PRICE",
+                "LINE SUPPLIER DESCRIPTION PRICE", "SUPPLIER DESCRIPTION",
             };
 
             // === TOTALS/SUMMARY ===
@@ -1290,9 +1322,69 @@ namespace McStudDesktop.Services
                 "CHARGE FOR NEW TIRES", "LEAD-ACID BATTERY",
                 "MANUFACTURER ARE", "PARTS AND/OR LABOR DATA",
                 "INHERENT NATURE", "INSURANCE ESTIMATE",
+                // Additional legal/boilerplate fragments that appear across PDF lines
+                "ACTUAL REPAIR OF YOUR VEHICLE", "REPAIR PLAN IS BASED",
+                "INFORMATION CONTAINED IN THIS", "INFORMATION RECEIVED FROM",
+                "SUBLET ACTIVITIES", "ASSOCIATED WITH THE ACTUAL",
+                "OEM'S SPECIFICATIONS", "U.S. DISTRIBUTION",
+                "DESCRIBED AS NON OEM", "DESCRIBED AS RECOND", "DESCRIBED AS RECORE",
+                "MINOR CHANGES FROM THE PREVIOUS YEAR", "DATA FROM THE PREVIOUS YEAR",
+                "ENTITLED TO THE RETURN", "REPLACED PARTS, EXCEPT",
+                "WARRANTY AND EXCHANGE PARTS", "AUTHORIZE WORK BY PHONE",
+                "MAKE THEM AVAILABLE", "PICK UP THE VEHICLE",
+                "USE OF CRASH PARTS", "CIVIL PENALTY", "FALSE REPORT",
+                "SUBJECT MOTOR VEHICLE", "STATED CLAIM FOR EACH",
+                "COMMITS A", "LAW AGENCY", "FACT THERETO",
+                "ASSISTS, ABETS", "MAKES OR ASSISTS",
             };
             if (boilerplateFragments.Any(p => upper.Contains(p)))
                 return true;
+
+            // === VEHICLE DESCRIPTION LINES ===
+            // Make/model/engine/transmission descriptions from estimate header
+            // Engine displacement like "2.0L", "1.8L", "3.6L"
+            if (Regex.IsMatch(upper, @"\d[.\-]\d\s*L\b"))
+                return true;
+            // Body type codes: "4D SED", "2D CPE", "4D UTV", etc.
+            if (Regex.IsMatch(upper, @"\b[24]D\s+(SED|UTV|SUV|CPE|CNV|HBK|VAN|TRK|CUV|WAG)\b"))
+                return true;
+            // Vehicle make abbreviations followed by model info
+            if (Regex.IsMatch(upper, @"^(BENZ|TOYO|CHEV|FORD|HOND|NISS|HYUN|DODG|JEEP|LEXU|ACUR|INFI|SUBA|MAZD|VOLV|AUDI|PORS|JAGU|MITS|BUIC|CADI|CHRY|LINC|VOLKS|KIA |GMC |BMW |RAM )\s"))
+                return true;
+
+            // === NOTE LINES ===
+            // "Note: Invoice to come", "Note: of these are required." — not operations
+            if (Regex.IsMatch(trimmed, @"^Note\s*:", RegexOptions.IgnoreCase))
+                return true;
+
+            // === PRODUCT CODES / MATERIALS ===
+            // 3M product numbers: "3M 08308", "3M 08852"
+            if (Regex.IsMatch(upper, @"\b3M\s+\d{4,}"))
+                return true;
+            // Rate lines: "@ $ /hr", "@ $/hr"
+            if (Regex.IsMatch(upper, @"@\s*\$\s*/\s*HR"))
+                return true;
+            // "Structural Labor hrs" — rate summary, not an operation
+            if (upper.Contains("STRUCTURAL LABOR HRS"))
+                return true;
+
+            // === PROSE / SENTENCE DETECTION ===
+            // Real operations are short (1-6 words). Long lines with many function words are prose.
+            var lineWords = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (lineWords.Length >= 8)
+            {
+                var functionWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "THE", "OF", "AND", "FOR", "OR", "A", "AN", "IN", "TO", "WITH",
+                    "IS", "ARE", "BY", "FROM", "AT", "ON", "AS", "BE", "HAS", "BEEN",
+                    "THIS", "THAT", "THESE", "THOSE", "MAY", "WILL", "SHALL", "ANY",
+                    "NOT", "YOUR", "OUR", "THEIR", "ITS", "WHO", "WHICH", "SUCH",
+                    "BUT", "IF", "THAN", "EACH", "EVERY", "NO", "NOR"
+                };
+                var funcCount = lineWords.Count(w => functionWords.Contains(w.TrimEnd(',', '.', ';', ':')));
+                if (funcCount >= 4)
+                    return true; // Prose, not an operation
+            }
 
             // === SPECIFIC FORMAT CHECKS ===
 
@@ -1531,8 +1623,12 @@ namespace McStudDesktop.Services
             if (partNumMatch.Success)
             {
                 var partNum = partNumMatch.Groups[1].Value;
-                // Exclude things that look like VINs or common codes
-                if (partNum.Length != 17 && !Regex.IsMatch(partNum, @"^\d+$"))
+                // Exclude VINs (17 chars)
+                if (partNum.Length == 17)
+                    return "";
+                // Accept alphanumeric (has letters+digits) or pure-digit OEM part numbers (7+ digits)
+                bool hasLetters = partNum.Any(char.IsLetter);
+                if (hasLetters || partNum.Length >= 7)
                     return partNum;
             }
             return "";

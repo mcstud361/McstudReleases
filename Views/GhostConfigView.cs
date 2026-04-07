@@ -328,6 +328,10 @@ namespace McStudDesktop.Views
             if (desc.StartsWith("\u25bc") || desc.StartsWith("\u25b2")) return true; // ▼▲ dropdown markers
             // All zeros placeholder — no hours, no price, not a real operation
             if (op.LaborHours == 0 && op.Price == 0 && op.RefinishHours == 0 && desc.Length < 3) return true;
+            // Excel placeholder rows: descriptions full of "0" values from unfilled formula cells
+            // e.g., "0 0 0 0 0 0 Replace 0" — 3+ standalone "0" tokens = placeholder
+            var tokens = desc.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Count(t => t == "0") >= 3) return true;
             return false;
         }
 

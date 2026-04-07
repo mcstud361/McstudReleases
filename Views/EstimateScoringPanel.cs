@@ -612,15 +612,29 @@ namespace McStudDesktop.Views
         {
             _currentResult = result;
 
-            // Hero: dollar amount
-            var totalRecovery = result.PotentialCostRecovery + (result.PotentialLaborRecovery * 60);
+            // Hero: dollar amount (now uses per-category rates instead of hardcoded $60/hr)
+            var totalRecovery = result.PotentialCostRecovery;
             _dollarHeroText!.Text = totalRecovery > 0 ? $"${totalRecovery:N0} left on the table" : "Estimate looks complete";
             _dollarHeroText.Foreground = new SolidColorBrush(totalRecovery > 0 ? GreenMoney : GreenBright);
 
-            // Hero: labor hours
-            _laborHeroText!.Text = result.PotentialLaborRecovery > 0
-                ? $"{result.PotentialLaborRecovery:F1} hrs uncaptured labor"
-                : "";
+            // Hero: labor hours with per-category breakdown
+            if (result.PotentialLaborRecovery > 0)
+            {
+                var parts = new List<string>();
+                if (result.BodyLaborRecovery > 0)
+                    parts.Add($"Body: {result.BodyLaborRecovery:F1}h x ${result.BodyRate:N0} = ${result.BodyLaborRecovery * result.BodyRate:N0}");
+                if (result.PaintLaborRecovery > 0)
+                    parts.Add($"Paint: {result.PaintLaborRecovery:F1}h x ${result.PaintRate:N0} = ${result.PaintLaborRecovery * result.PaintRate:N0}");
+                if (result.MechLaborRecovery > 0)
+                    parts.Add($"Mech: {result.MechLaborRecovery:F1}h x ${result.MechRate:N0} = ${result.MechLaborRecovery * result.MechRate:N0}");
+                if (result.PartsRecovery > 0)
+                    parts.Add($"Parts/Materials: ${result.PartsRecovery:N0}");
+                _laborHeroText!.Text = parts.Count > 0 ? string.Join("  |  ", parts) : $"{result.PotentialLaborRecovery:F1} hrs uncaptured labor";
+            }
+            else
+            {
+                _laborHeroText!.Text = "";
+            }
 
             // Grade badge
             _gradeText!.Text = result.Grade;
@@ -1438,10 +1452,19 @@ namespace McStudDesktop.Views
                 $"  \u2022 Medium: {result.MediumCount}",
                 $"  \u2022 Low: {result.LowCount}",
                 "",
-                $"Potential Labor Recovery: {result.PotentialLaborRecovery:F1} hours",
-                $"Potential Cost Recovery: ${result.PotentialCostRecovery:N0}",
-                ""
+                "RECOVERY BREAKDOWN:",
             };
+
+            if (result.BodyLaborRecovery > 0)
+                lines.Add($"  Body Labor: {result.BodyLaborRecovery:F1} hrs x ${result.BodyRate:N0}/hr = ${result.BodyLaborRecovery * result.BodyRate:N2}");
+            if (result.PaintLaborRecovery > 0)
+                lines.Add($"  Paint Labor: {result.PaintLaborRecovery:F1} hrs x ${result.PaintRate:N0}/hr = ${result.PaintLaborRecovery * result.PaintRate:N2}");
+            if (result.MechLaborRecovery > 0)
+                lines.Add($"  Mechanical: {result.MechLaborRecovery:F1} hrs x ${result.MechRate:N0}/hr = ${result.MechLaborRecovery * result.MechRate:N2}");
+            if (result.PartsRecovery > 0)
+                lines.Add($"  Parts/Materials: ${result.PartsRecovery:N2}");
+            lines.Add($"  Total Recovery: ${result.PotentialCostRecovery:N2}");
+            lines.Add("");
 
             if (result.Issues.Count > 0)
             {

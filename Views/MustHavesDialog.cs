@@ -14,7 +14,8 @@ namespace McStudDesktop.Views
 {
     /// <summary>
     /// Reusable Must-Haves configuration dialog.
-    /// Features: preset templates, search, collapsible sections, autocomplete custom add, summary footer.
+    /// Features: preset templates, search, dynamic group-based sections, per-section add,
+    /// inline editing with group reassignment, group management panel, summary footer.
     /// </summary>
     public static class MustHavesDialog
     {
@@ -30,13 +31,33 @@ namespace McStudDesktop.Views
         private static readonly Color DeleteBg = Color.FromArgb(255, 75, 40, 40);
         private static readonly Color DeleteFg = Color.FromArgb(255, 220, 120, 120);
 
-        // Section accent colors
-        private static readonly Color ElectricalColor = Color.FromArgb(255, 100, 180, 255);
-        private static readonly Color DiagnosticsColor = Color.FromArgb(255, 80, 200, 220);
-        private static readonly Color RefinishColor = Color.FromArgb(255, 255, 180, 100);
-        private static readonly Color CoverCarColor = Color.FromArgb(255, 180, 220, 180);
-        private static readonly Color BodyColor = Color.FromArgb(255, 220, 150, 150);
-        private static readonly Color MechanicalColor = Color.FromArgb(255, 200, 180, 255);
+        // CCC Operation Types (short, long)
+        private static readonly (string Short, string Long)[] CccOpTypes = new[]
+        {
+            ("Repl", "Replace"),
+            ("Rpr", "Repair"),
+            ("Refn", "Refinish"),
+            ("R&I", "Remove and Install"),
+            ("Sect", "Section"),
+            ("Algn", "Align"),
+            ("Subl", "Sublet"),
+            ("Blnd", "Blend")
+        };
+
+        // Body Labor Categories
+        private static readonly string[] BodyLaborCategories = new[]
+        {
+            "Body", "Mechanical", "Frame", "Structural", "Diagnostic",
+            "Electrical", "Glass", "PDR",
+            "User Defined 1", "User Defined 2", "User Defined 3", "User Defined 4"
+        };
+
+        // Preset color swatches for custom group creation
+        private static readonly string[] GroupColorSwatches = new[]
+        {
+            "#FF6B6B", "#FF9F43", "#FECA57", "#48DBFB", "#0ABDE3",
+            "#10AC84", "#EE5A24", "#A55EEA", "#FD79A8", "#BADC58"
+        };
 
         // Preset definitions: description keywords to match against SOP items
         private static readonly Dictionary<string, string[]> Presets = new()
@@ -70,6 +91,22 @@ namespace McStudDesktop.Views
         };
 
         /// <summary>
+        /// Parse hex color string to WinUI Color.
+        /// </summary>
+        private static Color ParseHexColor(string hex)
+        {
+            hex = hex.TrimStart('#');
+            if (hex.Length == 6)
+            {
+                byte r = Convert.ToByte(hex.Substring(0, 2), 16);
+                byte g = Convert.ToByte(hex.Substring(2, 2), 16);
+                byte b = Convert.ToByte(hex.Substring(4, 2), 16);
+                return Color.FromArgb(255, r, g, b);
+            }
+            return Color.FromArgb(255, 100, 180, 255); // fallback blue
+        }
+
+        /// <summary>
         /// Show the Must-Haves configuration dialog.
         /// Returns true if the user saved changes.
         /// </summary>
@@ -77,9 +114,10 @@ namespace McStudDesktop.Views
         {
             var config = GhostConfigService.Instance;
             var excel = ExcelGhostDataProvider.Instance;
-            var existingMustHaves = config.GetMustHaves();
+            var mustHaves = config.GetMustHaves();
+            var groups = config.GetMustHaveGroups();
 
-            var dialogStack = new StackPanel { Spacing = 10, MinWidth = 640 };
+            var dialogStack = new StackPanel { Spacing = 10, MinWidth = 960 };
 
             dialogStack.Children.Add(new TextBlock
             {
@@ -89,26 +127,33 @@ namespace McStudDesktop.Views
                 TextWrapping = TextWrapping.Wrap
             });
 
-            // === PRESET BUTTONS ===
-            var presetRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            // === TRACKING STATE ===
             var activePresets = new HashSet<string>();
+            var allCheckBoxes = new Dictionary<CheckBox, (string Id, string Description, string Section, string? GroupId, decimal Price, decimal Hours)>();
+            var sectionPanels = new Dictionary<string, (StackPanel Panel, Border Header, TextBlock CountText, Button CheckAllBtn, Border? AddFormBorder)>();
+            var pendingEdits = new Dictionary<CheckBox, (string Description, string CccOpType, int Quantity, decimal Price, decimal BodyHours, string BodyLaborCategory, decimal RefinishHours, string Condition, string? GroupId)>();
+            var pendingDeletes = new HashSet<string>(); // operation IDs to delete on save
+            var pendingAdds = new List<MustHaveOperation>(); // new ops to add on save
 
-            // Will be populated after checkboxes are built
-            var allCheckBoxes = new Dictionary<CheckBox, (string Description, string Section, decimal Price, decimal Hours)>();
-            var sectionPanels = new Dictionary<string, (StackPanel Panel, Border Header, TextBlock CountText, Button CheckAllBtn)>();
+            // === PRESET BUTTONS ===
+            var presetRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 0, 4) };
 
-            // Track inline edits: CheckBox → (Description, Hours, Price, Condition)
-            // Populated when user clicks pencil and confirms via Done button
-            var pendingEdits = new Dictionary<CheckBox, (string Description, decimal Hours, decimal Price, string Condition)>();
-
-            // === SEARCH BOX ===
+            // === SEARCH BOX + FILTER ===
+            var searchRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+            var searchFilterBox = new ComboBox
+            {
+                FontSize = 11, Width = 140, SelectedIndex = 0,
+                Items = { "All Fields", "Name", "Op Type", "Labor Category", "Condition", "Group" }
+            };
             var searchBox = new AutoSuggestBox
             {
                 PlaceholderText = "Search operations...",
                 QueryIcon = new SymbolIcon(Symbol.Find),
                 FontSize = 12,
-                Margin = new Thickness(0, 4, 0, 0)
+                HorizontalAlignment = HorizontalAlignment.Stretch
             };
+            searchRow.Children.Add(searchFilterBox);
+            searchRow.Children.Add(searchBox);
 
             // === SUMMARY FOOTER ===
             var summaryText = new TextBlock
@@ -137,14 +182,15 @@ namespace McStudDesktop.Views
                 summaryText.Text = $"{count} items checked  |  ${totalPrice:N0} total  |  {totalHours:F1} hrs labor";
             }
 
-            void UpdateSectionCount(string sectionLabel)
+            void UpdateSectionCount(string groupId)
             {
-                if (!sectionPanels.ContainsKey(sectionLabel)) return;
-                var (panel, _, countText, _) = sectionPanels[sectionLabel];
+                if (!sectionPanels.ContainsKey(groupId)) return;
+                var (panel, _, countText, _, _) = sectionPanels[groupId];
                 int total = 0, checkedCount = 0;
                 foreach (var (cb, info) in allCheckBoxes)
                 {
-                    if (info.Section == sectionLabel)
+                    var effectiveGroupId = info.GroupId ?? info.Section;
+                    if (effectiveGroupId == groupId || info.GroupId == groupId)
                     {
                         total++;
                         if (cb.IsChecked == true) checkedCount++;
@@ -153,611 +199,677 @@ namespace McStudDesktop.Views
                 countText.Text = $"{total} items, {checkedCount} checked";
             }
 
+            // All known operation descriptions for autocomplete (from Excel)
+            var allKnownOps = new List<(string Description, decimal Price, decimal Hours)>();
+            foreach (var sheetName in new[] { "SOP List", "Refinish Operations", "Cover Car Operations", "Body Operations", "Mechanical Operations" })
+            {
+                var ops = excel.GetSheetOperations(sheetName);
+                foreach (var op in ops)
+                {
+                    var trimmedDesc = op.Description?.Trim() ?? "";
+                    // Skip Excel placeholder rows full of zeros
+                    var zeroCount = trimmedDesc.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Count(t => t == "0");
+                    if (!string.IsNullOrWhiteSpace(trimmedDesc) && trimmedDesc.Length >= 4 &&
+                        !trimmedDesc.StartsWith("*") && trimmedDesc.Any(char.IsLetter) &&
+                        zeroCount < 3 &&
+                        !trimmedDesc.Contains("\U0001f517") && !trimmedDesc.Contains("\U0001f4ca") &&
+                        !trimmedDesc.Contains("\U0001f4b2") && !trimmedDesc.Contains("\U0001f6e0") &&
+                        !trimmedDesc.Contains("\U0001f3a8") &&
+                        !trimmedDesc.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase) &&
+                        !trimmedDesc.StartsWith("Category", StringComparison.OrdinalIgnoreCase) &&
+                        !trimmedDesc.Contains("\t"))
+                    {
+                        allKnownOps.Add((trimmedDesc, op.Price, op.LaborHours > 0 ? op.LaborHours : op.RefinishHours));
+                    }
+                }
+            }
+            // Deduplicate autocomplete pool
+            allKnownOps = allKnownOps.GroupBy(o => o.Description, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First()).ToList();
+
             var scrollViewer = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                MaxHeight = 560
+                MaxHeight = 520
             };
 
             var sectionsStack = new StackPanel { Spacing = 8 };
 
-            // Build SOP sections from Excel data
-            var sopSections = new (string SheetName, string SectionLabel, Color AccentColor, Func<string, bool>? Filter)[]
+            // === GROUP MANAGEMENT PANEL (inline, toggled) ===
+            var groupMgmtPanel = new Border
             {
-                ("SOP List", "Electrical", ElectricalColor,
-                    desc => { var d = desc.ToLowerInvariant();
-                        return d.Contains("battery") || d.Contains("disconnect") || d.Contains("reconnect") ||
-                               d.Contains("electronic") || d.Contains("reset") || d.Contains("charge") ||
-                               d.Contains("maintain") || (d.Contains("cover") && d.Contains("electrical")); }),
-                ("SOP List", "Vehicle Diagnostics", DiagnosticsColor,
-                    desc => { var d = desc.ToLowerInvariant();
-                        return d.Contains("scan") || d.Contains("diagnostic") || d.Contains("oem") ||
-                               d.Contains("dynamic") || d.Contains("adas") || d.Contains("simulate") ||
-                               d.Contains("tire pressure") || d.Contains("fluids") || d.Contains("systems verification") ||
-                               d.Contains("drive cycle") || d.Contains("customer belongings"); }),
-                ("Refinish Operations", "Refinish Operations", RefinishColor, null),
-                ("Cover Car Operations", "Cover Car Operations", CoverCarColor, null),
-                ("Body Operations", "Body / Structural", BodyColor, null),
-                ("Mechanical Operations", "Mechanical Operations", MechanicalColor, null),
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 42)),
+                Padding = new Thickness(12, 10, 12, 10),
+                CornerRadius = new CornerRadius(6),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 65, 75)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 4, 0, 4),
+                Visibility = Visibility.Collapsed
             };
 
-            // All known operation descriptions for autocomplete
-            var allKnownOps = new List<(string Description, decimal Price, decimal Hours)>();
+            // Group list and creation controls (will be built in a helper)
+            var groupMgmtContent = new StackPanel { Spacing = 8 };
+            groupMgmtPanel.Child = groupMgmtContent;
 
-            foreach (var (sheetName, sectionLabel, accent, filter) in sopSections)
+            // Forward-declare rebuild so closures can reference it
+            Action? rebuildSections = null;
+
+            void BuildGroupMgmtPanel()
             {
-                var ops = excel.GetSheetOperations(sheetName);
-                var cleanOps = ops.Where(o =>
-                    !string.IsNullOrWhiteSpace(o.Description) &&
-                    !o.Description.Contains("\U0001f517") && !o.Description.Contains("\U0001f4ca") &&
-                    !o.Description.Contains("\U0001f4b2") && !o.Description.Contains("\U0001f6e0") &&
-                    !o.Description.Contains("\U0001f3a8") &&
-                    !o.Description.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase) &&
-                    !o.Description.StartsWith("Category", StringComparison.OrdinalIgnoreCase) &&
-                    !o.Description.Contains("\t") &&
-                    o.Description.Length >= 4).ToList();
+                groupMgmtContent.Children.Clear();
 
-                if (filter != null)
-                    cleanOps = cleanOps.Where(o => filter(o.Description!)).ToList();
-
-                if (cleanOps.Count == 0) continue;
-
-                // Collect for autocomplete (exclude invalid entries like *Description)
-                foreach (var op in cleanOps)
+                groupMgmtContent.Children.Add(new TextBlock
                 {
-                    var trimmedDesc = op.Description!.Trim();
-                    if (!trimmedDesc.StartsWith("*") && trimmedDesc.Any(char.IsLetter))
-                        allKnownOps.Add((trimmedDesc, op.Price, op.LaborHours > 0 ? op.LaborHours : op.RefinishHours));
-                }
-
-                // Section wrapper
-                var sectionItemsPanel = new StackPanel { Spacing = 2 };
-
-                // Collapsible section header
-                var headerGrid = new Grid();
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Chevron
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Label
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Count
-                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Check All
-
-                var chevron = new TextBlock
-                {
-                    Text = "\uE70D",
-                    FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(accent),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 0, 6, 0)
-                };
-
-                var headerLabel = new TextBlock
-                {
-                    Text = sectionLabel,
+                    Text = "Custom Groups",
                     FontSize = 13,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(accent),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
+                    Foreground = new SolidColorBrush(GoldAccent)
+                });
 
-                var countLabel = new TextBlock
+                var customGroups = config.GetMustHaveGroups().Where(g => !g.IsBuiltIn).ToList();
+
+                if (customGroups.Count == 0)
                 {
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(TextDim),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(8, 0, 0, 0)
-                };
-
-                var checkAllBtn = new Button
-                {
-                    Content = "Check All",
-                    FontSize = 10,
-                    Background = new SolidColorBrush(Colors.Transparent),
-                    Foreground = new SolidColorBrush(accent),
-                    BorderThickness = new Thickness(1),
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(80, accent.R, accent.G, accent.B)),
-                    Padding = new Thickness(8, 2, 8, 2),
-                    CornerRadius = new CornerRadius(3),
-                    MinWidth = 0,
-                    Margin = new Thickness(8, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-                Grid.SetColumn(chevron, 0);
-                Grid.SetColumn(headerLabel, 1);
-                Grid.SetColumn(countLabel, 2);
-                Grid.SetColumn(checkAllBtn, 3);
-                headerGrid.Children.Add(chevron);
-                headerGrid.Children.Add(headerLabel);
-                headerGrid.Children.Add(countLabel);
-                headerGrid.Children.Add(checkAllBtn);
-
-                var headerBorder = new Border
-                {
-                    Background = new SolidColorBrush(BgCard),
-                    Padding = new Thickness(10, 6, 10, 6),
-                    CornerRadius = new CornerRadius(4),
-                    BorderBrush = new SolidColorBrush(accent),
-                    BorderThickness = new Thickness(3, 0, 0, 0),
-                    Child = headerGrid
-                };
-
-                // Toggle collapse on header click
-                var capturedSection = sectionLabel;
-                headerBorder.Tapped += (s, ev) =>
-                {
-                    if (sectionPanels.ContainsKey(capturedSection))
+                    groupMgmtContent.Children.Add(new TextBlock
                     {
-                        var p = sectionPanels[capturedSection].Panel;
-                        bool isVisible = p.Visibility == Visibility.Visible;
-                        p.Visibility = isVisible ? Visibility.Collapsed : Visibility.Visible;
-                        chevron.Text = isVisible ? "\uE76C" : "\uE70D";
-                    }
-                };
+                        Text = "No custom groups yet. Create one below.",
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(TextDim),
+                        Margin = new Thickness(0, 2, 0, 4)
+                    });
+                }
 
-                sectionPanels[sectionLabel] = (sectionItemsPanel, headerBorder, countLabel, checkAllBtn);
-                sectionsStack.Children.Add(headerBorder);
-                sectionsStack.Children.Add(sectionItemsPanel);
-
-                // Check All button logic
-                var capturedLabel = sectionLabel;
-                checkAllBtn.Click += (s, ev) =>
+                foreach (var grp in customGroups)
                 {
-                    // Toggle: if all checked → uncheck all, else check all
-                    var sectionCbs = allCheckBoxes.Where(kv => kv.Value.Section == capturedLabel).Select(kv => kv.Key).ToList();
-                    bool allChecked = sectionCbs.All(cb => cb.IsChecked == true);
-                    foreach (var cb in sectionCbs)
-                        cb.IsChecked = !allChecked;
-                    UpdateSectionCount(capturedLabel);
-                    UpdateSummary();
-                };
+                    var grpRow = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                    grpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // color swatch
+                    grpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // name
+                    grpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // count
+                    grpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // up
+                    grpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // down
+                    grpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // rename
+                    grpRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // delete
 
-                foreach (var op in cleanOps)
-                {
-                    var desc = op.Description!.Trim();
-                    var isChecked = existingMustHaves.Any(m =>
-                        m.Enabled && (
-                            m.Description.Equals(desc, StringComparison.OrdinalIgnoreCase) ||
-                            m.Description.Replace("-", " ").Equals(desc.Replace("-", " "), StringComparison.OrdinalIgnoreCase) ||
-                            desc.ToLowerInvariant().Contains(m.Description.ToLowerInvariant()) ||
-                            m.Description.ToLowerInvariant().Contains(desc.ToLowerInvariant())
-                        ));
-
-                    var opPrice = op.Price;
-                    var opHours = op.LaborHours > 0 ? op.LaborHours : op.RefinishHours;
-
-                    // Look up saved values (user may have edited hours/price previously)
-                    var savedMh = existingMustHaves.FirstOrDefault(m =>
-                        m.Description.Equals(desc, StringComparison.OrdinalIgnoreCase) ||
-                        m.Description.Replace("-", " ").Equals(desc.Replace("-", " "), StringComparison.OrdinalIgnoreCase));
-                    var condition = savedMh?.Conditions ?? "always";
-                    // Use saved values if they differ from SOP defaults (user edited them)
-                    if (savedMh != null)
+                    var accentColor = ParseHexColor(grp.AccentColor);
+                    var swatch = new Border
                     {
-                        if (savedMh.ExpectedPrice != opPrice && savedMh.ExpectedPrice > 0)
-                            opPrice = savedMh.ExpectedPrice;
-                        if (savedMh.ExpectedHours != opHours && savedMh.ExpectedHours > 0)
-                            opHours = savedMh.ExpectedHours;
-                    }
+                        Width = 14, Height = 14,
+                        CornerRadius = new CornerRadius(3),
+                        Background = new SolidColorBrush(accentColor),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 8, 0)
+                    };
+                    Grid.SetColumn(swatch, 0);
+                    grpRow.Children.Add(swatch);
 
-                    var priceStr = opPrice > 0 ? $"${opPrice:N0}" : "";
-                    var hoursStr = opHours > 0 ? $"{opHours:F1}h" : "";
-                    var detail = string.Join("  ", new[] { hoursStr, priceStr }.Where(s => s.Length > 0));
-
-                    // Wrapper StackPanel to hold both the row and the edit panel
-                    var rowWrapper = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
-
-                    var rowGrid = new Grid();
-                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 0: checkbox
-                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 1: detail
-                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: condition
-                    rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 3: pencil
-
-                    var cb = new CheckBox
+                    var nameText = new TextBlock
                     {
-                        Content = desc,
-                        IsChecked = isChecked,
+                        Text = grp.Name,
                         FontSize = 12,
                         Foreground = new SolidColorBrush(Colors.White),
-                        Tag = desc.ToLowerInvariant()  // for search filtering
+                        VerticalAlignment = VerticalAlignment.Center
                     };
-                    cb.Checked += (s, ev) => { UpdateSectionCount(sectionLabel); UpdateSummary(); };
-                    cb.Unchecked += (s, ev) => { UpdateSectionCount(sectionLabel); UpdateSummary(); };
+                    Grid.SetColumn(nameText, 1);
+                    grpRow.Children.Add(nameText);
 
-                    Grid.SetColumn(cb, 0);
-                    rowGrid.Children.Add(cb);
-
-                    var detailText = new TextBlock
+                    var opCount = mustHaves.Count(m => m.GroupId == grp.Id);
+                    var countText = new TextBlock
                     {
-                        Text = detail,
+                        Text = $"{opCount} ops",
                         FontSize = 10,
-                        Foreground = new SolidColorBrush(GreenAccent),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        Margin = new Thickness(8, 0, 0, 0),
-                        Visibility = detail.Length > 0 ? Visibility.Visible : Visibility.Collapsed
-                    };
-                    Grid.SetColumn(detailText, 1);
-                    rowGrid.Children.Add(detailText);
-
-                    var condTag = new TextBlock
-                    {
-                        Text = (!string.IsNullOrEmpty(condition) && condition != "always") ? $"[{condition}]" : "",
-                        FontSize = 9,
                         Foreground = new SolidColorBrush(TextDim),
                         VerticalAlignment = VerticalAlignment.Center,
-                        Margin = new Thickness(6, 0, 0, 0),
-                        Visibility = (!string.IsNullOrEmpty(condition) && condition != "always") ? Visibility.Visible : Visibility.Collapsed
+                        Margin = new Thickness(8, 0, 8, 0)
                     };
-                    Grid.SetColumn(condTag, 2);
-                    rowGrid.Children.Add(condTag);
+                    Grid.SetColumn(countText, 2);
+                    grpRow.Children.Add(countText);
 
-                    // Pencil (edit) button
-                    var pencilBtn = new Button
+                    var capturedGrp = grp;
+
+                    var upBtn = new Button
                     {
-                        Content = new FontIcon { Glyph = "\uE70F", FontSize = 10 },
+                        Content = new FontIcon { Glyph = "\uE70E", FontSize = 9 },
                         Padding = new Thickness(4, 2, 4, 2),
                         Background = new SolidColorBrush(Colors.Transparent),
                         Foreground = new SolidColorBrush(TextDim),
-                        CornerRadius = new CornerRadius(3),
-                        MinWidth = 0,
-                        Margin = new Thickness(4, 0, 0, 0),
+                        MinWidth = 0, CornerRadius = new CornerRadius(3),
+                        Margin = new Thickness(0, 0, 2, 0)
+                    };
+                    upBtn.Click += (s, ev) =>
+                    {
+                        var allGroups = config.GetMustHaveGroups();
+                        var idx = allGroups.FindIndex(g => g.Id == capturedGrp.Id);
+                        if (idx > 0)
+                        {
+                            // Swap sort orders with previous group
+                            var prev = allGroups[idx - 1];
+                            (capturedGrp.SortOrder, prev.SortOrder) = (prev.SortOrder, capturedGrp.SortOrder);
+                            config.UpdateMustHaveGroup(capturedGrp);
+                            config.UpdateMustHaveGroup(prev);
+                            BuildGroupMgmtPanel();
+                            rebuildSections?.Invoke();
+                        }
+                    };
+                    Grid.SetColumn(upBtn, 3);
+                    grpRow.Children.Add(upBtn);
+
+                    var downBtn = new Button
+                    {
+                        Content = new FontIcon { Glyph = "\uE70D", FontSize = 9 },
+                        Padding = new Thickness(4, 2, 4, 2),
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        Foreground = new SolidColorBrush(TextDim),
+                        MinWidth = 0, CornerRadius = new CornerRadius(3),
+                        Margin = new Thickness(0, 0, 2, 0)
+                    };
+                    downBtn.Click += (s, ev) =>
+                    {
+                        var allGroups = config.GetMustHaveGroups();
+                        var idx = allGroups.FindIndex(g => g.Id == capturedGrp.Id);
+                        if (idx >= 0 && idx < allGroups.Count - 1)
+                        {
+                            var next = allGroups[idx + 1];
+                            (capturedGrp.SortOrder, next.SortOrder) = (next.SortOrder, capturedGrp.SortOrder);
+                            config.UpdateMustHaveGroup(capturedGrp);
+                            config.UpdateMustHaveGroup(next);
+                            BuildGroupMgmtPanel();
+                            rebuildSections?.Invoke();
+                        }
+                    };
+                    Grid.SetColumn(downBtn, 4);
+                    grpRow.Children.Add(downBtn);
+
+                    var renameBtn = new Button
+                    {
+                        Content = new FontIcon { Glyph = "\uE70F", FontSize = 9 },
+                        Padding = new Thickness(4, 2, 4, 2),
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        Foreground = new SolidColorBrush(TextDim),
+                        MinWidth = 0, CornerRadius = new CornerRadius(3),
+                        Margin = new Thickness(0, 0, 2, 0)
+                    };
+                    ToolTipService.SetToolTip(renameBtn, "Rename group");
+                    renameBtn.Click += async (s, ev) =>
+                    {
+                        var input = new TextBox { Text = capturedGrp.Name, FontSize = 13, Width = 300 };
+                        var dlg = new ContentDialog
+                        {
+                            Title = "Rename Group",
+                            Content = input,
+                            PrimaryButtonText = "Rename",
+                            CloseButtonText = "Cancel",
+                            XamlRoot = xamlRoot,
+                            RequestedTheme = ElementTheme.Dark
+                        };
+                        if (await dlg.ShowAsync() == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(input.Text))
+                        {
+                            capturedGrp.Name = input.Text.Trim();
+                            config.UpdateMustHaveGroup(capturedGrp);
+                            BuildGroupMgmtPanel();
+                            rebuildSections?.Invoke();
+                        }
+                    };
+                    Grid.SetColumn(renameBtn, 5);
+                    grpRow.Children.Add(renameBtn);
+
+                    var deleteBtn = new Button
+                    {
+                        Content = new FontIcon { Glyph = "\uE74D", FontSize = 9 },
+                        Padding = new Thickness(4, 2, 4, 2),
+                        Background = new SolidColorBrush(DeleteBg),
+                        Foreground = new SolidColorBrush(DeleteFg),
+                        MinWidth = 0, CornerRadius = new CornerRadius(3)
+                    };
+                    deleteBtn.Click += async (s, ev) =>
+                    {
+                        var dlg = new ContentDialog
+                        {
+                            Title = "Delete Group",
+                            Content = $"Delete \"{capturedGrp.Name}\"? Operations will move back to their default section.",
+                            PrimaryButtonText = "Delete",
+                            CloseButtonText = "Cancel",
+                            XamlRoot = xamlRoot,
+                            RequestedTheme = ElementTheme.Dark
+                        };
+                        if (await dlg.ShowAsync() == ContentDialogResult.Primary)
+                        {
+                            config.DeleteMustHaveGroup(capturedGrp.Id);
+                            mustHaves = config.GetMustHaves(); // refresh after group delete unassigns ops
+                            groups = config.GetMustHaveGroups();
+                            BuildGroupMgmtPanel();
+                            rebuildSections?.Invoke();
+                        }
+                    };
+                    Grid.SetColumn(deleteBtn, 6);
+                    grpRow.Children.Add(deleteBtn);
+
+                    groupMgmtContent.Children.Add(grpRow);
+                }
+
+                // --- Create new group ---
+                var createRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 6, 0, 0) };
+                var newGroupName = new TextBox
+                {
+                    PlaceholderText = "New group name...",
+                    Width = 180, FontSize = 12
+                };
+                createRow.Children.Add(newGroupName);
+
+                // Color swatch picker
+                string selectedColor = GroupColorSwatches[0];
+                var swatchRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+                var swatchBorders = new List<Border>();
+                foreach (var hexColor in GroupColorSwatches)
+                {
+                    var capturedHex = hexColor;
+                    var swatchBorder = new Border
+                    {
+                        Width = 18, Height = 18,
+                        CornerRadius = new CornerRadius(4),
+                        Background = new SolidColorBrush(ParseHexColor(hexColor)),
+                        BorderThickness = new Thickness(hexColor == selectedColor ? 2 : 0),
+                        BorderBrush = new SolidColorBrush(Colors.White),
+                        Margin = new Thickness(0)
+                    };
+                    swatchBorder.Tapped += (s, ev) =>
+                    {
+                        selectedColor = capturedHex;
+                        foreach (var sb in swatchBorders)
+                            sb.BorderThickness = new Thickness(0);
+                        if (s is Border b)
+                            b.BorderThickness = new Thickness(2);
+                    };
+                    swatchBorders.Add(swatchBorder);
+                    swatchRow.Children.Add(swatchBorder);
+                }
+                createRow.Children.Add(swatchRow);
+
+                var createBtn = new Button
+                {
+                    Content = "Create",
+                    FontSize = 11,
+                    Background = new SolidColorBrush(Color.FromArgb(255, 40, 80, 60)),
+                    Foreground = new SolidColorBrush(GreenAccent),
+                    Padding = new Thickness(10, 4, 10, 4),
+                    CornerRadius = new CornerRadius(4),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                createBtn.Click += (s, ev) =>
+                {
+                    if (string.IsNullOrWhiteSpace(newGroupName.Text)) return;
+                    var newGroup = new MustHaveGroup
+                    {
+                        Name = newGroupName.Text.Trim(),
+                        AccentColor = selectedColor,
+                        IsBuiltIn = false
+                    };
+                    config.AddMustHaveGroup(newGroup);
+                    groups = config.GetMustHaveGroups();
+                    BuildGroupMgmtPanel();
+                    rebuildSections?.Invoke();
+                };
+                createRow.Children.Add(createBtn);
+
+                groupMgmtContent.Children.Add(createRow);
+            }
+
+            // === BUILD GROUP-BASED SECTIONS ===
+            void BuildSections()
+            {
+                sectionsStack.Children.Clear();
+                allCheckBoxes.Clear();
+                sectionPanels.Clear();
+
+                groups = config.GetMustHaveGroups();
+                mustHaves = config.GetMustHaves();
+
+                foreach (var group in groups)
+                {
+                    var accent = ParseHexColor(group.AccentColor);
+
+                    // Find operations for this group: GroupId match, or Section fallback
+                    var groupOps = mustHaves.Where(m =>
+                        !pendingDeletes.Contains(m.Id) &&
+                        (m.GroupId == group.Id || (m.GroupId == null && m.Section.Equals(group.Name, StringComparison.OrdinalIgnoreCase)))
+                    ).ToList();
+
+                    // Include pending adds assigned to this group
+                    var pendingGroupOps = pendingAdds.Where(m =>
+                        m.GroupId == group.Id || (m.GroupId == null && m.Section.Equals(group.Name, StringComparison.OrdinalIgnoreCase))
+                    ).ToList();
+
+                    // Hide empty built-in groups; always show custom groups
+                    if (group.IsBuiltIn && groupOps.Count == 0 && pendingGroupOps.Count == 0)
+                        continue;
+
+                    var sectionItemsPanel = new StackPanel { Spacing = 2 };
+
+                    // === Section header ===
+                    var headerGrid = new Grid();
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 0: Chevron
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 1: Label
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: Count
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 3: Add "+"
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 4: Check All
+
+                    var chevron = new TextBlock
+                    {
+                        Text = "\uE70D",
+                        FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(accent),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 6, 0)
+                    };
+
+                    var headerLabel = new TextBlock
+                    {
+                        Text = group.Name,
+                        FontSize = 13,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(accent),
                         VerticalAlignment = VerticalAlignment.Center
                     };
-                    Grid.SetColumn(pencilBtn, 3);
-                    rowGrid.Children.Add(pencilBtn);
 
-                    // Inline edit panel (hidden by default)
-                    var editPanel = new Border
+                    var countLabel = new TextBlock
                     {
-                        Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 42)),
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(TextDim),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    };
+
+                    // Per-section "+" add button
+                    var addSectionBtn = new Button
+                    {
+                        Content = new FontIcon { Glyph = "\uE710", FontSize = 10 },
+                        Padding = new Thickness(4, 2, 4, 2),
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        Foreground = new SolidColorBrush(accent),
+                        CornerRadius = new CornerRadius(3),
+                        MinWidth = 0,
+                        Margin = new Thickness(6, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    ToolTipService.SetToolTip(addSectionBtn, "Add operation to this group");
+
+                    var checkAllBtn = new Button
+                    {
+                        Content = "Check All",
+                        FontSize = 10,
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        Foreground = new SolidColorBrush(accent),
+                        BorderThickness = new Thickness(1),
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(80, accent.R, accent.G, accent.B)),
+                        Padding = new Thickness(8, 2, 8, 2),
+                        CornerRadius = new CornerRadius(3),
+                        MinWidth = 0,
+                        Margin = new Thickness(6, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+
+                    Grid.SetColumn(chevron, 0);
+                    Grid.SetColumn(headerLabel, 1);
+                    Grid.SetColumn(countLabel, 2);
+                    Grid.SetColumn(addSectionBtn, 3);
+                    Grid.SetColumn(checkAllBtn, 4);
+                    headerGrid.Children.Add(chevron);
+                    headerGrid.Children.Add(headerLabel);
+                    headerGrid.Children.Add(countLabel);
+                    headerGrid.Children.Add(addSectionBtn);
+                    headerGrid.Children.Add(checkAllBtn);
+
+                    var headerBorder = new Border
+                    {
+                        Background = new SolidColorBrush(BgCard),
                         Padding = new Thickness(10, 6, 10, 6),
                         CornerRadius = new CornerRadius(4),
-                        Margin = new Thickness(20, 2, 0, 4),
+                        BorderBrush = new SolidColorBrush(accent),
+                        BorderThickness = new Thickness(3, 0, 0, 0),
+                        Child = headerGrid
+                    };
+
+                    // Inline add form (hidden by default)
+                    var addFormBorder = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 30, 38, 44)),
+                        Padding = new Thickness(10, 6, 10, 6),
+                        CornerRadius = new CornerRadius(4),
+                        Margin = new Thickness(8, 4, 0, 4),
                         Visibility = Visibility.Collapsed
                     };
 
-                    var editGrid = new Grid();
-                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Hours
-                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Price
-                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Condition
-                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Spacer
-                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Delete
-                    editGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Done
+                    var addFormStack = new StackPanel { Spacing = 6 };
 
-                    var editHoursBox = new NumberBox
+                    // Add Row 1: Op Type + Description
+                    var addRow1 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    var addOpTypeBox = new ComboBox { Header = "Op Type", Width = 130, FontSize = 11, SelectedIndex = 0 };
+                    foreach (var (shortName, longName) in CccOpTypes)
+                        addOpTypeBox.Items.Add($"{shortName} - {longName}");
+
+                    var addNameBox = new AutoSuggestBox
                     {
-                        Header = "Hours", Minimum = 0, Maximum = 50, SmallChange = 0.1,
-                        Value = opHours > 0 ? (double)opHours : double.NaN,
-                        Width = 80, FontSize = 11, Margin = new Thickness(0, 0, 6, 0)
+                        PlaceholderText = "Operation name...",
+                        Width = 200, FontSize = 12
                     };
-                    var editPriceBox = new NumberBox
+                    addNameBox.TextChanged += (s, args) =>
                     {
-                        Header = "Price $", Minimum = 0, Maximum = 5000,
-                        Value = opPrice > 0 ? (double)opPrice : double.NaN,
-                        Width = 80, FontSize = 11, Margin = new Thickness(0, 0, 6, 0)
+                        if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
+                        {
+                            var query = addNameBox.Text?.ToLowerInvariant() ?? "";
+                            if (query.Length >= 2)
+                            {
+                                addNameBox.ItemsSource = allKnownOps
+                                    .Where(o => o.Description.ToLowerInvariant().Contains(query))
+                                    .Select(o => o.Description).Distinct().Take(10).ToList();
+                            }
+                            else addNameBox.ItemsSource = null;
+                        }
                     };
-                    var editCondBox = new ComboBox
-                    {
-                        Header = "Condition", IsEditable = true, Width = 130, FontSize = 11,
-                        Margin = new Thickness(0, 0, 6, 0)
-                    };
+                    addRow1.Children.Add(addOpTypeBox);
+                    addRow1.Children.Add(addNameBox);
+                    addFormStack.Children.Add(addRow1);
+
+                    // Add Row 2: Qty, Price, Body Hours, Labor Category, Refinish Hours
+                    var addRow2 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    var addQtyBox = new NumberBox { Header = "Qty", Minimum = 1, Maximum = 99, SmallChange = 1, Value = 1, Width = 60, FontSize = 11 };
+                    var addPriceBox = new NumberBox { PlaceholderText = "$", Minimum = 0, Maximum = 50000, Width = 70, FontSize = 11, Header = "Price" };
+                    var addBodyHoursBox = new NumberBox { PlaceholderText = "hrs", Minimum = 0, Maximum = 50, SmallChange = 0.1, Width = 70, FontSize = 11, Header = "Body Hrs" };
+                    var addLaborCatBox = new ComboBox { Header = "Labor Cat", Width = 130, FontSize = 11, SelectedIndex = 0 };
+                    foreach (var cat in BodyLaborCategories)
+                        addLaborCatBox.Items.Add(cat);
+                    var addRfnHoursBox = new NumberBox { PlaceholderText = "hrs", Minimum = 0, Maximum = 50, SmallChange = 0.1, Width = 70, FontSize = 11, Header = "Rfn Hrs" };
+                    addRow2.Children.Add(addQtyBox);
+                    addRow2.Children.Add(addPriceBox);
+                    addRow2.Children.Add(addBodyHoursBox);
+                    addRow2.Children.Add(addLaborCatBox);
+                    addRow2.Children.Add(addRfnHoursBox);
+                    addFormStack.Children.Add(addRow2);
+
+                    // Add Row 3: Condition + Add button
+                    var addRow3 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    var addCondBox = new ComboBox { IsEditable = true, Width = 120, FontSize = 11, Header = "Condition", SelectedIndex = 0 };
                     foreach (var cond in EstimateConditionEvaluator.AllConditions)
-                        editCondBox.Items.Add(cond);
-                    editCondBox.SelectedItem = condition;
+                        addCondBox.Items.Add(cond);
 
-                    var editDeleteBtn = new Button
+                    // Auto-fill from autocomplete selection
+                    addNameBox.SuggestionChosen += (s, args) =>
                     {
-                        Content = new FontIcon { Glyph = "\uE74D", FontSize = 10 },
-                        Padding = new Thickness(6, 4, 6, 4),
-                        Background = new SolidColorBrush(DeleteBg),
-                        Foreground = new SolidColorBrush(DeleteFg),
-                        CornerRadius = new CornerRadius(3),
-                        MinWidth = 0,
-                        VerticalAlignment = VerticalAlignment.Bottom,
-                        Margin = new Thickness(0, 0, 6, 0)
+                        var chosen = args.SelectedItem?.ToString() ?? "";
+                        var match = allKnownOps.FirstOrDefault(o => o.Description.Equals(chosen, StringComparison.OrdinalIgnoreCase));
+                        if (!string.IsNullOrEmpty(match.Description))
+                        {
+                            if (match.Price > 0) addPriceBox.Value = (double)match.Price;
+                            if (match.Hours > 0) addBodyHoursBox.Value = (double)match.Hours;
+                        }
                     };
-                    var editDoneBtn = new Button
+
+                    var capturedGroup = group;
+                    var capturedSectionItems = sectionItemsPanel;
+                    var capturedAddForm = addFormBorder;
+
+                    var addConfirmBtn = new Button
                     {
-                        Content = "Done",
-                        Padding = new Thickness(10, 4, 10, 4),
+                        Content = "Add",
+                        FontSize = 11,
                         Background = new SolidColorBrush(Color.FromArgb(255, 40, 80, 60)),
                         Foreground = new SolidColorBrush(GreenAccent),
-                        CornerRadius = new CornerRadius(3),
-                        MinWidth = 0,
+                        Padding = new Thickness(10, 4, 10, 4),
+                        CornerRadius = new CornerRadius(4),
                         VerticalAlignment = VerticalAlignment.Bottom
                     };
-
-                    Grid.SetColumn(editHoursBox, 0);
-                    Grid.SetColumn(editPriceBox, 1);
-                    Grid.SetColumn(editCondBox, 2);
-                    Grid.SetColumn(editDeleteBtn, 4);
-                    Grid.SetColumn(editDoneBtn, 5);
-                    editGrid.Children.Add(editHoursBox);
-                    editGrid.Children.Add(editPriceBox);
-                    editGrid.Children.Add(editCondBox);
-                    editGrid.Children.Add(editDeleteBtn);
-                    editGrid.Children.Add(editDoneBtn);
-                    editPanel.Child = editGrid;
-
-                    // Capture for closures
-                    var capturedCb = cb;
-                    var capturedDetailText = detailText;
-                    var capturedCondTag = condTag;
-                    var capturedEditPanel = editPanel;
-                    var capturedSectionLabel = sectionLabel;
-                    var capturedRowWrapper = rowWrapper;
-
-                    pencilBtn.Click += (s, ev) =>
+                    addConfirmBtn.Click += (s, ev) =>
                     {
-                        // Toggle edit panel visibility
-                        capturedEditPanel.Visibility = capturedEditPanel.Visibility == Visibility.Visible
+                        if (string.IsNullOrWhiteSpace(addNameBox.Text)) return;
+                        var trimmedName = addNameBox.Text.Trim();
+                        if (trimmedName.StartsWith("*") || !trimmedName.Any(char.IsLetter)) return;
+
+                        var selOpType = addOpTypeBox.SelectedIndex >= 0 && addOpTypeBox.SelectedIndex < CccOpTypes.Length
+                            ? CccOpTypes[addOpTypeBox.SelectedIndex].Short : "";
+                        var qty = !double.IsNaN(addQtyBox.Value) ? (int)addQtyBox.Value : 1;
+                        var price = !double.IsNaN(addPriceBox.Value) ? (decimal)addPriceBox.Value : 0;
+                        var bodyHours = !double.IsNaN(addBodyHoursBox.Value) ? (decimal)addBodyHoursBox.Value : 0;
+                        var laborCat = addLaborCatBox.SelectedIndex >= 0 && addLaborCatBox.SelectedIndex < BodyLaborCategories.Length
+                            ? BodyLaborCategories[addLaborCatBox.SelectedIndex] : "Body";
+                        var rfnHours = !double.IsNaN(addRfnHoursBox.Value) ? (decimal)addRfnHoursBox.Value : 0;
+                        var selectedCond = addCondBox.SelectedItem?.ToString() ?? addCondBox.Text ?? "always";
+                        if (string.IsNullOrWhiteSpace(selectedCond)) selectedCond = "always";
+
+                        var newMh = new MustHaveOperation
+                        {
+                            Description = trimmedName,
+                            Section = capturedGroup.Name,
+                            GroupId = capturedGroup.Id,
+                            CccOperationType = selOpType,
+                            Quantity = qty,
+                            ExpectedPrice = price,
+                            ExpectedHours = bodyHours,
+                            BodyLaborCategory = laborCat,
+                            RefinishHours = rfnHours,
+                            Conditions = selectedCond,
+                            Enabled = true
+                        };
+                        pendingAdds.Add(newMh);
+
+                        // Add row to current section
+                        AddOperationRow(newMh, capturedGroup, accent, capturedSectionItems, allCheckBoxes,
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(capturedGroup.Id); UpdateSummary(); });
+
+                        addNameBox.Text = "";
+                        addOpTypeBox.SelectedIndex = 0;
+                        addQtyBox.Value = 1;
+                        addPriceBox.Value = double.NaN;
+                        addBodyHoursBox.Value = double.NaN;
+                        addLaborCatBox.SelectedIndex = 0;
+                        addRfnHoursBox.Value = double.NaN;
+                        addCondBox.SelectedIndex = 0;
+                        UpdateSectionCount(capturedGroup.Id);
+                        UpdateSummary();
+                    };
+
+                    addRow3.Children.Add(addCondBox);
+                    addRow3.Children.Add(addConfirmBtn);
+                    addFormStack.Children.Add(addRow3);
+                    addFormBorder.Child = addFormStack;
+
+                    // Toggle add form
+                    addSectionBtn.Click += (s, ev) =>
+                    {
+                        capturedAddForm.Visibility = capturedAddForm.Visibility == Visibility.Visible
                             ? Visibility.Collapsed : Visibility.Visible;
                     };
 
-                    editDoneBtn.Click += (s, ev) =>
+                    // Toggle collapse on header click (not on buttons)
+                    var capturedChevron = chevron;
+                    var capturedGroupId = group.Id;
+                    headerBorder.Tapped += (s, ev) =>
                     {
-                        var newHours = !double.IsNaN(editHoursBox.Value) ? (decimal)editHoursBox.Value : 0;
-                        var newPrice = !double.IsNaN(editPriceBox.Value) ? (decimal)editPriceBox.Value : 0;
-                        var newCond = editCondBox.SelectedItem?.ToString() ?? editCondBox.Text ?? "always";
-                        if (string.IsNullOrWhiteSpace(newCond)) newCond = "always";
-
-                        // Update the display
-                        var newHoursStr = newHours > 0 ? $"{newHours:F1}h" : "";
-                        var newPriceStr = newPrice > 0 ? $"${newPrice:N0}" : "";
-                        var newDetail = string.Join("  ", new[] { newHoursStr, newPriceStr }.Where(str => str.Length > 0));
-                        capturedDetailText.Text = newDetail;
-                        capturedDetailText.Visibility = newDetail.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-
-                        if (!string.IsNullOrEmpty(newCond) && newCond != "always")
+                        if (sectionPanels.ContainsKey(capturedGroupId))
                         {
-                            capturedCondTag.Text = $"[{newCond}]";
-                            capturedCondTag.Visibility = Visibility.Visible;
+                            var p = sectionPanels[capturedGroupId].Panel;
+                            var af = sectionPanels[capturedGroupId].AddFormBorder;
+                            bool isVisible = p.Visibility == Visibility.Visible;
+                            p.Visibility = isVisible ? Visibility.Collapsed : Visibility.Visible;
+                            if (af != null && isVisible) af.Visibility = Visibility.Collapsed;
+                            capturedChevron.Text = isVisible ? "\uE76C" : "\uE70D";
                         }
-                        else
-                        {
-                            capturedCondTag.Text = "";
-                            capturedCondTag.Visibility = Visibility.Collapsed;
-                        }
+                    };
 
-                        // Update the checkbox map with new values
-                        var currentInfo = allCheckBoxes[capturedCb];
-                        allCheckBoxes[capturedCb] = (currentInfo.Description, currentInfo.Section, newPrice, newHours);
+                    sectionPanels[group.Id] = (sectionItemsPanel, headerBorder, countLabel, checkAllBtn, addFormBorder);
 
-                        // Track this edit for save
-                        pendingEdits[capturedCb] = (currentInfo.Description, newHours, newPrice, newCond);
-
-                        capturedEditPanel.Visibility = Visibility.Collapsed;
+                    // Check All button
+                    checkAllBtn.Click += (s, ev) =>
+                    {
+                        var sectionCbs = allCheckBoxes
+                            .Where(kv => kv.Value.GroupId == capturedGroupId ||
+                                         (kv.Value.GroupId == null && kv.Value.Section.Equals(capturedGroup.Name, StringComparison.OrdinalIgnoreCase)))
+                            .Select(kv => kv.Key).ToList();
+                        bool allChecked = sectionCbs.All(cb => cb.IsChecked == true);
+                        foreach (var cb in sectionCbs)
+                            cb.IsChecked = !allChecked;
+                        UpdateSectionCount(capturedGroupId);
                         UpdateSummary();
                     };
 
-                    editDeleteBtn.Click += (s, ev) =>
+                    sectionsStack.Children.Add(headerBorder);
+                    sectionsStack.Children.Add(addFormBorder);
+                    sectionsStack.Children.Add(sectionItemsPanel);
+
+                    // Add operation rows
+                    foreach (var mh in groupOps)
                     {
-                        capturedCb.IsChecked = false;
-                        capturedRowWrapper.Visibility = Visibility.Collapsed;
-                        allCheckBoxes.Remove(capturedCb);
-                        pendingEdits.Remove(capturedCb);
-                        UpdateSectionCount(capturedSectionLabel);
-                        UpdateSummary();
-                    };
-
-                    rowWrapper.Children.Add(rowGrid);
-                    rowWrapper.Children.Add(editPanel);
-                    sectionItemsPanel.Children.Add(rowWrapper);
-                    allCheckBoxes[cb] = (desc, sectionLabel, opPrice, opHours);
-                }
-            }
-
-            // === CUSTOM ADD SECTION ===
-            var customSectionPanel = new StackPanel { Spacing = 2 };
-            var customChevron = new TextBlock
-            {
-                Text = "\uE70D",
-                FontFamily = new FontFamily("Segoe MDL2 Assets"),
-                FontSize = 10,
-                Foreground = new SolidColorBrush(CustomAccent),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 6, 0)
-            };
-
-            var customHeaderBorder = new Border
-            {
-                Background = new SolidColorBrush(BgCard),
-                Padding = new Thickness(10, 6, 10, 6),
-                CornerRadius = new CornerRadius(4),
-                Margin = new Thickness(0, 4, 0, 0),
-                BorderBrush = new SolidColorBrush(CustomAccent),
-                BorderThickness = new Thickness(3, 0, 0, 0),
-                Child = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Children =
+                        AddOperationRow(mh, group, accent, sectionItemsPanel, allCheckBoxes,
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); });
+                    }
+                    foreach (var mh in pendingGroupOps)
                     {
-                        customChevron,
-                        new TextBlock
-                        {
-                            Text = "Custom Must-Have",
-                            FontSize = 13,
-                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                            Foreground = new SolidColorBrush(CustomAccent)
-                        }
+                        AddOperationRow(mh, group, accent, sectionItemsPanel, allCheckBoxes,
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); });
                     }
                 }
-            };
-            customHeaderBorder.Tapped += (s, ev) =>
-            {
-                bool isVisible = customSectionPanel.Visibility == Visibility.Visible;
-                customSectionPanel.Visibility = isVisible ? Visibility.Collapsed : Visibility.Visible;
-                customChevron.Text = isVisible ? "\uE76C" : "\uE70D";
-            };
 
-            // AutoSuggestBox for custom add (with autocomplete from all known ops)
-            var nameBox = new AutoSuggestBox
-            {
-                PlaceholderText = "Type operation name...",
-                Width = 240,
-                FontSize = 12
-            };
-            var priceBox = new NumberBox { PlaceholderText = "$", Minimum = 0, Maximum = 5000, Width = 80, FontSize = 12, Header = "Price" };
-            var hoursBox = new NumberBox { PlaceholderText = "hrs", Minimum = 0, Maximum = 50, SmallChange = 0.1, Width = 80, FontSize = 12, Header = "Hours" };
-            var conditionBox = new ComboBox
-            {
-                IsEditable = true,
-                PlaceholderText = "Condition",
-                Width = 150,
-                FontSize = 12,
-                SelectedIndex = 0
-            };
-            foreach (var cond in EstimateConditionEvaluator.AllConditions)
-                conditionBox.Items.Add(cond);
-
-            var addBtn = new Button
-            {
-                Content = "Add",
-                Background = new SolidColorBrush(Color.FromArgb(255, 120, 90, 40)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 6, 12, 6),
-                CornerRadius = new CornerRadius(4),
-                VerticalAlignment = VerticalAlignment.Bottom
-            };
-
-            // AutoSuggest: filter known ops by text (exclude invalid entries)
-            nameBox.TextChanged += (s, args) =>
-            {
-                if (args.Reason == AutoSuggestionBoxTextChangeReason.UserInput)
-                {
-                    var query = nameBox.Text?.ToLowerInvariant() ?? "";
-                    if (query.Length >= 2)
-                    {
-                        var suggestions = allKnownOps
-                            .Where(o => o.Description.ToLowerInvariant().Contains(query) &&
-                                        !o.Description.StartsWith("*") &&
-                                        o.Description.Any(char.IsLetter))
-                            .Select(o => o.Description)
-                            .Distinct()
-                            .Take(10)
-                            .ToList();
-                        nameBox.ItemsSource = suggestions;
-                    }
-                    else
-                    {
-                        nameBox.ItemsSource = null;
-                    }
-                }
-            };
-
-            nameBox.SuggestionChosen += (s, args) =>
-            {
-                var chosen = args.SelectedItem?.ToString() ?? "";
-                var match = allKnownOps.FirstOrDefault(o =>
-                    o.Description.Equals(chosen, StringComparison.OrdinalIgnoreCase));
-                if (!string.IsNullOrEmpty(match.Description))
-                {
-                    if (match.Price > 0) priceBox.Value = (double)match.Price;
-                    if (match.Hours > 0) hoursBox.Value = (double)match.Hours;
-                }
-            };
-
-            var customAddsPanel = new StackPanel { Spacing = 2, Margin = new Thickness(8, 4, 0, 0) };
-
-            // Show existing custom must-haves (ones not from SOP)
-            foreach (var mh in existingMustHaves.Where(m => !allCheckBoxes.Values.Any(v =>
-                v.Description.Equals(m.Description, StringComparison.OrdinalIgnoreCase))))
-            {
-                AddCustomRow(mh, config, allCheckBoxes, customAddsPanel, UpdateSummary);
-            }
-
-            addBtn.Click += (s, ev) =>
-            {
-                if (string.IsNullOrWhiteSpace(nameBox.Text)) return;
-                var trimmedName = nameBox.Text.Trim();
-                // Reject invalid entries: starts with *, or contains no letters
-                if (trimmedName.StartsWith("*") || !trimmedName.Any(char.IsLetter)) return;
-                var price = !double.IsNaN(priceBox.Value) ? (decimal)priceBox.Value : 0;
-                var hours = !double.IsNaN(hoursBox.Value) ? (decimal)hoursBox.Value : 0;
-                var selectedCondition = conditionBox.SelectedItem?.ToString() ?? conditionBox.Text ?? "always";
-                if (string.IsNullOrWhiteSpace(selectedCondition)) selectedCondition = "always";
-                var newMh = new MustHaveOperation
-                {
-                    Description = nameBox.Text.Trim(),
-                    Section = "Custom",
-                    ExpectedPrice = price,
-                    ExpectedHours = hours,
-                    Conditions = selectedCondition
-                };
-                config.AddMustHave(newMh);
-
-                var newCb = new CheckBox
-                {
-                    Content = newMh.Description,
-                    IsChecked = true,
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Colors.White),
-                    Tag = newMh.Description.ToLowerInvariant()
-                };
-                newCb.Checked += (s2, ev2) => UpdateSummary();
-                newCb.Unchecked += (s2, ev2) => UpdateSummary();
-                allCheckBoxes[newCb] = (newMh.Description, "Custom", price, hours);
-                customAddsPanel.Children.Add(newCb);
-                nameBox.Text = "";
-                priceBox.Value = double.NaN;
-                hoursBox.Value = double.NaN;
-                conditionBox.SelectedIndex = 0;
+                // Update all counts
+                foreach (var gId in sectionPanels.Keys)
+                    UpdateSectionCount(gId);
                 UpdateSummary();
-            };
+            }
 
-            var addRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(8, 4, 0, 0) };
-            addRow.Children.Add(nameBox);
-            addRow.Children.Add(priceBox);
-            addRow.Children.Add(hoursBox);
-            addRow.Children.Add(conditionBox);
-            addRow.Children.Add(addBtn);
-
-            customSectionPanel.Children.Add(addRow);
-            customSectionPanel.Children.Add(customAddsPanel);
-
-            sectionsStack.Children.Add(customHeaderBorder);
-            sectionsStack.Children.Add(customSectionPanel);
+            rebuildSections = BuildSections;
+            BuildSections();
+            BuildGroupMgmtPanel();
 
             // === SEARCH LOGIC ===
-            searchBox.TextChanged += (s, args) =>
+            // Map filter dropdown index to search tag key
+            var filterKeys = new[] { "all", "name", "optype", "laborcat", "condition", "group" };
+
+            void RunSearch()
             {
                 var query = searchBox.Text?.ToLowerInvariant() ?? "";
+                var filterIdx = searchFilterBox.SelectedIndex;
+                var filterKey = filterIdx >= 0 && filterIdx < filterKeys.Length ? filterKeys[filterIdx] : "all";
 
-                foreach (var (sectionLabel, (panel, header, countText, checkAll)) in sectionPanels)
+                foreach (var (groupId, (panel, header, countText, checkAll, addForm)) in sectionPanels)
                 {
                     int visibleCount = 0;
                     foreach (var child in panel.Children)
                     {
-                        // Rows are wrapped in StackPanels (containing Grid + edit panel)
-                        var rowContainer = child;
-                        Grid? rowGrid = null;
-                        if (child is StackPanel wrapper && wrapper.Children.Count > 0 && wrapper.Children[0] is Grid g)
-                            rowGrid = g;
-                        else if (child is Grid directGrid)
-                            rowGrid = directGrid;
-
-                        if (rowGrid != null)
+                        if (child is StackPanel wrapper && wrapper.Tag is Dictionary<string, string> tags)
                         {
                             bool matches = string.IsNullOrEmpty(query);
-                            if (!matches)
-                            {
-                                foreach (var element in rowGrid.Children)
-                                {
-                                    if (element is CheckBox cb && cb.Tag is string tag)
-                                    {
-                                        matches = tag.Contains(query);
-                                        break;
-                                    }
-                                }
-                            }
-                            rowContainer.Visibility = matches ? Visibility.Visible : Visibility.Collapsed;
+                            if (!matches && tags.TryGetValue(filterKey, out var searchable))
+                                matches = searchable.Contains(query);
+                            child.Visibility = matches ? Visibility.Visible : Visibility.Collapsed;
                             if (matches) visibleCount++;
                         }
                     }
-                    // Hide section header if no visible children
                     header.Visibility = (string.IsNullOrEmpty(query) || visibleCount > 0) ? Visibility.Visible : Visibility.Collapsed;
                     panel.Visibility = (string.IsNullOrEmpty(query) || visibleCount > 0) ? Visibility.Visible : Visibility.Collapsed;
                 }
-            };
+            }
+
+            searchBox.TextChanged += (s, args) => RunSearch();
+            searchFilterBox.SelectionChanged += (s, args) => RunSearch();
 
             // === BUILT-IN PRESET BUTTONS ===
             foreach (var (presetName, keywords) in Presets)
@@ -779,8 +891,6 @@ namespace McStudDesktop.Views
                 presetBtn.Click += (s, ev) =>
                 {
                     bool isActive = activePresets.Contains(capturedName);
-
-                    // Find matching checkboxes
                     var matching = allCheckBoxes.Where(kv =>
                     {
                         var descLower = kv.Value.Description.ToLowerInvariant();
@@ -789,7 +899,6 @@ namespace McStudDesktop.Views
 
                     if (isActive)
                     {
-                        // Uncheck matching items
                         foreach (var cb in matching) cb.IsChecked = false;
                         activePresets.Remove(capturedName);
                         presetBtn.Background = new SolidColorBrush(BgCard);
@@ -797,21 +906,48 @@ namespace McStudDesktop.Views
                     }
                     else
                     {
-                        // Check matching items
                         foreach (var cb in matching) cb.IsChecked = true;
                         activePresets.Add(capturedName);
                         presetBtn.Background = new SolidColorBrush(Color.FromArgb(255, 40, 60, 80));
                         presetBtn.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 140, 200));
                     }
 
-                    // Update all section counts
-                    foreach (var sec in sectionPanels.Keys)
-                        UpdateSectionCount(sec);
+                    foreach (var gId in sectionPanels.Keys)
+                        UpdateSectionCount(gId);
                     UpdateSummary();
                 };
 
                 presetRow.Children.Add(presetBtn);
             }
+
+            // "Manage Groups" button
+            var manageGroupsBtn = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal, Spacing = 4,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE713", FontSize = 10 },
+                        new TextBlock { Text = "Groups", FontSize = 11 }
+                    }
+                },
+                FontSize = 11,
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 40, 30)),
+                Foreground = new SolidColorBrush(GoldAccent),
+                BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(80, 255, 200, 100)),
+                Padding = new Thickness(10, 4, 10, 4),
+                CornerRadius = new CornerRadius(12)
+            };
+            manageGroupsBtn.Click += (s, ev) =>
+            {
+                groupMgmtPanel.Visibility = groupMgmtPanel.Visibility == Visibility.Visible
+                    ? Visibility.Collapsed : Visibility.Visible;
+                if (groupMgmtPanel.Visibility == Visibility.Visible)
+                    BuildGroupMgmtPanel();
+            };
+            presetRow.Children.Add(manageGroupsBtn);
 
             // === USER TEMPLATE BUTTONS ===
             var userTemplateRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
@@ -825,7 +961,6 @@ namespace McStudDesktop.Views
                     var capturedTmpl = tmpl;
                     var capturedDescs = tmpl.Descriptions;
 
-                    // Button content: name + small delete X
                     var btnContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                     btnContent.Children.Add(new TextBlock
                     {
@@ -878,8 +1013,8 @@ namespace McStudDesktop.Views
                             tmplBtn.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 140, 100, 200));
                         }
 
-                        foreach (var sec in sectionPanels.Keys)
-                            UpdateSectionCount(sec);
+                        foreach (var gId in sectionPanels.Keys)
+                            UpdateSectionCount(gId);
                         UpdateSummary();
                     };
 
@@ -929,7 +1064,6 @@ namespace McStudDesktop.Views
 
                 saveTemplateBtn.Click += async (s, ev) =>
                 {
-                    // Collect currently checked descriptions
                     var checkedDescs = allCheckBoxes
                         .Where(kv => kv.Key.IsChecked == true)
                         .Select(kv => kv.Value.Description)
@@ -988,15 +1122,11 @@ namespace McStudDesktop.Views
             // === ASSEMBLE DIALOG ===
             dialogStack.Children.Add(presetRow);
             dialogStack.Children.Add(userTemplateRow);
-            dialogStack.Children.Add(searchBox);
+            dialogStack.Children.Add(groupMgmtPanel);
+            dialogStack.Children.Add(searchRow);
             scrollViewer.Content = sectionsStack;
             dialogStack.Children.Add(scrollViewer);
             dialogStack.Children.Add(summaryText);
-
-            // Initialize section counts and summary
-            foreach (var sec in sectionPanels.Keys)
-                UpdateSectionCount(sec);
-            UpdateSummary();
 
             var dialog = new ContentDialog
             {
@@ -1011,24 +1141,37 @@ namespace McStudDesktop.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                SaveMustHaves(config, allCheckBoxes, pendingEdits);
+                SaveMustHaves(config, allCheckBoxes, pendingEdits, pendingDeletes, pendingAdds);
                 return true;
             }
             return false;
         }
 
-        private static void AddCustomRow(
+        /// <summary>
+        /// Add a single operation row to a section panel.
+        /// </summary>
+        private static void AddOperationRow(
             MustHaveOperation mh,
-            GhostConfigService config,
-            Dictionary<CheckBox, (string Description, string Section, decimal Price, decimal Hours)> checkBoxMap,
-            StackPanel customAddsPanel,
-            Action updateSummary)
+            MustHaveGroup group,
+            Color accent,
+            StackPanel sectionPanel,
+            Dictionary<CheckBox, (string Id, string Description, string Section, string? GroupId, decimal Price, decimal Hours)> allCheckBoxes,
+            Dictionary<CheckBox, (string Description, string CccOpType, int Quantity, decimal Price, decimal BodyHours, string BodyLaborCategory, decimal RefinishHours, string Condition, string? GroupId)> pendingEdits,
+            HashSet<string> pendingDeletes,
+            List<MustHaveGroup> groups,
+            Action updateCounts)
         {
-            var customRow = new Grid();
-            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 0: checkbox
-            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 1: info
-            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: condition tag
-            customRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 3: delete
+            var rowWrapper = new StackPanel { Margin = new Thickness(8, 0, 0, 0), Spacing = 2 };
+
+            // Line 1: Checkbox + delete button
+            var rowGrid = new Grid();
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 0: checkbox
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 1: condition tag
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: delete
+
+            var opPrice = mh.ExpectedPrice;
+            var opHours = mh.ExpectedHours;
+            var condition = mh.Conditions ?? "always";
 
             var cb = new CheckBox
             {
@@ -1038,134 +1181,297 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Colors.White),
                 Tag = mh.Description.ToLowerInvariant()
             };
-            cb.Checked += (s, ev) => updateSummary();
-            cb.Unchecked += (s, ev) => updateSummary();
+            cb.Checked += (s, ev) => updateCounts();
+            cb.Unchecked += (s, ev) => updateCounts();
+
             Grid.SetColumn(cb, 0);
-            customRow.Children.Add(cb);
+            rowGrid.Children.Add(cb);
 
-            var infoText = "";
-            if (mh.ExpectedPrice > 0) infoText += $"${mh.ExpectedPrice:N0}  ";
-            if (mh.ExpectedHours > 0) infoText += $"{mh.ExpectedHours:F1}h";
-            if (infoText.Length > 0)
+            var condTag = new TextBlock
             {
-                var info = new TextBlock
-                {
-                    Text = infoText.Trim(),
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(GreenAccent),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(8, 0, 0, 0)
-                };
-                Grid.SetColumn(info, 1);
-                customRow.Children.Add(info);
-            }
+                Text = (!string.IsNullOrEmpty(condition) && condition != "always") ? $"[{condition}]" : "",
+                FontSize = 9,
+                Foreground = new SolidColorBrush(TextDim),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(6, 0, 0, 0),
+                Visibility = (!string.IsNullOrEmpty(condition) && condition != "always") ? Visibility.Visible : Visibility.Collapsed
+            };
+            Grid.SetColumn(condTag, 1);
+            rowGrid.Children.Add(condTag);
 
-            // Show condition tag for non-"always" custom items
-            if (!string.IsNullOrEmpty(mh.Conditions) && mh.Conditions != "always")
-            {
-                var condTag = new TextBlock
-                {
-                    Text = $"[{mh.Conditions}]",
-                    FontSize = 9,
-                    Foreground = new SolidColorBrush(TextDim),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(6, 0, 0, 0)
-                };
-                Grid.SetColumn(condTag, 2);
-                customRow.Children.Add(condTag);
-            }
-
-            var capturedMh = mh;
             var deleteBtn = new Button
             {
-                Content = new FontIcon { Glyph = "\uE74D", FontSize = 10 },
+                Content = new FontIcon { Glyph = "\uE74D", FontSize = 9 },
                 Padding = new Thickness(4, 2, 4, 2),
-                Background = new SolidColorBrush(DeleteBg),
+                Background = new SolidColorBrush(Colors.Transparent),
                 Foreground = new SolidColorBrush(DeleteFg),
                 CornerRadius = new CornerRadius(3),
                 MinWidth = 0,
-                Margin = new Thickness(8, 0, 0, 0)
+                Margin = new Thickness(4, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.6
             };
+            ToolTipService.SetToolTip(deleteBtn, "Delete operation");
+            Grid.SetColumn(deleteBtn, 2);
+            rowGrid.Children.Add(deleteBtn);
+
+            rowWrapper.Children.Add(rowGrid);
+
+            // Line 2: Always-visible CCC fields
+            var fieldsRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Margin = new Thickness(28, 0, 0, 4)
+            };
+
+            // Operation Name (editable)
+            var fldName = new TextBox
+            {
+                Text = mh.Description, FontSize = 10, Width = 200,
+                Padding = new Thickness(6, 3, 6, 3),
+                PlaceholderText = "Operation name..."
+            };
+            ToolTipService.SetToolTip(fldName, "Operation Name");
+
+            // Op Type
+            var fldOpType = new ComboBox { FontSize = 10, MinWidth = 0, Width = 105, Padding = new Thickness(6, 3, 6, 3) };
+            int selectedOpIdx = 0;
+            for (int i = 0; i < CccOpTypes.Length; i++)
+            {
+                fldOpType.Items.Add($"{CccOpTypes[i].Short} - {CccOpTypes[i].Long}");
+                if (CccOpTypes[i].Short.Equals(mh.CccOperationType, StringComparison.OrdinalIgnoreCase))
+                    selectedOpIdx = i;
+            }
+            fldOpType.SelectedIndex = selectedOpIdx;
+            ToolTipService.SetToolTip(fldOpType, "Operation Type");
+
+            // Qty
+            var fldQty = new NumberBox
+            {
+                Minimum = 1, Maximum = 99, SmallChange = 1,
+                Value = mh.Quantity > 0 ? mh.Quantity : 1,
+                Width = 50, FontSize = 10,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+            };
+            ToolTipService.SetToolTip(fldQty, "Quantity");
+
+            // Price
+            var fldPrice = new NumberBox
+            {
+                Minimum = 0, Maximum = 50000,
+                Value = opPrice > 0 ? (double)opPrice : double.NaN,
+                Width = 65, FontSize = 10, PlaceholderText = "$",
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+            };
+            ToolTipService.SetToolTip(fldPrice, "Price $");
+
+            // Body Hours
+            var fldBodyHrs = new NumberBox
+            {
+                Minimum = 0, Maximum = 50, SmallChange = 0.1,
+                Value = opHours > 0 ? (double)opHours : double.NaN,
+                Width = 60, FontSize = 10, PlaceholderText = "hrs",
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+            };
+            ToolTipService.SetToolTip(fldBodyHrs, "Body Hours");
+
+            // Labor Category
+            var fldLaborCat = new ComboBox { FontSize = 10, MinWidth = 0, Width = 105, Padding = new Thickness(6, 3, 6, 3) };
+            int selectedCatIdx = 0;
+            for (int i = 0; i < BodyLaborCategories.Length; i++)
+            {
+                fldLaborCat.Items.Add(BodyLaborCategories[i]);
+                if (BodyLaborCategories[i].Equals(mh.BodyLaborCategory, StringComparison.OrdinalIgnoreCase))
+                    selectedCatIdx = i;
+            }
+            fldLaborCat.SelectedIndex = selectedCatIdx;
+            ToolTipService.SetToolTip(fldLaborCat, "Body Labor Category");
+
+            // Refinish Hours
+            var fldRfnHrs = new NumberBox
+            {
+                Minimum = 0, Maximum = 50, SmallChange = 0.1,
+                Value = mh.RefinishHours > 0 ? (double)mh.RefinishHours : double.NaN,
+                Width = 60, FontSize = 10, PlaceholderText = "rfn",
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+            };
+            ToolTipService.SetToolTip(fldRfnHrs, "Refinish Hours");
+
+            // Condition
+            var fldCond = new ComboBox { FontSize = 10, IsEditable = true, MinWidth = 0, Width = 100, Padding = new Thickness(6, 3, 6, 3) };
+            foreach (var cond in EstimateConditionEvaluator.AllConditions)
+                fldCond.Items.Add(cond);
+            fldCond.SelectedItem = condition;
+            ToolTipService.SetToolTip(fldCond, "Condition");
+
+            // Labels
+            var lbl = (string text) => new TextBlock
+            {
+                Text = text, FontSize = 9, Foreground = new SolidColorBrush(TextDim),
+                VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 0, 0)
+            };
+
+            fieldsRow.Children.Add(fldName);
+            fieldsRow.Children.Add(lbl("Op:"));
+            fieldsRow.Children.Add(fldOpType);
+            fieldsRow.Children.Add(lbl("Qty:"));
+            fieldsRow.Children.Add(fldQty);
+            fieldsRow.Children.Add(lbl("$:"));
+            fieldsRow.Children.Add(fldPrice);
+            fieldsRow.Children.Add(lbl("Body:"));
+            fieldsRow.Children.Add(fldBodyHrs);
+            fieldsRow.Children.Add(lbl("Cat:"));
+            fieldsRow.Children.Add(fldLaborCat);
+            fieldsRow.Children.Add(lbl("Rfn:"));
+            fieldsRow.Children.Add(fldRfnHrs);
+            fieldsRow.Children.Add(lbl("When:"));
+            fieldsRow.Children.Add(fldCond);
+
+            rowWrapper.Children.Add(fieldsRow);
+
+            // Capture for closures
+            var capturedCb = cb;
+            var capturedCondTag = condTag;
+            var capturedRowWrapper = rowWrapper;
+            var capturedMh = mh;
+
+            // Helper: read current field values and update pendingEdits
+            void SyncPendingEdit()
+            {
+                var curDesc = fldName.Text?.Trim();
+                if (string.IsNullOrWhiteSpace(curDesc)) curDesc = capturedMh.Description;
+
+                // Keep checkbox label in sync with name field
+                capturedCb.Content = curDesc;
+                capturedCb.Tag = curDesc.ToLowerInvariant();
+
+                var curOpType = fldOpType.SelectedIndex >= 0 && fldOpType.SelectedIndex < CccOpTypes.Length
+                    ? CccOpTypes[fldOpType.SelectedIndex].Short : "";
+                var curQty = !double.IsNaN(fldQty.Value) ? (int)fldQty.Value : 1;
+                var curPrice = !double.IsNaN(fldPrice.Value) ? (decimal)fldPrice.Value : 0;
+                var curBodyHrs = !double.IsNaN(fldBodyHrs.Value) ? (decimal)fldBodyHrs.Value : 0;
+                var curLaborCat = fldLaborCat.SelectedIndex >= 0 && fldLaborCat.SelectedIndex < BodyLaborCategories.Length
+                    ? BodyLaborCategories[fldLaborCat.SelectedIndex] : "Body";
+                var curRfnHrs = !double.IsNaN(fldRfnHrs.Value) ? (decimal)fldRfnHrs.Value : 0;
+                var curCond = fldCond.SelectedItem?.ToString() ?? fldCond.Text ?? "always";
+                if (string.IsNullOrWhiteSpace(curCond)) curCond = "always";
+
+                // Update condition tag display
+                if (!string.IsNullOrEmpty(curCond) && curCond != "always")
+                {
+                    capturedCondTag.Text = $"[{curCond}]";
+                    capturedCondTag.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    capturedCondTag.Text = "";
+                    capturedCondTag.Visibility = Visibility.Collapsed;
+                }
+
+                // Find current group (stays same group since no group picker in inline row)
+                string? curGroupId = group.Id;
+
+                allCheckBoxes[capturedCb] = (capturedMh.Id, curDesc, capturedMh.Section, curGroupId, curPrice, curBodyHrs);
+                pendingEdits[capturedCb] = (curDesc, curOpType, curQty, curPrice, curBodyHrs, curLaborCat, curRfnHrs, curCond, curGroupId);
+            }
+
+            // Auto-sync on any field change
+            fldName.TextChanged += (s, ev) => SyncPendingEdit();
+            fldOpType.SelectionChanged += (s, ev) => SyncPendingEdit();
+            fldQty.ValueChanged += (s, ev) => SyncPendingEdit();
+            fldPrice.ValueChanged += (s, ev) => SyncPendingEdit();
+            fldBodyHrs.ValueChanged += (s, ev) => SyncPendingEdit();
+            fldLaborCat.SelectionChanged += (s, ev) => SyncPendingEdit();
+            fldRfnHrs.ValueChanged += (s, ev) => SyncPendingEdit();
+            fldCond.SelectionChanged += (s, ev) => SyncPendingEdit();
+
             deleteBtn.Click += (s, ev) =>
             {
-                config.RemoveMustHave(capturedMh.Id);
-                customRow.Visibility = Visibility.Collapsed;
-                updateSummary();
+                capturedCb.IsChecked = false;
+                capturedRowWrapper.Visibility = Visibility.Collapsed;
+                allCheckBoxes.Remove(capturedCb);
+                pendingEdits.Remove(capturedCb);
+                pendingDeletes.Add(capturedMh.Id);
+                updateCounts();
             };
-            Grid.SetColumn(deleteBtn, 3);
-            customRow.Children.Add(deleteBtn);
 
-            checkBoxMap[cb] = (mh.Description, "Custom", mh.ExpectedPrice, mh.ExpectedHours);
-            customAddsPanel.Children.Add(customRow);
+            // Store searchable metadata on wrapper for filtering
+            void UpdateSearchTag()
+            {
+                var name = fldName.Text?.ToLowerInvariant() ?? "";
+                var opType = fldOpType.SelectedIndex >= 0 && fldOpType.SelectedIndex < CccOpTypes.Length
+                    ? (CccOpTypes[fldOpType.SelectedIndex].Short + " " + CccOpTypes[fldOpType.SelectedIndex].Long).ToLowerInvariant() : "";
+                var laborCat = fldLaborCat.SelectedIndex >= 0 && fldLaborCat.SelectedIndex < BodyLaborCategories.Length
+                    ? BodyLaborCategories[fldLaborCat.SelectedIndex].ToLowerInvariant() : "";
+                var cond = (fldCond.SelectedItem?.ToString() ?? fldCond.Text ?? "").ToLowerInvariant();
+                var grpName = group.Name.ToLowerInvariant();
+
+                rowWrapper.Tag = new Dictionary<string, string>
+                {
+                    ["all"] = $"{name} {opType} {laborCat} {cond} {grpName}",
+                    ["name"] = name,
+                    ["optype"] = opType,
+                    ["laborcat"] = laborCat,
+                    ["condition"] = cond,
+                    ["group"] = grpName
+                };
+            }
+            UpdateSearchTag();
+
+            // Also update search tag when fields change
+            fldName.TextChanged += (s, ev) => UpdateSearchTag();
+            fldOpType.SelectionChanged += (s, ev) => UpdateSearchTag();
+            fldLaborCat.SelectionChanged += (s, ev) => UpdateSearchTag();
+            fldCond.SelectionChanged += (s, ev) => UpdateSearchTag();
+
+            sectionPanel.Children.Add(rowWrapper);
+            allCheckBoxes[cb] = (mh.Id, mh.Description, mh.Section, mh.GroupId ?? group.Id, opPrice, opHours);
         }
 
         private static void SaveMustHaves(
             GhostConfigService config,
-            Dictionary<CheckBox, (string Description, string Section, decimal Price, decimal Hours)> checkBoxMap,
-            Dictionary<CheckBox, (string Description, decimal Hours, decimal Price, string Condition)> pendingEdits)
+            Dictionary<CheckBox, (string Id, string Description, string Section, string? GroupId, decimal Price, decimal Hours)> checkBoxMap,
+            Dictionary<CheckBox, (string Description, string CccOpType, int Quantity, decimal Price, decimal BodyHours, string BodyLaborCategory, decimal RefinishHours, string Condition, string? GroupId)> pendingEdits,
+            HashSet<string> pendingDeletes,
+            List<MustHaveOperation> pendingAdds)
         {
-            // Sync: remove all SOP-based must-haves using fuzzy matching, then re-add checked ones.
-            var currentMustHaves = config.GetMustHaves();
+            // 1. Apply deletes
+            foreach (var id in pendingDeletes)
+                config.RemoveMustHave(id);
 
-            var sopNormalizedDescriptions = checkBoxMap.Values
-                .Where(v => v.Section != "Custom")
-                .Select(v => GhostConfigService.NormalizeMustHaveDesc(v.Description))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            // Remove any existing must-have whose normalized description matches a SOP checkbox
-            foreach (var mh in currentMustHaves
-                .Where(m => m.Section != "Custom" &&
-                    sopNormalizedDescriptions.Contains(GhostConfigService.NormalizeMustHaveDesc(m.Description)))
-                .ToList())
-            {
-                config.RemoveMustHave(mh.Id);
-            }
-
-            // Add checked SOP items (AddMustHave has built-in dedup)
+            // 2. Apply edits and enabled/disabled state
             foreach (var (cb, info) in checkBoxMap)
             {
-                if (cb.IsChecked == true && info.Section != "Custom")
-                {
-                    var newMh = new MustHaveOperation
-                    {
-                        Description = info.Description,
-                        Section = info.Section,
-                        ExpectedPrice = info.Price,
-                        ExpectedHours = info.Hours
-                    };
+                if (pendingDeletes.Contains(info.Id)) continue;
 
-                    // Apply pending edits if user modified this item
+                var existing = config.GetMustHaves().FirstOrDefault(m => m.Id == info.Id);
+                if (existing != null)
+                {
+                    existing.Enabled = cb.IsChecked == true;
+
                     if (pendingEdits.TryGetValue(cb, out var edit))
                     {
-                        newMh.ExpectedHours = edit.Hours;
-                        newMh.ExpectedPrice = edit.Price;
-                        newMh.Conditions = edit.Condition;
+                        existing.Description = edit.Description;
+                        existing.CccOperationType = edit.CccOpType;
+                        existing.Quantity = edit.Quantity;
+                        existing.ExpectedPrice = edit.Price;
+                        existing.ExpectedHours = edit.BodyHours;
+                        existing.BodyLaborCategory = edit.BodyLaborCategory;
+                        existing.RefinishHours = edit.RefinishHours;
+                        existing.Conditions = edit.Condition;
+                        existing.GroupId = edit.GroupId;
                     }
 
-                    config.AddMustHave(newMh);
+                    config.UpdateMustHave(existing);
                 }
             }
 
-            // Handle unchecked custom items (disable them)
-            foreach (var (cb, info) in checkBoxMap)
+            // 3. Add pending new operations
+            foreach (var newMh in pendingAdds)
             {
-                if (info.Section == "Custom")
-                {
-                    var existing = config.GetMustHaves().FirstOrDefault(m =>
-                        m.Description.Equals(info.Description, StringComparison.OrdinalIgnoreCase));
-                    if (existing != null)
-                    {
-                        existing.Enabled = cb.IsChecked == true;
-                        // Apply pending edits for custom items too
-                        if (pendingEdits.TryGetValue(cb, out var edit))
-                        {
-                            existing.ExpectedHours = edit.Hours;
-                            existing.ExpectedPrice = edit.Price;
-                            existing.Conditions = edit.Condition;
-                        }
-                        config.UpdateMustHave(existing);
-                    }
-                }
+                if (!pendingDeletes.Contains(newMh.Id))
+                    config.AddMustHave(newMh);
             }
         }
     }
