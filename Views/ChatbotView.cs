@@ -806,7 +806,7 @@ public class ChatbotView : UserControl
 
         // Tab labels
         _chatTabButton = CreateTabButton("\uD83D\uDCAC Chat", "Ask questions", 0, true);
-        _estimateBuilderTabButton = CreateTabButton("\uD83D\uDCCB Learned", "Look up operations", 1, false);
+        _estimateBuilderTabButton = CreateTabButton("\uD83D\uDCCB Learned", "Operations & estimates", 1, false);
         _ghostTabButton = CreateTabButton("\uD83D\uDC7B Ghost Estimate", "Smart training", 2, false);
         _screenMonitorTabButton = CreateTabButton("\uD83D\uDDA5 Screen OCR", "Monitor screen", 3, false);
 

@@ -277,19 +277,19 @@ namespace McStudDesktop.Views
                 BorderThickness = new Thickness(1)
             };
 
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
             row.Children.Add(new FontIcon
             {
                 Glyph = "\uE82D",
                 FontSize = 14,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255))
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 160, 220))
             });
 
             var linkText = new TextBlock
             {
-                Text = "P-Pages, DEG inquiries, and supporting documents for these operations are available on the Reference tab",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 180, 220)),
+                Text = "P-Pages, DEG inquiries, and supporting documents for detected operations are available on the Reference tab.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 220)),
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -300,8 +300,10 @@ namespace McStudDesktop.Views
                 Content = "Open Reference Tab",
                 FontSize = 11,
                 Padding = new Thickness(10, 4, 10, 4),
-                Background = new SolidColorBrush(Color.FromArgb(255, 40, 70, 100)),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 70, 90)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 190, 240)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 70, 100, 140)),
+                BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(4),
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -844,9 +846,11 @@ namespace McStudDesktop.Views
 
             try
             {
-                var filteredOps = GetFilteredOperations(_currentResult.GuidanceOperations);
+                // Honor user selection — checked ops only — and recompute totals to match
+                var activeOps = GetActiveOperations();
+                RecomputeTotalsFromOps(_currentResult, activeOps);
                 var pdfService = new GhostPdfExportService();
-                var path = pdfService.GenerateGhostPdf(_currentResult, filteredOps);
+                var path = pdfService.GenerateGhostPdf(_currentResult, activeOps);
                 ShowMessage($"PDF exported: {path}");
             }
             catch (Exception ex)
@@ -1031,6 +1035,10 @@ namespace McStudDesktop.Views
             _summaryCardsPanel?.Children.Clear();
 
             var filteredOps = GetFilteredOperations(result.GuidanceOperations);
+
+            // Recompute totals against the visible (filtered) ops so the breakdown
+            // panel matches what's actually shown — and reflects current shop rates.
+            RecomputeTotalsFromOps(result, filteredOps);
 
             // Build summary cards
             BuildSummaryCards(result, filteredOps);
@@ -1272,6 +1280,95 @@ namespace McStudDesktop.Views
             return border;
         }
 
+        /// <summary>
+        /// Returns the operations the user has actively included: passes the category filter
+        /// AND has a checked checkbox. Defaults to all when checkboxes haven't been built yet.
+        /// </summary>
+        private List<GuidanceOperation> GetActiveOperations()
+        {
+            if (_currentResult == null) return new List<GuidanceOperation>();
+
+            var filtered = GetFilteredOperations(_currentResult.GuidanceOperations);
+
+            // No checkboxes registered yet (first display) — return all filtered
+            if (_operationCheckboxes.Count == 0) return filtered;
+
+            return filtered
+                .Where(op => !_operationCheckboxes.TryGetValue(op, out var cb) || cb.IsChecked == true)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Recompute the totals on the result object using the given operations
+        /// and the current shop labor rates. Mirrors the engine's CalculateTotals logic.
+        /// </summary>
+        private void RecomputeTotalsFromOps(GuidanceEstimateResult result, List<GuidanceOperation> ops)
+        {
+            var ghostCfg = GhostConfigService.Instance;
+            var bodyRate = ghostCfg.GetEffectiveBodyRate();
+            var paintRate = ghostCfg.GetEffectivePaintRate();
+            var mechRate = ghostCfg.GetEffectiveMechRate();
+            var frameRate = ghostCfg.GetEffectiveFrameRate();
+            var matRate = ghostCfg.GetEffectiveMaterialRate();
+
+            result.TotalBodyHours = ops
+                .Where(o => o.Category == "Body Operations" || o.Category == "Part Operations" || o.Category == "Structural")
+                .Sum(o => o.LaborHours);
+
+            result.TotalRefinishHours = ops
+                .Where(o => o.Category == "Refinish Operations")
+                .Sum(o => o.RefinishHours);
+
+            var mechHours = ops
+                .Where(o => o.Category == "Scanning" || o.OperationType == "Mech")
+                .Sum(o => o.LaborHours);
+
+            var frameHours = ops
+                .Where(o => o.Category == "Frame Operations")
+                .Sum(o => o.LaborHours);
+
+            result.TotalSubletAmount = ops
+                .Where(o => o.OperationType == "Sublet")
+                .Sum(o => o.Price);
+
+            result.TotalBodyLaborDollars = result.TotalBodyHours * bodyRate;
+            result.TotalRefinishLaborDollars = result.TotalRefinishHours * paintRate;
+            result.TotalMechLaborDollars = mechHours * mechRate;
+            result.TotalFrameLaborDollars = frameHours * frameRate;
+            result.TotalMaterialDollars = result.TotalRefinishHours * matRate;
+
+            result.GrandTotalLaborDollars =
+                result.TotalBodyLaborDollars +
+                result.TotalRefinishLaborDollars +
+                result.TotalMechLaborDollars +
+                result.TotalFrameLaborDollars +
+                result.TotalMaterialDollars +
+                result.TotalSubletAmount;
+
+            result.BodyRateUsed = bodyRate;
+            result.PaintRateUsed = paintRate;
+            result.MechRateUsed = mechRate;
+            result.FrameRateUsed = frameRate;
+            result.MaterialRateUsed = matRate;
+            result.MechHoursUsed = mechHours;
+            result.FrameHoursUsed = frameHours;
+        }
+
+        /// <summary>
+        /// Fired when an operation checkbox is toggled. Recomputes totals + cards live
+        /// without rebuilding the operation rows (which would reset all checkbox states).
+        /// </summary>
+        private void OperationCheckbox_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_currentResult == null) return;
+
+            var activeOps = GetActiveOperations();
+            RecomputeTotalsFromOps(_currentResult, activeOps);
+
+            _summaryCardsPanel?.Children.Clear();
+            BuildSummaryCards(_currentResult, activeOps);
+        }
+
         private void BuildSummaryCards(GuidanceEstimateResult result, List<GuidanceOperation> filteredOps)
         {
             var cardsGrid = new Grid();
@@ -1318,7 +1415,7 @@ namespace McStudDesktop.Views
                 cardsGrid.Children.Add(learnedCard);
             }
 
-            // Card 6: Data Quality — % of operations with learned data
+            // Card 5: Data Quality — % of operations with learned data
             var totalOps = filteredOps.Count;
             var learnedOps = filteredOps.Count(o => o.LaborSource != "fallback" && o.LaborSource != "met_data" && !string.IsNullOrEmpty(o.LaborSource));
             var qualityPercent = totalOps > 0 ? (int)(100.0 * learnedOps / totalOps) : 0;
@@ -1334,6 +1431,300 @@ namespace McStudDesktop.Views
             cardsGrid.Children.Add(qualityCard);
 
             _summaryCardsPanel?.Children.Add(cardsGrid);
+
+            // Estimate-style totals breakdown (Tractable-style)
+            _summaryCardsPanel?.Children.Add(BuildTotalsBreakdown(result));
+        }
+
+        private Border BuildTotalsBreakdown(GuidanceEstimateResult result)
+        {
+            var ghostCfg = GhostConfigService.Instance;
+
+            var border = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 34, 42)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 70, 85)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(16, 14, 16, 14),
+                Margin = new Thickness(4, 12, 4, 4)
+            };
+
+            var stack = new StackPanel { Spacing = 8 };
+
+            // Heading row (editable)
+            var headingRow = new Grid();
+            headingRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headingRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var headingText = new TextBlock
+            {
+                Text = ghostCfg.GetEffectiveEstimateHeading(),
+                FontSize = 18,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 230, 235, 240)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(headingText, 0);
+            headingRow.Children.Add(headingText);
+
+            var settingsBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE713", FontSize = 14 },
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 52, 62)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 205, 210)),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(8, 6, 8, 6),
+                CornerRadius = new CornerRadius(6),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(settingsBtn, "Edit heading & labor rates");
+            settingsBtn.Click += async (_, _) => await OpenTotalsSettings_Click();
+            Grid.SetColumn(settingsBtn, 1);
+            headingRow.Children.Add(settingsBtn);
+
+            stack.Children.Add(headingRow);
+
+            // Divider
+            stack.Children.Add(new Border
+            {
+                Height = 1,
+                Background = new SolidColorBrush(Color.FromArgb(255, 55, 65, 78)),
+                Margin = new Thickness(0, 2, 0, 6)
+            });
+
+            // Line items
+            void AddLine(string label, string detail, decimal amount, bool dim = false)
+            {
+                var grid = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var labelTb = new TextBlock
+                {
+                    Text = label,
+                    FontSize = 13,
+                    Foreground = new SolidColorBrush(dim
+                        ? Color.FromArgb(255, 130, 135, 140)
+                        : Color.FromArgb(255, 200, 205, 215))
+                };
+                Grid.SetColumn(labelTb, 0);
+                grid.Children.Add(labelTb);
+
+                var detailTb = new TextBlock
+                {
+                    Text = detail,
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 145))
+                };
+                Grid.SetColumn(detailTb, 1);
+                grid.Children.Add(detailTb);
+
+                var amtTb = new TextBlock
+                {
+                    Text = $"${amount:N2}",
+                    FontSize = 13,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(dim
+                        ? Color.FromArgb(255, 130, 135, 140)
+                        : Color.FromArgb(255, 220, 225, 232)),
+                    HorizontalAlignment = HorizontalAlignment.Right
+                };
+                Grid.SetColumn(amtTb, 2);
+                grid.Children.Add(amtTb);
+
+                stack.Children.Add(grid);
+            }
+
+            AddLine("Body Labor",
+                $"{result.TotalBodyHours:F1} hrs × ${result.BodyRateUsed:F2}/hr",
+                result.TotalBodyLaborDollars,
+                dim: result.TotalBodyHours == 0);
+
+            AddLine("Refinish Labor",
+                $"{result.TotalRefinishHours:F1} hrs × ${result.PaintRateUsed:F2}/hr",
+                result.TotalRefinishLaborDollars,
+                dim: result.TotalRefinishHours == 0);
+
+            AddLine("Paint Materials",
+                $"{result.TotalRefinishHours:F1} hrs × ${result.MaterialRateUsed:F2}/hr",
+                result.TotalMaterialDollars,
+                dim: result.TotalRefinishHours == 0);
+
+            AddLine("Mechanical Labor",
+                $"{result.MechHoursUsed:F1} hrs × ${result.MechRateUsed:F2}/hr",
+                result.TotalMechLaborDollars,
+                dim: result.MechHoursUsed == 0);
+
+            AddLine("Frame Labor",
+                $"{result.FrameHoursUsed:F1} hrs × ${result.FrameRateUsed:F2}/hr",
+                result.TotalFrameLaborDollars,
+                dim: result.FrameHoursUsed == 0);
+
+            AddLine("Sublet",
+                "Pre/Post scan, calibrations, etc.",
+                result.TotalSubletAmount,
+                dim: result.TotalSubletAmount == 0);
+
+            // Divider
+            stack.Children.Add(new Border
+            {
+                Height = 1,
+                Background = new SolidColorBrush(Color.FromArgb(255, 55, 65, 78)),
+                Margin = new Thickness(0, 6, 0, 6)
+            });
+
+            // Grand total row
+            var totalGrid = new Grid();
+            totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            totalGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var totalLabel = new TextBlock
+            {
+                Text = "TOTAL",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 230, 235, 240)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(totalLabel, 0);
+            totalGrid.Children.Add(totalLabel);
+
+            var totalAmt = new TextBlock
+            {
+                Text = $"${result.GrandTotalLaborDollars:N2}",
+                FontSize = 22,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 230, 140)),
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            Grid.SetColumn(totalAmt, 1);
+            totalGrid.Children.Add(totalAmt);
+
+            stack.Children.Add(totalGrid);
+
+            // Footer note
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Calculated from labor hours × your shop rates. Parts not included.",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 110, 115, 125)),
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                Margin = new Thickness(0, 4, 0, 0)
+            });
+
+            border.Child = stack;
+            return border;
+        }
+
+        private async System.Threading.Tasks.Task OpenTotalsSettings_Click()
+        {
+            var ghostCfg = GhostConfigService.Instance;
+
+            var panel = new StackPanel { Spacing = 12, MinWidth = 380 };
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Estimate Heading",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
+            });
+
+            var headingBox = new TextBox
+            {
+                Header = "Heading text shown above the totals",
+                Text = ghostCfg.GetEffectiveEstimateHeading(),
+                FontSize = 13
+            };
+            panel.Children.Add(headingBox);
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Labor Rates ($/hr)",
+                FontSize = 14,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+
+            NumberBox MakeRateBox(string header, decimal current)
+            {
+                return new NumberBox
+                {
+                    Header = header,
+                    Value = (double)current,
+                    SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+                    SmallChange = 1,
+                    LargeChange = 10,
+                    Minimum = 0
+                };
+            }
+
+            var bodyBox = MakeRateBox("Body Labor", ghostCfg.GetEffectiveBodyRate());
+            var paintBox = MakeRateBox("Refinish Labor", ghostCfg.GetEffectivePaintRate());
+            var matBox = MakeRateBox("Paint Materials", ghostCfg.GetEffectiveMaterialRate());
+            var mechBox = MakeRateBox("Mechanical Labor", ghostCfg.GetEffectiveMechRate());
+            var frameBox = MakeRateBox("Frame Labor", ghostCfg.GetEffectiveFrameRate());
+
+            panel.Children.Add(bodyBox);
+            panel.Children.Add(paintBox);
+            panel.Children.Add(matBox);
+            panel.Children.Add(mechBox);
+            panel.Children.Add(frameBox);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Estimate Totals Settings",
+                Content = new ScrollViewer { Content = panel, MaxHeight = 500 },
+                PrimaryButtonText = "Save",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            ghostCfg.SetEstimateHeading(headingBox.Text);
+            ghostCfg.SetLaborRate("body", (decimal)bodyBox.Value);
+            ghostCfg.SetLaborRate("paint", (decimal)paintBox.Value);
+            ghostCfg.SetLaborRate("material", (decimal)matBox.Value);
+            ghostCfg.SetLaborRate("mech", (decimal)mechBox.Value);
+            ghostCfg.SetLaborRate("frame", (decimal)frameBox.Value);
+
+            // Recompute totals on the current result with the new rates and refresh the UI
+            if (_currentResult != null)
+            {
+                var bodyR = (decimal)bodyBox.Value;
+                var paintR = (decimal)paintBox.Value;
+                var matR = (decimal)matBox.Value;
+                var mechR = (decimal)mechBox.Value;
+                var frameR = (decimal)frameBox.Value;
+
+                _currentResult.TotalBodyLaborDollars = _currentResult.TotalBodyHours * bodyR;
+                _currentResult.TotalRefinishLaborDollars = _currentResult.TotalRefinishHours * paintR;
+                _currentResult.TotalMaterialDollars = _currentResult.TotalRefinishHours * matR;
+                _currentResult.TotalMechLaborDollars = _currentResult.MechHoursUsed * mechR;
+                _currentResult.TotalFrameLaborDollars = _currentResult.FrameHoursUsed * frameR;
+
+                _currentResult.GrandTotalLaborDollars =
+                    _currentResult.TotalBodyLaborDollars +
+                    _currentResult.TotalRefinishLaborDollars +
+                    _currentResult.TotalMaterialDollars +
+                    _currentResult.TotalMechLaborDollars +
+                    _currentResult.TotalFrameLaborDollars +
+                    _currentResult.TotalSubletAmount;
+
+                _currentResult.BodyRateUsed = bodyR;
+                _currentResult.PaintRateUsed = paintR;
+                _currentResult.MaterialRateUsed = matR;
+                _currentResult.MechRateUsed = mechR;
+                _currentResult.FrameRateUsed = frameR;
+
+                DisplayGuidanceResults(_currentResult);
+            }
         }
 
         private Border CreateSummaryCard(string label, string value, Color color)
@@ -1585,15 +1976,19 @@ namespace McStudDesktop.Views
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Paint
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) });  // Parts
 
-            // Checkbox
+            // Checkbox — default ON. Unchecking excludes this op from totals + PDF export.
             var checkbox = new CheckBox
             {
                 MinWidth = 0,
                 MinHeight = 0,
                 Padding = new Thickness(0),
                 Margin = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center
+                VerticalAlignment = VerticalAlignment.Center,
+                IsChecked = true
             };
+            ToolTipService.SetToolTip(checkbox, "Uncheck to exclude this operation from totals & PDF");
+            checkbox.Checked += OperationCheckbox_Toggled;
+            checkbox.Unchecked += OperationCheckbox_Toggled;
             _operationCheckboxes[op] = checkbox;
             Grid.SetColumn(checkbox, 0);
             row.Children.Add(checkbox);

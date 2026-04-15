@@ -1,6 +1,6 @@
 {
-  "version": "1.2",
-  "lastUpdated": "2026-02-05",
+  "version": "2.0",
+  "lastUpdated": "2026-04-12",
   "source": "Database Enhancement Gateway (DEG) - degweb.org",
   "disclaimer": "Inquiry numbers were found cited in DEG, SCRS, and industry publications. To verify any inquiry, search the number at degweb.org/deg-database/",
   "howToVerify": "Go to degweb.org/deg-database and enter the inquiry number to see the full official response",
@@ -199,6 +199,589 @@
       ],
       "systems": ["CCC"],
       "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-16158",
+      "inquiryNumber": "16158",
+      "title": "Battery Disconnect and Reconnect",
+      "category": "Electrical",
+      "vehicle": "All Makes",
+      "response": "Per MOTORS Guide to Estimating, D&R of the battery is a not included item. If labor footnotes indicate labor is INCLUDED, that would be for one disconnect only. Multiple disconnects may be required for welding, dent pulling, refinishing, or moving the vehicle between departments.",
+      "keyPoints": [
+        "Battery D&R is NOT INCLUDED per MOTOR GTE",
+        "If footnote says INCLUDED it means one disconnect only",
+        "Multiple disconnects for welding, pulling, refinishing require on-the-spot evaluation",
+        "OEM procedures may require disconnect at each repair stage"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "SCRS estimating tips, degweb.org"
+    },
+    {
+      "id": "deg-23038",
+      "inquiryNumber": "23038",
+      "title": "Matte / Satin Clear Coat Application",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Operations outside of normal gloss clear coat steps are NOT INCLUDED. The matte clear application process may vary from standard clear coat procedures, requiring different equipment setup, spray techniques, and material.",
+      "keyPoints": [
+        "Matte/satin clear NOT INCLUDED in standard refinish times",
+        "Application process differs from standard gloss clear",
+        "Additional material cost NOT INCLUDED",
+        "May require special spray equipment and technique"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-15393",
+      "inquiryNumber": "15393",
+      "title": "ADAS Calibration Setup and Floor Leveling",
+      "category": "ADAS/Calibration",
+      "vehicle": "All Makes",
+      "response": "Checking the level of the floor would not be included when a dedicated area is used to perform calibration. Estimated time does not include any troubleshooting. Setup of targets, fixtures, and equipment is a separate consideration.",
+      "keyPoints": [
+        "Floor leveling check NOT INCLUDED (if dedicated area)",
+        "Troubleshooting NOT INCLUDED in calibration time",
+        "Target and fixture setup may require additional time",
+        "Tire pressure verification before calibration NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-tip-color-match",
+      "inquiryNumber": "Multiple (CCC/Mitchell/Audatex)",
+      "title": "Color Matching and Spray Out Cards",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Neither CCC nor Mitchell have assigned labor values for color matching/spray out card operations. Any labor or materials required to perform color match and spray out cards, including clear coat and spray equipment setup, would be NOT INCLUDED.",
+      "keyPoints": [
+        "Color matching labor NOT INCLUDED in all three IPs",
+        "Spray out card preparation NOT INCLUDED",
+        "Clear coat on spray out cards NOT INCLUDED",
+        "Equipment setup for color match NOT INCLUDED",
+        "Material costs for spray out cards NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "SCRS DEG estimating tips, degweb.org"
+    },
+    {
+      "id": "deg-tip-test-fit",
+      "inquiryNumber": "CCC GTE Update",
+      "title": "Additional Install / Test Fit of Panel",
+      "category": "Panel Replacement",
+      "vehicle": "All Makes",
+      "response": "CCC GTE states reported times include ONE test fit of a component and normal adjustment procedures within the range of motion permitted by fasteners. Additional install/fit of panel is NOT INCLUDED. Trial fitting a new panel, removing it for refinish, then reinstalling requires additional time.",
+      "keyPoints": [
+        "ONE test fit INCLUDED in replacement time",
+        "Additional test fits NOT INCLUDED",
+        "Remove for refinish, reinstall = additional labor",
+        "Complex panel fitting may require on-the-spot evaluation"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-tip-welder-setup",
+      "inquiryNumber": "CCC MOTOR GTE",
+      "title": "Welder Setup and Preparation",
+      "category": "Structural",
+      "vehicle": "All Makes",
+      "response": "CCC/MOTORS labor time premise states that welder set-up or preparation is NOT INCLUDED. This includes setting up welding equipment, adjusting settings, preparing the weld area, and performing test welds.",
+      "keyPoints": [
+        "Welder setup NOT INCLUDED per MOTOR GTE",
+        "Adjusting weld settings NOT INCLUDED",
+        "Test welds on scrap material NOT INCLUDED",
+        "Weld-through primer application NOT INCLUDED"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "SCRS estimating tips"
+    },
+    {
+      "id": "deg-tip-two-three-stage",
+      "inquiryNumber": "Multiple (CCC/Mitchell/Audatex)",
+      "title": "Two-Stage and Three-Stage Refinish",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "CCC: Two-stage (basecoat/clearcoat) is the default refinish process. Three-stage (tri-coat, pearl) requires additional time. Mitchell: Three-stage add time is calculated as a percentage of the two-stage refinish time. Additional tint cycles beyond the standard mix may require additional time.",
+      "keyPoints": [
+        "Three-stage paint requires additional refinish time",
+        "Mitchell calculates 3-stage as percentage of 2-stage time",
+        "Additional tint cycles for color match NOT INCLUDED",
+        "Transparent/candy colors may need tinted primer—additional time",
+        "CCC: Add for Three Stage is a separate line item"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "degweb.org estimating tips"
+    },
+    {
+      "id": "deg-tip-door-skin-glass",
+      "inquiryNumber": "Multiple (CCC/Mitchell/Audatex)",
+      "title": "R&I Glass and Regulator for Door Skin Replacement",
+      "category": "Panel Replacement",
+      "vehicle": "All Makes",
+      "response": "All three estimating systems have different inclusion/exclusion for glass and regulator R&I when replacing a door skin. Always reference vehicle chapter footnotes or Labor Reports to verify if operations are included or excluded for the specific vehicle.",
+      "keyPoints": [
+        "Glass R&I inclusion varies by estimating system",
+        "Regulator R&I inclusion varies by vehicle",
+        "Always check vehicle-specific footnotes",
+        "Door skin replacement overlap with glass R&I must be verified"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "SCRS estimating tips"
+    },
+    {
+      "id": "deg-tip-featheredge-prime",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Featheredge, Prime, and Block",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Featheredge, prime, and block of repair area is typically INCLUDED in repair labor time. However, featheredge, prime, and block of adjacent panels or areas NOT being repaired but requiring blend is NOT INCLUDED.",
+      "keyPoints": [
+        "Featheredge/prime/block of REPAIR area INCLUDED in repair time",
+        "Featheredge/prime/block of BLEND panels NOT INCLUDED",
+        "Primer surfacer material NOT INCLUDED",
+        "Blocking/sanding between primer coats may need additional time"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE, degweb.org"
+    },
+    {
+      "id": "deg-tip-denib-wet-sand",
+      "inquiryNumber": "Mitchell CEG Procedure 28",
+      "title": "De-nib, Wet Sand, and Buff (Finish Sand and Buff)",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "The performance of finish sand and buff (de-nib) is NOT INCLUDED in Mitchell refinish labor time. CCC: De-nib is NOT INCLUDED in the refinish time. This includes wet/dry sanding, rub-out, and buffing after clear coat application.",
+      "keyPoints": [
+        "De-nib NOT INCLUDED in refinish time (CCC and Mitchell)",
+        "Wet/dry sand NOT INCLUDED",
+        "Rub-out and buff NOT INCLUDED",
+        "On-the-spot evaluation for time required",
+        "Material costs for sandpaper, compound NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "Mitchell CEG Procedure 28, degweb.org"
+    },
+    {
+      "id": "deg-tip-cover-car-overspray",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Cover Vehicle for Overspray Protection",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Covering the vehicle to protect from overspray during refinishing is NOT INCLUDED in refinish labor times. This includes masking wheels, glass, trim, and other components not being refinished.",
+      "keyPoints": [
+        "Covering car for overspray NOT INCLUDED",
+        "Masking wheels, glass, trim NOT INCLUDED in refinish time",
+        "Material costs for masking paper/tape NOT INCLUDED",
+        "Time varies based on vehicle size and extent of refinish"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE, SCRS estimating tips"
+    },
+    {
+      "id": "deg-tip-nameplate-emblem",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Nameplate, Emblem, and Adhesive-Backed Molding Removal",
+      "category": "R&I Operations",
+      "vehicle": "All Makes",
+      "response": "For nameplates, emblems, and adhesive-backed moldings: labor time is for installation only. Removal of the molding and cleaning adhesive left behind is NOT INCLUDED in R/R time.",
+      "keyPoints": [
+        "Nameplate/emblem R&R time is for INSTALLATION only",
+        "Removal labor NOT INCLUDED",
+        "Cleaning adhesive residue NOT INCLUDED",
+        "Template creation for precise replacement NOT INCLUDED",
+        "Adhesive material for reinstallation NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "SCRS DEG estimating tips"
+    },
+    {
+      "id": "deg-tip-cooling-fan-test",
+      "inquiryNumber": "Multiple (CCC/Mitchell/Audatex)",
+      "title": "Cooling Fan Operation Test",
+      "category": "Mechanical",
+      "vehicle": "All Makes",
+      "response": "Cooling fan operation test is NOT INCLUDED in all three estimating systems. After any repair involving the cooling system, radiator, or condenser, testing fan operation is a separate procedure.",
+      "keyPoints": [
+        "Cooling fan test NOT INCLUDED in all three IPs",
+        "Required after radiator/condenser R&I or replacement",
+        "Includes verifying fan engages at proper temperature",
+        "Electrical connector inspection NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "SCRS estimating tips"
+    },
+    {
+      "id": "deg-tip-cavity-wax",
+      "inquiryNumber": "CCC MOTOR GTE",
+      "title": "Cavity Wax Injection / Anti-Corrosion Treatment",
+      "category": "Corrosion Protection",
+      "vehicle": "All Makes",
+      "response": "Application of cavity wax or anti-corrosion treatment inside enclosed panels, cavities, and box sections is NOT INCLUDED. OEM procedures often require cavity wax injection after structural panel replacement to restore factory corrosion protection.",
+      "keyPoints": [
+        "Cavity wax injection NOT INCLUDED",
+        "Required by many OEMs after structural replacement",
+        "Material costs NOT INCLUDED",
+        "Access hole drilling for injection NOT INCLUDED",
+        "Plug installation after injection NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE, I-CAR guidelines"
+    },
+    {
+      "id": "deg-tip-sound-deadener",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Sound Deadener Pad Replacement",
+      "category": "Panel Replacement",
+      "vehicle": "All Makes",
+      "response": "Removal and replacement of sound deadener pads on panels being replaced is NOT INCLUDED in panel replacement time. OEM sound deadener must be sourced and applied to match factory specifications.",
+      "keyPoints": [
+        "Sound deadener removal NOT INCLUDED in panel R&R",
+        "Application of new sound deadener NOT INCLUDED",
+        "OEM sound deadener material NOT INCLUDED",
+        "Location and type varies by vehicle—verify OEM specs",
+        "Aftermarket alternatives may not meet OEM requirements"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE"
+    },
+    {
+      "id": "deg-tip-corrosion-protection",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Corrosion Protection on Bare Metal",
+      "category": "Corrosion Protection",
+      "vehicle": "All Makes",
+      "response": "Application of corrosion protection (epoxy primer, weld-through primer, anti-corrosion coatings) to bare metal areas exposed during repair is NOT INCLUDED. OEM procedures specify corrosion protection requirements for all bare metal surfaces.",
+      "keyPoints": [
+        "Epoxy primer on bare metal NOT INCLUDED",
+        "Weld-through primer NOT INCLUDED",
+        "Anti-corrosion coating NOT INCLUDED",
+        "Material costs NOT INCLUDED",
+        "OEM procedures dictate specific products and application methods"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE, I-CAR, SCRS"
+    },
+    {
+      "id": "deg-tip-electronic-programming",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Electronic Module Programming and Coding",
+      "category": "Electrical/Electronics",
+      "vehicle": "All Makes",
+      "response": "Programming, coding, or initializing new electronic modules after replacement is NOT INCLUDED in R&R labor times. Many replacement modules require dealer-level programming or online subscription services to activate.",
+      "keyPoints": [
+        "Module programming/coding NOT INCLUDED in R&R time",
+        "May require dealer-level scan tool or online access",
+        "Subscription fees for programming services NOT INCLUDED",
+        "Applies to BCM, PCM, airbag modules, TPMS, etc.",
+        "Some modules require VIN-specific programming"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE, degweb.org"
+    },
+    {
+      "id": "deg-tip-headlamp-aim",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Headlamp Aiming After Replacement or R&I",
+      "category": "Electrical/Lamps",
+      "vehicle": "All Makes",
+      "response": "Headlamp aiming is typically NOT INCLUDED in headlamp R&I or replacement labor times. Vehicles with adaptive or LED/HID headlamps may require specialized aiming equipment and procedures.",
+      "keyPoints": [
+        "Headlamp aiming NOT INCLUDED in R&I or replacement time",
+        "Adaptive headlamp aiming may require scan tool",
+        "LED/HID headlamps may require specialized aiming equipment",
+        "State inspection may require proper headlamp aim verification",
+        "Both horizontal and vertical aim must be checked"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE"
+    },
+    {
+      "id": "deg-tip-structural-measure",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Structural Measuring and Verification",
+      "category": "Structural",
+      "vehicle": "All Makes",
+      "response": "Measuring for structural damage verification or documenting pre/post-repair dimensions is NOT INCLUDED in repair or replacement labor times. I-CAR recommends three-dimensional measuring during and after structural repairs.",
+      "keyPoints": [
+        "Pre-repair measuring NOT INCLUDED",
+        "In-process measuring NOT INCLUDED",
+        "Post-repair verification measuring NOT INCLUDED",
+        "Setup of measuring equipment NOT INCLUDED",
+        "Documentation of measurements NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE, I-CAR"
+    },
+    {
+      "id": "deg-tip-blend-formula",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Blend Refinish Time Calculation",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "CCC: Blend time is calculated using the blend formula applied to the full panel refinish time. Mitchell: Blend time uses CEG blend percentage. The blend formula should be applied to the FULL panel refinish time, not a reduced time. Adjacent panel blend is NOT INCLUDED in the refinished panel's time.",
+      "keyPoints": [
+        "Blend calculated from FULL panel refinish time",
+        "CCC and Mitchell use different blend formulas",
+        "Adjacent panel blend is separate from refinished panel",
+        "Three-stage blend requires additional time beyond two-stage",
+        "Edge-to-edge blend may require more time than standard blend"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE, Mitchell CEG"
+    },
+    {
+      "id": "deg-tip-pinchweld",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Pinchweld Repair and Restoration for Glass",
+      "category": "Glass",
+      "vehicle": "All Makes",
+      "response": "Pinchweld repair, cleaning, priming, and preparation for glass installation is NOT INCLUDED in glass R&I or replacement times. Damaged pinchwelds must be restored to proper profile before glass installation.",
+      "keyPoints": [
+        "Pinchweld repair/restoration NOT INCLUDED in glass time",
+        "Cleaning old urethane from pinchweld NOT INCLUDED",
+        "Priming pinchweld NOT INCLUDED",
+        "Rust treatment on pinchweld NOT INCLUDED",
+        "Proper pinchweld profile required for glass adhesion"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE, NAGS"
+    },
+    {
+      "id": "deg-tip-glass-urethane",
+      "inquiryNumber": "CCC/Mitchell/NAGS",
+      "title": "Glass Urethane Cure Time and Safe Drive-Away",
+      "category": "Glass",
+      "vehicle": "All Makes",
+      "response": "Monitoring urethane cure time and safe drive-away time is NOT INCLUDED in glass replacement labor. The vehicle must remain stationary until the adhesive reaches minimum drive-away strength per the adhesive manufacturer's specifications.",
+      "keyPoints": [
+        "Monitoring cure time NOT INCLUDED",
+        "Safe drive-away time varies by adhesive product and temperature",
+        "Vehicle must not be moved during cure period",
+        "Cold weather extends cure time significantly",
+        "Adhesive manufacturer specs must be followed"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "NAGS, MOTOR GTE"
+    },
+    {
+      "id": "deg-tip-window-tint",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Window Tint Removal and Replacement",
+      "category": "Glass",
+      "vehicle": "All Makes",
+      "response": "Removal of aftermarket window tint during glass R&I or replacement is NOT INCLUDED. Replacement of window tint after glass work is NOT INCLUDED. Factory privacy glass tint is part of the glass and does not require separate tint work.",
+      "keyPoints": [
+        "Aftermarket tint removal NOT INCLUDED",
+        "Tint replacement after glass work NOT INCLUDED",
+        "Tint material costs NOT INCLUDED",
+        "Factory privacy glass does not need separate tint",
+        "May require sublet to tint specialist"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "Repairer Driven News, degweb.org"
+    },
+    {
+      "id": "deg-tip-oem-research",
+      "inquiryNumber": "Mitchell CEG Additions to Labor",
+      "title": "OEM Procedure Research and Access",
+      "category": "General",
+      "vehicle": "All Makes",
+      "response": "Mitchell CEG Additions to Labor update: Research, retrieval, review, or usage cost of OEM and/or other service procedural information is NOT INCLUDED. Time to access and review OEM repair procedures is a legitimate additional operation.",
+      "keyPoints": [
+        "OEM procedure research time NOT INCLUDED",
+        "Subscription costs for OEM portals NOT INCLUDED",
+        "Time to review procedures NOT INCLUDED",
+        "Printing/documenting procedures NOT INCLUDED",
+        "Mitchell CEG explicitly lists this as an Addition to Labor"
+      ],
+      "systems": ["Mitchell"],
+      "citedIn": "Mitchell CEG Additions to Labor, degweb.org"
+    },
+    {
+      "id": "deg-tip-weld-testing",
+      "inquiryNumber": "Mitchell CEG Additions to Labor",
+      "title": "Weld Testing and Destructive Testing",
+      "category": "Structural",
+      "vehicle": "All Makes",
+      "response": "Mitchell CEG update: Time to perform weld testing or matching including the performance of destructive weld testing is NOT INCLUDED. Destructive weld tests on practice coupons verify proper weld penetration and strength before welding on the vehicle.",
+      "keyPoints": [
+        "Weld testing NOT INCLUDED per Mitchell CEG",
+        "Destructive weld test on coupons NOT INCLUDED",
+        "Practice welds for setup NOT INCLUDED",
+        "I-CAR recommends destructive testing before structural welding",
+        "Documentation of weld quality NOT INCLUDED"
+      ],
+      "systems": ["Mitchell"],
+      "citedIn": "Mitchell CEG Additions to Labor, I-CAR"
+    },
+    {
+      "id": "deg-tip-refinish-fixture",
+      "inquiryNumber": "MOTOR GTE Update",
+      "title": "Refinish Fixture or Stand Setup",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "MOTOR has added that assembling or setting up a unique fixture or stand to hold parts for refinishing is a not-included operation. This includes building or configuring paint stands for bumpers, fenders, doors, or other removable panels.",
+      "keyPoints": [
+        "Paint stand/fixture setup NOT INCLUDED",
+        "Building custom fixtures for odd-shaped parts NOT INCLUDED",
+        "Hanging parts for refinish NOT INCLUDED",
+        "Applies to bumper covers, fenders, doors on stands"
+      ],
+      "systems": ["CCC"],
+      "citedIn": "MOTOR GTE update, degweb.org"
+    },
+    {
+      "id": "deg-tip-seatbelt-inspection",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Seatbelt System Inspection",
+      "category": "Safety/Restraints",
+      "vehicle": "All Makes",
+      "response": "Visual and functional inspection of seatbelt systems after a collision is NOT INCLUDED. OEM procedures typically require inspection of all seatbelts, retractors, anchors, and pretensioners on vehicles involved in a collision where airbags deployed.",
+      "keyPoints": [
+        "Seatbelt inspection NOT INCLUDED",
+        "Required by most OEMs after airbag deployment",
+        "Includes retractor function, webbing, anchors",
+        "Pretensioner inspection/replacement per OEM procedures",
+        "Documentation of inspection findings NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE, OEM procedures"
+    },
+    {
+      "id": "deg-tip-stage-secure",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Stage and Secure Parts for Refinish",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Staging and securing removed parts in the refinish area, including organizing components for proper sequence of refinishing, is NOT INCLUDED in refinish labor times.",
+      "keyPoints": [
+        "Staging parts for refinish NOT INCLUDED",
+        "Organizing components for paint sequence NOT INCLUDED",
+        "Moving parts between departments NOT INCLUDED",
+        "Protecting parts during transport NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE"
+    },
+    {
+      "id": "deg-tip-edging",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Add for Edging (Panel Edges and Jambs)",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Refinishing panel edges and door jambs beyond what is included in the standard refinish time is NOT INCLUDED. Standard refinish time covers the exterior face of the panel only. Edging involves masking, spraying, and clearing the edges and return areas of panels.",
+      "keyPoints": [
+        "Edging labor NOT INCLUDED in standard refinish time",
+        "Applies to door jambs, hood edges, trunk edges",
+        "Additional masking for edging NOT INCLUDED",
+        "Each edged area requires additional basecoat and clearcoat"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE, Mitchell CEG"
+    },
+    {
+      "id": "deg-tip-adhesive-bonded",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Adhesive Bonded Panel Procedures",
+      "category": "Structural",
+      "vehicle": "All Makes",
+      "response": "For adhesive bonded panels (vs. welded), additional procedures including adhesive removal, surface preparation, adhesive application, and fixture/clamping time are NOT INCLUDED in standard panel replacement times. OEM procedures must be followed for adhesive type and application.",
+      "keyPoints": [
+        "Adhesive removal from mating surfaces NOT INCLUDED",
+        "Surface preparation for adhesive NOT INCLUDED",
+        "Adhesive application time NOT INCLUDED",
+        "Fixture/clamping during cure NOT INCLUDED",
+        "Adhesive material costs NOT INCLUDED",
+        "OEM-specified adhesive products required"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE, I-CAR"
+    },
+    {
+      "id": "deg-tip-wheel-alignment",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Wheel Alignment After Suspension or Structural Work",
+      "category": "Mechanical",
+      "vehicle": "All Makes",
+      "response": "Wheel alignment is NOT INCLUDED in suspension component R&I or replacement times. A four-wheel alignment should be performed after any repair involving suspension, steering, subframe, or structural components that could affect alignment.",
+      "keyPoints": [
+        "Wheel alignment NOT INCLUDED in suspension R&R time",
+        "Four-wheel alignment recommended after structural repairs",
+        "Alignment equipment setup NOT INCLUDED",
+        "Pre-alignment inspection NOT INCLUDED",
+        "Alignment printout/documentation NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE"
+    },
+    {
+      "id": "deg-tip-r-i-overlap",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "R&I Overlap and Included Operations",
+      "category": "General/Labor",
+      "vehicle": "All Makes",
+      "response": "When multiple operations are performed on the same panel or assembly, some R&I operations may overlap (be included in another operation's time). Always check vehicle-specific footnotes and labor reports for overlap deductions. The estimating system may or may not automatically apply overlap.",
+      "keyPoints": [
+        "R&I overlap deductions vary by vehicle and operation",
+        "Check footnotes for included/excluded R&I operations",
+        "CCC may auto-apply overlap; Mitchell may not",
+        "Overhaul (O/H) typically includes some R&I operations",
+        "Panel replacement may include adjacent trim R&I—verify per vehicle"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE, Mitchell CEG"
+    },
+    {
+      "id": "deg-tip-backtape-jambs",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Backtape and Jamb Refinish",
+      "category": "Refinish",
+      "vehicle": "All Makes",
+      "response": "Backtaping jambs (masking and refinishing the inner edges/jambs of doors, fenders, and other panels) is NOT INCLUDED in standard exterior refinish times. Backtape requires additional masking, basecoat, and clearcoat application to the return edges.",
+      "keyPoints": [
+        "Backtape jamb refinish NOT INCLUDED in exterior refinish time",
+        "Additional masking for backtape NOT INCLUDED",
+        "Basecoat and clearcoat on jambs NOT INCLUDED",
+        "Commonly needed on doors, fenders, hoods, trunklids"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE"
+    },
+    {
+      "id": "deg-tip-undercoating",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Undercoating and Stone Guard Replacement",
+      "category": "Corrosion Protection",
+      "vehicle": "All Makes",
+      "response": "Application of undercoating, stone guard, chip guard, or rubberized coating to replacement panels is NOT INCLUDED. Factory undercoating on OEM panels must be replicated on replacement panels per OEM procedures.",
+      "keyPoints": [
+        "Undercoating application NOT INCLUDED in panel replacement",
+        "Stone guard / chip guard NOT INCLUDED",
+        "Material costs NOT INCLUDED",
+        "Must replicate factory undercoating pattern",
+        "Preparation and masking before application NOT INCLUDED"
+      ],
+      "systems": ["CCC", "Mitchell"],
+      "citedIn": "MOTOR GTE"
+    },
+    {
+      "id": "deg-tip-clean-delivery",
+      "inquiryNumber": "CCC/Mitchell GTE",
+      "title": "Clean Vehicle for Delivery",
+      "category": "General",
+      "vehicle": "All Makes",
+      "response": "Cleaning the vehicle for delivery after repairs is NOT INCLUDED in any repair labor times. This includes washing, interior cleaning, removing masking residue, compound residue cleanup, and detail cleaning.",
+      "keyPoints": [
+        "Vehicle wash NOT INCLUDED",
+        "Interior cleaning NOT INCLUDED",
+        "Masking residue removal NOT INCLUDED",
+        "Compound/polish residue cleanup NOT INCLUDED",
+        "On-the-spot evaluation for time based on extent of repair"
+      ],
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE"
     }
   ],
   "resources": {

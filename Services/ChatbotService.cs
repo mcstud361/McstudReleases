@@ -2031,27 +2031,49 @@ public class ChatbotService
                 "**Hotkey:** Press Ctrl+Alt+V while in CCC to paste instantly!"),
 
             ["chat tab"] = ("Chat Tab",
-                "💬 **Chat Tab** - Help Assistant\n\n" +
-                "This is where you are now! The Chat tab provides:\n\n" +
-                "• Definitions and P-page lookups\n" +
-                "• OEM Position Statements with documentation\n" +
-                "• Excel spreadsheet navigation help\n" +
-                "• Operations knowledge (Repair, Replace, R&I)\n" +
-                "• App navigation help\n\n" +
-                "Just type your question and I'll help find the answer!"),
+                "💬 **Chat Tab** - Your Estimating Assistant\n\n" +
+                "The Chat tab is your main hub for estimating help. It understands natural language — just type what you need.\n\n" +
+                "**What you can do:**\n" +
+                "• **Ask about operations** — 'what is seam sealer?', 'corrosion protection', 'what's NOT INCLUDED for battery disconnect?'\n" +
+                "• **Enter operations with times** — 'replacing bumper cover, 1.0 trial fit, 3.0 refinish' and get full analysis\n" +
+                "• **Check supplements** — 'check bumper replace' to see commonly missed items\n" +
+                "• **ADAS lookups** — 'ADAS calibration bumper' to see sensor and calibration requirements\n" +
+                "• **DEG inquiries** — 'DEG seam sealer' or 'DEG battery' for official database responses\n" +
+                "• **OEM statements** — 'Honda scanning' or 'Toyota ADAS' for manufacturer position statements\n" +
+                "• **AI Advisor** — 'What am I missing on bumper replace?' for pattern-based suggestions\n" +
+                "• **Get suggestions** — 'suggest bumper replace' to see learned operations from your uploads\n" +
+                "• **Build descriptions** — type informal damage notes and get professional operation descriptions\n" +
+                "• **Navigate the app** — 'what tabs are there?' or 'how do I use the Export tab?'\n\n" +
+                "**Subtabs (top of Chat):**\n" +
+                "• **Chat** — This conversation (question and answer)\n" +
+                "• **Estimate Builder** — Browse parts by category, pick operations, build an estimate from learned patterns\n" +
+                "• **Ghost Estimate** — Auto-generated starting estimate from damage photos or OCR text\n" +
+                "• **Screen OCR** — Real-time monitoring of CCC/Mitchell on your screen with live suggestions\n\n" +
+                "**Best practices:**\n" +
+                "• Be specific — 'check quarter panel replace' works better than just 'quarter panel'\n" +
+                "• Include the operation type — 'replace', 'repair', 'R&I', 'blend'\n" +
+                "• Upload estimates on the Import tab first — the more data McStud learns, the better suggestions get\n" +
+                "• Use follow-up buttons — when the chat offers related topics, click them to dig deeper\n" +
+                "• Pin important responses — right-click a message to pin it for quick reference"),
 
             ["import tab"] = ("Import Tab",
-                "📥 **Import Tab** - Estimate PDF Upload\n\n" +
-                "Upload estimate PDFs to extract data:\n\n" +
-                "**Supported formats:**\n" +
-                "• CCC ONE estimates\n" +
-                "• Mitchell estimates\n" +
-                "• Audatex estimates\n\n" +
-                "**How it works:**\n" +
-                "1. Click 'Select PDF' or drag-and-drop\n" +
-                "2. PDF is parsed for line items\n" +
-                "3. Data populates your Excel template\n" +
-                "4. Review and adjust as needed"),
+                "📥 **Import Tab** - Estimate Upload & Learning\n\n" +
+                "Upload estimate PDFs to parse, learn from, score, and compare.\n\n" +
+                "**Two modes:**\n" +
+                "• **Import Scrubber** — Parse and review estimate line items with section headers, part badges, and suspect-line detection\n" +
+                "• **Learn** — Feed estimates into the learning system so McStud can make smarter suggestions\n\n" +
+                "**Supported formats:** CCC ONE, Mitchell, Audatex (PDF, TXT, CSV)\n\n" +
+                "**What happens when you upload:**\n" +
+                "1. PDF is parsed into structured line items (parts, operations, hours, prices)\n" +
+                "2. Operations are learned — manual line patterns, labor times, part relationships\n" +
+                "3. Estimate is scored for completeness (must-have operations, SOP items)\n" +
+                "4. Ghost Estimate comparison shows what a similar repair typically includes\n" +
+                "5. Data is stored for the AI Advisor and Estimate Builder to use\n\n" +
+                "**Best practices:**\n" +
+                "• Upload both initial estimates AND supplements for accuracy tracking\n" +
+                "• The more estimates you upload, the better suggestions and ghost estimates get\n" +
+                "• Use the Copy to Clipboard button to grab parsed data\n" +
+                "• Check the scoring panel for missed must-have operations"),
 
             ["damage tab"] = ("Damage Estimator Tab",
                 "🔧 **Damage Estimator Tab** - Interview-Based Estimation\n\n" +
@@ -2323,7 +2345,106 @@ public class ChatbotService
                 "**To see your patterns:**\n" +
                 "• Ask: 'Where am I off?' or 'Where am I leaving money?'\n" +
                 "• Check the Accuracy Heatmap in your stats\n" +
-                "• Upload both initial and supplement estimates for best results")
+                "• Upload both initial and supplement estimates for best results"),
+
+            // Guide Tab
+            ["guide tab"] = ("Guide Tab",
+                "📘 **Guide Tab** - MET Excel Spreadsheet Guides\n\n" +
+                "Step-by-step guides for the MET Excel estimating tool.\n\n" +
+                "**What's inside:**\n" +
+                "• Walkthrough of all 10 MET tabs (Vehicle, Paint, Parts, etc.)\n" +
+                "• Input cell explanations with red arrow annotations\n" +
+                "• Output cell breakdowns showing how labor is calculated\n" +
+                "• Dropdown option references for each input field\n\n" +
+                "**How to use:**\n" +
+                "• Browse by tab or search for a specific topic\n" +
+                "• Click any guide entry to see detailed instructions\n" +
+                "• Great for learning the MET tool or refreshing on a specific section"),
+
+            // Reference Tab
+            ["reference tab"] = ("Reference Tab",
+                "📖 **Reference Tab** - Definitions, DEG, P-Pages & Procedures\n\n" +
+                "Your comprehensive estimating reference library, all in one place.\n\n" +
+                "**Sections:**\n" +
+                "• **Definitions** — 85+ operation and term definitions with P-page refs\n" +
+                "• **DEG Inquiries** — 48 Database Enhancement Gateway responses (NOT INCLUDED items, labor clarifications)\n" +
+                "• **P-Pages** — CCC MOTOR GTE and Mitchell CEG procedure page references\n" +
+                "• **Procedures** — Step-by-step repair procedures\n" +
+                "• **OEM Position Statements** — Official scanning, ADAS, and repair requirements by manufacturer\n\n" +
+                "**How to use:**\n" +
+                "• Search by keyword (e.g., 'seam sealer', 'battery', 'blend')\n" +
+                "• Filter by category or estimating system (CCC/Mitchell/Audatex)\n" +
+                "• Export references to PDF for documentation"),
+
+            // Settings Tab
+            ["settings tab"] = ("Settings Tab",
+                "⚙️ **Settings Tab** - Configuration & Updates\n\n" +
+                "Manage your McStud Tool preferences and app updates.\n\n" +
+                "**Available settings:**\n" +
+                "• **Version Info** — Current version and check for updates\n" +
+                "• **Shop Info** — Set your shop name (appears on documents and exports)\n" +
+                "• **License** — Activate or verify your license key\n" +
+                "• **AI Settings** — Configure Claude AI model, enable/disable AI features (OCR cleanup, ghost panel detection, part matching, suggestion dedup, ghost explanation)\n" +
+                "• **Usage Tracking** — View AI usage stats and cost tracking\n\n" +
+                "**Tips:**\n" +
+                "• AI features work as fallbacks — the app functions fully without them\n" +
+                "• Check for updates regularly to get the latest estimating data"),
+
+            // Shop Docs Tab
+            ["shop docs tab"] = ("Shop Docs Tab",
+                "📄 **Shop Docs Tab** - Documents, Pricing & Checklists\n\n" +
+                "All your shop document tools in one place.\n\n" +
+                "**Document types:**\n" +
+                "• **Vehicle Protection Pricing** — Generate PPF, vinyl wrap, and ceramic coating quotes with package tiers\n" +
+                "• **Shop Stock Invoice** — Create invoices for shop stock materials (seam sealer, primer, hardware, etc.)\n" +
+                "• **Color Tint Invoice** — Document color tinting time and materials for three-stage or difficult colors\n" +
+                "• **Custom Checklists** — Teardown inspection checklists by part (bumper, door, quarter panel, etc.)\n" +
+                "• **Vehicle Intake Form** — Capture vehicle info, damage photos, and customer details at drop-off\n\n" +
+                "**How to use:**\n" +
+                "• Select a document type and fill in the details\n" +
+                "• Print or export to PDF for your records\n" +
+                "• Checklists can also be generated from chat — ask 'bumper teardown checklist'"),
+
+            // Estimate Builder (chat subtab)
+            ["estimate builder"] = ("Estimate Builder",
+                "🔧 **Estimate Builder** - Build Operations Manually\n\n" +
+                "The Estimate Builder subtab (inside the Chat tab) lets you browse and build operations from the learned pattern database.\n\n" +
+                "**How it works:**\n" +
+                "• Browse parts by category (Bumper, Fender, Door, etc.)\n" +
+                "• See all learned operations for each part with labor hours and prices\n" +
+                "• Add operations to your cart, then export to the Export tab\n" +
+                "• Operations come from real estimates you've uploaded — the more you upload, the better the suggestions\n\n" +
+                "**Best for:**\n" +
+                "• Building an estimate from scratch when you know the parts involved\n" +
+                "• Quick-referencing typical labor times from your past estimates"),
+
+            // Learned Patterns (chat subtab)
+            ["learned patterns"] = ("Learned Patterns",
+                "🧠 **Learned Patterns** - Your Estimate Intelligence\n\n" +
+                "The learning system builds patterns from every estimate you upload on the Import tab.\n\n" +
+                "**What it learns:**\n" +
+                "• Part-operation combinations (e.g., 'Bumper Cover Replace' always has 'Aim Park Sensor')\n" +
+                "• Typical labor hours and prices for each operation\n" +
+                "• Manual line patterns (DE-NIB, backtape, wet sand times)\n" +
+                "• Which additional operations go with which parts\n\n" +
+                "**How to use:**\n" +
+                "• Upload estimates on the Import tab — each one makes the system smarter\n" +
+                "• The Estimate Builder and Ghost Estimate use these patterns automatically\n" +
+                "• Ask in chat: 'suggest bumper replace' to see learned suggestions\n" +
+                "• The more estimates from YOUR shop, the more accurate it gets"),
+
+            // All Tabs Overview
+            ["all tabs"] = ("All Tabs Overview",
+                "📋 **McStud Tool — All 8 Tabs**\n\n" +
+                "**1. Export** — Copy operations from Excel, paste into CCC or Mitchell using Type-It or hotkey (Ctrl+Alt+V)\n" +
+                "**2. Chat** — This assistant. Ask about operations, supplements, ADAS, P-pages, or anything estimating-related. Also has subtabs: Estimate Builder, Ghost Estimate, Screen OCR\n" +
+                "**3. Guide** — Step-by-step guides for the MET Excel estimating spreadsheet\n" +
+                "**4. Import** — Upload PDF estimates for parsing, scoring, learning, and ghost comparison\n" +
+                "**5. Reference** — Definitions, DEG inquiries, P-pages, procedures, and OEM position statements\n" +
+                "**6. Settings** — Shop info, license, AI settings, and updates\n" +
+                "**7. Shop Docs** — Vehicle protection pricing, shop stock invoices, color tint invoices, checklists, intake forms\n" +
+                "**8. Stats** — Export/import tracking, operation counts, session history\n\n" +
+                "Ask about any tab by name for more details!")
         };
 
         // Check for navigation keywords
@@ -2365,7 +2486,18 @@ public class ChatbotService
                          inputLower.Contains("checklist") ||
                          inputLower.Contains("supplement") ||
                          inputLower.Contains("missing operations") ||
-                         inputLower.Contains("color tint");
+                         inputLower.Contains("color tint") ||
+                         inputLower.Contains("guide") ||
+                         inputLower.Contains("reference") ||
+                         inputLower.Contains("settings") ||
+                         inputLower.Contains("shop docs") ||
+                         inputLower.Contains("estimate builder") ||
+                         inputLower.Contains("learned pattern") ||
+                         inputLower.Contains("all tabs") ||
+                         inputLower.Contains("what tabs") ||
+                         inputLower.Contains("list tabs") ||
+                         inputLower.Contains("what can") ||
+                         inputLower.Contains("overview");
 
         if (!isNavQuery)
             return null;

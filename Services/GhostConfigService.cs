@@ -25,6 +25,8 @@ namespace McStudDesktop.Services
         public const decimal DEFAULT_MECH_RATE = 95.00m;
         public const decimal DEFAULT_FRAME_RATE = 75.00m;
         public const decimal DEFAULT_GLASS_RATE = 55.00m;
+        public const decimal DEFAULT_MATERIAL_RATE = 32.00m;  // Paint materials per refinish hour
+        public const string DEFAULT_ESTIMATE_HEADING = "Estimate Total";
 
         // Default scanning
         public const decimal DEFAULT_SCAN_FLAT_RATE = 150.00m;
@@ -300,6 +302,14 @@ namespace McStudDesktop.Services
         public decimal GetEffectiveMechRate() => _config.LaborRates.MechRate ?? DEFAULT_MECH_RATE;
         public decimal GetEffectiveFrameRate() => _config.LaborRates.FrameRate ?? DEFAULT_FRAME_RATE;
         public decimal GetEffectiveGlassRate() => _config.LaborRates.GlassRate ?? DEFAULT_GLASS_RATE;
+        public decimal GetEffectiveMaterialRate() => _config.LaborRates.MaterialRate ?? DEFAULT_MATERIAL_RATE;
+        public string GetEffectiveEstimateHeading() =>
+            string.IsNullOrWhiteSpace(_config.EstimateHeading) ? DEFAULT_ESTIMATE_HEADING : _config.EstimateHeading;
+        public void SetEstimateHeading(string heading)
+        {
+            _config.EstimateHeading = heading ?? DEFAULT_ESTIMATE_HEADING;
+            SaveConfig();
+        }
 
         public ScanningConfig GetScanningConfig() => _config.Scanning;
 
@@ -373,6 +383,7 @@ namespace McStudDesktop.Services
                 case "mech": _config.LaborRates.MechRate = value; break;
                 case "frame": _config.LaborRates.FrameRate = value; break;
                 case "glass": _config.LaborRates.GlassRate = value; break;
+                case "material": _config.LaborRates.MaterialRate = value; break;
             }
             SaveConfig();
         }
@@ -577,6 +588,18 @@ namespace McStudDesktop.Services
                     return true;
             }
 
+            // Check 5: PDF truncation — if detected is a single significant word (4+ chars)
+            // and it matches the first significant word of the must-have, treat as truncated match.
+            // PDF parsing often keeps only the first word (e.g., "Clean" from "Clean for Delivery").
+            if (mustHaveWords.Length >= 2)
+            {
+                var detectedWords = detectedNorm.Split(' ')
+                    .Where(w => w.Length >= 4).ToArray();
+                if (detectedWords.Length == 1 && mustHaveWords.Length > 0 &&
+                    FuzzyContainsWord(detectedWords[0], mustHaveWords[0]))
+                    return true;
+            }
+
             return false;
         }
 
@@ -755,6 +778,7 @@ namespace McStudDesktop.Services
         public List<MustHaveTemplate> MustHaveTemplates { get; set; } = new();
         public List<MustHaveGroup> MustHaveGroups { get; set; } = new();
         public ScoringWeights ScoringWeights { get; set; } = new();
+        public string EstimateHeading { get; set; } = GhostConfigService.DEFAULT_ESTIMATE_HEADING;
     }
 
     public class GhostLaborRates
@@ -764,6 +788,12 @@ namespace McStudDesktop.Services
         public decimal? MechRate { get; set; }
         public decimal? FrameRate { get; set; }
         public decimal? GlassRate { get; set; }
+        public decimal? MaterialRate { get; set; }
+        /// <summary>
+        /// When true, the scrubber uses rates detected from the estimate itself
+        /// instead of the shop rates configured above. Defaults to true.
+        /// </summary>
+        public bool UseEstimateRates { get; set; } = true;
     }
 
     public class ScanningConfig

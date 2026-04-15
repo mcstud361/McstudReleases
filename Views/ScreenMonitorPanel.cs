@@ -58,6 +58,7 @@ namespace McStudDesktop.Views
         private TextBox? _rawTextBox;
         private Border? _rawTextSection;
         private bool _rawTextExpanded = false;
+        private Border? _refMatchBanner;
         private TextBlock? _refMatchStatusText;
 
         // Estimate Analysis (unified operations + coaching)
@@ -201,13 +202,14 @@ namespace McStudDesktop.Views
 
         private Border CreateReferenceTabBanner()
         {
-            var banner = new Border
+            _refMatchBanner = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(255, 30, 45, 60)),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(12, 8, 12, 8),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 90, 120)),
-                BorderThickness = new Thickness(1)
+                BorderThickness = new Thickness(1),
+                Visibility = Visibility.Collapsed
             };
 
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
@@ -219,14 +221,15 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 160, 220))
             });
 
-            row.Children.Add(new TextBlock
+            _refMatchStatusText = new TextBlock
             {
-                Text = "P-Pages, DEG inquiries, and supporting documents for detected operations are available on the Reference tab.",
+                Text = "",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 220)),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap
-            });
+            };
+            row.Children.Add(_refMatchStatusText);
 
             var goBtn = new Button
             {
@@ -243,8 +246,8 @@ namespace McStudDesktop.Views
             goBtn.Click += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
             row.Children.Add(goBtn);
 
-            banner.Child = row;
-            return banner;
+            _refMatchBanner.Child = row;
+            return _refMatchBanner;
         }
 
         // === CONTROLS ===
@@ -785,17 +788,6 @@ namespace McStudDesktop.Views
             });
             outerStack.Children.Add(_analysisContentStack);
 
-            // Reference match status
-            _refMatchStatusText = new TextBlock
-            {
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 150)),
-                FontStyle = Windows.UI.Text.FontStyle.Italic,
-                TextWrapping = TextWrapping.Wrap,
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, 4, 0, 0)
-            };
-            outerStack.Children.Add(_refMatchStatusText);
 
             _analysisSection.Child = outerStack;
             return _analysisSection;
@@ -1860,6 +1852,8 @@ namespace McStudDesktop.Views
             var mustHaves = GhostConfigService.Instance.GetMustHaves().Where(m => m.Enabled).ToList();
             if (mustHaves.Count == 0) return checklist;
 
+            var coaching = LiveCoachingService.Instance;
+
             // Build normalized searchable strings from PartName and Description.
             var allTexts = new List<string>();
             foreach (var o in accumulatedOps)
@@ -1872,11 +1866,13 @@ namespace McStudDesktop.Views
                     allTexts.Add(descNorm);
             }
 
-            // Raw OCR text fallback: catches operations that the parser couldn't extract
-            // (truncated lines, scrolled areas, etc.). Normalized for consistent matching.
+            // Use ALL accumulated raw text (across all captures this session), not just the
+            // latest single capture. This prevents must-haves from being unchecked when the
+            // user scrolls past the page where they were detected.
             var rawOcrNormalized = "";
-            if (_latestResult?.RawText != null)
-                rawOcrNormalized = NormalizeForMatch(_latestResult.RawText);
+            var accumulatedRaw = coaching.AccumulatedRawText;
+            if (!string.IsNullOrEmpty(accumulatedRaw))
+                rawOcrNormalized = NormalizeForMatch(accumulatedRaw);
 
             System.Diagnostics.Debug.WriteLine($"[MustHave] accumulatedOps count: {accumulatedOps.Count}");
             System.Diagnostics.Debug.WriteLine($"[MustHave] allTexts ({allTexts.Count}): {string.Join(" | ", allTexts)}");
@@ -1895,7 +1891,20 @@ namespace McStudDesktop.Views
                 var opNorm = NormalizeForMatch(mh.Description);
                 var opWords = ExtractSignificantWords(opNorm);
 
-                var isPresent = allTexts.Any(d => MatchesMustHave(d, opNorm, opWords));
+                // Check if already locked from a previous capture cycle
+                var isPresent = coaching.IsMustHaveLocked(mh.Description);
+
+                // If not yet locked, try to match against current accumulated ops
+                if (!isPresent)
+                    isPresent = allTexts.Any(d => MatchesMustHave(d, opNorm, opWords));
+
+                // If still not found in structured ops, try the accumulated raw OCR text
+                if (!isPresent && rawOcrNormalized.Length > 0)
+                    isPresent = MatchesMustHave(rawOcrNormalized, opNorm, opWords);
+
+                // Once detected, lock it for the rest of this session (until VIN/app changes)
+                if (isPresent)
+                    coaching.LockMustHave(mh.Description);
 
                 System.Diagnostics.Debug.WriteLine($"[MustHave] {(isPresent ? "MATCH" : "miss ")}: '{mh.Description}' (words: {string.Join(",", opWords)})");
 
@@ -2805,7 +2814,10 @@ namespace McStudDesktop.Views
                         if (_refMatchStatusText != null)
                         {
                             _refMatchStatusText.Text = $"Found {matchResult.Items.Count} reference matches — review in Reference tab";
-                            _refMatchStatusText.Visibility = Visibility.Visible;
+                        }
+                        if (_refMatchBanner != null)
+                        {
+                            _refMatchBanner.Visibility = Visibility.Visible;
                         }
                     });
                 }

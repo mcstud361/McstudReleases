@@ -207,6 +207,8 @@ namespace McStudDesktop.Views
                     return BuildTemplateFormContent(widget, index);
                 case WidgetType.VehicleIntakeForm:
                     return BuildVehicleIntakeFormContent(widget, index);
+                case WidgetType.PartsRequest:
+                    return BuildPartsRequestContent(widget, index);
                 default:
                     return null;
             }
@@ -1088,6 +1090,24 @@ namespace McStudDesktop.Views
 
             var intakeView = new VehicleIntakeFormView();
             container.Children.Add(intakeView);
+
+            _viewCache[widget.Id] = container;
+            return container;
+        }
+
+        private UIElement BuildPartsRequestContent(WidgetEntry widget, int index)
+        {
+            if (_viewCache.TryGetValue(widget.Id, out var cached))
+                return cached;
+
+            var container = new Grid
+            {
+                Tag = widget.Id,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
+            };
+
+            var partsView = new PartsRequestView();
+            container.Children.Add(partsView);
 
             _viewCache[widget.Id] = container;
             return container;

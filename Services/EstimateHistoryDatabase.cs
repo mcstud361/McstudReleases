@@ -47,6 +47,19 @@ public class EstimateHistoryDatabase
         LoadDatabase();
     }
 
+    /// <summary>
+    /// Identity helper for OwnedBy stamping and per-user filtering.
+    /// Returns the logged-in user's email when available, falling back to the
+    /// Windows username (matches DocumentUsageTrackingService.GetCurrentUserId precedent).
+    /// </summary>
+    public static string GetCurrentUserId()
+    {
+        var email = LoginAuthService.LoadSession();
+        if (!string.IsNullOrWhiteSpace(email)) return email.ToLowerInvariant();
+        try { return Environment.UserName?.ToLowerInvariant() ?? "local"; }
+        catch { return "local"; }
+    }
+
     #region Database Operations
 
     private void LoadDatabase()
@@ -60,17 +73,29 @@ public class EstimateHistoryDatabase
                 _data = JsonSerializer.Deserialize<EstimateHistoryData>(json, options) ?? new EstimateHistoryData();
                 _isLoaded = true;
                 System.Diagnostics.Debug.WriteLine($"[EstimateHistory] Loaded {_data.Estimates.Count} estimates from history");
+
+                // Schema migration: v2 introduces customer/adjuster/loss/deductible/rates fields
+                // and per-user OwnedBy stamping. Wipe pre-v2 estimates so users re-import cleanly.
+                if (_data.SchemaVersion < 2)
+                {
+                    var wiped = _data.Estimates.Count;
+                    _data.Estimates.Clear();
+                    _data.OperationPaymentIndex.Clear();
+                    _data.SchemaVersion = 2;
+                    SaveDatabase();
+                    System.Diagnostics.Debug.WriteLine($"[EstimateHistory] Migrated to schema v2: wiped {wiped} legacy estimates");
+                }
             }
             else
             {
-                _data = new EstimateHistoryData();
+                _data = new EstimateHistoryData { SchemaVersion = 2 };
                 _isLoaded = true;
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[EstimateHistory] Failed to load: {ex.Message}");
-            _data = new EstimateHistoryData();
+            _data = new EstimateHistoryData { SchemaVersion = 2 };
             _isLoaded = true;
         }
     }
@@ -92,6 +117,40 @@ public class EstimateHistoryDatabase
 
     #endregion
 
+    #region Stats
+
+    /// <summary>
+    /// Maximum sane single-claim grand total. Anything above this is a parse error and is excluded
+    /// from average computation. Real-world collision claims top out around $50k for total losses,
+    /// $200k is a generous "this is broken" threshold.
+    /// </summary>
+    private const decimal MaxSaneGrandTotal = 200_000m;
+
+    /// <summary>
+    /// Average grand total across all imported estimates that have a sane labeled grand total.
+    /// This is the single source of truth for "Avg estimate value" — backed by the labeled
+    /// "Grand Total" line from each parsed PDF, not by summing line items.
+    /// </summary>
+    public decimal AverageGrandTotal
+    {
+        get
+        {
+            var sane = _data.Estimates
+                .Where(e => e.GrandTotal > 0m && e.GrandTotal <= MaxSaneGrandTotal)
+                .ToList();
+            if (sane.Count == 0) return 0m;
+            return sane.Sum(e => e.GrandTotal) / sane.Count;
+        }
+    }
+
+    /// <summary>
+    /// Count of stored estimates with a sane labeled grand total. Use this for stat displays
+    /// instead of the legacy EstimatesImported counter, which can drift from reality.
+    /// </summary>
+    public int SaneEstimateCount => _data.Estimates.Count(e => e.GrandTotal > 0m && e.GrandTotal <= MaxSaneGrandTotal);
+
+    #endregion
+
     #region Add/Import Estimates
 
     /// <summary>
@@ -107,12 +166,27 @@ public class EstimateHistoryDatabase
             EstimateSource = parsed.Source, // CCC, Mitchell, Audatex
             InsuranceCompany = insuranceCompany ?? ExtractInsuranceCompany(parsed.RawText),
             RONumber = roNumber ?? ExtractRONumber(parsed.RawText),
+            ClaimNumber = ExtractClaimNumber(parsed.RawText),
             VehicleInfo = parsed.VehicleInfo,
             VIN = parsed.VIN,
             GrandTotal = parsed.Totals.GrandTotal,
             PartsTotal = parsed.Totals.PartsTotal,
             LaborTotal = parsed.Totals.LaborTotal,
-            PaintTotal = parsed.Totals.RefinishTotal + parsed.Totals.PaintMaterial
+            PaintTotal = parsed.Totals.RefinishTotal + parsed.Totals.PaintMaterial,
+
+            // v2 metadata
+            CustomerName = parsed.CustomerName,
+            CustomerPhone = parsed.CustomerPhone,
+            AdjusterName = parsed.AdjusterName,
+            AdjusterPhone = parsed.AdjusterPhone,
+            LossDate = parsed.LossDate,
+            DeductibleAmount = parsed.Totals.DeductibleAmount,
+            LaborHourlyRate = parsed.Totals.LaborHourlyRate,
+            RefinishHourlyRate = parsed.Totals.RefinishHourlyRate,
+            BodyHourlyRate = parsed.Totals.BodyHourlyRate,
+            MechanicalHourlyRate = parsed.Totals.MechanicalHourlyRate,
+            FrameHourlyRate = parsed.Totals.FrameHourlyRate,
+            OwnedBy = GetCurrentUserId()
         };
 
         // Convert line items to stored format with operation tracking
@@ -223,7 +297,8 @@ public class EstimateHistoryDatabase
     }
 
     /// <summary>
-    /// Extract RO/Claim number from raw estimate text
+    /// Extract RO/Workfile number from raw estimate text. RO and Claim are separated
+    /// so the Estimates browser shows distinct values when both appear on the same PDF.
     /// </summary>
     private string ExtractRONumber(string rawText)
     {
@@ -231,8 +306,29 @@ public class EstimateHistoryDatabase
         {
             @"RO[#:\s]+([A-Z0-9-]+)",
             @"Repair Order[#:\s]+([A-Z0-9-]+)",
-            @"Claim[#:\s]+([A-Z0-9-]+)",
             @"Workfile[#:\s]+([A-Z0-9-]+)"
+        };
+
+        foreach (var pattern in patterns)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(rawText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (match.Success)
+                return match.Groups[1].Value;
+        }
+
+        return "";
+    }
+
+    /// <summary>
+    /// Extract claim number from raw estimate text. Disjoint from ExtractRONumber so
+    /// the two display fields don't end up identical.
+    /// </summary>
+    private string ExtractClaimNumber(string rawText)
+    {
+        var patterns = new[]
+        {
+            @"Claim\s*(?:Number|#|No\.?)?[:\s]+([A-Z0-9][A-Z0-9-]+)",
+            @"Claim[#:\s]+([A-Z0-9][A-Z0-9-]+)"
         };
 
         foreach (var pattern in patterns)
@@ -731,6 +827,83 @@ public class EstimateHistoryDatabase
         return maxScore > 0 ? score / maxScore : 0;
     }
 
+    #region Benchmark
+
+    /// <summary>
+    /// Benchmark parsed estimate lines against historical estimates.
+    /// Returns null if fewer than minSimilar matches exist.
+    /// </summary>
+    public BenchmarkResult? BenchmarkAgainstHistory(
+        List<ParsedEstimateLine> lines, string? vehicleInfo = null, int minSimilar = 3)
+    {
+        if (!_isLoaded || _data.Estimates.Count == 0 || lines.Count == 0)
+            return null;
+
+        // Build a temporary StoredEstimate from parsed lines
+        var tempEstimate = new StoredEstimate
+        {
+            Id = "__temp__",
+            VehicleInfo = vehicleInfo ?? "",
+            GrandTotal = lines.Sum(l => l.Price),
+            LineItems = lines.Select(l => new StoredLineItem
+            {
+                PartName = l.PartName,
+                Description = l.Description,
+                OperationType = l.OperationType,
+                LaborHours = l.LaborHours,
+                RefinishHours = l.RefinishHours,
+                Price = l.Price,
+                Quantity = l.Quantity,
+                LaborType = l.LaborType,
+                IsManualLine = l.IsManualLine,
+                IsAdditionalOperation = l.IsManualLine,
+                Section = l.Category
+            }).ToList()
+        };
+
+        // Generate DNA fingerprint for similarity matching
+        tempEstimate.DNA = GenerateEstimateDNA(tempEstimate);
+
+        // Find similar estimates (broad sample)
+        var matches = FindSimilarEstimates(tempEstimate, maxResults: 20);
+        if (matches.Count < minSimilar)
+            return null;
+
+        var totals = matches.Select(m => m.Estimate.GrandTotal).OrderBy(t => t).ToList();
+        var avg = totals.Average();
+        var median = totals.Count % 2 == 0
+            ? (totals[totals.Count / 2 - 1] + totals[totals.Count / 2]) / 2m
+            : totals[totals.Count / 2];
+        var currentTotal = tempEstimate.GrandTotal;
+        var dollarDiff = currentTotal - (decimal)avg;
+        var pctDiff = avg > 0 ? (double)((currentTotal - (decimal)avg) / (decimal)avg * 100m) : 0;
+
+        // Collect common damage zones across matches
+        var zoneFrequency = matches
+            .SelectMany(m => m.CommonDamageZones)
+            .GroupBy(z => z, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Take(5)
+            .Select(g => g.Key)
+            .ToList();
+
+        return new BenchmarkResult
+        {
+            HasEnoughData = true,
+            SimilarEstimateCount = matches.Count,
+            CurrentTotal = currentTotal,
+            AverageTotal = (decimal)avg,
+            MedianTotal = median,
+            DollarDifference = dollarDiff,
+            PercentDifference = pctDiff,
+            HighestSimilarTotal = totals.Last(),
+            LowestSimilarTotal = totals.First(),
+            CommonDamageZones = zoneFrequency
+        };
+    }
+
+    #endregion
+
     /// <summary>
     /// Get aggregate statistics across all estimates
     /// </summary>
@@ -894,6 +1067,33 @@ public class EstimateHistoryDatabase
     }
 
     /// <summary>
+    /// Get estimates owned by the current user (per-device, per-user filtering for the Learned tab).
+    /// Tolerates empty OwnedBy so any future legacy data isn't orphaned.
+    /// </summary>
+    public List<StoredEstimate> GetEstimatesForCurrentUser()
+    {
+        var userId = GetCurrentUserId();
+        return _data.Estimates
+            .Where(e => string.IsNullOrEmpty(e.OwnedBy) || e.OwnedBy == userId)
+            .OrderByDescending(e => e.ImportedDate)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Delete an estimate by ID (only if owned by current user).
+    /// </summary>
+    public bool DeleteEstimate(string id)
+    {
+        var userId = GetCurrentUserId();
+        var idx = _data.Estimates.FindIndex(e =>
+            e.Id == id && (string.IsNullOrEmpty(e.OwnedBy) || e.OwnedBy == userId));
+        if (idx < 0) return false;
+        _data.Estimates.RemoveAt(idx);
+        SaveDatabase();
+        return true;
+    }
+
+    /// <summary>
     /// Get estimate by ID
     /// </summary>
     public StoredEstimate? GetEstimateById(string id)
@@ -908,6 +1108,7 @@ public class EstimateHistoryDatabase
 
 public class EstimateHistoryData
 {
+    public int SchemaVersion { get; set; } = 0;  // bumps to 2 after migration
     public List<StoredEstimate> Estimates { get; set; } = new();
     public Dictionary<string, Dictionary<string, OperationPaymentStats>> OperationPaymentIndex { get; set; } = new();
     public DateTime LastUpdated { get; set; } = DateTime.Now;
@@ -936,6 +1137,20 @@ public class StoredEstimate
     public string? Notes { get; set; }
     public int QualityScore { get; set; }
     public string QualityGrade { get; set; } = "";
+
+    // v2 schema: per-estimate metadata for the Learned tab Estimates browser.
+    public string CustomerName { get; set; } = "";
+    public string CustomerPhone { get; set; } = "";
+    public string AdjusterName { get; set; } = "";
+    public string AdjusterPhone { get; set; } = "";
+    public DateTime? LossDate { get; set; }
+    public decimal DeductibleAmount { get; set; }
+    public decimal LaborHourlyRate { get; set; }
+    public decimal RefinishHourlyRate { get; set; }
+    public decimal BodyHourlyRate { get; set; }
+    public decimal MechanicalHourlyRate { get; set; }
+    public decimal FrameHourlyRate { get; set; }
+    public string OwnedBy { get; set; } = "";  // user ID for per-user filtering
 }
 
 public class StoredLineItem

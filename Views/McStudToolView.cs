@@ -1432,6 +1432,7 @@ namespace McStudDesktop.Views
 
             // Estimate upload view takes remaining space
             _estimateUploadView = new EstimateUploadView();
+            _estimateUploadView.OnNavigateToReference += (s, e) => SelectTab(4);
             Grid.SetRow(_estimateUploadView, 1);
             importContent.Children.Add(_estimateUploadView);
 

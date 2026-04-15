@@ -61,7 +61,7 @@ namespace McStudDesktop.Services
         private static readonly string[][] _synonymGroups = new[]
         {
             new[] { "corrosion protection", "cavity wax", "anti-corrosion", "rust protection", "corrosion resist", "e-coat", "ecoat" },
-            new[] { "battery disconnect", "disconnect battery", "disconnect and reconnect battery", "d&r battery" },
+            new[] { "battery disconnect", "disconnect battery", "disconnect and reconnect battery", "d&r battery", "battery reconnect" },
             new[] { "seam sealer", "seam seal", "sealer application" },
             new[] { "weld-thru primer", "weld thru primer", "weld through primer", "welding primer" },
             new[] { "adhesion promoter", "ad pro", "adpro" },
@@ -80,6 +80,66 @@ namespace McStudDesktop.Services
             new[] { "torque wheels", "torque lug nuts", "spec torque", "torque to spec", "torque wheel", "torque wheels to spec" },
             new[] { "dynamic systems verification", "collision diagnosis", "post repair verification", "systems verification" },
         };
+
+        private static readonly HashSet<string> _dedupStopWords = new()
+            { "and", "for", "the", "during", "with", "from", "all", "after", "before", "required" };
+
+        private static string NormalizeDedupKey(string title)
+        {
+            var t = title.ToLowerInvariant().Trim();
+            if (t.StartsWith("missing: ")) t = t.Substring(9);
+            else if (t.StartsWith("need "))
+            {
+                var ci = t.IndexOf(':');
+                if (ci > 0 && ci < t.Length - 1) t = t.Substring(ci + 1).TrimStart();
+            }
+            var words = t.Split(new[] { ' ', '-', '/', '&', '(', ')', ',', '.' },
+                StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length >= 3 && !_dedupStopWords.Contains(w))
+                .OrderBy(w => w).ToArray();
+            return words.Length > 0 ? string.Join("|", words) : t;
+        }
+
+        /// <summary>
+        /// Collapse synonym-equivalent scoring issues into one per synonym group.
+        /// Keeps the highest-severity / highest-deduction issue and removes the rest.
+        /// Example: "Battery Disconnect/Reconnect" + "Battery Disconnect" + "Battery Reconnect &amp; Initialize"
+        ///          → keeps the one with highest severity.
+        /// </summary>
+        private static void DeduplicateSynonymIssues(EstimateScoringResult result)
+        {
+            var toRemove = new HashSet<int>();
+            for (int g = 0; g < _synonymGroups.Length; g++)
+            {
+                var group = _synonymGroups[g];
+                // Find all issues that match this synonym group
+                var matchingIndices = new List<int>();
+                for (int i = 0; i < result.Issues.Count; i++)
+                {
+                    if (toRemove.Contains(i)) continue;
+                    var titleLower = result.Issues[i].Title?.ToLowerInvariant() ?? "";
+                    if (group.Any(s => titleLower.Contains(s)))
+                        matchingIndices.Add(i);
+                }
+                if (matchingIndices.Count <= 1) continue;
+
+                // Keep the best one (highest severity, then highest point deduction)
+                int bestIdx = matchingIndices[0];
+                for (int j = 1; j < matchingIndices.Count; j++)
+                {
+                    var curr = result.Issues[matchingIndices[j]];
+                    var best = result.Issues[bestIdx];
+                    if (curr.Severity > best.Severity ||
+                        (curr.Severity == best.Severity && curr.PointDeduction > best.PointDeduction))
+                        bestIdx = matchingIndices[j];
+                }
+                foreach (var idx in matchingIndices)
+                    if (idx != bestIdx) toRemove.Add(idx);
+            }
+
+            if (toRemove.Count > 0)
+                result.Issues = result.Issues.Where((_, i) => !toRemove.Contains(i)).ToList();
+        }
 
         /// <summary>
         /// Word-boundary-aware keyword match.
@@ -226,7 +286,8 @@ namespace McStudDesktop.Services
         /// Score an estimate for completeness.
         /// Returns a detailed scoring result with suggestions.
         /// </summary>
-        public EstimateScoringResult ScoreEstimate(List<ParsedEstimateLine> lines, string? vehicleInfo = null)
+        public EstimateScoringResult ScoreEstimate(List<ParsedEstimateLine> lines, string? vehicleInfo = null,
+            decimal estimateBodyRate = 0, decimal estimatePaintRate = 0, decimal estimateMechRate = 0)
         {
             // Pre-process: join continuation lines (e.g., "Rub-Out &" + "& Buff" → "Rub-Out & Buff")
             // OCR and PDF parsers sometimes split wrapped descriptions across multiple lines.
@@ -245,7 +306,10 @@ namespace McStudDesktop.Services
             {
                 VehicleInfo = vehicleInfo,
                 TotalLineItems = lines.Count,
-                AssessedAt = DateTime.Now
+                AssessedAt = DateTime.Now,
+                EstimateBodyRate = estimateBodyRate,
+                EstimatePaintRate = estimatePaintRate,
+                EstimateMechRate = estimateMechRate
             };
 
             if (lines.Count == 0)
@@ -272,6 +336,10 @@ namespace McStudDesktop.Services
             RunCheck(() => CheckADASCalibrations(lines, result), "ADASCalibrations");
             RunCheck(() => CheckGlobalRules(lines, result), "GlobalRules");
             RunCheck(() => CheckMustHaves(lines, result), "MustHaves");
+
+            // Collapse synonym-equivalent issues (e.g., "Battery Disconnect/Reconnect" + "Battery Disconnect"
+            // + "Battery Reconnect & Initialize" → keep highest-severity only)
+            DeduplicateSynonymIssues(result);
 
             // Calculate final score
             CalculateFinalScore(result);
@@ -1000,6 +1068,10 @@ namespace McStudDesktop.Services
                 preNormalizedLines.Add(combined);
             }
 
+            // Build dedup key set from scoring issues already found — must-haves that duplicate
+            // an existing scoring issue (e.g., "Battery Disconnect/Reconnect") are suppressed.
+            var existingKeys = new HashSet<string>(result.Issues.Select(i => NormalizeDedupKey(i.Title)));
+
             foreach (var mh in mustHaves)
             {
                 if (!mh.Enabled || string.IsNullOrWhiteSpace(mh.Description)) continue;
@@ -1035,6 +1107,21 @@ namespace McStudDesktop.Services
                     var title = matchCount == 0
                         ? $"Missing: {mh.Description}"
                         : $"Need {missing} more: {mh.Description}";
+
+                    // Cross-source dedup: skip if scoring already flagged an equivalent issue
+                    var mhKey = NormalizeDedupKey(title);
+                    if (existingKeys.Contains(mhKey)) continue;
+
+                    // Also check synonym groups — e.g., "battery disconnect" vs "disconnect and reconnect battery"
+                    bool synonymMatch = false;
+                    var mhDescLower = mh.Description.ToLowerInvariant();
+                    foreach (var group in _synonymGroups)
+                    {
+                        if (group.Any(s => mhDescLower.Contains(s)) &&
+                            result.Issues.Any(existing => group.Any(s => existing.Title.ToLowerInvariant().Contains(s))))
+                        { synonymMatch = true; break; }
+                    }
+                    if (synonymMatch) continue;
 
                     result.Issues.Add(new ScoringIssue
                     {
@@ -1166,6 +1253,12 @@ namespace McStudDesktop.Services
             return issues;
         }
 
+        private static readonly string[] _partNameKeywords =
+            { "panel", "bumper", "fender", "door", "hood", "trunk", "liftgate", "roof", "rail", "pillar", "rocker" };
+        private static readonly string[] _operationVerbs =
+            { "r&i", "r and i", "blend", "refinish", "corrosion", "sealer", "prime", "mask", "calibrat",
+              "scan", "disconnect", "clean", "cover", "protect", "weld", "adhesion", "flex", "denib", "sand" };
+
         /// <summary>
         /// Convert learned operations (from EstimateLearningService) to scoring issues
         /// so they can be merged into the unified scoring panel.
@@ -1191,6 +1284,21 @@ namespace McStudDesktop.Services
                 // Skip garbage descriptions
                 var opDesc = op.Description?.Trim() ?? "";
                 if (opDesc.Length < 5 || opDesc.Length > 100)
+                    continue;
+
+                // Skip truncated descriptions (ends with "&" or "and", or starts with "for ")
+                if (opDesc.EndsWith(" &") || opDesc.EndsWith(" and") || opDesc.StartsWith("for "))
+                    continue;
+
+                // Skip suspiciously high hours — legitimate missing ops rarely exceed 4 hrs
+                if (op.LaborHours + op.RepairHours > 4.0m)
+                    continue;
+
+                // Skip bare part names without an operation verb (e.g., "Rear body panel | 8.0 hr")
+                var opDescLower = opDesc.ToLowerInvariant();
+                bool looksLikePartName = _partNameKeywords.Any(k => opDescLower.Contains(k));
+                bool hasOperationVerb = _operationVerbs.Any(v => opDescLower.Contains(v));
+                if (looksLikePartName && !hasOperationVerb)
                     continue;
 
                 var category = op.Category?.ToLowerInvariant() switch
@@ -1243,6 +1351,21 @@ namespace McStudDesktop.Services
                     // Skip descriptions that are too short or too long (fragments/boilerplate)
                     var desc = manual.Description?.Trim() ?? "";
                     if (desc.Length < 5 || desc.Length > 100)
+                        continue;
+
+                    // Skip truncated descriptions
+                    if (desc.EndsWith(" &") || desc.EndsWith(" and") || desc.StartsWith("for "))
+                        continue;
+
+                    // Skip suspiciously high hours
+                    if (manual.LaborUnits + manual.RefinishUnits > 4.0m)
+                        continue;
+
+                    // Skip bare part names without an operation verb
+                    var descLower = desc.ToLowerInvariant();
+                    bool looksLikePartName2 = _partNameKeywords.Any(k => descLower.Contains(k));
+                    bool hasOperationVerb2 = _operationVerbs.Any(v => descLower.Contains(v));
+                    if (looksLikePartName2 && !hasOperationVerb2)
                         continue;
 
                     issues.Add(new ScoringIssue
@@ -1339,10 +1462,12 @@ namespace McStudDesktop.Services
             result.LowCount = result.Issues.Count(i => i.Severity == IssueSeverity.Low);
 
             // Calculate potential recovery per category using actual labor rates
+            // If "Use estimate rates" is enabled and the estimate had rates, use those; otherwise config defaults
             var ghostConfig = GhostConfigService.Instance;
-            decimal bodyRate = ghostConfig.GetEffectiveBodyRate();
-            decimal paintRate = ghostConfig.GetEffectivePaintRate();
-            decimal mechRate = ghostConfig.GetEffectiveMechRate();
+            bool useEstRates = ghostConfig.Config.LaborRates.UseEstimateRates;
+            decimal bodyRate = (useEstRates && result.EstimateBodyRate > 0) ? result.EstimateBodyRate : ghostConfig.GetEffectiveBodyRate();
+            decimal paintRate = (useEstRates && result.EstimatePaintRate > 0) ? result.EstimatePaintRate : ghostConfig.GetEffectivePaintRate();
+            decimal mechRate = (useEstRates && result.EstimateMechRate > 0) ? result.EstimateMechRate : ghostConfig.GetEffectiveMechRate();
 
             decimal bodyLaborHrs = 0, paintLaborHrs = 0, mechLaborHrs = 0, partsRecovery = 0;
 
@@ -1851,6 +1976,13 @@ namespace McStudDesktop.Services
         public decimal BodyRate { get; set; }
         public decimal PaintRate { get; set; }
         public decimal MechRate { get; set; }
+
+        // Rate overrides detected from the estimate itself (0 = use config default)
+        internal decimal EstimateBodyRate { get; set; }
+        internal decimal EstimatePaintRate { get; set; }
+        internal decimal EstimateMechRate { get; set; }
+
+        public BenchmarkResult? Benchmark { get; set; }
     }
 
     public class CategorizedEstimateLine
@@ -1969,6 +2101,20 @@ namespace McStudDesktop.Services
         public string? Condition { get; set; }
         public string? Description { get; set; }
         public List<MissedItemData>? Checks { get; set; }
+    }
+
+    public class BenchmarkResult
+    {
+        public bool HasEnoughData { get; set; }
+        public int SimilarEstimateCount { get; set; }
+        public decimal CurrentTotal { get; set; }
+        public decimal AverageTotal { get; set; }
+        public decimal MedianTotal { get; set; }
+        public decimal DollarDifference { get; set; }   // negative = below avg
+        public double PercentDifference { get; set; }    // negative = below avg
+        public decimal HighestSimilarTotal { get; set; }
+        public decimal LowestSimilarTotal { get; set; }
+        public List<string> CommonDamageZones { get; set; } = new();
     }
 
     #endregion

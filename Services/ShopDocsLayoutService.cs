@@ -18,7 +18,8 @@ public enum WidgetType
     PriceCatalogs,
     MyDocs,
     TemplateForm,
-    VehicleIntakeForm
+    VehicleIntakeForm,
+    PartsRequest
 }
 
 public class WidgetEntry
@@ -78,6 +79,24 @@ public class ShopDocsLayoutService
                     {
                         laborWidget.Title = "Dealer Information";
                         laborWidget.Description = "Dealer contacts, labor rates & parts info";
+                        needsSave = true;
+                    }
+
+                    // Add Parts Request if missing (migration for existing users)
+                    if (!config.Widgets.Any(w => w.Id == "parts-request"))
+                    {
+                        var maxOrder0 = config.Widgets.Any() ? config.Widgets.Max(w => w.Order) : -1;
+                        config.Widgets.Add(new WidgetEntry
+                        {
+                            Id = "parts-request",
+                            Title = "Parts Request",
+                            Icon = "\uE8C8",
+                            Description = "Track parts needed, ordered & received for repairs",
+                            WidgetType = WidgetType.PartsRequest,
+                            IsBuiltIn = true,
+                            IsVisible = true,
+                            Order = maxOrder0 + 1
+                        });
                         needsSave = true;
                     }
 
@@ -196,6 +215,17 @@ public class ShopDocsLayoutService
                 },
                 new WidgetEntry
                 {
+                    Id = "parts-request",
+                    Title = "Parts Request",
+                    Icon = "\uE8C8",
+                    Description = "Track parts needed, ordered & received for repairs",
+                    WidgetType = WidgetType.PartsRequest,
+                    IsBuiltIn = true,
+                    IsVisible = true,
+                    Order = 6
+                },
+                new WidgetEntry
+                {
                     Id = "vehicle-intake",
                     Title = "Vehicle Intake Form",
                     Icon = "\uE7C8",
@@ -203,7 +233,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.VehicleIntakeForm,
                     IsBuiltIn = true,
                     IsVisible = true,
-                    Order = 6
+                    Order = 7
                 },
                 new WidgetEntry
                 {
@@ -214,7 +244,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.MyDocs,
                     IsBuiltIn = true,
                     IsVisible = true,
-                    Order = 7
+                    Order = 8
                 }
             }
         };

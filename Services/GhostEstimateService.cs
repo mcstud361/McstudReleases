@@ -1968,6 +1968,7 @@ namespace McStudDesktop.Services
             var PAINT_LABOR_RATE = _ghostConfig.GetEffectivePaintRate();
             var MECH_LABOR_RATE = _ghostConfig.GetEffectiveMechRate();
             var FRAME_LABOR_RATE = _ghostConfig.GetEffectiveFrameRate();
+            var MATERIAL_RATE = _ghostConfig.GetEffectiveMaterialRate();
 
             // Calculate hours by labor type
             result.TotalBodyHours = result.Operations
@@ -1995,13 +1996,24 @@ namespace McStudDesktop.Services
             result.TotalRefinishLaborDollars = result.TotalRefinishHours * PAINT_LABOR_RATE;
             result.TotalMechLaborDollars = mechHours * MECH_LABOR_RATE;
             result.TotalFrameLaborDollars = frameHours * FRAME_LABOR_RATE;
+            result.TotalMaterialDollars = result.TotalRefinishHours * MATERIAL_RATE;
 
             result.GrandTotalLaborDollars =
                 result.TotalBodyLaborDollars +
                 result.TotalRefinishLaborDollars +
                 result.TotalMechLaborDollars +
                 result.TotalFrameLaborDollars +
+                result.TotalMaterialDollars +
                 result.TotalSubletAmount;
+
+            // Snapshot rates so the UI can render a transparent breakdown
+            result.BodyRateUsed = BODY_LABOR_RATE;
+            result.PaintRateUsed = PAINT_LABOR_RATE;
+            result.MechRateUsed = MECH_LABOR_RATE;
+            result.FrameRateUsed = FRAME_LABOR_RATE;
+            result.MaterialRateUsed = MATERIAL_RATE;
+            result.MechHoursUsed = mechHours;
+            result.FrameHoursUsed = frameHours;
 
             // Count refinish panels
             result.RefinishPanelCount = result.Operations.Count(o =>
@@ -3262,7 +3274,17 @@ namespace McStudDesktop.Services
         public decimal TotalRefinishLaborDollars { get; set; }
         public decimal TotalMechLaborDollars { get; set; }
         public decimal TotalFrameLaborDollars { get; set; }
+        public decimal TotalMaterialDollars { get; set; }
         public decimal GrandTotalLaborDollars { get; set; }
+
+        // Snapshot of effective labor rates used to compute the totals above
+        public decimal BodyRateUsed { get; set; }
+        public decimal PaintRateUsed { get; set; }
+        public decimal MechRateUsed { get; set; }
+        public decimal FrameRateUsed { get; set; }
+        public decimal MaterialRateUsed { get; set; }
+        public decimal MechHoursUsed { get; set; }
+        public decimal FrameHoursUsed { get; set; }
 
         // Learned dollar totals from uploaded estimates
         public decimal? LearnedDollarTotal { get; set; }

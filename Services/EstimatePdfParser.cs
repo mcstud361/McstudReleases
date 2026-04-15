@@ -173,6 +173,13 @@ namespace McStudDesktop.Services
                 // Extract totals
                 estimate.Totals = ExtractTotals(text);
 
+                // v2 metadata extraction (customer, adjuster, loss date, deductible, hourly rates)
+                ExtractCustomerInfo(text, estimate);
+                estimate.LossDate = ExtractLossDate(text);
+                ExtractAdjusterInfo(text, estimate);
+                ExtractDeductible(text, estimate.Totals);
+                ExtractHourlyRates(text, estimate.Totals);
+
                 System.Diagnostics.Debug.WriteLine($"[PDF Parser] Parsed {estimate.LineItems.Count} line items from {estimate.Source} estimate");
             }
             catch (Exception ex)
@@ -200,6 +207,12 @@ namespace McStudDesktop.Services
             estimate.VIN = ExtractVIN(text);
             estimate.LineItems = ExtractLineItemsSmart(text, estimate.Source);
             estimate.Totals = ExtractTotals(text);
+
+            ExtractCustomerInfo(text, estimate);
+            estimate.LossDate = ExtractLossDate(text);
+            ExtractAdjusterInfo(text, estimate);
+            ExtractDeductible(text, estimate.Totals);
+            ExtractHourlyRates(text, estimate.Totals);
 
             return estimate;
         }
@@ -345,6 +358,27 @@ namespace McStudDesktop.Services
                 if (string.IsNullOrWhiteSpace(line) || line.Length < 3)
                     continue;
 
+                // Early continuation detection — runs BEFORE IsHeaderOrFooter so it can't
+                // accidentally filter out wrapped description text.
+                // In CCC/Mitchell/Audatex, every real operation line starts with a line number (digit).
+                // Lines without a leading digit, #, or * that aren't section headers are continuations
+                // of the previous line's description (PDF text wrapping).
+                if (items.Count > 0 && !Regex.IsMatch(line, @"^\d") && !line.StartsWith("#") && !line.StartsWith("*")
+                    && !line.StartsWith("Note:", StringComparison.OrdinalIgnoreCase)
+                    && string.IsNullOrEmpty(DetectSectionHeader(line)))
+                {
+                    var lastItem = items[^1];
+                    // Strip any trailing numbers that iText7 may have picked up from column alignment
+                    var continuation = Regex.Replace(line, @"\s+[\d.]+\s*$", "").Trim();
+                    if (!string.IsNullOrEmpty(continuation))
+                    {
+                        lastItem.Description = lastItem.Description.TrimEnd(',', ' ') + " " + continuation;
+                        lastItem.OriginalDescription = (lastItem.OriginalDescription ?? lastItem.Description).TrimEnd(',', ' ') + " " + continuation;
+                        System.Diagnostics.Debug.WriteLine($"[PDF Parser] Merged continuation: {continuation} → {lastItem.Description}");
+                        continue;
+                    }
+                }
+
                 // Skip headers/footers
                 if (IsHeaderOrFooter(line))
                     continue;
@@ -413,6 +447,16 @@ namespace McStudDesktop.Services
                     }
 
                     items.Add(item);
+                }
+                else if (items.Count > 0 && !line.StartsWith("Note:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Continuation line — PDF wrapped a long description to the next line
+                    // e.g., "20 # Refn LT Fender Wet/Dry Sand," followed by "Rub-Out & Buff"
+                    var lastItem = items[^1];
+                    var continuation = line.Trim();
+                    lastItem.Description = lastItem.Description.TrimEnd(',', ' ') + " " + continuation;
+                    lastItem.OriginalDescription = lastItem.OriginalDescription.TrimEnd(',', ' ') + " " + continuation;
+                    System.Diagnostics.Debug.WriteLine($"[PDF Parser] Merged continuation: {continuation} → {lastItem.Description}");
                 }
             }
 
@@ -530,11 +574,16 @@ namespace McStudDesktop.Services
                     continue;
                 }
 
-                // Detect labor type suffix (M = Mechanical)
-                if (token == "M" || token == "m")
+                // Detect labor type suffix (M=Mechanical, S=Structural, F=Frame, B=Body)
+                if (token.Length == 1 && char.IsLetter(token[0]))
                 {
-                    item.LaborType = "Mechanical";
-                    continue;
+                    switch (char.ToUpper(token[0]))
+                    {
+                        case 'M': item.LaborType = "Mechanical"; continue;
+                        case 'S': item.LaborType = "Structural"; continue;
+                        case 'F': item.LaborType = "Frame"; continue;
+                        case 'B': item.LaborType = "Body"; continue;
+                    }
                 }
 
                 // Skip common non-description tokens
@@ -767,39 +816,11 @@ namespace McStudDesktop.Services
         /// </summary>
         private bool TryParsePrice(string token, out decimal price)
         {
-            price = 0;
-
-            // Guard: pure-digit tokens (no $ or .) that are 7+ digits are OEM part numbers, not prices
-            // Examples: 9046707214, 5211903907, 1392212100
-            var stripped = token.Replace(",", "").Replace("$", "").Trim();
-            if (!token.Contains("$") && !token.Contains(".") && stripped.Length >= 7 && stripped.All(char.IsDigit))
-                return false;
-
-            // Guard: comma-separated pure digits without $ or decimal are mileage/IDs (e.g., "66,988")
-            if (!token.Contains("$") && !token.Contains(".") && token.Contains(",") && stripped.All(char.IsDigit))
-                return false;
-
-            // Remove $ and commas for parsing
-            var cleaned = token.Replace("$", "").Replace(",", "").Trim();
-
-            if (decimal.TryParse(cleaned, out var val))
-            {
-                // Prices should have a decimal point OR a $ sign to be valid
-                // Pure comma-only numbers without $ are ambiguous (could be mileage, quantities)
-                bool hasDollarSign = token.Contains("$");
-                bool hasDecimalPoint = token.Contains(".");
-
-                if (val > 10 && (hasDollarSign || hasDecimalPoint || token.Contains(",")))
-                {
-                    // Reject if it looks like a mileage or large ID (> $10K, no $ sign, no cents)
-                    if (!hasDollarSign && !hasDecimalPoint && val > 10_000m)
-                        return false;
-
-                    price = val;
-                    return true;
-                }
-            }
-            return false;
+            // Delegates to the shared strict shape-based parser. See
+            // EstimateLearningService.TryParseEstimateLinePrice for the rules. Real prices in
+            // collision estimates always have either a $ prefix or 2-cent decimal digits;
+            // bare integers and pure-digit IDs are NEVER prices.
+            return EstimateLearningService.TryParseEstimateLinePrice(token, out price);
         }
 
         /// <summary>
@@ -1586,28 +1607,24 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
-        /// Extract price/amount from line
+        /// Extract price/amount from line. Uses shape-strict validation: candidates must have
+        /// either a $ prefix or 2-cent-decimal digits, and pass the &lt;$20k sanity check.
+        /// Bare integers, IDs, and absurd values are rejected (not clamped).
         /// </summary>
         private decimal ExtractPrice(string line)
         {
-            const decimal MaxReasonablePrice = 10_000m; // Single collision line items top out around $5K-$8K for exotic OEM parts
-
-            // Look for dollar amounts
-            var priceMatch = Regex.Match(line, @"\$\s*([\d,]+\.?\d*)");
-            if (priceMatch.Success)
+            // Pull every $-prefixed candidate first (most reliable shape).
+            foreach (Match m in Regex.Matches(line, @"\$\s*[\d,]+(?:\.\d{1,2})?"))
             {
-                var priceStr = priceMatch.Groups[1].Value.Replace(",", "");
-                if (decimal.TryParse(priceStr, out var price) && price <= MaxReasonablePrice)
-                    return price;
+                if (EstimateLearningService.TryParseEstimateLinePrice(m.Value.Replace(" ", ""), out var p))
+                    return p;
             }
 
-            // Also look for amounts without $ that are clearly prices (large numbers)
-            var amountMatch = Regex.Match(line, @"\b([\d,]+\.\d{2})\b");
-            if (amountMatch.Success)
+            // Then 2-cent-decimal candidates without $ (e.g. "1,234.56" in a column).
+            foreach (Match m in Regex.Matches(line, @"\b\d{1,3}(?:,\d{3})*\.\d{2}\b|\b\d+\.\d{2}\b"))
             {
-                var amountStr = amountMatch.Groups[1].Value.Replace(",", "");
-                if (decimal.TryParse(amountStr, out var amount) && amount > 10 && amount <= MaxReasonablePrice)
-                    return amount;
+                if (EstimateLearningService.TryParseEstimateLinePrice(m.Value, out var p))
+                    return p;
             }
 
             return 0;
@@ -1689,30 +1706,223 @@ namespace McStudDesktop.Services
         {
             var totals = new EstimateTotals();
 
-            // Look for labeled totals
+            // Labeled totals must use price-shape: $ prefix OR 2-cent decimal. Same rule as line
+            // items, but with a wider sanity ceiling ($500k) since a *whole estimate* total
+            // is legitimately larger than a single line.
+            const decimal MaxSaneEstimateTotal = 500_000m;
+
+            // Tightened regex: require either $ prefix or .## decimal cents.
             var patterns = new Dictionary<string, Action<decimal>>
             {
-                { @"Labor\s*(?:Total)?[:\s]*\$?\s*([\d,]+\.?\d*)", val => totals.LaborTotal = val },
-                { @"Parts?\s*(?:Total)?[:\s]*\$?\s*([\d,]+\.?\d*)", val => totals.PartsTotal = val },
-                { @"Paint\s*(?:Material)?[:\s]*\$?\s*([\d,]+\.?\d*)", val => totals.PaintMaterial = val },
-                { @"Refinish\s*(?:Total)?[:\s]*\$?\s*([\d,]+\.?\d*)", val => totals.RefinishTotal = val },
-                { @"(?:Sub)?Total[:\s]*\$?\s*([\d,]+\.?\d*)", val => totals.Subtotal = val },
-                { @"Tax[:\s]*\$?\s*([\d,]+\.?\d*)", val => totals.Tax = val },
-                { @"Grand\s*Total[:\s]*\$?\s*([\d,]+\.?\d*)", val => totals.GrandTotal = val },
+                { @"Labor\s*(?:Total)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.LaborTotal = val },
+                { @"Parts?\s*(?:Total)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.PartsTotal = val },
+                { @"Paint\s*(?:Material)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.PaintMaterial = val },
+                { @"Refinish\s*(?:Total)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.RefinishTotal = val },
+                { @"(?:Sub)?Total[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.Subtotal = val },
+                { @"Tax[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.Tax = val },
+                { @"Grand\s*Total[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.GrandTotal = val },
             };
 
             foreach (var kvp in patterns)
             {
                 var match = Regex.Match(text, kvp.Key, RegexOptions.IgnoreCase);
-                if (match.Success)
+                if (!match.Success) continue;
+
+                var raw = match.Groups[1].Value.Replace(" ", "");
+                var hasDollar = raw.StartsWith("$");
+                if (hasDollar) raw = raw.Substring(1);
+                var cleaned = raw.Replace(",", "");
+                if (!decimal.TryParse(cleaned, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var val))
+                    continue;
+                if (val <= 0m || val > MaxSaneEstimateTotal)
                 {
-                    var valStr = match.Groups[1].Value.Replace(",", "");
-                    if (decimal.TryParse(valStr, out var val))
-                        kvp.Value(val);
+                    System.Diagnostics.Debug.WriteLine($"[Parser] Rejected absurd total ({kvp.Key}): {match.Groups[1].Value} -> {val:C}");
+                    continue;
                 }
+                kvp.Value(val);
             }
 
             return totals;
+        }
+
+        // ───── v2 metadata extractors ─────────────────────────────────────────
+
+        private static readonly Regex PhoneRegex = new(
+            @"\b\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b",
+            RegexOptions.Compiled);
+
+        // Customer name labels — compiled once at startup.
+        private static readonly Regex[] CustomerNameRegexes =
+        {
+            new(@"Owner[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Insured[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Customer[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Name[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled)
+        };
+
+        private static readonly Regex[] LossDateRegexes =
+        {
+            new(@"Date\s*of\s*Loss[:\s]+(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            new(@"DOL[:\s]+(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            new(@"Loss\s*Date[:\s]+(\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4})", RegexOptions.Compiled | RegexOptions.IgnoreCase)
+        };
+
+        private static readonly Regex[] AdjusterNameRegexes =
+        {
+            new(@"Adjuster[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Claim\s*Rep(?:resentative)?[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Examiner[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Estimator[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled)
+        };
+
+        private static readonly Regex DeductibleRegex = new(
+            @"Deductible[:\s]*\$?\s*([\d,]+\.?\d*)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        // Hourly rate patterns paired with their target setter.
+        // CCC summary format first: "Body Labor 19.8 hrs @ $ 65.00 /hr 1,287.00"
+        // Then fallback for simpler "Body $65" or "Body Rate $65" formats.
+        private static readonly (Regex Regex, Action<EstimateTotals, decimal> Setter)[] RateRegexes =
+        {
+            // CCC/Mitchell summary: "Body Labor XX.X hrs @ $ XX.XX /hr"
+            (new(@"Body\s*Labor\s+[\d.]+\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr", RegexOptions.Compiled | RegexOptions.IgnoreCase),       (t, v) => t.BodyHourlyRate = v),
+            (new(@"Paint\s*Labor\s+[\d.]+\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr", RegexOptions.Compiled | RegexOptions.IgnoreCase),      (t, v) => t.RefinishHourlyRate = v),
+            (new(@"Refinish\s*Labor\s+[\d.]+\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr", RegexOptions.Compiled | RegexOptions.IgnoreCase),   (t, v) => t.RefinishHourlyRate = v),
+            (new(@"Mechanical\s*Labor\s+[\d.]+\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr", RegexOptions.Compiled | RegexOptions.IgnoreCase), (t, v) => t.MechanicalHourlyRate = v),
+            (new(@"Frame\s*Labor\s+[\d.]+\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr", RegexOptions.Compiled | RegexOptions.IgnoreCase),      (t, v) => t.FrameHourlyRate = v),
+            // Simpler "Body $65" / "Body Rate $65" fallback (only if not already set)
+            (new(@"Body\s*(?:Labor)?\s*(?:Rate)?\s*\$\s*([\d.]+)\s*(?:/\s*hr)?", RegexOptions.Compiled | RegexOptions.IgnoreCase),       (t, v) => { if (t.BodyHourlyRate == 0) t.BodyHourlyRate = v; }),
+            (new(@"Refinish\s*(?:Labor)?\s*(?:Rate)?\s*\$\s*([\d.]+)\s*(?:/\s*hr)?", RegexOptions.Compiled | RegexOptions.IgnoreCase),   (t, v) => { if (t.RefinishHourlyRate == 0) t.RefinishHourlyRate = v; }),
+            (new(@"Paint\s*(?:Labor)?\s*(?:Rate)?\s*\$\s*([\d.]+)\s*(?:/\s*hr)?", RegexOptions.Compiled | RegexOptions.IgnoreCase),      (t, v) => { if (t.RefinishHourlyRate == 0) t.RefinishHourlyRate = v; }),
+            (new(@"Mechanical\s*(?:Labor)?\s*(?:Rate)?\s*\$\s*([\d.]+)\s*(?:/\s*hr)?", RegexOptions.Compiled | RegexOptions.IgnoreCase), (t, v) => { if (t.MechanicalHourlyRate == 0) t.MechanicalHourlyRate = v; }),
+            (new(@"Frame\s*(?:Labor)?\s*(?:Rate)?\s*\$\s*([\d.]+)\s*(?:/\s*hr)?", RegexOptions.Compiled | RegexOptions.IgnoreCase),      (t, v) => { if (t.FrameHourlyRate == 0) t.FrameHourlyRate = v; }),
+            (new(@"Labor\s*Rate\s*\$?\s*([\d.]+)\s*(?:/\s*hr)?", RegexOptions.Compiled | RegexOptions.IgnoreCase),                       (t, v) => { if (t.LaborHourlyRate == 0) t.LaborHourlyRate = v; }),
+        };
+
+        /// <summary>
+        /// Extract customer (insured) name and phone from labels near top of PDF.
+        /// Tries Owner / Insured / Customer / Name patterns; phone scanned from
+        /// the same ~250-char window.
+        /// </summary>
+        private static void ExtractCustomerInfo(string text, ParsedEstimate est)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            int nameIdx = -1;
+            foreach (var rx in CustomerNameRegexes)
+            {
+                var match = rx.Match(text);
+                if (match.Success)
+                {
+                    var raw = match.Groups[1].Value.Trim();
+                    if (raw.Length is > 2 and < 60 && !LooksLikeCompanyJunk(raw))
+                    {
+                        est.CustomerName = raw;
+                        nameIdx = match.Index;
+                        break;
+                    }
+                }
+            }
+
+            // Phone: scan from the name match window if available, else first 1500 chars.
+            // Use the (start, length) overload to avoid allocating a substring.
+            int start = nameIdx >= 0 ? nameIdx : 0;
+            int len = Math.Min(text.Length - start, nameIdx >= 0 ? 250 : 1500);
+            var phoneMatch = PhoneRegex.Match(text, start, len);
+            if (phoneMatch.Success)
+                est.CustomerPhone = phoneMatch.Value.Trim();
+        }
+
+        private static bool LooksLikeCompanyJunk(string name)
+        {
+            var upper = name.ToUpperInvariant();
+            return upper.Contains("LLC") || upper.Contains("INC") ||
+                   upper.Contains("CORP") || upper.Contains("INSURANCE") ||
+                   upper.Contains("COMPANY") || upper.Contains("AGENCY");
+        }
+
+        /// <summary>
+        /// Extract date of loss from common labels.
+        /// </summary>
+        private static DateTime? ExtractLossDate(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return null;
+
+            foreach (var rx in LossDateRegexes)
+            {
+                var match = rx.Match(text);
+                if (match.Success && DateTime.TryParse(match.Groups[1].Value, out var dt))
+                    return dt;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Extract adjuster name and phone from common labels.
+        /// </summary>
+        private static void ExtractAdjusterInfo(string text, ParsedEstimate est)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            int nameIdx = -1;
+            foreach (var rx in AdjusterNameRegexes)
+            {
+                var match = rx.Match(text);
+                if (match.Success)
+                {
+                    var raw = match.Groups[1].Value.Trim();
+                    if (raw.Length is > 2 and < 60)
+                    {
+                        est.AdjusterName = raw;
+                        nameIdx = match.Index;
+                        break;
+                    }
+                }
+            }
+
+            if (nameIdx >= 0)
+            {
+                int len = Math.Min(text.Length - nameIdx, 250);
+                var phoneMatch = PhoneRegex.Match(text, nameIdx, len);
+                if (phoneMatch.Success)
+                    est.AdjusterPhone = phoneMatch.Value.Trim();
+            }
+        }
+
+        /// <summary>
+        /// Extract deductible amount.
+        /// </summary>
+        private static void ExtractDeductible(string text, EstimateTotals totals)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            var match = DeductibleRegex.Match(text);
+            if (match.Success)
+            {
+                var valStr = match.Groups[1].Value.Replace(",", "");
+                if (decimal.TryParse(valStr, out var val))
+                    totals.DeductibleAmount = val;
+            }
+        }
+
+        /// <summary>
+        /// Extract per-discipline hourly rates from the rates table near top of CCC/Mitchell estimates.
+        /// </summary>
+        private static void ExtractHourlyRates(string text, EstimateTotals totals)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            foreach (var (rx, setter) in RateRegexes)
+            {
+                var match = rx.Match(text);
+                if (match.Success && decimal.TryParse(match.Groups[1].Value, out var val) && val is > 10 and < 500)
+                    setter(totals, val);
+            }
+
+            // If LaborHourlyRate wasn't set explicitly, fall back to body rate.
+            if (totals.LaborHourlyRate == 0 && totals.BodyHourlyRate > 0)
+                totals.LaborHourlyRate = totals.BodyHourlyRate;
         }
 
         /// <summary>
@@ -1778,6 +1988,13 @@ namespace McStudDesktop.Services
         public EstimateTotals Totals { get; set; } = new();
         public List<string> ParseErrors { get; set; } = new();
         public DateTime ParsedDate { get; set; }
+
+        // v2 schema: per-estimate metadata for the Learned tab Estimates browser.
+        public string CustomerName { get; set; } = "";
+        public string CustomerPhone { get; set; } = "";
+        public string AdjusterName { get; set; } = "";
+        public string AdjusterPhone { get; set; } = "";
+        public DateTime? LossDate { get; set; }
     }
 
     /// <summary>
@@ -1846,6 +2063,14 @@ namespace McStudDesktop.Services
         public decimal Subtotal { get; set; }
         public decimal Tax { get; set; }
         public decimal GrandTotal { get; set; }
+
+        // v2 schema: deductible + per-discipline hourly rates from the rates table.
+        public decimal DeductibleAmount { get; set; }
+        public decimal LaborHourlyRate { get; set; }
+        public decimal RefinishHourlyRate { get; set; }
+        public decimal BodyHourlyRate { get; set; }
+        public decimal MechanicalHourlyRate { get; set; }
+        public decimal FrameHourlyRate { get; set; }
     }
 
     #endregion

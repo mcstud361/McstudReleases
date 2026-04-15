@@ -53,6 +53,11 @@ namespace McstudDesktop.Services
         // from toggling confirmed status back and forth.
         private readonly HashSet<string> _lockedConfirmations = new(StringComparer.OrdinalIgnoreCase);
 
+        // Must-have lock: once a must-have operation is detected as present on the estimate,
+        // keep it checked for the rest of the session. Prevents scrolling from unchecking items
+        // that were already confirmed on a previous page.
+        private readonly HashSet<string> _lockedMustHaves = new(StringComparer.OrdinalIgnoreCase);
+
         private const int DebounceMs = 500;
 
         public event EventHandler<CoachingSnapshot>? SuggestionsUpdated;
@@ -120,6 +125,21 @@ namespace McstudDesktop.Services
                 .Select(kvp => kvp.Value)
                 .ToList();
 
+        /// <summary>
+        /// All raw OCR text accumulated across captures for this session/vehicle.
+        /// </summary>
+        public string AccumulatedRawText => _accumulatedRawText.ToString();
+
+        /// <summary>
+        /// Lock a must-have description as "present" for the rest of this session.
+        /// </summary>
+        public void LockMustHave(string description) => _lockedMustHaves.Add(description);
+
+        /// <summary>
+        /// Check if a must-have was previously locked as present this session.
+        /// </summary>
+        public bool IsMustHaveLocked(string description) => _lockedMustHaves.Contains(description);
+
         public FocusedPartContext? DetectFocusedPart(ScreenOcrResult result)
         {
             var topPart = result.DetectedOperations
@@ -144,6 +164,7 @@ namespace McstudDesktop.Services
             _opInsertionOrder.Clear();
             _opMissCount.Clear();
             _lockedConfirmations.Clear();
+            _lockedMustHaves.Clear();
             _accumulatedOpsOrder = 0;
             _vehicleInfo = null;
             _customerName = null;

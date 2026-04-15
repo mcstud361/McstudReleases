@@ -1766,6 +1766,28 @@ namespace McStudDesktop.Services
                 var trimmed = rawLine.Trim();
                 if (string.IsNullOrEmpty(trimmed) || trimmed.Length < 3) continue;
 
+                // Early continuation detection — before header/footer filtering.
+                // Real estimate lines start with a digit (line number). Lines without one
+                // that aren't section headers are PDF-wrapped continuations.
+                if (parsedLines.Count > 0 && !System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^\d")
+                    && !trimmed.StartsWith("#") && !trimmed.StartsWith("*")
+                    && !trimmed.StartsWith("Note:", StringComparison.OrdinalIgnoreCase)
+                    && !IsSectionHeader(trimmed))
+                {
+                    var lastLine = parsedLines[^1];
+                    // Strip trailing numbers from iText7 column bleed
+                    var continuation = System.Text.RegularExpressions.Regex.Replace(trimmed, @"\s+[\d.]+\s*$", "").Trim();
+                    if (!string.IsNullOrEmpty(continuation))
+                    {
+                        var desc = lastLine.Description ?? lastLine.PartName ?? "";
+                        lastLine.Description = desc.TrimEnd(',', ' ') + " " + continuation;
+                        if (!string.IsNullOrEmpty(lastLine.OriginalDescription))
+                            lastLine.OriginalDescription = lastLine.OriginalDescription.TrimEnd(',', ' ') + " " + continuation;
+                        System.Diagnostics.Debug.WriteLine($"[PDF Parse] Merged continuation: {continuation} → {lastLine.Description}");
+                        continue;
+                    }
+                }
+
                 // Skip header rows and non-data lines
                 if (IsHeaderOrFooterLine(trimmed)) continue;
 
@@ -1793,6 +1815,16 @@ namespace McStudDesktop.Services
 
                     parsedLines.Add(parsed);
                     System.Diagnostics.Debug.WriteLine($"[PDF Parse] Line: {parsed.OperationType} | {parsed.Description} | L:{parsed.LaborHours} P:{parsed.RefinishHours} | Manual:{parsed.IsManualLine}");
+                }
+                else if (parsedLines.Count > 0 && !trimmed.StartsWith("Note:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Continuation line — description wrapped to next line in PDF
+                    var lastLine = parsedLines[^1];
+                    var desc = lastLine.Description ?? lastLine.PartName ?? "";
+                    lastLine.Description = desc.TrimEnd(',', ' ') + " " + trimmed;
+                    if (!string.IsNullOrEmpty(lastLine.OriginalDescription))
+                        lastLine.OriginalDescription = lastLine.OriginalDescription.TrimEnd(',', ' ') + " " + trimmed;
+                    System.Diagnostics.Debug.WriteLine($"[PDF Parse] Merged continuation: {trimmed} → {lastLine.Description}");
                 }
             }
 
@@ -1846,6 +1878,7 @@ namespace McStudDesktop.Services
             decimal refinishHours = 0;
             decimal price = 0;
             string? partNumber = null;
+            string laborType = "";
             int qty = 0;
 
             for (int i = startIndex; i < words.Count; i++)
@@ -1868,16 +1901,12 @@ namespace McStudDesktop.Services
                     continue;
                 }
 
-                // Check if this is a price (has comma or decimal, or whole dollar > 100)
-                if (decimal.TryParse(word.Replace(",", ""), out var possiblePrice) && possiblePrice > 10 && (word.Contains(".") || word.Contains(",") || possiblePrice >= 100))
+                // Price detection — STRICT shape rules. Real prices in CCC/Mitchell/Audatex
+                // estimates always have either a $ prefix or 2-cent decimal digits. Bare integers
+                // are NEVER prices (they're qty/year/line#/RO segments).
+                if (price == 0 && TryParseEstimateLinePrice(word, out var detectedPrice))
                 {
-                    price = possiblePrice;
-                    continue;
-                }
-                // Also handle prices with commas like "2,498.85"
-                if (word.Contains(",") && decimal.TryParse(word.Replace(",", ""), out var commaPrice))
-                {
-                    price = commaPrice;
+                    price = detectedPrice;
                     continue;
                 }
 
@@ -1892,10 +1921,16 @@ namespace McStudDesktop.Services
                     continue;
                 }
 
-                // Check for "M" suffix (mechanical labor indicator)
-                if (word == "M" || word == "m")
+                // Detect labor type suffix (M=Mechanical, S=Structural, F=Frame, B=Body)
+                if (word.Length == 1 && char.IsLetter(word[0]))
                 {
-                    continue;
+                    switch (char.ToUpper(word[0]))
+                    {
+                        case 'M': laborType = "Mechanical"; continue;
+                        case 'S': laborType = "Structural"; continue;
+                        case 'F': laborType = "Frame"; continue;
+                        case 'B': laborType = "Body"; continue;
+                    }
                 }
 
                 // Check for "Incl." (included)
@@ -1941,6 +1976,7 @@ namespace McStudDesktop.Services
                 RefinishHours = refinishHours,
                 Price = price,
                 Category = currentSection ?? "",
+                LaborType = laborType,
                 IsManualLine = isAdditionalOperation // "Manual line" = additional operation (includes # marked lines)
             };
         }
@@ -2055,6 +2091,82 @@ namespace McStudDesktop.Services
         private bool IsHeaderOrFooterLine(string line)
         {
             return EstimatePdfParser.IsHeaderOrFooter(line);
+        }
+
+        /// <summary>
+        /// Strict per-line price detection. Returns true ONLY if the token has the unambiguous
+        /// shape of a collision-estimate line price:
+        ///   • $ prefix (e.g. "$1,234.56", "$45.00"), OR
+        ///   • Decimal with exactly 2 cent digits (e.g. "1234.56", "45.00", "1,234.56")
+        ///
+        /// Bare integers ("1234"), comma-only numbers ("1,234"), 1-digit cents ("12.5"),
+        /// 7+ pure-digit IDs, and years (1900-2100) are all REJECTED. Single-line prices
+        /// > $20,000 are rejected as parse errors (real OEM exotics top out around $5-8k).
+        /// This is shared by EstimateLearningService.ParseCCCLine and EstimatePdfParser.
+        /// </summary>
+        public static bool TryParseEstimateLinePrice(string token, out decimal price)
+        {
+            price = 0m;
+            if (string.IsNullOrWhiteSpace(token)) return false;
+
+            const decimal MaxSaneLinePrice = 20_000m; // single-line ceiling — above this is a parse error
+
+            var t = token.Trim();
+            bool hasDollar = t.StartsWith("$");
+            if (hasDollar) t = t.Substring(1).Trim();
+
+            // Reject empty after $-strip
+            if (t.Length == 0) return false;
+
+            // Must contain only digits, commas, and at most one decimal point
+            int dotCount = 0;
+            foreach (var c in t)
+            {
+                if (c == '.') { dotCount++; if (dotCount > 1) return false; }
+                else if (c != ',' && !char.IsDigit(c)) return false;
+            }
+
+            // Reject pure-digit tokens that look like IDs (no $ prefix, no decimal)
+            // 7+ pure digits = OEM part number / RO# / claim segment
+            if (!hasDollar && dotCount == 0)
+            {
+                var stripped = t.Replace(",", "");
+                if (stripped.Length >= 7 && stripped.All(char.IsDigit)) return false;
+                // Reject years and other 4-digit bare integers (no comma, no decimal)
+                if (!t.Contains(",") && stripped.Length == 4 && stripped.All(char.IsDigit)) return false;
+            }
+
+            // Require either $ prefix OR exactly 2 cent digits after a decimal point.
+            // Bare integers and "12.5"-style hours are rejected here.
+            if (!hasDollar)
+            {
+                if (dotCount == 0) return false; // bare integer or comma-only — not a price
+                var dotIdx = t.IndexOf('.');
+                var cents = t.Substring(dotIdx + 1);
+                if (cents.Length != 2 || !cents.All(char.IsDigit)) return false;
+            }
+            else if (dotCount == 1)
+            {
+                // $-prefixed with a decimal — still require 2 cent digits
+                var dotIdx = t.IndexOf('.');
+                var cents = t.Substring(dotIdx + 1);
+                if (cents.Length != 2 || !cents.All(char.IsDigit)) return false;
+            }
+
+            var cleaned = t.Replace(",", "");
+            if (!decimal.TryParse(cleaned, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var val))
+                return false;
+            if (val <= 0m) return false;
+
+            // Sanity ceiling — anything above this is garbage. Skip the line, don't clamp.
+            if (val > MaxSaneLinePrice)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Parser] Rejected absurd line price: {token} -> {val:C}");
+                return false;
+            }
+
+            price = val;
+            return true;
         }
 
         /// <summary>
@@ -3569,16 +3681,19 @@ namespace McStudDesktop.Services
         public int ExampleCount => _database.TrainingExamples.Count;
         public int TrainedEstimateCount => _database.TrainedEstimates.Count;
 
-        // New stats properties
-        public int EstimatesImported => _database.EstimatesImported;
-        public decimal TotalEstimateValue => _database.TotalEstimateValue;
-        public decimal AverageEstimateValue => _database.AverageEstimateValue;
+        // Stats properties — single source of truth is EstimateHistoryDatabase, which stores
+        // each estimate's labeled "Grand Total" line from the parsed PDF. The legacy
+        // _database.EstimatesImported / TotalEstimateValue counters were a parallel accumulator
+        // that drifted from reality (and could be polluted by bad price parses).
+        public int EstimatesImported => EstimateHistoryDatabase.Instance.SaneEstimateCount;
+        public decimal AverageEstimateValue => EstimateHistoryDatabase.Instance.AverageGrandTotal;
+        public decimal TotalEstimateValue => EstimatesImported * AverageEstimateValue;
 
         /// <summary>
-        /// Record that an estimate was imported for stats tracking.
-        /// REQUIRES Shop or Admin license tier.
+        /// Legacy no-op kept for call-site compatibility. Stat tracking is now driven by
+        /// EstimateHistoryDatabase (which is populated by EstimatePersistenceHelper.PersistAndMine
+        /// on every import). Returns true if the user has training rights, false otherwise.
         /// </summary>
-        /// <returns>True if recorded, false if blocked by license</returns>
         public bool RecordEstimateImport(decimal estimateTotal)
         {
             if (!CanTrain)
@@ -3586,12 +3701,7 @@ namespace McStudDesktop.Services
                 System.Diagnostics.Debug.WriteLine($"[Learning] BLOCKED - Client license cannot record imports. Tier: {_currentTier}");
                 return false;
             }
-
-            _database.EstimatesImported++;
-            _database.TotalEstimateValue += estimateTotal;
-            _database.LastUpdated = DateTime.Now;
-            SaveDatabase();
-            System.Diagnostics.Debug.WriteLine($"[Learning] Recorded estimate #{_database.EstimatesImported}, Total: ${estimateTotal:N2}, Avg: ${_database.AverageEstimateValue:N2}");
+            // Stats now come from EstimateHistoryDatabase — nothing to accumulate here.
             return true;
         }
 
@@ -3636,9 +3746,10 @@ namespace McStudDesktop.Services
                 // Extended stats for publishing
                 TotalTrainingExamples = _database.TrainingExamples.Count,
                 TotalTrainedEstimates = _database.TrainedEstimates.Count,
-                EstimatesImported = _database.EstimatesImported,
-                TotalEstimateValue = _database.TotalEstimateValue,
-                AverageEstimateValue = _database.AverageEstimateValue,
+                // Stats now sourced from EstimateHistoryDatabase (single source of truth)
+                EstimatesImported = EstimatesImported,
+                TotalEstimateValue = TotalEstimateValue,
+                AverageEstimateValue = AverageEstimateValue,
                 LastUpdated = _database.LastUpdated,
                 BaseKnowledgePath = _baseKnowledgePath,
                 UserKnowledgePath = _userKnowledgePath,

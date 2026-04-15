@@ -72,6 +72,17 @@ namespace McStudDesktop.Services
             _store = LoadKnowledge();
 
             System.Diagnostics.Debug.WriteLine($"[Knowledge] Loaded: {TotalPartsLearned} parts, {TotalPatternsLearned} patterns from {TotalEstimatesAnalyzed} estimates");
+
+            // One-time auto-purge: scrub legacy garbage from PDF parser misreads.
+            // Bumps a version stamp so it only runs once per knowledge format upgrade.
+            const int CurrentJunkPurgeVersion = 1;
+            if (_store.Metadata.JunkPurgeVersion < CurrentJunkPurgeVersion)
+            {
+                var removed = PurgeJunkEntries();
+                _store.Metadata.JunkPurgeVersion = CurrentJunkPurgeVersion;
+                Save();
+                System.Diagnostics.Debug.WriteLine($"[Knowledge] Auto-purge complete: removed {removed} junk entries");
+            }
         }
 
         #region Part Knowledge
@@ -140,6 +151,67 @@ namespace McStudDesktop.Services
         #region Operation Statistics
 
         /// <summary>
+        /// Detects garbage part/operation names that come from PDF parser misreads:
+        /// disclaimer text, column headers, mid-sentence fragments, pure punctuation, etc.
+        /// Used both at ingestion time and when purging existing knowledge.
+        /// </summary>
+        public static bool IsJunkPartName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return true;
+
+            var trimmed = name.Trim();
+            var lower = trimmed.ToLowerInvariant();
+
+            // Too short to be meaningful
+            if (trimmed.Length < 3) return true;
+            // No letters at all (pure numbers/punctuation)
+            if (!trimmed.Any(char.IsLetter)) return true;
+
+            // Disclaimer / legal / column-header phrases that get misread as parts
+            var junkPhrases = new[]
+            {
+                "any false", "subject motor vehicle", "stated claim",
+                "these parts", "by the and", "and/or", "supplier description",
+                "line supplier", "description price", "estimate of record",
+                "audit trail", "reasonable rate", "terms and conditions",
+                "disclaimer", "warranty", "this estimate", "the estimate",
+                "estimating system", "page \\d", "subtotal", "grand total",
+                "labor rates", "rate $", "footer", "header",
+                "sales tax", "claim number", "policy number",
+                "vin:", "ro #", "ro:", "claim #",
+            };
+            if (junkPhrases.Any(p => lower.Contains(p))) return true;
+
+            // Fragment starters — these are mid-sentence chunks, not parts
+            var fragmentStarts = new[]
+            {
+                "and ", "or ", "for ", "during ", "with ", "to ", "of ",
+                "the ", "a ", "an ", "in ", "on ", "at ", "by ",
+                "from ", "into ", "onto "
+            };
+            if (fragmentStarts.Any(p => lower.StartsWith(p))) return true;
+
+            // Starts with punctuation (e.g. "-Adjust engine hood")
+            if ("-+*/=<>().,;:!?\"'".IndexOf(trimmed[0]) >= 0) return true;
+
+            // Generic catch-all single words that aren't real parts
+            var bareWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "parts", "labor", "total", "subtotal", "tax", "fee", "fees",
+                "amount", "price", "cost", "qty", "quantity", "item", "items",
+                "line", "page", "section", "category", "type", "code"
+            };
+            if (bareWords.Contains(trimmed)) return true;
+
+            // ALL CAPS phrases longer than 3 words are usually disclaimer text
+            if (trimmed.Length > 15 && trimmed == trimmed.ToUpperInvariant() &&
+                trimmed.Count(c => c == ' ') >= 3)
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
         /// Record operation statistics for a part
         /// </summary>
         public void RecordOperation(
@@ -150,6 +222,10 @@ namespace McStudDesktop.Services
             decimal price,
             string? vehicleType = null)
         {
+            // Refuse junk at the door — prevents disclaimer text and parser fragments
+            // from poisoning the learned knowledge base.
+            if (IsJunkPartName(canonicalPart)) return;
+
             var part = GetOrCreatePart(canonicalPart);
             var opKey = operationType.ToLowerInvariant().Trim();
 
@@ -646,6 +722,86 @@ namespace McStudDesktop.Services
             return new KnowledgeStore();
         }
 
+        /// <summary>
+        /// Scrub the knowledge base of garbage entries that crept in from PDF parser misreads.
+        /// Removes parts, aliases, co-occurrence patterns, and operation profiles whose names
+        /// are flagged by IsJunkPartName. Saves afterward. Returns the number of entries removed.
+        /// </summary>
+        public int PurgeJunkEntries()
+        {
+            int removed = 0;
+
+            // 1) Parts
+            var junkPartKeys = _store.Parts.Keys
+                .Where(k => IsJunkPartName(k))
+                .ToList();
+            foreach (var k in junkPartKeys)
+            {
+                _store.Parts.Remove(k);
+                removed++;
+            }
+
+            // 2) AliasToCanonical (both alias key and canonical value)
+            var junkAliasKeys = _store.AliasToCanonical
+                .Where(kv => IsJunkPartName(kv.Key) || IsJunkPartName(kv.Value))
+                .Select(kv => kv.Key)
+                .ToList();
+            foreach (var k in junkAliasKeys)
+            {
+                _store.AliasToCanonical.Remove(k);
+                removed++;
+            }
+
+            // 3) CoOccurrencePatterns (drop if either side is junk)
+            var junkPatternKeys = _store.CoOccurrencePatterns
+                .Where(kv => IsJunkPartName(kv.Value.Part1) || IsJunkPartName(kv.Value.Part2))
+                .Select(kv => kv.Key)
+                .ToList();
+            foreach (var k in junkPatternKeys)
+            {
+                _store.CoOccurrencePatterns.Remove(k);
+                removed++;
+            }
+
+            // 4) PartAssociations inside surviving parts
+            foreach (var part in _store.Parts.Values)
+            {
+                int before = part.CoOccurrences.Count;
+                part.CoOccurrences.RemoveAll(a => IsJunkPartName(a.AssociatedPart));
+                removed += before - part.CoOccurrences.Count;
+            }
+
+            // 5) OperationProfiles — drop profiles whose panel key is junk,
+            // and within surviving profiles, drop sub-operations referencing junk parts.
+            var junkProfileKeys = _store.OperationProfiles.Keys
+                .Where(k =>
+                {
+                    // Profile keys look like "panelname|operation" — check the panel half
+                    var panelPart = k.Split('|')[0];
+                    return IsJunkPartName(panelPart);
+                })
+                .ToList();
+            foreach (var k in junkProfileKeys)
+            {
+                _store.OperationProfiles.Remove(k);
+                removed++;
+            }
+            foreach (var profile in _store.OperationProfiles.Values)
+            {
+                int before = profile.SubOperations.Count;
+                profile.SubOperations.RemoveAll(s => IsJunkPartName(s.PartName));
+                removed += before - profile.SubOperations.Count;
+            }
+
+            if (removed > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Knowledge] Purged {removed} junk entries");
+                Save();
+            }
+
+            return removed;
+        }
+
         public void Save()
         {
 
@@ -729,6 +885,7 @@ namespace McStudDesktop.Services
         public int TotalEstimatesAnalyzed { get; set; }
         public int TotalLinesAnalyzed { get; set; }
         public decimal TotalValueAnalyzed { get; set; }
+        public int JunkPurgeVersion { get; set; }  // Bumped when auto-purge runs
     }
 
     /// <summary>

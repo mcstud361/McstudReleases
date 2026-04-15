@@ -628,7 +628,7 @@ public sealed class ReferenceView : UserControl
         RefreshPdfPanel();
     }
 
-    private void ClearStaging()
+    public void ClearStaging()
     {
         _stagedItems.Clear();
         RefreshStagingPanel();

@@ -27,6 +27,7 @@ namespace McStudDesktop.Views
         private NumberBox? _mechRateBox;
         private NumberBox? _frameRateBox;
         private NumberBox? _glassRateBox;
+        private CheckBox? _useEstimateRatesCheckBox;
 
         // Scanning inputs
         private RadioButton? _flatRateRadio;
@@ -90,6 +91,9 @@ namespace McStudDesktop.Views
             // Section 6: Category Toggles
             mainStack.Children.Add(BuildCategoryTogglesSection());
 
+            // Section 7: Knowledge Base Maintenance
+            mainStack.Children.Add(BuildKnowledgeMaintenanceSection());
+
             // Bottom buttons
             mainStack.Children.Add(BuildBottomButtons());
 
@@ -138,6 +142,21 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 135, 140)),
                 FontStyle = Windows.UI.Text.FontStyle.Italic
             });
+
+            // Toggle: use rates from the estimate vs shop rates
+            _useEstimateRatesCheckBox = new CheckBox
+            {
+                Content = "Use rates from the estimate (when available)",
+                IsChecked = config.LaborRates.UseEstimateRates,
+                Margin = new Thickness(0, 4, 0, 0),
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 185, 190))
+            };
+            ToolTipService.SetToolTip(_useEstimateRatesCheckBox,
+                "When checked, the scrubber reads hourly rates from the estimate itself\n" +
+                "(e.g. Body Labor $65/hr) instead of the shop rates above.\n" +
+                "Uncheck to always use your shop rates for the \"$ left on the table\" calculation.");
+            stack.Children.Add(_useEstimateRatesCheckBox);
 
             border.Child = stack;
             return border;
@@ -815,9 +834,37 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(CreateSectionHeader("Must-Haves (Scoring Criteria)", "\uE73E"));
 
+            // Must-Haves management button
+            var mustHavesButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE73E", FontSize = 14 },
+                        new TextBlock { Text = "Must-Haves", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 90)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(12, 6, 12, 6),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(0, 0, 0, 0)
+            };
+            ToolTipService.SetToolTip(mustHavesButton,
+                "Manage must-have operations: templates, groups, inline editing, and more.");
+            mustHavesButton.Click += async (s, e) =>
+            {
+                var saved = await MustHavesDialog.ShowAsync(this.XamlRoot);
+                if (saved) PopulateMustHavesList();
+            };
+            stack.Children.Add(mustHavesButton);
+
             stack.Children.Add(new TextBlock
             {
-                Text = "Operations that should always be on every estimate. Configure these from the Must-Haves button on the Estimate Import scoring panel, or manage them here.",
+                Text = "Manage which operations must appear on every estimate. Templates, groups, and editing are available in the dialog.",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 185, 190)),
                 TextWrapping = TextWrapping.Wrap
@@ -843,7 +890,7 @@ namespace McStudDesktop.Views
             {
                 _mustHavesListPanel.Children.Add(new TextBlock
                 {
-                    Text = "No must-haves configured. Use the Must-Haves button on the Estimate Import scoring panel to select from SOP operations.",
+                    Text = "No must-haves configured. Click the Must-Haves button above to add operations.",
                     FontSize = 11,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 105, 110)),
                     FontStyle = Windows.UI.Text.FontStyle.Italic,
@@ -963,6 +1010,53 @@ namespace McStudDesktop.Views
             return border;
         }
 
+        private Border BuildKnowledgeMaintenanceSection()
+        {
+            var border = CreateSectionBorder();
+            var stack = new StackPanel { Spacing = 10 };
+
+            stack.Children.Add(CreateSectionHeader("Knowledge Base Maintenance", "\uE74D"));
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Scrub disclaimer text, column headers, and PDF parser fragments from the learned database. Run this if you see garbage operations like \"ANY FALSE\", \"Line Supplier\", or fragments starting with \"and\" / \"during\" in your Ghost estimates.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 155, 160)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var statusText = new TextBlock
+            {
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 220, 180)),
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+
+            var purgeBtn = new Button
+            {
+                Content = "Purge Garbage from Knowledge Base",
+                Padding = new Thickness(14, 8, 14, 8),
+                FontSize = 12,
+                Background = new SolidColorBrush(Color.FromArgb(255, 90, 50, 30)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(4),
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            purgeBtn.Click += (s, e) =>
+            {
+                var removed = LearnedKnowledgeBase.Instance.PurgeJunkEntries();
+                statusText.Text = removed > 0
+                    ? $"Removed {removed} junk entries. Re-run your Ghost estimate to see clean results."
+                    : "No garbage found — knowledge base is clean.";
+            };
+
+            stack.Children.Add(purgeBtn);
+            stack.Children.Add(statusText);
+
+            border.Child = stack;
+            return border;
+        }
+
         private StackPanel BuildBottomButtons()
         {
             var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Right };
@@ -1012,6 +1106,7 @@ namespace McStudDesktop.Views
             _configService.SetLaborRate("mech", GetNullableDecimal(_mechRateBox));
             _configService.SetLaborRate("frame", GetNullableDecimal(_frameRateBox));
             _configService.SetLaborRate("glass", GetNullableDecimal(_glassRateBox));
+            _configService.Config.LaborRates.UseEstimateRates = _useEstimateRatesCheckBox?.IsChecked == true;
 
             // Save scanning config
             var scanMethod = _flatRateRadio?.IsChecked == true ? ScanBillingMethod.FlatRate : ScanBillingMethod.LaborHours;

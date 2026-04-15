@@ -98,6 +98,14 @@ namespace McStudDesktop.Views
         private StackPanel? _criteriaContent;
         private TextBlock? _criteriaSummaryText;
 
+        // === Benchmark section ===
+        private Border? _benchmarkSection;
+        private Border? _benchmarkAccent;
+        private TextBlock? _benchmarkTitle;
+        private TextBlock? _benchmarkCount;
+        private TextBlock? _benchmarkDiffText;
+        private TextBlock? _benchmarkDetailText;
+
         // === Action buttons ===
         private Button? _addAllCriticalButton;
         private Button? _copyToClipboardButton;
@@ -108,6 +116,7 @@ namespace McStudDesktop.Views
 
         // Event for when items are selected to add
         public event EventHandler<List<ScoringIssue>>? OnAddItems;
+        public event EventHandler? OnNavigateToReference;
 
         public EstimateScoringPanel()
         {
@@ -129,6 +138,9 @@ namespace McStudDesktop.Views
 
             // === HERO SUMMARY ===
             mainStack.Children.Add(BuildHeroSection());
+
+            // === BENCHMARK COMPARISON ===
+            mainStack.Children.Add(BuildBenchmarkSection());
 
             // === ACTION-BASED ISSUE GROUPS ===
             _issuesSection = new Border
@@ -332,6 +344,148 @@ namespace McStudDesktop.Views
 
             heroBorder.Child = heroStack;
             return heroBorder;
+        }
+
+        #endregion
+
+        #region Benchmark Section
+
+        private Border BuildBenchmarkSection()
+        {
+            _benchmarkSection = new Border
+            {
+                Background = new SolidColorBrush(BgMedium),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(0),
+                Visibility = Visibility.Collapsed
+            };
+
+            var outerGrid = new Grid();
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // accent bar
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // content
+
+            // Left accent bar
+            _benchmarkAccent = new Border
+            {
+                Width = 4,
+                CornerRadius = new CornerRadius(6, 0, 0, 6),
+                Background = new SolidColorBrush(Color.FromArgb(255, 100, 150, 220))
+            };
+            Grid.SetColumn(_benchmarkAccent, 0);
+            outerGrid.Children.Add(_benchmarkAccent);
+
+            // Content
+            var contentStack = new StackPanel { Spacing = 6, Padding = new Thickness(12, 10, 12, 10) };
+
+            // Title row: icon + title + count badge
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            titleRow.Children.Add(new FontIcon
+            {
+                Glyph = "\uE9D9", // BarChart
+                FontSize = 14,
+                Foreground = new SolidColorBrush(TextMuted)
+            });
+            _benchmarkTitle = new TextBlock
+            {
+                Text = "Compared to Similar Repairs",
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextBright),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            titleRow.Children.Add(_benchmarkTitle);
+
+            _benchmarkCount = new TextBlock
+            {
+                Text = "",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(TextMuted),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            titleRow.Children.Add(_benchmarkCount);
+            contentStack.Children.Add(titleRow);
+
+            // Large dollar difference text
+            _benchmarkDiffText = new TextBlock
+            {
+                Text = "",
+                FontSize = 18,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(TextWhite)
+            };
+            contentStack.Children.Add(_benchmarkDiffText);
+
+            // Detail line
+            _benchmarkDetailText = new TextBlock
+            {
+                Text = "",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(TextMuted),
+                TextWrapping = TextWrapping.Wrap
+            };
+            contentStack.Children.Add(_benchmarkDetailText);
+
+            Grid.SetColumn(contentStack, 1);
+            outerGrid.Children.Add(contentStack);
+
+            _benchmarkSection.Child = outerGrid;
+            return _benchmarkSection;
+        }
+
+        private void UpdateBenchmarkSection(BenchmarkResult? benchmark)
+        {
+            if (benchmark == null || !benchmark.HasEnoughData || benchmark.SimilarEstimateCount < 3)
+            {
+                _benchmarkSection!.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var pct = benchmark.PercentDifference;
+
+            // At or above average (within 5%) — no noise
+            if (pct >= -5.0)
+            {
+                _benchmarkSection!.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            // Determine severity
+            Color accentColor;
+            string severityLabel;
+            if (pct >= -15.0)
+            {
+                // Slightly below (5–15%)
+                accentColor = Color.FromArgb(255, 100, 150, 220); // blue info
+                severityLabel = "Slightly below average";
+            }
+            else if (pct >= -25.0)
+            {
+                // Below average (15–25%)
+                accentColor = Color.FromArgb(255, 220, 160, 50); // orange warn
+                severityLabel = "Below average";
+            }
+            else
+            {
+                // Significantly below (25%+)
+                accentColor = RedCritical;
+                severityLabel = "Significantly below average";
+            }
+
+            _benchmarkAccent!.Background = new SolidColorBrush(accentColor);
+
+            var absDollar = Math.Abs(benchmark.DollarDifference);
+            var absPct = Math.Abs(benchmark.PercentDifference);
+            _benchmarkDiffText!.Text = $"${absDollar:N0} below average ({absPct:F0}%)";
+            _benchmarkDiffText.Foreground = new SolidColorBrush(accentColor);
+
+            _benchmarkCount!.Text = $"({benchmark.SimilarEstimateCount} similar estimates)";
+
+            _benchmarkDetailText!.Text =
+                $"Your estimate: ${benchmark.CurrentTotal:N0}  |  Average: ${benchmark.AverageTotal:N0}  |  " +
+                $"Range: ${benchmark.LowestSimilarTotal:N0} \u2013 ${benchmark.HighestSimilarTotal:N0}";
+
+            _benchmarkTitle!.Text = severityLabel;
+            _benchmarkSection!.Visibility = Visibility.Visible;
         }
 
         #endregion
@@ -678,6 +832,9 @@ namespace McStudDesktop.Views
 
             // Update criteria
             UpdateCriteriaContent(result);
+
+            // Update benchmark comparison
+            UpdateBenchmarkSection(result.Benchmark);
         }
 
         private void UpdateIssueGroups(List<ScoringIssue> issues)
@@ -880,6 +1037,24 @@ namespace McStudDesktop.Views
                     Foreground = new SolidColorBrush(TextDim),
                     TextTrimming = TextTrimming.CharacterEllipsis
                 });
+            }
+
+            if (!string.IsNullOrEmpty(issue.SuggestedFix?.DegReference))
+            {
+                var degRef = issue.SuggestedFix.DegReference;
+                var degLink = new HyperlinkButton
+                {
+                    Content = $"DEG: {degRef}",
+                    FontSize = 9,
+                    Padding = new Thickness(0),
+                    Foreground = new SolidColorBrush(BlueAccent)
+                };
+                degLink.Click += (s, e) =>
+                {
+                    ReferenceView.Instance?.NavigateToDEGInquiry(degRef);
+                    OnNavigateToReference?.Invoke(this, EventArgs.Empty);
+                };
+                titleStack.Children.Add(degLink);
             }
 
             Grid.SetColumn(titleStack, 2);
@@ -1642,6 +1817,7 @@ namespace McStudDesktop.Views
             _breakdownSection!.Visibility = Visibility.Collapsed;
             _breakdownSummaryText!.Text = "";
             _addAllCriticalButton!.Visibility = Visibility.Collapsed;
+            _benchmarkSection!.Visibility = Visibility.Collapsed;
         }
     }
 }
