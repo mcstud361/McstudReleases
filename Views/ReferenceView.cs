@@ -28,6 +28,7 @@ public sealed class ReferenceView : UserControl
     public static List<PdfQueueItem> PdfQueue => DefinitionsView.PdfQueue;
 
     // Sub-navigation
+    private Border? _autoMatchButton;
     private Border? _defsButton;
     private Border? _degButton;
     private Border? _ppagesButton;
@@ -35,6 +36,7 @@ public sealed class ReferenceView : UserControl
     private Border? _inclNotInclButton;
     private Border? _materialsButton;
     private Border? _oemStatementsButton;
+    private TextBlock? _autoMatchButtonBadge;
     private int _selectedSection = 0;
 
     // Content panels
@@ -83,7 +85,7 @@ public sealed class ReferenceView : UserControl
     /// </summary>
     public void NavigateToPPage(string pPageRef)
     {
-        SelectSection(2); // P-Pages is index 2
+        SelectSection(3); // P-Pages is index 3 (Auto-Match=0, Defs=1, DEG=2)
         _ppagesView?.SearchFor(pPageRef);
     }
 
@@ -92,7 +94,7 @@ public sealed class ReferenceView : UserControl
     /// </summary>
     public void NavigateToDEGInquiry(string inquiryNumber)
     {
-        SelectSection(1); // DEG is index 1
+        SelectSection(2); // DEG is index 2
         _degView?.SearchFor(inquiryNumber);
     }
 
@@ -101,7 +103,7 @@ public sealed class ReferenceView : UserControl
     /// </summary>
     public void NavigateToProcedure(string searchTerm)
     {
-        SelectSection(3); // Procedures is index 3
+        SelectSection(4); // Procedures is index 4
         _proceduresView?.SearchFor(searchTerm);
     }
 
@@ -110,7 +112,7 @@ public sealed class ReferenceView : UserControl
     /// </summary>
     public void NavigateToIncludedNotIncluded(string searchTerm)
     {
-        SelectSection(4); // Incl/Not Incl is index 4
+        SelectSection(5); // Incl/Not Incl is index 5
         _inclNotInclView?.SearchFor(searchTerm);
     }
 
@@ -122,7 +124,6 @@ public sealed class ReferenceView : UserControl
         };
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sub-nav
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Color legend
-        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Staging Panel
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // PDF Panel
         mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Content
 
@@ -146,14 +147,16 @@ public sealed class ReferenceView : UserControl
             Spacing = 4
         };
 
-        _defsButton = CreateSubNavButton("Definitions", 0);
-        _degButton = CreateSubNavButton("DEG Inquiries", 1);
-        _ppagesButton = CreateSubNavButton("P-Pages", 2);
-        _procsButton = CreateSubNavButton("How-To Library", 3);
-        _inclNotInclButton = CreateSubNavButton("Incl/Not Incl", 4);
-        _materialsButton = CreateSubNavButton("Materials", 5);
-        _oemStatementsButton = CreateSubNavButton("OEM Statements", 6);
+        _autoMatchButton = CreateAutoMatchSubNavButton();
+        _defsButton = CreateSubNavButton("Definitions", 1);
+        _degButton = CreateSubNavButton("DEG Inquiries", 2);
+        _ppagesButton = CreateSubNavButton("P-Pages", 3);
+        _procsButton = CreateSubNavButton("How-To Library", 4);
+        _inclNotInclButton = CreateSubNavButton("Incl/Not Incl", 5);
+        _materialsButton = CreateSubNavButton("Materials", 6);
+        _oemStatementsButton = CreateSubNavButton("OEM Statements", 7);
 
+        subNavStack.Children.Add(_autoMatchButton);
         subNavStack.Children.Add(_defsButton);
         subNavStack.Children.Add(_degButton);
         subNavStack.Children.Add(_ppagesButton);
@@ -200,30 +203,30 @@ public sealed class ReferenceView : UserControl
         Grid.SetRow(_legendPanel, 1);
         mainGrid.Children.Add(_legendPanel);
 
-        // === STAGING PANEL (collapsed by default) ===
-        _stagingPanel = CreateStagingPanel();
-        Grid.SetRow(_stagingPanel, 2);
-        mainGrid.Children.Add(_stagingPanel);
-
         // === PDF EXPORT PANEL ===
         _pdfPanel = CreatePdfPanel();
-        Grid.SetRow(_pdfPanel, 3);
+        Grid.SetRow(_pdfPanel, 2);
         mainGrid.Children.Add(_pdfPanel);
 
         // === CONTENT AREA ===
         _contentArea = new Grid();
-        Grid.SetRow(_contentArea, 4);
+        Grid.SetRow(_contentArea, 3);
         mainGrid.Children.Add(_contentArea);
 
-        // Create all views
-        _definitionsView = new DefinitionsView { Tag = 0, Visibility = Visibility.Visible };
-        _degView = new DEGInquiriesView { Tag = 1, Visibility = Visibility.Collapsed };
-        _ppagesView = new PPagesView { Tag = 2, Visibility = Visibility.Collapsed };
-        _proceduresView = new ProceduresView { Tag = 3, Visibility = Visibility.Collapsed };
-        _inclNotInclView = new IncludedNotIncludedView { Tag = 4, Visibility = Visibility.Collapsed };
-        _materialsView = new MaterialSuggestionsView { Tag = 5, Visibility = Visibility.Collapsed };
-        _oemStatementsView = new OEMPositionStatementsView { Tag = 6, Visibility = Visibility.Collapsed };
+        // Create all views (Auto-Match tab is index 0 — lives inside content area as the first tab)
+        _stagingPanel = CreateAutoMatchTabContent();
+        _stagingPanel.Tag = 0;
+        _stagingPanel.Visibility = Visibility.Visible;
 
+        _definitionsView = new DefinitionsView { Tag = 1, Visibility = Visibility.Collapsed };
+        _degView = new DEGInquiriesView { Tag = 2, Visibility = Visibility.Collapsed };
+        _ppagesView = new PPagesView { Tag = 3, Visibility = Visibility.Collapsed };
+        _proceduresView = new ProceduresView { Tag = 4, Visibility = Visibility.Collapsed };
+        _inclNotInclView = new IncludedNotIncludedView { Tag = 5, Visibility = Visibility.Collapsed };
+        _materialsView = new MaterialSuggestionsView { Tag = 6, Visibility = Visibility.Collapsed };
+        _oemStatementsView = new OEMPositionStatementsView { Tag = 7, Visibility = Visibility.Collapsed };
+
+        _contentArea.Children.Add(_stagingPanel);
         _contentArea.Children.Add(_definitionsView);
         _contentArea.Children.Add(_degView);
         _contentArea.Children.Add(_ppagesView);
@@ -232,8 +235,11 @@ public sealed class ReferenceView : UserControl
         _contentArea.Children.Add(_materialsView);
         _contentArea.Children.Add(_oemStatementsView);
 
-        // Select first section
-        SelectSection(0);
+        // Select Definitions by default (index 1). Auto-Match auto-selects when matches arrive.
+        SelectSection(1);
+
+        // Show empty state in Auto-Match tab
+        RefreshStagingPanel();
 
         Content = mainGrid;
     }
@@ -290,13 +296,14 @@ public sealed class ReferenceView : UserControl
         _selectedSection = sectionIndex;
 
         // Update button styles
-        UpdateSubNavButtonStyle(_defsButton, 0);
-        UpdateSubNavButtonStyle(_degButton, 1);
-        UpdateSubNavButtonStyle(_ppagesButton, 2);
-        UpdateSubNavButtonStyle(_procsButton, 3);
-        UpdateSubNavButtonStyle(_inclNotInclButton, 4);
-        UpdateSubNavButtonStyle(_materialsButton, 5);
-        UpdateSubNavButtonStyle(_oemStatementsButton, 6);
+        UpdateAutoMatchSubNavButtonStyle();
+        UpdateSubNavButtonStyle(_defsButton, 1);
+        UpdateSubNavButtonStyle(_degButton, 2);
+        UpdateSubNavButtonStyle(_ppagesButton, 3);
+        UpdateSubNavButtonStyle(_procsButton, 4);
+        UpdateSubNavButtonStyle(_inclNotInclButton, 5);
+        UpdateSubNavButtonStyle(_materialsButton, 6);
+        UpdateSubNavButtonStyle(_oemStatementsButton, 7);
 
         // Show selected content
         if (_contentArea == null) return;
@@ -333,12 +340,12 @@ public sealed class ReferenceView : UserControl
     }
 
 
-    // === STAGING PANEL METHODS ===
+    // === AUTO-MATCH TAB METHODS ===
 
     /// <summary>
-    /// Creates the Auto-Matched References staging panel (collapsed by default)
+    /// Creates the Auto-Matched References tab content — header + scrollable item list.
     /// </summary>
-    private Border CreateStagingPanel()
+    private Border CreateAutoMatchTabContent()
     {
         var panel = new Border
         {
@@ -347,11 +354,13 @@ public sealed class ReferenceView : UserControl
             Padding = new Thickness(10),
             Margin = new Thickness(0, 6, 0, 0),
             BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 100, 160)),
-            BorderThickness = new Thickness(1),
-            Visibility = Visibility.Collapsed
+            BorderThickness = new Thickness(1)
         };
 
-        var mainStack = new StackPanel();
+        // Inner grid: header row (auto) + scrollable list (star)
+        var rootGrid = new Grid();
+        rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         // Header row
         var headerRow = new Grid();
@@ -431,22 +440,118 @@ public sealed class ReferenceView : UserControl
 
         Grid.SetColumn(buttonStack, 1);
         headerRow.Children.Add(buttonStack);
-        mainStack.Children.Add(headerRow);
+        Grid.SetRow(headerRow, 0);
+        rootGrid.Children.Add(headerRow);
 
-        // Staged items list (grouped by source)
+        // Scrollable item list
         _stagingItemsPanel = new StackPanel
         {
             Spacing = 2,
             Margin = new Thickness(0, 8, 0, 0)
         };
-        mainStack.Children.Add(_stagingItemsPanel);
+        var scroll = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = _stagingItemsPanel
+        };
+        Grid.SetRow(scroll, 1);
+        rootGrid.Children.Add(scroll);
 
-        panel.Child = mainStack;
+        panel.Child = rootGrid;
         return panel;
     }
 
     /// <summary>
+    /// Creates the Auto-Match sub-nav button with a count badge that updates as matches come in.
+    /// </summary>
+    private Border CreateAutoMatchSubNavButton()
+    {
+        bool isSelected = _selectedSection == 0;
+
+        var border = new Border
+        {
+            Background = new SolidColorBrush(isSelected
+                ? Color.FromArgb(255, 0, 100, 180)
+                : Color.FromArgb(255, 40, 60, 90)),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(10, 6, 10, 6),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 100, 160)),
+            BorderThickness = new Thickness(1)
+        };
+
+        var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+        stack.Children.Add(new FontIcon
+        {
+            Glyph = "\uE71C",
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Auto-Match",
+            FontSize = 12,
+            FontWeight = isSelected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+            Foreground = new SolidColorBrush(isSelected ? Colors.White : Color.FromArgb(255, 190, 210, 240)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _autoMatchButtonBadge = new TextBlock
+        {
+            Text = "",
+            FontSize = 10,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed
+        };
+        stack.Children.Add(_autoMatchButtonBadge);
+
+        border.Child = stack;
+        border.PointerPressed += (s, e) => SelectSection(0);
+        border.PointerEntered += (s, e) =>
+        {
+            if (_selectedSection != 0)
+                border.Background = new SolidColorBrush(Color.FromArgb(255, 60, 90, 130));
+        };
+        border.PointerExited += (s, e) =>
+        {
+            if (_selectedSection != 0)
+                border.Background = new SolidColorBrush(Color.FromArgb(255, 40, 60, 90));
+        };
+
+        return border;
+    }
+
+    private void UpdateAutoMatchSubNavButtonStyle()
+    {
+        if (_autoMatchButton == null) return;
+
+        bool isSelected = _selectedSection == 0;
+        _autoMatchButton.Background = new SolidColorBrush(isSelected
+            ? Color.FromArgb(255, 0, 100, 180)
+            : Color.FromArgb(255, 40, 60, 90));
+
+        if (_autoMatchButton.Child is StackPanel stack)
+        {
+            foreach (var child in stack.Children)
+            {
+                if (child is TextBlock tb && tb != _autoMatchButtonBadge)
+                {
+                    tb.FontWeight = isSelected
+                        ? Microsoft.UI.Text.FontWeights.SemiBold
+                        : Microsoft.UI.Text.FontWeights.Normal;
+                    tb.Foreground = new SolidColorBrush(isSelected
+                        ? Colors.White
+                        : Color.FromArgb(255, 190, 210, 240));
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Show staged reference items for user review. Merges new items, skips duplicates.
+    /// Auto-navigates to the Auto-Match tab so the user sees the new matches immediately.
     /// </summary>
     public void ShowStagedItems(List<StagedReferenceItem> items)
     {
@@ -456,6 +561,7 @@ public sealed class ReferenceView : UserControl
         DispatcherQueue?.TryEnqueue(() =>
         {
             // Merge: skip items already staged or already in PDF queue
+            bool addedAny = false;
             foreach (var item in items)
             {
                 if (_stagedItems.Any(s => s.QueueItem.Id == item.QueueItem.Id))
@@ -463,26 +569,52 @@ public sealed class ReferenceView : UserControl
                 if (DefinitionsView.PdfQueue.Any(q => q.Id == item.QueueItem.Id))
                     continue;
                 _stagedItems.Add(item);
+                addedAny = true;
             }
 
             RefreshStagingPanel();
+
+            // Auto-navigate to Auto-Match tab so user sees the new matches
+            if (addedAny)
+                SelectSection(0);
         });
     }
 
     private void RefreshStagingPanel()
     {
-        if (_stagingPanel == null || _stagingItemsPanel == null || _stagingCountText == null) return;
+        if (_stagingItemsPanel == null || _stagingCountText == null) return;
 
         _stagingItemsPanel.Children.Clear();
         _stagingCountText.Text = $"({_stagedItems.Count} items)";
 
-        if (_stagedItems.Count == 0)
+        // Update sub-nav badge
+        if (_autoMatchButtonBadge != null)
         {
-            _stagingPanel.Visibility = Visibility.Collapsed;
-            return;
+            if (_stagedItems.Count > 0)
+            {
+                _autoMatchButtonBadge.Text = $"({_stagedItems.Count})";
+                _autoMatchButtonBadge.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                _autoMatchButtonBadge.Visibility = Visibility.Collapsed;
+            }
         }
 
-        _stagingPanel.Visibility = Visibility.Visible;
+        if (_stagedItems.Count == 0)
+        {
+            // Empty state message
+            _stagingItemsPanel.Children.Add(new TextBlock
+            {
+                Text = "No auto-matched references yet. Upload an estimate in the Import tab or use the Screen Monitor to auto-match reference content.",
+                FontSize = 12,
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 12, 0, 0)
+            });
+            return;
+        }
 
         // Group by MatchSource
         var groups = _stagedItems.GroupBy(s => s.MatchSource).OrderBy(g => g.Key);
