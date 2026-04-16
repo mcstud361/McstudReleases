@@ -284,31 +284,65 @@ namespace McStudDesktop.Services
         /// <summary>
         /// Extract vehicle information (year, make, model)
         /// </summary>
+        // Known automotive makes — used to validate unlabeled Year-Make-Model matches
+        // so random "8268 State ID" style number-word-word fragments don't get picked up.
+        private static readonly HashSet<string> KnownMakes = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "Acura","Alfa","AMC","Aston","Audi","Bentley","BMW","Buick","Cadillac","Chevrolet","Chevy",
+            "Chrysler","Dodge","Eagle","Ferrari","Fiat","Ford","Freightliner","Genesis","GMC","Honda",
+            "Hummer","Hyundai","Infiniti","Isuzu","Jaguar","Jeep","Kia","Lamborghini","Land","Lexus",
+            "Lincoln","Maserati","Mazda","Mercedes","Mercury","Mini","Mitsubishi","Nissan","Oldsmobile",
+            "Plymouth","Polestar","Pontiac","Porsche","Ram","Rivian","Rolls","Saab","Saturn","Scion",
+            "Smart","Subaru","Suzuki","Tesla","Toyota","Volkswagen","Volvo","VW"
+        };
+
         private string ExtractVehicleInfo(string text)
         {
-            // Common patterns for vehicle info
-            var patterns = new[]
+            // 1. Labeled patterns (highest confidence)
+            var labeled = new[]
             {
-                @"(\d{4})\s+([\w-]+)\s+([\w-]+)",  // "2019 Honda Accord"
-                @"Vehicle:\s*(.+?)(?:\r?\n|VIN)",
-                @"Year/Make/Model:\s*(.+?)(?:\r?\n|$)",
-                @"(\d{4})\s+(\w+)\s+(\w+)",
+                @"Year\s*/\s*Make\s*/\s*Model[:\s]+([^\r\n]+)",
+                @"Vehicle[:\s]+([^\r\n]+?)(?=\s+VIN\b|\r|\n)",
+                @"Vehicle\s+Information[:\s]+([^\r\n]+)",
+                @"(?:19|20)\d{2}\s+[A-Z][\w-]+\s+[\w\-/]+[^\r\n]{0,40}"
             };
-
-            foreach (var pattern in patterns)
+            foreach (var pattern in labeled)
             {
                 var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
-                    var vehicle = match.Value.Trim();
-                    // Clean up the result
-                    vehicle = Regex.Replace(vehicle, @"(Vehicle:|Year/Make/Model:)", "", RegexOptions.IgnoreCase).Trim();
-                    if (vehicle.Length > 5 && vehicle.Length < 100)
-                        return vehicle;
+                    var value = match.Groups.Count > 1 && match.Groups[1].Success
+                        ? match.Groups[1].Value.Trim()
+                        : match.Value.Trim();
+                    value = Regex.Replace(value, @"\s*VIN[:\s].*$", "", RegexOptions.IgnoreCase).Trim();
+                    if (IsPlausibleVehicleString(value))
+                        return value;
                 }
             }
 
+            // 2. Unlabeled "YYYY Make Model" — require valid model year AND a known make
+            var ymMatches = Regex.Matches(text, @"\b((?:19[89]\d|20[0-3]\d))\s+([A-Z][\w\-]+)\s+([\w\-/]+(?:\s+[\w\-/]+)?)");
+            foreach (Match m in ymMatches)
+            {
+                var year = m.Groups[1].Value;
+                var make = m.Groups[2].Value;
+                var model = m.Groups[3].Value.Trim();
+                if (KnownMakes.Contains(make))
+                    return $"{year} {make} {model}".Trim();
+            }
+
             return "";
+        }
+
+        private static bool IsPlausibleVehicleString(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s) || s.Length < 5 || s.Length > 120) return false;
+            // Must contain a plausible year 1980-2039
+            if (!Regex.IsMatch(s, @"\b(?:19[89]\d|20[0-3]\d)\b")) return false;
+            // Reject obvious junk like "State ID", "Policy Number", pure numbers
+            var upper = s.ToUpperInvariant();
+            if (upper.Contains("POLICY") || upper.Contains("STATE ID") || upper.Contains("CLAIM")) return false;
+            return true;
         }
 
         /// <summary>
@@ -1754,6 +1788,12 @@ namespace McStudDesktop.Services
         // Customer name labels — compiled once at startup.
         private static readonly Regex[] CustomerNameRegexes =
         {
+            new(@"Owner\s*Name[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Customer\s*Name[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Insured\s*Name[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Policy\s*Holder[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Policyholder[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
+            new(@"Claimant[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
             new(@"Owner[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
             new(@"Insured[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
             new(@"Customer[:\s]+([A-Z][A-Za-z'.\-]+(?:\s+[A-Z][A-Za-z'.\-]+){0,3})", RegexOptions.Compiled),
@@ -1980,6 +2020,7 @@ namespace McStudDesktop.Services
     public class ParsedEstimate
     {
         public string SourceFile { get; set; } = "";
+        public string SourcePdfPath { get; set; } = ""; // Full path to original PDF for reopen
         public string Source { get; set; } = ""; // CCC, Mitchell, Audatex, etc.
         public string VehicleInfo { get; set; } = "";
         public string VIN { get; set; } = "";

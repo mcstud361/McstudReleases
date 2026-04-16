@@ -842,6 +842,7 @@ namespace McStudDesktop.Views
             // === SEARCH LOGIC ===
             // Map filter dropdown index to search tag key
             var filterKeys = new[] { "all", "name", "optype", "laborcat", "condition", "group" };
+            string? activeSidebarFilter = null; // null = show all groups; else only the matching group
 
             void RunSearch()
             {
@@ -854,7 +855,7 @@ namespace McStudDesktop.Views
                     int visibleCount = 0;
                     foreach (var child in panel.Children)
                     {
-                        if (child is StackPanel wrapper && wrapper.Tag is Dictionary<string, string> tags)
+                        if (child is FrameworkElement fe && fe.Tag is Dictionary<string, string> tags)
                         {
                             bool matches = string.IsNullOrEmpty(query);
                             if (!matches && tags.TryGetValue(filterKey, out var searchable))
@@ -863,8 +864,11 @@ namespace McStudDesktop.Views
                             if (matches) visibleCount++;
                         }
                     }
-                    header.Visibility = (string.IsNullOrEmpty(query) || visibleCount > 0) ? Visibility.Visible : Visibility.Collapsed;
-                    panel.Visibility = (string.IsNullOrEmpty(query) || visibleCount > 0) ? Visibility.Visible : Visibility.Collapsed;
+                    bool groupPassesSidebar = activeSidebarFilter == null || activeSidebarFilter == groupId;
+                    bool showGroup = groupPassesSidebar && (string.IsNullOrEmpty(query) || visibleCount > 0);
+                    header.Visibility = showGroup ? Visibility.Visible : Visibility.Collapsed;
+                    panel.Visibility = showGroup ? Visibility.Visible : Visibility.Collapsed;
+                    if (addForm != null && !showGroup) addForm.Visibility = Visibility.Collapsed;
                 }
             }
 
@@ -1119,13 +1123,164 @@ namespace McStudDesktop.Views
 
             RebuildUserTemplateButtons();
 
-            // === ASSEMBLE DIALOG ===
+            // === SIDEBAR (group filter navigation) ===
+            var sidebarStack = new StackPanel { Spacing = 2 };
+            var sidebarButtons = new Dictionary<string, (Border Border, TextBlock CountText)>();
+
+            void HighlightSidebar()
+            {
+                foreach (var (gid, (b, _)) in sidebarButtons)
+                {
+                    bool isActive = (activeSidebarFilter == null && gid == "__all__") || activeSidebarFilter == gid;
+                    b.Background = new SolidColorBrush(isActive
+                        ? Color.FromArgb(255, 50, 60, 75)
+                        : Color.FromArgb(255, 30, 35, 42));
+                    b.BorderThickness = new Thickness(isActive ? 2 : 0, 0, 0, 0);
+                }
+            }
+
+            Border BuildSidebarItem(string id, string label, Color accent, int count)
+            {
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var dot = new Border
+                {
+                    Width = 10, Height = 10,
+                    CornerRadius = new CornerRadius(5),
+                    Background = new SolidColorBrush(accent),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 8, 0)
+                };
+                Grid.SetColumn(dot, 0);
+                grid.Children.Add(dot);
+
+                var lblText = new TextBlock
+                {
+                    Text = label,
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Colors.White),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Grid.SetColumn(lblText, 1);
+                grid.Children.Add(lblText);
+
+                var countText = new TextBlock
+                {
+                    Text = count.ToString(),
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(TextDim),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(6, 0, 0, 0)
+                };
+                Grid.SetColumn(countText, 2);
+                grid.Children.Add(countText);
+
+                var border = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(255, 30, 35, 42)),
+                    Padding = new Thickness(10, 7, 10, 7),
+                    CornerRadius = new CornerRadius(4),
+                    BorderBrush = new SolidColorBrush(accent),
+                    BorderThickness = new Thickness(0),
+                    Child = grid,
+                    Margin = new Thickness(0, 0, 0, 2)
+                };
+
+                border.Tapped += (s, ev) =>
+                {
+                    activeSidebarFilter = id == "__all__" ? null : id;
+                    HighlightSidebar();
+                    RunSearch();
+                };
+
+                sidebarButtons[id] = (border, countText);
+                return border;
+            }
+
+            void BuildSidebar()
+            {
+                sidebarStack.Children.Clear();
+                sidebarButtons.Clear();
+
+                sidebarStack.Children.Add(new TextBlock
+                {
+                    Text = "GROUPS",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(TextDim),
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Margin = new Thickness(4, 2, 0, 6)
+                });
+
+                int totalCount = mustHaves.Count(m => !pendingDeletes.Contains(m.Id)) + pendingAdds.Count;
+                sidebarStack.Children.Add(BuildSidebarItem("__all__", "All", Color.FromArgb(255, 100, 180, 255), totalCount));
+
+                foreach (var grp in groups)
+                {
+                    var grpOps = mustHaves.Count(m =>
+                        !pendingDeletes.Contains(m.Id) &&
+                        (m.GroupId == grp.Id || (m.GroupId == null && m.Section.Equals(grp.Name, StringComparison.OrdinalIgnoreCase))));
+                    grpOps += pendingAdds.Count(m =>
+                        m.GroupId == grp.Id || (m.GroupId == null && m.Section.Equals(grp.Name, StringComparison.OrdinalIgnoreCase)));
+                    if (grp.IsBuiltIn && grpOps == 0) continue;
+                    sidebarStack.Children.Add(BuildSidebarItem(grp.Id, grp.Name, ParseHexColor(grp.AccentColor), grpOps));
+                }
+
+                HighlightSidebar();
+            }
+            BuildSidebar();
+
+            // Wrap the existing rebuildSections so sidebar stays in sync when groups/ops change
+            var originalRebuild = rebuildSections;
+            rebuildSections = () =>
+            {
+                originalRebuild?.Invoke();
+                BuildSidebar();
+                RunSearch();
+            };
+
+            // === ASSEMBLE DIALOG (wide: preset/template/search on top, sidebar + content below) ===
+            dialogStack.MinWidth = 1280;
             dialogStack.Children.Add(presetRow);
             dialogStack.Children.Add(userTemplateRow);
             dialogStack.Children.Add(groupMgmtPanel);
             dialogStack.Children.Add(searchRow);
+
             scrollViewer.Content = sectionsStack;
-            dialogStack.Children.Add(scrollViewer);
+            scrollViewer.MaxHeight = 560;
+
+            var sidebarScroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                MaxHeight = 560,
+                Content = sidebarStack
+            };
+
+            var contentGrid = new Grid();
+            contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
+            contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var sidebarBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 24, 28, 34)),
+                Padding = new Thickness(8, 10, 8, 10),
+                CornerRadius = new CornerRadius(6),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 55, 65)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 8, 0),
+                Child = sidebarScroll
+            };
+            Grid.SetColumn(sidebarBorder, 0);
+            contentGrid.Children.Add(sidebarBorder);
+
+            Grid.SetColumn(scrollViewer, 1);
+            contentGrid.Children.Add(scrollViewer);
+
+            dialogStack.Children.Add(contentGrid);
             dialogStack.Children.Add(summaryText);
 
             var dialog = new ContentDialog
@@ -1137,6 +1292,8 @@ namespace McStudDesktop.Views
                 XamlRoot = xamlRoot,
                 RequestedTheme = ElementTheme.Dark
             };
+            // Widen the dialog's max width to fit the sidebar + compact rows
+            dialog.Resources["ContentDialogMaxWidth"] = 1400.0;
 
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
@@ -1161,123 +1318,103 @@ namespace McStudDesktop.Views
             List<MustHaveGroup> groups,
             Action updateCounts)
         {
-            var rowWrapper = new StackPanel { Margin = new Thickness(8, 0, 0, 0), Spacing = 2 };
-
-            // Line 1: Checkbox + delete button
-            var rowGrid = new Grid();
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 0: checkbox
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 1: condition tag
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: delete
-
             var opPrice = mh.ExpectedPrice;
             var opHours = mh.ExpectedHours;
             var condition = mh.Conditions ?? "always";
 
+            // Single compact horizontal row - all fields inline
+            var rowWrapper = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Margin = new Thickness(4, 1, 4, 1),
+                Padding = new Thickness(6, 3, 6, 3)
+            };
+            // Subtle row background for alternating feel via border
+            var rowBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(40, accent.R, accent.G, accent.B)),
+                CornerRadius = new CornerRadius(3),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(30, accent.R, accent.G, accent.B)),
+                BorderThickness = new Thickness(1, 0, 0, 0),
+                Margin = new Thickness(8, 1, 0, 1),
+                Child = rowWrapper
+            };
+
             var cb = new CheckBox
             {
-                Content = mh.Description,
                 IsChecked = mh.Enabled,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Colors.White),
+                MinWidth = 0,
+                Margin = new Thickness(0, 0, 2, 0),
+                VerticalAlignment = VerticalAlignment.Center,
                 Tag = mh.Description.ToLowerInvariant()
             };
             cb.Checked += (s, ev) => updateCounts();
             cb.Unchecked += (s, ev) => updateCounts();
+            rowWrapper.Children.Add(cb);
 
-            Grid.SetColumn(cb, 0);
-            rowGrid.Children.Add(cb);
-
-            var condTag = new TextBlock
-            {
-                Text = (!string.IsNullOrEmpty(condition) && condition != "always") ? $"[{condition}]" : "",
-                FontSize = 9,
-                Foreground = new SolidColorBrush(TextDim),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(6, 0, 0, 0),
-                Visibility = (!string.IsNullOrEmpty(condition) && condition != "always") ? Visibility.Visible : Visibility.Collapsed
-            };
-            Grid.SetColumn(condTag, 1);
-            rowGrid.Children.Add(condTag);
-
-            var deleteBtn = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE74D", FontSize = 9 },
-                Padding = new Thickness(4, 2, 4, 2),
-                Background = new SolidColorBrush(Colors.Transparent),
-                Foreground = new SolidColorBrush(DeleteFg),
-                CornerRadius = new CornerRadius(3),
-                MinWidth = 0,
-                Margin = new Thickness(4, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center,
-                Opacity = 0.6
-            };
-            ToolTipService.SetToolTip(deleteBtn, "Delete operation");
-            Grid.SetColumn(deleteBtn, 2);
-            rowGrid.Children.Add(deleteBtn);
-
-            rowWrapper.Children.Add(rowGrid);
-
-            // Line 2: Always-visible CCC fields
-            var fieldsRow = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 4,
-                Margin = new Thickness(28, 0, 0, 4)
-            };
-
-            // Operation Name (editable)
+            // Operation Name (editable, primary display)
             var fldName = new TextBox
             {
-                Text = mh.Description, FontSize = 10, Width = 200,
+                Text = mh.Description, FontSize = 11, Width = 220,
                 Padding = new Thickness(6, 3, 6, 3),
-                PlaceholderText = "Operation name..."
+                PlaceholderText = "Operation name...",
+                VerticalAlignment = VerticalAlignment.Center
             };
             ToolTipService.SetToolTip(fldName, "Operation Name");
+            rowWrapper.Children.Add(fldName);
 
             // Op Type
-            var fldOpType = new ComboBox { FontSize = 10, MinWidth = 0, Width = 105, Padding = new Thickness(6, 3, 6, 3) };
+            var fldOpType = new ComboBox { FontSize = 10, MinWidth = 0, Width = 95, Padding = new Thickness(6, 3, 6, 3), VerticalAlignment = VerticalAlignment.Center };
             int selectedOpIdx = 0;
             for (int i = 0; i < CccOpTypes.Length; i++)
             {
-                fldOpType.Items.Add($"{CccOpTypes[i].Short} - {CccOpTypes[i].Long}");
+                fldOpType.Items.Add(CccOpTypes[i].Short);
                 if (CccOpTypes[i].Short.Equals(mh.CccOperationType, StringComparison.OrdinalIgnoreCase))
                     selectedOpIdx = i;
             }
             fldOpType.SelectedIndex = selectedOpIdx;
             ToolTipService.SetToolTip(fldOpType, "Operation Type");
+            rowWrapper.Children.Add(fldOpType);
 
             // Qty
             var fldQty = new NumberBox
             {
                 Minimum = 1, Maximum = 99, SmallChange = 1,
                 Value = mh.Quantity > 0 ? mh.Quantity : 1,
-                Width = 50, FontSize = 10,
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+                Width = 55, FontSize = 10,
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+                VerticalAlignment = VerticalAlignment.Center
             };
             ToolTipService.SetToolTip(fldQty, "Quantity");
+            rowWrapper.Children.Add(fldQty);
 
             // Price
             var fldPrice = new NumberBox
             {
                 Minimum = 0, Maximum = 50000,
                 Value = opPrice > 0 ? (double)opPrice : double.NaN,
-                Width = 65, FontSize = 10, PlaceholderText = "$",
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+                Width = 70, FontSize = 10, PlaceholderText = "$",
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+                VerticalAlignment = VerticalAlignment.Center
             };
             ToolTipService.SetToolTip(fldPrice, "Price $");
+            rowWrapper.Children.Add(fldPrice);
 
             // Body Hours
             var fldBodyHrs = new NumberBox
             {
                 Minimum = 0, Maximum = 50, SmallChange = 0.1,
                 Value = opHours > 0 ? (double)opHours : double.NaN,
-                Width = 60, FontSize = 10, PlaceholderText = "hrs",
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+                Width = 60, FontSize = 10, PlaceholderText = "body",
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+                VerticalAlignment = VerticalAlignment.Center
             };
             ToolTipService.SetToolTip(fldBodyHrs, "Body Hours");
+            rowWrapper.Children.Add(fldBodyHrs);
 
             // Labor Category
-            var fldLaborCat = new ComboBox { FontSize = 10, MinWidth = 0, Width = 105, Padding = new Thickness(6, 3, 6, 3) };
+            var fldLaborCat = new ComboBox { FontSize = 10, MinWidth = 0, Width = 115, Padding = new Thickness(6, 3, 6, 3), VerticalAlignment = VerticalAlignment.Center };
             int selectedCatIdx = 0;
             for (int i = 0; i < BodyLaborCategories.Length; i++)
             {
@@ -1287,6 +1424,7 @@ namespace McStudDesktop.Views
             }
             fldLaborCat.SelectedIndex = selectedCatIdx;
             ToolTipService.SetToolTip(fldLaborCat, "Body Labor Category");
+            rowWrapper.Children.Add(fldLaborCat);
 
             // Refinish Hours
             var fldRfnHrs = new NumberBox
@@ -1294,46 +1432,49 @@ namespace McStudDesktop.Views
                 Minimum = 0, Maximum = 50, SmallChange = 0.1,
                 Value = mh.RefinishHours > 0 ? (double)mh.RefinishHours : double.NaN,
                 Width = 60, FontSize = 10, PlaceholderText = "rfn",
-                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
+                SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+                VerticalAlignment = VerticalAlignment.Center
             };
             ToolTipService.SetToolTip(fldRfnHrs, "Refinish Hours");
+            rowWrapper.Children.Add(fldRfnHrs);
 
             // Condition
-            var fldCond = new ComboBox { FontSize = 10, IsEditable = true, MinWidth = 0, Width = 100, Padding = new Thickness(6, 3, 6, 3) };
+            var fldCond = new ComboBox { FontSize = 10, IsEditable = true, MinWidth = 0, Width = 110, Padding = new Thickness(6, 3, 6, 3), VerticalAlignment = VerticalAlignment.Center };
             foreach (var cond in EstimateConditionEvaluator.AllConditions)
                 fldCond.Items.Add(cond);
             fldCond.SelectedItem = condition;
             ToolTipService.SetToolTip(fldCond, "Condition");
+            rowWrapper.Children.Add(fldCond);
 
-            // Labels
-            var lbl = (string text) => new TextBlock
+            // Condition tag (hidden - shown next to name when non-default, via text change)
+            var condTag = new TextBlock
             {
-                Text = text, FontSize = 9, Foreground = new SolidColorBrush(TextDim),
-                VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 0, 0)
+                Text = "",
+                FontSize = 9,
+                Foreground = new SolidColorBrush(TextDim),
+                VerticalAlignment = VerticalAlignment.Center,
+                Visibility = Visibility.Collapsed
             };
 
-            fieldsRow.Children.Add(fldName);
-            fieldsRow.Children.Add(lbl("Op:"));
-            fieldsRow.Children.Add(fldOpType);
-            fieldsRow.Children.Add(lbl("Qty:"));
-            fieldsRow.Children.Add(fldQty);
-            fieldsRow.Children.Add(lbl("$:"));
-            fieldsRow.Children.Add(fldPrice);
-            fieldsRow.Children.Add(lbl("Body:"));
-            fieldsRow.Children.Add(fldBodyHrs);
-            fieldsRow.Children.Add(lbl("Cat:"));
-            fieldsRow.Children.Add(fldLaborCat);
-            fieldsRow.Children.Add(lbl("Rfn:"));
-            fieldsRow.Children.Add(fldRfnHrs);
-            fieldsRow.Children.Add(lbl("When:"));
-            fieldsRow.Children.Add(fldCond);
-
-            rowWrapper.Children.Add(fieldsRow);
+            var deleteBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE74D", FontSize = 9 },
+                Padding = new Thickness(5, 3, 5, 3),
+                Background = new SolidColorBrush(Colors.Transparent),
+                Foreground = new SolidColorBrush(DeleteFg),
+                CornerRadius = new CornerRadius(3),
+                MinWidth = 0,
+                Margin = new Thickness(2, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.6
+            };
+            ToolTipService.SetToolTip(deleteBtn, "Delete operation");
+            rowWrapper.Children.Add(deleteBtn);
 
             // Capture for closures
             var capturedCb = cb;
             var capturedCondTag = condTag;
-            var capturedRowWrapper = rowWrapper;
+            var capturedRowWrapper = rowBorder;
             var capturedMh = mh;
 
             // Helper: read current field values and update pendingEdits
@@ -1342,8 +1483,7 @@ namespace McStudDesktop.Views
                 var curDesc = fldName.Text?.Trim();
                 if (string.IsNullOrWhiteSpace(curDesc)) curDesc = capturedMh.Description;
 
-                // Keep checkbox label in sync with name field
-                capturedCb.Content = curDesc;
+                // Keep checkbox tag in sync with name field (used for filtering)
                 capturedCb.Tag = curDesc.ToLowerInvariant();
 
                 var curOpType = fldOpType.SelectedIndex >= 0 && fldOpType.SelectedIndex < CccOpTypes.Length
@@ -1407,7 +1547,7 @@ namespace McStudDesktop.Views
                 var cond = (fldCond.SelectedItem?.ToString() ?? fldCond.Text ?? "").ToLowerInvariant();
                 var grpName = group.Name.ToLowerInvariant();
 
-                rowWrapper.Tag = new Dictionary<string, string>
+                rowBorder.Tag = new Dictionary<string, string>
                 {
                     ["all"] = $"{name} {opType} {laborCat} {cond} {grpName}",
                     ["name"] = name,
@@ -1425,7 +1565,7 @@ namespace McStudDesktop.Views
             fldLaborCat.SelectionChanged += (s, ev) => UpdateSearchTag();
             fldCond.SelectionChanged += (s, ev) => UpdateSearchTag();
 
-            sectionPanel.Children.Add(rowWrapper);
+            sectionPanel.Children.Add(rowBorder);
             allCheckBoxes[cb] = (mh.Id, mh.Description, mh.Section, mh.GroupId ?? group.Id, opPrice, opHours);
         }
 

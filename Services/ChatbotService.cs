@@ -22,6 +22,10 @@ public class ChatbotService
     private OperationsData? _operationsData;
     private IncludedNotIncludedData? _includedNotIncludedData;
     private List<EstimatingNote>? _estimatingNotes;
+    private PPagesData? _pPagesData;
+    private ChatbotMustHaveData? _mustHaveData;
+    private ChatbotCommonlyMissedData? _commonlyMissedData;
+    private ChatbotNotIncludedData? _notIncludedData;
     private readonly ExcelKnowledgeService _excelKnowledge;
     private readonly EstimateLearningService _learningService;
     private readonly ScanningKnowledgeService _scanningKnowledge;
@@ -47,6 +51,87 @@ public class ChatbotService
         LoadOperations();
         LoadIncludedNotIncluded();
         LoadEstimatingNotes();
+        LoadPPages();
+        LoadMustHaves();
+        LoadCommonlyMissed();
+        LoadNotIncluded();
+    }
+
+    private string? ResolveDataPath(string fileName)
+    {
+        var p = Path.Combine(AppContext.BaseDirectory, "Data", fileName);
+        if (File.Exists(p)) return p;
+        p = Path.Combine(Directory.GetCurrentDirectory(), "Data", fileName);
+        return File.Exists(p) ? p : null;
+    }
+
+    private void LoadPPages()
+    {
+        try
+        {
+            var path = ResolveDataPath("PPages.json");
+            if (path == null) return;
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _pPagesData = JsonSerializer.Deserialize<PPagesData>(json, options);
+            System.Diagnostics.Debug.WriteLine($"Loaded {_pPagesData?.Sections?.Count ?? 0} P-Page sections");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load P-Pages: {ex.Message}");
+        }
+    }
+
+    private void LoadMustHaves()
+    {
+        try
+        {
+            var path = ResolveDataPath("MustHaveOperations.json");
+            if (path == null) return;
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _mustHaveData = JsonSerializer.Deserialize<ChatbotMustHaveData>(json, options);
+            var count = _mustHaveData?.Categories?.Sum(c => c.Operations?.Count ?? 0) ?? 0;
+            System.Diagnostics.Debug.WriteLine($"Loaded {count} must-have operations");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load must-haves: {ex.Message}");
+        }
+    }
+
+    private void LoadCommonlyMissed()
+    {
+        try
+        {
+            var path = ResolveDataPath("CommonlyMissedItems.json");
+            if (path == null) return;
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _commonlyMissedData = JsonSerializer.Deserialize<ChatbotCommonlyMissedData>(json, options);
+            System.Diagnostics.Debug.WriteLine($"Loaded {_commonlyMissedData?.OperationChecks?.Count ?? 0} commonly-missed checks");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load commonly-missed: {ex.Message}");
+        }
+    }
+
+    private void LoadNotIncluded()
+    {
+        try
+        {
+            var path = ResolveDataPath("NotIncludedOperations.json");
+            if (path == null) return;
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _notIncludedData = JsonSerializer.Deserialize<ChatbotNotIncludedData>(json, options);
+            System.Diagnostics.Debug.WriteLine($"Loaded {_notIncludedData?.Categories?.Count ?? 0} not-included categories");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load not-included: {ex.Message}");
+        }
     }
 
     private void LoadKnowledgeBase()
@@ -2138,15 +2223,74 @@ public class ChatbotService
                 "• Don't move mouse during paste"),
 
             ["learning center"] = ("Learning Center",
-                "🎓 **Learning Center** (Admin Mode)\n\n" +
-                "Advanced feature for training the system:\n\n" +
-                "**Access:** Run McStud with --learning flag\n\n" +
-                "**Features:**\n" +
-                "• Query Operations - search learned patterns\n" +
-                "• Import Estimates - train from PDFs\n" +
-                "• Statistics - view learned data\n" +
-                "• Patterns Database - manage patterns\n\n" +
-                "The Learning Center builds intelligence from real estimates."),
+                "🎓 **Learning Center** (Admin / Shop-Owner Only)\n\n" +
+                "All sub-tabs contain insurance and claim data — internal use only, never share with customers.\n\n" +
+                "**Sub-tabs:**\n" +
+                "• **Query Operations** — search learned operation patterns by keyword\n" +
+                "• **Insurance Payments** — *new!* ask questions like 'has Allstate paid for feather edge?' and export a PDF or copy-ready clipboard summary for estimate notes\n" +
+                "• **Estimates Browser** — *new!* filter every imported estimate by Insurer, Year, Make, Model, Shop, Source, VIN, Claim #, RO #, or operation keyword\n" +
+                "• **By Insurer** — *new!* expandable groups showing all estimates per insurance company\n" +
+                "• **Import Estimates** — bulk-feed PDFs/TXT/CSV to train the system\n" +
+                "• **Statistics** — overall totals, top insurers, top operations\n" +
+                "• **Patterns Database** — manage and prune learned patterns\n" +
+                "• **Tips & Tricks** — built-in notes on using the learning system\n\n" +
+                "**Where the data comes from:**\n" +
+                "Every estimate you import on the Import tab feeds this. The more you upload, the sharper the payment stats, ghost estimates, and AI Advisor answers get."),
+
+            ["insurance payments"] = ("Insurance Payments (Learning Center)",
+                "🧬 **Insurance Payments** sub-tab (Learning Center → Insurance Payments)\n\n" +
+                "Searches your local estimate history for what each insurer has paid for a given operation.\n\n" +
+                "**How to use:**\n" +
+                "1. Pick an insurer from the dropdown (or leave as '(All insurers)')\n" +
+                "2. Type an operation keyword — e.g., 'feather edge', 'corrosion', 'cavity wax'\n" +
+                "3. Toggle 'Include denied' if you want to see denied lines too (color-coded red)\n" +
+                "4. Click **Search**\n\n" +
+                "**What you get:**\n" +
+                "• Summary banner — e.g., *'Allstate paid for feather edge 14 times across 12 estimates. Avg 1.0 hr.'*\n" +
+                "• Results table with Date, Claim #, RO #, Vehicle, Operation, Hours, $\n" +
+                "• **Copy Summary to Clipboard** — paste-ready block for the top of a new estimate\n" +
+                "• **Export Report PDF** — ink-friendly printable for showing an adjuster\n\n" +
+                "**Quicker than this UI:** you can also ask the chatbot directly — " +
+                "*'Has Allstate paid for feather edge?'*, *'Who pays for cavity wax?'*, *'How many times did State Farm pay for pre-scan?'*\n\n" +
+                "_Internal use only — contains insurance and claim data. Never share with customers._"),
+
+            ["estimates browser"] = ("Estimates Browser (Learning Center)",
+                "🔎 **Estimates Browser** sub-tab (Learning Center → Estimates Browser)\n\n" +
+                "Filter every estimate you've imported, many dimensions at once.\n\n" +
+                "**Dropdowns:**\n" +
+                "• Insurer, Year, Make, Model (cascades from Make), Shop, Source\n\n" +
+                "**Text filters:**\n" +
+                "• VIN, Claim #, RO #, Operation keyword (searches line items)\n" +
+                "• Free-text quick search (matches across all fields)\n\n" +
+                "**How it works:**\n" +
+                "1. Pick any combination of filters\n" +
+                "2. The table updates instantly\n" +
+                "3. Click any row to open the estimate detail dialog (full metadata + 'Open Source PDF')\n" +
+                "4. Click **Clear All** to reset\n\n" +
+                "Year / Make / Model are parsed at runtime from the vehicle info field — no reimport needed to use the filters on older data.\n\n" +
+                "_Internal use only — contains insurance and claim data._"),
+
+            ["by insurer"] = ("By Insurer (Learning Center)",
+                "🏷️ **By Insurer** sub-tab (Learning Center → By Insurer)\n\n" +
+                "Expandable groups, one per insurance company, showing every estimate filed under that insurer.\n\n" +
+                "• Insurer name and estimate count at each group header\n" +
+                "• Expand to see each estimate's Date, Claim #, RO #, Vehicle, Shop\n" +
+                "• Click any row to open the estimate detail dialog\n\n" +
+                "Good for spotting trends at a glance — which insurers pay cleanly vs. supplement-heavy.\n\n" +
+                "_Internal use only — contains insurance and claim data._"),
+
+            ["parts request"] = ("Parts Request",
+                "📦 **Parts Request** — Shop Docs → Parts Request\n\n" +
+                "Create and track a parts list tied to an RO number. Print or email to parts vendors.\n\n" +
+                "**How to use:**\n" +
+                "1. Go to Shop Docs → Parts Request\n" +
+                "2. Click **New Request** (or pick an existing one from the list)\n" +
+                "3. Fill in the RO #\n" +
+                "4. Add line items — Description, Part #, Qty, Status (Needed/Ordered/Received/Backordered), Notes\n" +
+                "5. Save — everything persists between sessions\n" +
+                "6. Click **Generate PDF** for an ink-friendly printable\n\n" +
+                "**Statuses** are color-coded on the PDF so the parts desk can see what's outstanding at a glance.\n\n" +
+                "Data stored locally at `%LocalAppData%\\McStudDesktop\\PartsRequests.json`."),
 
             ["speed settings"] = ("Speed Settings",
                 "⚡ **Speed Settings**\n\n" +
@@ -2468,6 +2612,12 @@ public class ChatbotService
                          inputLower.Contains("definitions tab") ||
                          inputLower.Contains("speed") ||
                          inputLower.Contains("learning center") ||
+                         inputLower.Contains("learned tab") ||
+                         inputLower.Contains("insurance payments") ||
+                         inputLower.Contains("estimates browser") ||
+                         inputLower.Contains("by insurer") ||
+                         inputLower.Contains("parts request") ||
+                         inputLower.Contains("parts list") ||
                          inputLower.Contains("oem statement") ||
                          inputLower.Contains("ppf") ||
                          inputLower.Contains("vinyl wrap") ||
@@ -3922,6 +4072,360 @@ public class ChatbotService
     }
 
     /// <summary>
+    /// Search P-Pages (CCC / MOTOR Guide / Mitchell) for procedural references
+    /// such as "P-4", "G4", "R&I", "repair vs replace", "refinish setup", etc.
+    /// </summary>
+    private ChatResponse? SearchPPages(string input)
+    {
+        if (_pPagesData?.Sections == null || _pPagesData.Sections.Count == 0)
+            return null;
+
+        var inputLower = input.ToLowerInvariant();
+        var explicitRef = inputLower.Contains("p-page") || inputLower.Contains("ppage") ||
+                          inputLower.Contains("p page") ||
+                          Regex.IsMatch(inputLower, @"\b(p|g)[-\s]?\d{1,3}\b") ||
+                          inputLower.Contains("motor guide") || inputLower.Contains("mitchell guide") ||
+                          inputLower.Contains("ccc guide");
+
+        PPageSection? best = null;
+        int bestScore = 0;
+
+        var words = inputLower.Split(new[] { ' ', '?', '.', ',', '!' },
+            StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length >= 3 && !_stopWords.Contains(w)).ToArray();
+
+        foreach (var section in _pPagesData.Sections)
+        {
+            int score = 0;
+            var title = section.Title?.ToLowerInvariant() ?? "";
+            var summary = section.Summary?.ToLowerInvariant() ?? "";
+            var category = section.Category?.ToLowerInvariant() ?? "";
+
+            // Direct reference match (P-4, G4, etc.)
+            if (!string.IsNullOrEmpty(section.Section) &&
+                inputLower.Contains(section.Section.ToLowerInvariant()))
+                score += 40;
+            if (!string.IsNullOrEmpty(section.PPageRef) &&
+                inputLower.Contains(section.PPageRef.ToLowerInvariant()))
+                score += 40;
+            if (section.AltRefs != null)
+            {
+                foreach (var alt in section.AltRefs)
+                {
+                    if (!string.IsNullOrEmpty(alt) &&
+                        inputLower.Contains(alt.ToLowerInvariant()))
+                    {
+                        score += 30;
+                        break;
+                    }
+                }
+            }
+
+            foreach (var word in words)
+            {
+                if (title.Contains(word)) score += 6;
+                if (category.Contains(word)) score += 3;
+                if (summary.Contains(word)) score += 2;
+                if (section.Tags != null &&
+                    section.Tags.Any(t => t.ToLowerInvariant().Contains(word)))
+                    score += 4;
+            }
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = section;
+            }
+        }
+
+        int threshold = explicitRef ? 5 : 14;
+        if (best == null || bestScore < threshold)
+            return null;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"📄 **P-Page {best.PPageRef ?? best.Section} — {best.Title}**");
+        if (!string.IsNullOrEmpty(best.Category))
+            sb.AppendLine($"_{best.Category}_");
+        sb.AppendLine();
+
+        if (!string.IsNullOrEmpty(best.Summary))
+            sb.AppendLine(best.Summary + "\n");
+
+        if (best.Included != null && best.Included.Count > 0)
+        {
+            sb.AppendLine("**✅ Included in labor time:**");
+            foreach (var it in best.Included)
+                sb.AppendLine($"• {it}");
+            sb.AppendLine();
+        }
+
+        if (best.NotIncluded != null && best.NotIncluded.Count > 0)
+        {
+            sb.AppendLine("**❌ NOT INCLUDED (chargeable separately):**");
+            foreach (var it in best.NotIncluded)
+                sb.AppendLine($"• {it}");
+            sb.AppendLine();
+        }
+
+        if (!string.IsNullOrEmpty(best.Notes))
+            sb.AppendLine($"📝 {best.Notes}\n");
+
+        var refs = new List<string>();
+        if (!string.IsNullOrEmpty(best.PPageRef)) refs.Add($"CCC/MOTOR {best.PPageRef}");
+        if (!string.IsNullOrEmpty(best.Section)) refs.Add(best.Section);
+        if (!string.IsNullOrEmpty(best.MitchellRef)) refs.Add($"Mitchell {best.MitchellRef}");
+        if (refs.Count > 0)
+            sb.AppendLine($"📍 **References:** {string.Join(" · ", refs)}");
+
+        return new ChatResponse
+        {
+            Message = sb.ToString().TrimEnd(),
+            Confidence = bestScore >= 30 ? 0.95 : (bestScore >= 18 ? 0.85 : 0.7),
+            Category = "p-pages",
+            RelatedTopics = new List<string>
+            {
+                "DEG inquiries",
+                "What's NOT INCLUDED for " + (best.Title ?? "this operation") + "?",
+                "Similar operations"
+            }
+        };
+    }
+
+    /// <summary>
+    /// Return the list of must-have operations (MustHaveOperations.json).
+    /// Answers queries like "what must-have operations should be on every estimate?"
+    /// </summary>
+    private ChatResponse? SearchMustHaves(string input)
+    {
+        if (_mustHaveData?.Categories == null || _mustHaveData.Categories.Count == 0)
+            return null;
+
+        var inputLower = input.ToLowerInvariant();
+        var isQuery = inputLower.Contains("must have") || inputLower.Contains("must-have") ||
+                      inputLower.Contains("musthave") ||
+                      inputLower.Contains("every estimate") ||
+                      inputLower.Contains("should be on every") ||
+                      inputLower.Contains("mandatory operations") ||
+                      (inputLower.Contains("required") && inputLower.Contains("operation"));
+
+        if (!isQuery) return null;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("✅ **Must-Have Operations**");
+        sb.AppendLine("Operations McStud checks for on every estimate. " +
+                      "Missing items flag in the Scoring / Must-Haves panel.\n");
+
+        foreach (var cat in _mustHaveData.Categories)
+        {
+            if (cat.Operations == null || cat.Operations.Count == 0) continue;
+            sb.AppendLine($"**{cat.Name}**");
+            foreach (var op in cat.Operations)
+            {
+                var parts = new List<string>();
+                if (op.LaborHours > 0) parts.Add($"{op.LaborHours:0.##} hr");
+                if (op.Price > 0) parts.Add($"${op.Price:0.##}");
+                if (op.MaterialsCost > 0) parts.Add($"mat ${op.MaterialsCost:0.##}");
+                var detail = parts.Count > 0 ? $" ({string.Join(", ", parts)})" : "";
+                var when = string.IsNullOrEmpty(op.Conditions) || op.Conditions == "always"
+                    ? "" : $" — when {op.Conditions}";
+                sb.AppendLine($"• {op.Description}{detail}{when}");
+            }
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("_See the Scoring panel after an estimate is imported to see which are missing._");
+
+        return new ChatResponse
+        {
+            Message = sb.ToString().TrimEnd(),
+            Confidence = 0.9,
+            Category = "must-haves",
+            RelatedTopics = new List<string>
+            {
+                "What's NOT INCLUDED in labor times?",
+                "Commonly missed bumper items",
+                "Pre-scan and post-scan requirements"
+            }
+        };
+    }
+
+    /// <summary>
+    /// Commonly missed supplement items by operation (CommonlyMissedItems.json).
+    /// Matches queries like "what am I missing on bumper replace" or "commonly missed on quarter repair".
+    /// </summary>
+    private ChatResponse? SearchCommonlyMissed(string input)
+    {
+        if (_commonlyMissedData?.OperationChecks == null ||
+            _commonlyMissedData.OperationChecks.Count == 0)
+            return null;
+
+        var inputLower = input.ToLowerInvariant();
+        var wantsCheck = inputLower.Contains("commonly missed") ||
+                         inputLower.Contains("what am i missing") ||
+                         inputLower.Contains("whats missing") ||
+                         inputLower.Contains("what's missing") ||
+                         inputLower.Contains("missed items") ||
+                         inputLower.Contains("supplement check") ||
+                         (inputLower.Contains("check") && inputLower.Contains("replace")) ||
+                         (inputLower.Contains("check") && inputLower.Contains("repair"));
+
+        ChatbotCommonlyMissedCheck? best = null;
+        int bestScore = 0;
+
+        foreach (var kvp in _commonlyMissedData.OperationChecks)
+        {
+            var check = kvp.Value;
+            int score = 0;
+
+            if (check.TriggerKeywords != null)
+            {
+                foreach (var kw in check.TriggerKeywords)
+                {
+                    if (!string.IsNullOrEmpty(kw) &&
+                        inputLower.Contains(kw.ToLowerInvariant()))
+                        score += 15;
+                }
+            }
+            if (check.TriggerOperations != null)
+            {
+                foreach (var op in check.TriggerOperations)
+                {
+                    if (!string.IsNullOrEmpty(op) &&
+                        inputLower.Contains(op.ToLowerInvariant()))
+                        score += 6;
+                }
+            }
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = check;
+            }
+        }
+
+        int threshold = wantsCheck ? 10 : 21;
+        if (best == null || bestScore < threshold)
+            return null;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"🔍 **Commonly Missed on {best.Operation}**\n");
+
+        if (best.MissedItems != null && best.MissedItems.Count > 0)
+        {
+            var byCat = best.MissedItems
+                .GroupBy(i => string.IsNullOrEmpty(i.Category) ? "Other" : i.Category);
+            foreach (var grp in byCat)
+            {
+                sb.AppendLine($"**{grp.Key}**");
+                foreach (var item in grp.OrderByDescending(i =>
+                    i.Priority == "high" ? 3 : i.Priority == "medium" ? 2 : 1))
+                {
+                    var pieces = new List<string>();
+                    if (item.LaborHours > 0) pieces.Add($"{item.LaborHours:0.##} hr");
+                    if (item.TypicalCost > 0) pieces.Add($"~${item.TypicalCost:0.##}");
+                    if (!string.IsNullOrEmpty(item.Priority))
+                        pieces.Add($"priority: {item.Priority}");
+                    var tags = pieces.Count > 0 ? $" _({string.Join(", ", pieces)})_" : "";
+
+                    sb.AppendLine($"• **{item.Item}**{tags}");
+                    if (!string.IsNullOrEmpty(item.WhyNeeded))
+                        sb.AppendLine($"   _{item.WhyNeeded}_");
+                    if (!string.IsNullOrEmpty(item.DegReference))
+                        sb.AppendLine($"   📌 {item.DegReference}");
+                }
+                sb.AppendLine();
+            }
+        }
+
+        return new ChatResponse
+        {
+            Message = sb.ToString().TrimEnd(),
+            Confidence = bestScore >= 20 ? 0.9 : 0.75,
+            Category = "commonly-missed",
+            RelatedTopics = new List<string>
+            {
+                "What's NOT INCLUDED in refinish?",
+                "DEG inquiries for " + (best.Operation ?? ""),
+                "Must-have operations"
+            }
+        };
+    }
+
+    /// <summary>
+    /// Categorical "NOT INCLUDED" reference (NotIncludedOperations.json) — MOTOR/DEG sourced.
+    /// Matches queries like "what's not included in refinish", "not included scanning".
+    /// </summary>
+    private ChatResponse? SearchNotIncludedCategories(string input)
+    {
+        if (_notIncludedData?.Categories == null ||
+            _notIncludedData.Categories.Count == 0)
+            return null;
+
+        var inputLower = input.ToLowerInvariant();
+        if (!inputLower.Contains("not included") && !inputLower.Contains("notincluded"))
+            return null;
+
+        ChatbotNotIncludedCategory? bestCat = null;
+        int bestScore = 0;
+
+        foreach (var cat in _notIncludedData.Categories.Values)
+        {
+            int score = 0;
+            var name = cat.Name?.ToLowerInvariant() ?? "";
+            if (!string.IsNullOrEmpty(name))
+            {
+                foreach (var word in name.Split(' '))
+                {
+                    if (word.Length >= 4 && inputLower.Contains(word))
+                        score += 8;
+                }
+            }
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestCat = cat;
+            }
+        }
+
+        if (bestCat == null || bestScore < 6)
+            return null;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"❌ **NOT INCLUDED — {bestCat.Name}**");
+        sb.AppendLine("_Source: MOTOR Guide to Estimating, DEG Database, CCC/Mitchell/Audatex P-Pages_\n");
+
+        if (bestCat.Items != null)
+        {
+            foreach (var item in bestCat.Items)
+            {
+                sb.AppendLine($"• **{item.Item}**" +
+                              (item.TypicalTime > 0 ? $" _(typical: {item.TypicalTime:0.##} hr)_" : ""));
+                if (!string.IsNullOrEmpty(item.Description))
+                    sb.AppendLine($"   {item.Description}");
+                if (!string.IsNullOrEmpty(item.WhyNotIncluded))
+                    sb.AppendLine($"   _Why: {item.WhyNotIncluded}_");
+                if (!string.IsNullOrEmpty(item.DegReference))
+                    sb.AppendLine($"   📌 {item.DegReference}");
+                if (!string.IsNullOrEmpty(item.Notes))
+                    sb.AppendLine($"   📝 {item.Notes}");
+            }
+        }
+
+        return new ChatResponse
+        {
+            Message = sb.ToString().TrimEnd(),
+            Confidence = bestScore >= 12 ? 0.9 : 0.75,
+            Category = "not-included",
+            RelatedTopics = new List<string>
+            {
+                "Must-have operations",
+                "Commonly missed items",
+                "DEG inquiries"
+            }
+        };
+    }
+
+    /// <summary>
     /// Get a response for the user's question
     /// </summary>
     public ChatResponse GetResponse(string userInput)
@@ -3943,9 +4447,12 @@ public class ChatbotService
                          "• How to use the Export tab (Excel to CCC/Mitchell)\n" +
                          "• How to use Damage Estimator interview\n" +
                          "• Hotkeys (Ctrl+Alt+V for quick export)\n\n" +
-                         "📖 **Definitions & P-Pages**\n" +
+                         "📖 **Definitions & P-Pages (CCC / MOTOR / Mitchell)**\n" +
                          "• Ask about operations (e.g., 'what is seam sealer?')\n" +
-                         "• P-page info (e.g., 'corrosion protection')\n" +
+                         "• Direct P-page lookups (e.g., 'P-4', 'G4 repair vs replace')\n" +
+                         "• What's NOT INCLUDED (e.g., 'not included in refinish')\n" +
+                         "• Must-have operations (e.g., 'what should be on every estimate?')\n" +
+                         "• Commonly missed items (e.g., 'what am I missing on bumper replace?')\n" +
                          "• DEG inquiries (e.g., 'scans DEG')\n\n" +
                          "📋 **OEM Position Statements**\n" +
                          "• Ask by OEM (e.g., 'Honda scanning', 'Toyota ADAS')\n" +
@@ -4058,6 +4565,26 @@ public class ChatbotService
         var teardownResponse = SearchTeardownChecklist(input);
         if (teardownResponse != null)
             return teardownResponse;
+
+        // Check P-Pages (CCC/MOTOR/Mitchell procedural references like "P-4", "R&I")
+        var pPageResponse = SearchPPages(input);
+        if (pPageResponse != null)
+            return pPageResponse;
+
+        // Check must-have operations ("what should be on every estimate?")
+        var mustHaveResponse = SearchMustHaves(input);
+        if (mustHaveResponse != null)
+            return mustHaveResponse;
+
+        // Check commonly missed supplement items ("what am I missing on bumper replace?")
+        var missedResponse = SearchCommonlyMissed(input);
+        if (missedResponse != null)
+            return missedResponse;
+
+        // Check categorical NOT INCLUDED reference (scanning, refinish, etc.)
+        var notIncludedResponse = SearchNotIncludedCategories(input);
+        if (notIncludedResponse != null)
+            return notIncludedResponse;
 
         // Check definitions for operation/P-page queries
         var definitionResponse = SearchDefinitions(input);
@@ -5431,6 +5958,188 @@ public class EstimatingNote
 
     [JsonPropertyName("content")]
     public string? Content { get; set; }
+}
+
+#endregion
+
+#region P-Pages Data Models
+
+public class PPagesData
+{
+    [JsonPropertyName("version")]
+    public string? Version { get; set; }
+
+    [JsonPropertyName("disclaimer")]
+    public string? Disclaimer { get; set; }
+
+    [JsonPropertyName("sections")]
+    public List<PPageSection>? Sections { get; set; }
+}
+
+public class PPageSection
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("section")]
+    public string? Section { get; set; }
+
+    [JsonPropertyName("pPageRef")]
+    public string? PPageRef { get; set; }
+
+    [JsonPropertyName("altRefs")]
+    public List<string>? AltRefs { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
+    [JsonPropertyName("summary")]
+    public string? Summary { get; set; }
+
+    [JsonPropertyName("included")]
+    public List<string>? Included { get; set; }
+
+    [JsonPropertyName("notIncluded")]
+    public List<string>? NotIncluded { get; set; }
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+
+    [JsonPropertyName("mitchellRef")]
+    public string? MitchellRef { get; set; }
+
+    [JsonPropertyName("tags")]
+    public List<string>? Tags { get; set; }
+}
+
+#endregion
+
+#region Must-Have & Missed-Items Models
+
+public class ChatbotMustHaveData
+{
+    [JsonPropertyName("categories")]
+    public List<ChatbotMustHaveCategory>? Categories { get; set; }
+}
+
+public class ChatbotMustHaveCategory
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("operations")]
+    public List<ChatbotMustHaveOperation>? Operations { get; set; }
+}
+
+public class ChatbotMustHaveOperation
+{
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("operationType")]
+    public string? OperationType { get; set; }
+
+    [JsonPropertyName("laborHours")]
+    public decimal LaborHours { get; set; }
+
+    [JsonPropertyName("price")]
+    public decimal Price { get; set; }
+
+    [JsonPropertyName("materialsCost")]
+    public decimal MaterialsCost { get; set; }
+
+    [JsonPropertyName("whyNeeded")]
+    public string? WhyNeeded { get; set; }
+
+    [JsonPropertyName("conditions")]
+    public string? Conditions { get; set; }
+}
+
+public class ChatbotCommonlyMissedData
+{
+    [JsonPropertyName("operationChecks")]
+    public Dictionary<string, ChatbotCommonlyMissedCheck>? OperationChecks { get; set; }
+}
+
+public class ChatbotCommonlyMissedCheck
+{
+    [JsonPropertyName("operation")]
+    public string? Operation { get; set; }
+
+    [JsonPropertyName("triggerKeywords")]
+    public List<string>? TriggerKeywords { get; set; }
+
+    [JsonPropertyName("triggerOperations")]
+    public List<string>? TriggerOperations { get; set; }
+
+    [JsonPropertyName("missedItems")]
+    public List<ChatbotMissedItem>? MissedItems { get; set; }
+}
+
+public class ChatbotMissedItem
+{
+    [JsonPropertyName("item")]
+    public string? Item { get; set; }
+
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("whyNeeded")]
+    public string? WhyNeeded { get; set; }
+
+    [JsonPropertyName("degReference")]
+    public string? DegReference { get; set; }
+
+    [JsonPropertyName("typicalCost")]
+    public decimal TypicalCost { get; set; }
+
+    [JsonPropertyName("laborHours")]
+    public decimal LaborHours { get; set; }
+
+    [JsonPropertyName("priority")]
+    public string? Priority { get; set; }
+}
+
+public class ChatbotNotIncludedData
+{
+    [JsonPropertyName("categories")]
+    public Dictionary<string, ChatbotNotIncludedCategory>? Categories { get; set; }
+}
+
+public class ChatbotNotIncludedCategory
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("items")]
+    public List<ChatbotNotIncludedItem>? Items { get; set; }
+}
+
+public class ChatbotNotIncludedItem
+{
+    [JsonPropertyName("item")]
+    public string? Item { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("whyNotIncluded")]
+    public string? WhyNotIncluded { get; set; }
+
+    [JsonPropertyName("degReference")]
+    public string? DegReference { get; set; }
+
+    [JsonPropertyName("typicalTime")]
+    public decimal TypicalTime { get; set; }
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
 }
 
 #endregion

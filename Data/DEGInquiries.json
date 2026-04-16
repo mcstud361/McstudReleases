@@ -332,19 +332,24 @@
     },
     {
       "id": "deg-tip-featheredge-prime",
-      "inquiryNumber": "CCC/Mitchell GTE",
-      "title": "Featheredge, Prime, and Block",
+      "inquiryNumber": "MOTOR GTE / Mitchell P-Pages",
+      "title": "Featheredge, Prime, and Block (FPB)",
       "category": "Refinish",
       "vehicle": "All Makes",
-      "response": "Featheredge, prime, and block of repair area is typically INCLUDED in repair labor time. However, featheredge, prime, and block of adjacent panels or areas NOT being repaired but requiring blend is NOT INCLUDED.",
+      "response": "Feather, Prime, and Block (FPB) is NOT INCLUDED in refinish labor time in any of the three major estimating systems (CCC/MOTOR, Mitchell, or Audatex). Per the Collision Industry Conference (CIC) and all three P-pages: FPB is the not-included refinish-prep operation that bridges the gap between completed body repair (sanded to 150-grit) and the starting point of published refinish time (a new undamaged panel). Only sealer coat is included in standard refinish time — primer-surfacer, featheredging, and blocking are separately compensable.",
       "keyPoints": [
-        "Featheredge/prime/block of REPAIR area INCLUDED in repair time",
-        "Featheredge/prime/block of BLEND panels NOT INCLUDED",
-        "Primer surfacer material NOT INCLUDED",
-        "Blocking/sanding between primer coats may need additional time"
+        "Feather, Prime, and Block is NOT INCLUDED in refinish labor (CCC/Mitchell/Audatex)",
+        "Refinish times assume a NEW UNDAMAGED PANEL as starting point",
+        "Body labor ends at 150-grit sanded body filler — FPB bridges to refinish start",
+        "Primer-surfacer (high-build/2K primer) application NOT INCLUDED",
+        "Blocking/sanding primer flat NOT INCLUDED",
+        "Featheredging the edge of the repair area NOT INCLUDED",
+        "Masking for primer application NOT INCLUDED (separate from refinish masking)",
+        "Primer-surfacer material NOT INCLUDED",
+        "On-the-spot evaluation required — time varies by repair size"
       ],
-      "systems": ["CCC", "Mitchell"],
-      "citedIn": "MOTOR GTE, degweb.org"
+      "systems": ["CCC", "Mitchell", "Audatex"],
+      "citedIn": "MOTOR GTE, Mitchell P-Pages ATG 32, CIC position, SCRS, degweb.org"
     },
     {
       "id": "deg-tip-denib-wet-sand",

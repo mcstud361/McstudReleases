@@ -252,7 +252,8 @@
       "WebFetch(domain:service.tesla.com)",
       "Bash(/c/Users/mcnee/.dotnet/tools/vpk pack:*)",
       "Bash(/c/Users/mcnee/.dotnet/tools/vpk upload:*)",
-      "Bash(dotnet script:*)"
+      "Bash(dotnet script:*)",
+      "WebFetch(domain:www.billablegenie.com)"
     ],
     "deny": [],
     "ask": []

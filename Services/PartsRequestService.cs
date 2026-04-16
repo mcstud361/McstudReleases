@@ -165,22 +165,29 @@ namespace McStudDesktop.Services
         {
             container.Column(column =>
             {
-                column.Item().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                column.Item().Padding(8).Row(row =>
                 {
                     row.RelativeItem().Column(left =>
                     {
-                        left.Item().Text("PARTS REQUEST").FontSize(20).Bold().FontColor(Colors.White);
-                        if (!string.IsNullOrEmpty(request.RoNumber))
-                            left.Item().Text($"RO #: {request.RoNumber}").FontSize(11).FontColor(Colors.Grey.Lighten2);
+                        left.Item().Text("Parts Request").FontSize(16).Bold().FontColor(Colors.Black);
                     });
 
                     row.ConstantItem(180).AlignRight().Column(right =>
                     {
-                        right.Item().Text($"Created: {request.CreatedDate:MM/dd/yyyy}").FontSize(10).FontColor(Colors.Grey.Lighten2);
-                        right.Item().Text($"Modified: {request.ModifiedDate:MM/dd/yyyy}").FontSize(10).FontColor(Colors.Grey.Lighten2);
+                        right.Item().Text($"Created: {request.CreatedDate:MM/dd/yyyy}").FontSize(9).FontColor(Colors.Grey.Darken2);
+                        right.Item().Text($"Modified: {request.ModifiedDate:MM/dd/yyyy}").FontSize(9).FontColor(Colors.Grey.Darken2);
                     });
                 });
-                column.Item().PaddingTop(10);
+                column.Item().LineHorizontal(1).LineColor(Colors.Grey.Darken1);
+
+                // RO # line — writable area for pen/pencil
+                column.Item().PaddingTop(8).PaddingLeft(8).Row(row =>
+                {
+                    row.ConstantItem(40).AlignBottom().Text("RO #:").FontSize(11).Bold();
+                    row.RelativeItem().AlignBottom().BorderBottom(1).BorderColor(Colors.Grey.Medium)
+                        .MinHeight(18).Padding(2).Text(request.RoNumber ?? "").FontSize(11);
+                });
+                column.Item().PaddingTop(8);
             });
         }
 

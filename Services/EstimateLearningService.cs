@@ -798,10 +798,17 @@ namespace McStudDesktop.Services
                 EstimatePdfParser.IsHeaderOrFooter(example.EstimateLine))
                 return;
 
-            // Skip lines with no meaningful data
-            if (string.IsNullOrWhiteSpace(example.PartName) &&
-                string.IsNullOrWhiteSpace(example.OperationType) &&
+            // Skip lines with no meaningful operation data. A part name alone (with no
+            // operation type, no labor hours, no refinish hours, and no price) is not a useful
+            // training example — it's usually a stray address line, section heading, or
+            // garbage fragment that leaked past the header/footer filter.
+            if (string.IsNullOrWhiteSpace(example.OperationType) &&
                 example.RepairHours == 0 && example.RefinishHours == 0 && example.Price == 0)
+                return;
+
+            // Skip obvious non-parts: address lines ("MANVILLE, NJ"), quantity-prefixed
+            // headings ("1x Nameplate"), and empty part names.
+            if (IsNonPartGarbage(example.PartName))
                 return;
 
             // Normalize the line item for pattern matching
@@ -1401,6 +1408,35 @@ namespace McStudDesktop.Services
         /// Normalize a line item for pattern matching
         /// Removes noise, standardizes terminology
         /// </summary>
+        /// <summary>
+        /// Detects obvious non-parts that occasionally leak through the PDF parser and
+        /// should never be learned as part patterns (shop addresses, city/state lines,
+        /// "1x Nameplate" section headings, all-numeric strings, etc.).
+        /// </summary>
+        private static bool IsNonPartGarbage(string? partName)
+        {
+            if (string.IsNullOrWhiteSpace(partName)) return true;
+            var pn = partName.Trim();
+
+            // Too short to be a part
+            if (pn.Length < 3) return true;
+
+            // Quantity-prefixed section headings: "1x Nameplate", "2x Fender"
+            if (Regex.IsMatch(pn, @"^\d+x\s+", RegexOptions.IgnoreCase)) return true;
+
+            // All-numeric (part numbers, totals, line numbers)
+            if (Regex.IsMatch(pn, @"^[\d\s,.\-$]+$")) return true;
+
+            // City, ST address line (e.g. "MANVILLE, NJ", "NEW YORK, NY 10001")
+            if (Regex.IsMatch(pn, @"^[A-Z][A-Za-z\.\s]+,\s*[A-Z]{2}(\s*\d{5})?$")) return true;
+
+            // Contains only a state abbreviation and nothing else useful
+            if (Regex.IsMatch(pn, @",\s*[A-Z]{2}\b") && !Regex.IsMatch(pn, @"\b(cover|panel|fender|door|hood|bumper|lamp|light|mirror|glass|wheel|seat|rail|rein|absorber|molding|emblem|nameplate|sensor|module)\b", RegexOptions.IgnoreCase))
+                return true;
+
+            return false;
+        }
+
         public string NormalizeLineItem(string line)
         {
             if (string.IsNullOrWhiteSpace(line)) return "";

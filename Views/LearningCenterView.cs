@@ -1,12 +1,14 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using McStudDesktop.Services;
 using McstudDesktop;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 
@@ -70,7 +72,31 @@ namespace McStudDesktop.Views
             };
             tabView.TabItems.Add(queryTab);
 
-            // Tab 2: Import Estimates
+            // Tab 2: Insurance Payments (shop-owner only — never client-facing)
+            var paymentsTab = new TabViewItem
+            {
+                Header = "Insurance Payments",
+                Content = CreateInsurancePaymentsPanel()
+            };
+            tabView.TabItems.Add(paymentsTab);
+
+            // Tab 3: Estimates Browser — full list, filterable
+            var browserTab = new TabViewItem
+            {
+                Header = "Estimates Browser",
+                Content = CreateEstimatesBrowserPanel()
+            };
+            tabView.TabItems.Add(browserTab);
+
+            // Tab 4: By Insurer — grouped view
+            var byInsurerTab = new TabViewItem
+            {
+                Header = "By Insurer",
+                Content = CreateByInsurerPanel()
+            };
+            tabView.TabItems.Add(byInsurerTab);
+
+            // Tab: Import Estimates
             var importTab = new TabViewItem
             {
                 Header = "Import Estimates",
@@ -188,6 +214,1160 @@ namespace McStudDesktop.Views
                 Content = panel,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
+        }
+
+        // ---- Insurance Payments sub-tab ----
+
+        private ComboBox? _paymentsInsurerBox;
+        private TextBox? _paymentsKeywordBox;
+        private CheckBox? _paymentsIncludeDeniedBox;
+        private TextBlock? _paymentsSummaryText;
+        private ListView? _paymentsResultsList;
+        private TextBlock? _paymentsStatusText;
+        private InsurancePaymentReport? _paymentsCurrentReport;
+
+        private const string AllInsurersLabel = "(All insurers)";
+
+        private UIElement CreateInsurancePaymentsPanel()
+        {
+            var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            var panel = new StackPanel { Padding = new Thickness(20), Spacing = 12 };
+
+            // Privacy banner
+            panel.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 70, 40, 40)),
+                BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 80, 80)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                Child = new TextBlock
+                {
+                    Text = "Internal use only — contains insurance and claim data. Do not share with customers.",
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 210, 210)),
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    TextWrapping = TextWrapping.Wrap
+                }
+            });
+
+            // Description
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Search your own imported estimate history for how a specific insurer has paid for a given operation. Paste the results into your next estimate to push back against denials.",
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            // Controls row
+            var controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+
+            _paymentsInsurerBox = new ComboBox
+            {
+                Width = 220,
+                PlaceholderText = "Insurer",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255))
+            };
+            PopulateInsurerDropdown();
+            controls.Children.Add(_paymentsInsurerBox);
+
+            _paymentsKeywordBox = new TextBox
+            {
+                PlaceholderText = "Operation keyword (e.g. feather edge, corrosion)",
+                Width = 360,
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255))
+            };
+            _paymentsKeywordBox.KeyDown += (s, e) =>
+            {
+                if (e.Key == Windows.System.VirtualKey.Enter)
+                    RunPaymentsSearch();
+            };
+            controls.Children.Add(_paymentsKeywordBox);
+
+            var searchBtn = new Button
+            {
+                Content = "Search",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 120, 215)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+                Padding = new Thickness(16, 6, 16, 6)
+            };
+            searchBtn.Click += (s, e) => RunPaymentsSearch();
+            controls.Children.Add(searchBtn);
+
+            panel.Children.Add(controls);
+
+            // Include denied toggle
+            _paymentsIncludeDeniedBox = new CheckBox
+            {
+                Content = "Include denied lines (shown in red)",
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
+                IsChecked = false
+            };
+            panel.Children.Add(_paymentsIncludeDeniedBox);
+
+            // Summary banner
+            _paymentsSummaryText = new TextBlock
+            {
+                Text = "Pick an insurer, type an operation keyword, and hit Search.",
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 220, 220)),
+                FontSize = 14,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            panel.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 40, 50, 60)),
+                BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 80, 120, 160)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12),
+                Child = _paymentsSummaryText
+            });
+
+            // Results list
+            _paymentsResultsList = new ListView
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 35, 35)),
+                MinHeight = 250,
+                MaxHeight = 480,
+                SelectionMode = ListViewSelectionMode.None
+            };
+            panel.Children.Add(_paymentsResultsList);
+
+            // Action buttons
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 8, 0, 0) };
+
+            var pdfBtn = new Button
+            {
+                Content = "Export Report PDF",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 40, 100, 140)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+                Padding = new Thickness(14, 6, 14, 6)
+            };
+            pdfBtn.Click += PaymentsPdf_Click;
+            actions.Children.Add(pdfBtn);
+
+            var copyBtn = new Button
+            {
+                Content = "Copy Summary to Clipboard",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 55, 110, 55)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+                Padding = new Thickness(14, 6, 14, 6)
+            };
+            copyBtn.Click += PaymentsCopy_Click;
+            actions.Children.Add(copyBtn);
+
+            var clearBtn = new Button
+            {
+                Content = "Clear",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 55, 55, 55)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
+                Padding = new Thickness(14, 6, 14, 6)
+            };
+            clearBtn.Click += (s, e) => ClearPaymentsResults();
+            actions.Children.Add(clearBtn);
+
+            _paymentsStatusText = new TextBlock
+            {
+                Text = "",
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 200, 150)),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 12,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            actions.Children.Add(_paymentsStatusText);
+
+            panel.Children.Add(actions);
+
+            scroll.Content = panel;
+            return scroll;
+        }
+
+        private void PopulateInsurerDropdown()
+        {
+            if (_paymentsInsurerBox == null) return;
+            _paymentsInsurerBox.Items.Clear();
+            _paymentsInsurerBox.Items.Add(AllInsurersLabel);
+
+            foreach (var insurer in EstimateHistoryDatabase.Instance.KnownInsurers
+                .Where(i => !string.IsNullOrWhiteSpace(i) && !i.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(i => i, StringComparer.OrdinalIgnoreCase))
+            {
+                _paymentsInsurerBox.Items.Add(insurer);
+            }
+
+            if (_paymentsInsurerBox.Items.Count > 0)
+                _paymentsInsurerBox.SelectedIndex = 0;
+        }
+
+        private void RunPaymentsSearch()
+        {
+            if (_paymentsInsurerBox == null || _paymentsKeywordBox == null || _paymentsResultsList == null ||
+                _paymentsSummaryText == null || _paymentsStatusText == null)
+                return;
+
+            var keyword = _paymentsKeywordBox.Text?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                _paymentsStatusText.Text = "Enter an operation keyword first.";
+                _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 160, 100));
+                return;
+            }
+
+            var selectedInsurer = _paymentsInsurerBox.SelectedItem as string ?? AllInsurersLabel;
+            var isAll = selectedInsurer == AllInsurersLabel;
+            var includeDenied = _paymentsIncludeDeniedBox?.IsChecked == true;
+
+            var report = InsurancePaymentReportService.Instance.Build(
+                isAll ? "" : selectedInsurer, keyword, includeDenied);
+            _paymentsCurrentReport = report;
+
+            RenderPaymentsSummary(report);
+            RenderPaymentsRows(report);
+
+            _paymentsStatusText.Text = $"{report.Rows.Count} row(s).";
+            _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 200, 150));
+        }
+
+        private void RenderPaymentsSummary(InsurancePaymentReport report)
+        {
+            if (_paymentsSummaryText == null) return;
+
+            if (report.Rows.Count == 0)
+            {
+                _paymentsSummaryText.Text =
+                    $"No history found for \"{report.OperationKeyword}\" on {report.Insurer}. " +
+                    "Import more estimates to grow this dataset.";
+                return;
+            }
+
+            var paidCount = Math.Max(report.Summary.TimesPaid, report.Rows.Count(r => r.WasPaid));
+            var avg = report.Summary.AverageHours;
+
+            var dateRange = report.EarliestDate.HasValue && report.LatestDate.HasValue
+                ? $"{report.EarliestDate:MM/dd/yy} – {report.LatestDate:MM/dd/yy}"
+                : "";
+
+            var summary = $"{report.Insurer} paid for \"{report.OperationKeyword}\" " +
+                          $"{paidCount} time{(paidCount == 1 ? "" : "s")} across " +
+                          $"{report.UniqueEstimateCount} estimate{(report.UniqueEstimateCount == 1 ? "" : "s")}.";
+            if (avg > 0)
+                summary += $" Avg: {avg:0.##} hr labor";
+            if (report.Summary.TotalAmountPaid > 0)
+                summary += $", ${report.Summary.TotalAmountPaid:N2} total";
+            if (!string.IsNullOrEmpty(dateRange))
+                summary += $". Date range: {dateRange}";
+            else
+                summary += ".";
+
+            _paymentsSummaryText.Text = summary;
+        }
+
+        private void RenderPaymentsRows(InsurancePaymentReport report)
+        {
+            if (_paymentsResultsList == null) return;
+            _paymentsResultsList.Items.Clear();
+
+            // Header row
+            var headerGrid = BuildPaymentsRowGrid(
+                "Date", "Claim #", "RO #", "Vehicle", "Operation", "Op", "Hrs", "Refin", "$",
+                isHeader: true, isDenied: false);
+            _paymentsResultsList.Items.Add(headerGrid);
+
+            foreach (var row in report.Rows)
+            {
+                var desc = string.IsNullOrWhiteSpace(row.Description) ? (row.OperationType ?? "") : row.Description;
+                if (desc.Length > 70) desc = desc.Substring(0, 67) + "...";
+
+                var grid = BuildPaymentsRowGrid(
+                    row.Date.ToString("MM/dd/yy"),
+                    string.IsNullOrWhiteSpace(row.ClaimNumber) ? "—" : row.ClaimNumber,
+                    string.IsNullOrWhiteSpace(row.RONumber) ? "—" : row.RONumber,
+                    row.VehicleInfo ?? "",
+                    desc,
+                    row.OperationType ?? "",
+                    row.LaborHours > 0 ? row.LaborHours.ToString("0.##") : "—",
+                    row.RefinishHours > 0 ? row.RefinishHours.ToString("0.##") : "—",
+                    row.Price > 0 ? $"${row.Price:0.##}" : "—",
+                    isHeader: false,
+                    isDenied: !row.WasPaid);
+                _paymentsResultsList.Items.Add(grid);
+            }
+
+            if (report.Rows.Count == 0)
+            {
+                _paymentsResultsList.Items.Add(new TextBlock
+                {
+                    Text = "No matching line items.",
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 150, 150)),
+                    FontStyle = Windows.UI.Text.FontStyle.Italic,
+                    Margin = new Thickness(8)
+                });
+            }
+        }
+
+        private Grid BuildPaymentsRowGrid(
+            string date, string claim, string ro, string vehicle, string operation,
+            string op, string hrs, string refin, string price,
+            bool isHeader, bool isDenied)
+        {
+            var grid = new Grid { Padding = new Thickness(4, 2, 4, 2) };
+            // 9 columns with widths matching the PDF roughly
+            double[] widths = { 60, 90, 55, 150, 260, 45, 50, 50, 60 };
+            foreach (var w in widths)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
+
+            var values = new[] { date, claim, ro, vehicle, operation, op, hrs, refin, price };
+            Windows.UI.Color color;
+            if (isHeader) color = Windows.UI.Color.FromArgb(255, 255, 255, 255);
+            else if (isDenied) color = Windows.UI.Color.FromArgb(255, 230, 120, 120);
+            else color = Windows.UI.Color.FromArgb(255, 210, 210, 210);
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                var tb = new TextBlock
+                {
+                    Text = values[i],
+                    Foreground = new SolidColorBrush(color),
+                    FontSize = 12,
+                    FontWeight = isHeader ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.Normal,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextWrapping = TextWrapping.NoWrap,
+                    Margin = new Thickness(2, 0, 2, 0)
+                };
+                Grid.SetColumn(tb, i);
+                grid.Children.Add(tb);
+            }
+            return grid;
+        }
+
+        private void ClearPaymentsResults()
+        {
+            _paymentsCurrentReport = null;
+            _paymentsResultsList?.Items.Clear();
+            if (_paymentsSummaryText != null)
+                _paymentsSummaryText.Text = "Pick an insurer, type an operation keyword, and hit Search.";
+            if (_paymentsStatusText != null)
+                _paymentsStatusText.Text = "";
+            if (_paymentsKeywordBox != null)
+                _paymentsKeywordBox.Text = "";
+        }
+
+        private void PaymentsCopy_Click(object sender, RoutedEventArgs e)
+        {
+            if (_paymentsCurrentReport == null || _paymentsCurrentReport.Rows.Count == 0)
+            {
+                if (_paymentsStatusText != null)
+                {
+                    _paymentsStatusText.Text = "Nothing to copy — run a search first.";
+                    _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 160, 100));
+                }
+                return;
+            }
+
+            try
+            {
+                var text = InsurancePaymentReportService.Instance.GenerateClipboardText(_paymentsCurrentReport);
+                var package = new DataPackage();
+                package.SetText(text);
+                Clipboard.SetContent(package);
+
+                if (_paymentsStatusText != null)
+                {
+                    _paymentsStatusText.Text = "Summary copied.";
+                    _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 200, 150));
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_paymentsStatusText != null)
+                {
+                    _paymentsStatusText.Text = $"Copy failed: {ex.Message}";
+                    _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 230, 120, 120));
+                }
+            }
+        }
+
+        private void PaymentsPdf_Click(object sender, RoutedEventArgs e)
+        {
+            if (_paymentsCurrentReport == null || _paymentsCurrentReport.Rows.Count == 0)
+            {
+                if (_paymentsStatusText != null)
+                {
+                    _paymentsStatusText.Text = "Nothing to export — run a search first.";
+                    _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 160, 100));
+                }
+                return;
+            }
+
+            try
+            {
+                var path = InsurancePaymentReportService.Instance.GeneratePdf(_paymentsCurrentReport);
+                Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+
+                if (_paymentsStatusText != null)
+                {
+                    _paymentsStatusText.Text = "PDF opened.";
+                    _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 200, 150));
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_paymentsStatusText != null)
+                {
+                    _paymentsStatusText.Text = $"PDF export failed: {ex.Message}";
+                    _paymentsStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 230, 120, 120));
+                }
+            }
+        }
+
+        // ---- Estimates Browser sub-tab ----
+
+        private TextBox? _browserFilterBox;
+        private TextBlock? _browserCountText;
+        private ListView? _browserList;
+
+        // Structured filter controls
+        private ComboBox? _browserInsurerBox;
+        private ComboBox? _browserYearBox;
+        private ComboBox? _browserMakeBox;
+        private ComboBox? _browserModelBox;
+        private ComboBox? _browserShopBox;
+        private ComboBox? _browserSourceBox;
+        private TextBox? _browserVinBox;
+        private TextBox? _browserClaimBox;
+        private TextBox? _browserRoBox;
+        private TextBox? _browserOperationBox;
+
+        private const string AnyLabel = "(Any)";
+
+        private UIElement CreateEstimatesBrowserPanel()
+        {
+            var grid = new Grid { Padding = new Thickness(20) };
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // privacy
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // quick filter
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // dropdowns
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // text filters
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // count
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // header
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // list
+
+            // Privacy banner
+            var privacy = new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 70, 40, 40)),
+                BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 80, 80)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 0, 0, 10),
+                Child = new TextBlock
+                {
+                    Text = "Internal use only — contains insurance and claim data. Do not share with customers.",
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 210, 210)),
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    TextWrapping = TextWrapping.Wrap
+                }
+            };
+            Grid.SetRow(privacy, 0);
+            grid.Children.Add(privacy);
+
+            // Quick filter row
+            var filterRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 0, 0, 8) };
+            filterRow.Children.Add(new TextBlock
+            {
+                Text = "Search:",
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            _browserFilterBox = new TextBox
+            {
+                PlaceholderText = "Free-text across insurer, shop, RO #, claim #, vehicle, VIN, customer, adjuster...",
+                Width = 520,
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255))
+            };
+            _browserFilterBox.TextChanged += (s, e) => RefreshBrowserList();
+            filterRow.Children.Add(_browserFilterBox);
+
+            var clearBtn = new Button
+            {
+                Content = "Clear All",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 55, 55, 55)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200))
+            };
+            clearBtn.Click += (s, e) => ClearBrowserFilters();
+            filterRow.Children.Add(clearBtn);
+
+            var refreshBtn = new Button
+            {
+                Content = "Refresh",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 55, 55, 55)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200))
+            };
+            refreshBtn.Click += (s, e) => { PopulateBrowserDropdowns(); RefreshBrowserList(); };
+            filterRow.Children.Add(refreshBtn);
+
+            Grid.SetRow(filterRow, 1);
+            grid.Children.Add(filterRow);
+
+            // Dropdown filters row
+            var dropRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 6) };
+
+            _browserInsurerBox = BuildBrowserDropdown("Insurer", 180);
+            _browserYearBox = BuildBrowserDropdown("Year", 90);
+            _browserMakeBox = BuildBrowserDropdown("Make", 130);
+            _browserModelBox = BuildBrowserDropdown("Model", 150);
+            _browserShopBox = BuildBrowserDropdown("Shop", 170);
+            _browserSourceBox = BuildBrowserDropdown("Source", 110);
+
+            // Cascade: when Make changes, repopulate Model
+            _browserMakeBox.SelectionChanged += (s, e) =>
+            {
+                PopulateModelDropdown();
+                RefreshBrowserList();
+            };
+
+            dropRow.Children.Add(LabeledControl("Insurer", _browserInsurerBox));
+            dropRow.Children.Add(LabeledControl("Year", _browserYearBox));
+            dropRow.Children.Add(LabeledControl("Make", _browserMakeBox));
+            dropRow.Children.Add(LabeledControl("Model", _browserModelBox));
+            dropRow.Children.Add(LabeledControl("Shop", _browserShopBox));
+            dropRow.Children.Add(LabeledControl("Source", _browserSourceBox));
+
+            Grid.SetRow(dropRow, 2);
+            grid.Children.Add(dropRow);
+
+            // Text filters row
+            var textRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+
+            _browserVinBox = BuildBrowserTextFilter("VIN (full or partial)", 180);
+            _browserClaimBox = BuildBrowserTextFilter("Claim #", 130);
+            _browserRoBox = BuildBrowserTextFilter("RO #", 110);
+            _browserOperationBox = BuildBrowserTextFilter("Operation keyword (e.g. feather edge)", 260);
+
+            textRow.Children.Add(LabeledControl("VIN", _browserVinBox));
+            textRow.Children.Add(LabeledControl("Claim #", _browserClaimBox));
+            textRow.Children.Add(LabeledControl("RO #", _browserRoBox));
+            textRow.Children.Add(LabeledControl("Operation", _browserOperationBox));
+
+            Grid.SetRow(textRow, 3);
+            grid.Children.Add(textRow);
+
+            _browserCountText = new TextBlock
+            {
+                Text = "",
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 150, 150)),
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            Grid.SetRow(_browserCountText, 4);
+            grid.Children.Add(_browserCountText);
+
+            // Column header row
+            var header = BuildBrowserRow(
+                "Date", "Insurer", "Shop", "RO #", "Claim #", "Vehicle", "Total", "Quality",
+                isHeader: true);
+            header.Margin = new Thickness(0, 0, 0, 4);
+            Grid.SetRow(header, 5);
+            grid.Children.Add(header);
+
+            _browserList = new ListView
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 35, 35, 35)),
+                SelectionMode = ListViewSelectionMode.None
+            };
+            Grid.SetRow(_browserList, 6);
+            grid.Children.Add(_browserList);
+
+            PopulateBrowserDropdowns();
+            RefreshBrowserList();
+            return grid;
+        }
+
+        private StackPanel LabeledControl(string label, FrameworkElement control)
+        {
+            var sp = new StackPanel { Spacing = 2 };
+            sp.Children.Add(new TextBlock
+            {
+                Text = label,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 150, 150))
+            });
+            sp.Children.Add(control);
+            return sp;
+        }
+
+        private ComboBox BuildBrowserDropdown(string name, double width)
+        {
+            var box = new ComboBox
+            {
+                Width = width,
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255))
+            };
+            box.SelectionChanged += (s, e) =>
+            {
+                // Skip — the Make dropdown has its own handler that also refreshes.
+                if (!ReferenceEquals(box, _browserMakeBox))
+                    RefreshBrowserList();
+            };
+            return box;
+        }
+
+        private TextBox BuildBrowserTextFilter(string placeholder, double width)
+        {
+            var tb = new TextBox
+            {
+                PlaceholderText = placeholder,
+                Width = width,
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255))
+            };
+            tb.TextChanged += (s, e) => RefreshBrowserList();
+            return tb;
+        }
+
+        private void PopulateBrowserDropdowns()
+        {
+            var estimates = EstimateHistoryDatabase.Instance.AllEstimates;
+
+            // Insurer
+            PopulateDropdown(_browserInsurerBox, estimates
+                .Select(e => e.InsuranceCompany)
+                .Where(v => !string.IsNullOrWhiteSpace(v) && !v.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => v, StringComparer.OrdinalIgnoreCase));
+
+            // Year
+            PopulateDropdown(_browserYearBox, estimates
+                .Select(e => ParseYear(e.VehicleInfo))
+                .Where(y => y > 0)
+                .Distinct()
+                .OrderByDescending(y => y)
+                .Select(y => y.ToString()));
+
+            // Make
+            PopulateDropdown(_browserMakeBox, estimates
+                .Select(e => ParseMake(e.VehicleInfo))
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase));
+
+            PopulateModelDropdown();
+
+            // Shop
+            PopulateDropdown(_browserShopBox, estimates
+                .Select(e => e.ShopName)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => v, StringComparer.OrdinalIgnoreCase));
+
+            // Source system
+            PopulateDropdown(_browserSourceBox, estimates
+                .Select(e => e.EstimateSource)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => v, StringComparer.OrdinalIgnoreCase));
+        }
+
+        private void PopulateModelDropdown()
+        {
+            if (_browserModelBox == null) return;
+            var selectedMake = _browserMakeBox?.SelectedItem as string;
+            var estimates = EstimateHistoryDatabase.Instance.AllEstimates;
+
+            IEnumerable<string> models;
+            if (string.IsNullOrWhiteSpace(selectedMake) || selectedMake == AnyLabel)
+            {
+                models = estimates
+                    .Select(e => ParseModel(e.VehicleInfo))
+                    .Where(m => !string.IsNullOrWhiteSpace(m));
+            }
+            else
+            {
+                models = estimates
+                    .Where(e => string.Equals(ParseMake(e.VehicleInfo), selectedMake, StringComparison.OrdinalIgnoreCase))
+                    .Select(e => ParseModel(e.VehicleInfo))
+                    .Where(m => !string.IsNullOrWhiteSpace(m));
+            }
+
+            PopulateDropdown(_browserModelBox, models
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(m => m, StringComparer.OrdinalIgnoreCase));
+        }
+
+        private static void PopulateDropdown(ComboBox? box, IEnumerable<string> values)
+        {
+            if (box == null) return;
+            var prev = box.SelectedItem as string;
+            box.Items.Clear();
+            box.Items.Add(AnyLabel);
+            foreach (var v in values)
+                box.Items.Add(v);
+            // Restore prior selection when possible
+            if (!string.IsNullOrEmpty(prev) && box.Items.Contains(prev))
+                box.SelectedItem = prev;
+            else
+                box.SelectedIndex = 0;
+        }
+
+        private void ClearBrowserFilters()
+        {
+            if (_browserFilterBox != null) _browserFilterBox.Text = "";
+            if (_browserVinBox != null) _browserVinBox.Text = "";
+            if (_browserClaimBox != null) _browserClaimBox.Text = "";
+            if (_browserRoBox != null) _browserRoBox.Text = "";
+            if (_browserOperationBox != null) _browserOperationBox.Text = "";
+            foreach (var cb in new[] { _browserInsurerBox, _browserYearBox, _browserMakeBox,
+                                        _browserModelBox, _browserShopBox, _browserSourceBox })
+            {
+                if (cb != null && cb.Items.Count > 0) cb.SelectedIndex = 0;
+            }
+            RefreshBrowserList();
+        }
+
+        private void RefreshBrowserList()
+        {
+            if (_browserList == null) return;
+            _browserList.Items.Clear();
+
+            var estimates = EstimateHistoryDatabase.Instance.AllEstimates;
+
+            var filtered = estimates.Where(EstimateMatchesAllFilters).ToList();
+            var sorted = filtered.OrderByDescending(e => e.ImportedDate).ToList();
+
+            foreach (var est in sorted)
+            {
+                var total = est.GrandTotal > 0 ? $"${est.GrandTotal:N0}" : "—";
+                var quality = string.IsNullOrWhiteSpace(est.QualityGrade)
+                    ? "—"
+                    : $"{est.QualityGrade} ({est.QualityScore})";
+                var row = BuildBrowserRow(
+                    est.ImportedDate.ToString("MM/dd/yy"),
+                    string.IsNullOrWhiteSpace(est.InsuranceCompany) ? "—" : est.InsuranceCompany,
+                    string.IsNullOrWhiteSpace(est.ShopName) ? "—" : est.ShopName,
+                    string.IsNullOrWhiteSpace(est.RONumber) ? "—" : est.RONumber,
+                    string.IsNullOrWhiteSpace(est.ClaimNumber) ? "—" : est.ClaimNumber,
+                    string.IsNullOrWhiteSpace(est.VehicleInfo) ? "—" : est.VehicleInfo,
+                    total,
+                    quality,
+                    isHeader: false);
+                row.Tag = est;
+                row.PointerPressed += BrowserRow_PointerPressed;
+                _browserList.Items.Add(row);
+            }
+
+            if (_browserCountText != null)
+            {
+                var anyFilterActive = IsAnyFilterActive();
+                _browserCountText.Text = anyFilterActive
+                    ? $"{sorted.Count} of {estimates.Count} estimate{(estimates.Count == 1 ? "" : "s")} match active filters"
+                    : $"{sorted.Count} estimate{(sorted.Count == 1 ? "" : "s")}";
+            }
+
+            if (sorted.Count == 0)
+            {
+                _browserList.Items.Add(new TextBlock
+                {
+                    Text = estimates.Count == 0
+                        ? "No estimates imported yet. Use the Import Estimates tab."
+                        : "No estimates match the current filters.",
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 150, 150)),
+                    FontStyle = Windows.UI.Text.FontStyle.Italic,
+                    Margin = new Thickness(8)
+                });
+            }
+        }
+
+        private bool IsAnyFilterActive()
+        {
+            bool TextActive(TextBox? tb) => !string.IsNullOrWhiteSpace(tb?.Text);
+            bool DropActive(ComboBox? cb) => cb?.SelectedItem is string s && s != AnyLabel;
+            return TextActive(_browserFilterBox) || TextActive(_browserVinBox) ||
+                   TextActive(_browserClaimBox) || TextActive(_browserRoBox) ||
+                   TextActive(_browserOperationBox) ||
+                   DropActive(_browserInsurerBox) || DropActive(_browserYearBox) ||
+                   DropActive(_browserMakeBox) || DropActive(_browserModelBox) ||
+                   DropActive(_browserShopBox) || DropActive(_browserSourceBox);
+        }
+
+        private bool EstimateMatchesAllFilters(StoredEstimate est)
+        {
+            // Dropdown filters
+            if (_browserInsurerBox?.SelectedItem is string ins && ins != AnyLabel &&
+                !string.Equals(est.InsuranceCompany, ins, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (_browserYearBox?.SelectedItem is string yr && yr != AnyLabel)
+            {
+                if (ParseYear(est.VehicleInfo).ToString() != yr)
+                    return false;
+            }
+
+            if (_browserMakeBox?.SelectedItem is string mk && mk != AnyLabel &&
+                !string.Equals(ParseMake(est.VehicleInfo), mk, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (_browserModelBox?.SelectedItem is string md && md != AnyLabel &&
+                !string.Equals(ParseModel(est.VehicleInfo), md, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (_browserShopBox?.SelectedItem is string sh && sh != AnyLabel &&
+                !string.Equals(est.ShopName, sh, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (_browserSourceBox?.SelectedItem is string src && src != AnyLabel &&
+                !string.Equals(est.EstimateSource, src, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Text filters (partial, case-insensitive)
+            bool ContainsCI(string? field, string needle) =>
+                !string.IsNullOrEmpty(field) && field.Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+            var vin = _browserVinBox?.Text?.Trim() ?? "";
+            if (!string.IsNullOrEmpty(vin) && !ContainsCI(est.VIN, vin)) return false;
+
+            var claim = _browserClaimBox?.Text?.Trim() ?? "";
+            if (!string.IsNullOrEmpty(claim) && !ContainsCI(est.ClaimNumber, claim)) return false;
+
+            var ro = _browserRoBox?.Text?.Trim() ?? "";
+            if (!string.IsNullOrEmpty(ro) && !ContainsCI(est.RONumber, ro)) return false;
+
+            var op = _browserOperationBox?.Text?.Trim() ?? "";
+            if (!string.IsNullOrEmpty(op))
+            {
+                var hasMatch = est.LineItems.Any(li =>
+                    ContainsCI(li.Description, op) ||
+                    ContainsCI(li.OperationType, op) ||
+                    ContainsCI(li.PartName, op));
+                if (!hasMatch) return false;
+            }
+
+            // Free-text search across common fields
+            var free = _browserFilterBox?.Text?.Trim() ?? "";
+            if (!string.IsNullOrEmpty(free))
+            {
+                if (!(ContainsCI(est.InsuranceCompany, free) ||
+                      ContainsCI(est.ShopName, free) ||
+                      ContainsCI(est.RONumber, free) ||
+                      ContainsCI(est.ClaimNumber, free) ||
+                      ContainsCI(est.VehicleInfo, free) ||
+                      ContainsCI(est.VIN, free) ||
+                      ContainsCI(est.EstimateSource, free) ||
+                      ContainsCI(est.CustomerName, free) ||
+                      ContainsCI(est.AdjusterName, free)))
+                    return false;
+            }
+
+            return true;
+        }
+
+        // --- Vehicle info parsing (runtime, no schema change) ---
+
+        /// <summary>Parse "2019 Honda Accord LX" → 2019. Returns 0 if not found.</summary>
+        internal static int ParseYear(string? vehicleInfo)
+        {
+            if (string.IsNullOrWhiteSpace(vehicleInfo)) return 0;
+            var m = System.Text.RegularExpressions.Regex.Match(vehicleInfo, @"\b(19|20)\d{2}\b");
+            if (m.Success && int.TryParse(m.Value, out var year))
+                return year;
+            return 0;
+        }
+
+        /// <summary>Parse "2019 Honda Accord LX" → "Honda". Returns "" if not found.</summary>
+        internal static string ParseMake(string? vehicleInfo)
+        {
+            if (string.IsNullOrWhiteSpace(vehicleInfo)) return "";
+            // Strip leading year, then the next token is the make
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(vehicleInfo.Trim(), @"^(19|20)\d{2}\s+", "");
+            var tokens = cleaned.Split(new[] { ' ', '\t', '/', '-' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length == 0) return "";
+            return NormalizeCase(tokens[0]);
+        }
+
+        /// <summary>Parse "2019 Honda Accord LX" → "Accord". Returns "" if not found.</summary>
+        internal static string ParseModel(string? vehicleInfo)
+        {
+            if (string.IsNullOrWhiteSpace(vehicleInfo)) return "";
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(vehicleInfo.Trim(), @"^(19|20)\d{2}\s+", "");
+            var tokens = cleaned.Split(new[] { ' ', '\t', '/' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length < 2) return "";
+            return NormalizeCase(tokens[1]);
+        }
+
+        private static string NormalizeCase(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var hasLower = s.Any(char.IsLower);
+            var hasUpper = s.Any(char.IsUpper);
+            if (hasLower && hasUpper) return s;
+            if (s.Length <= 3) return s.ToUpperInvariant();
+            return char.ToUpperInvariant(s[0]) + s.Substring(1).ToLowerInvariant();
+        }
+
+        private void BrowserRow_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (sender is Grid g && g.Tag is StoredEstimate est)
+            {
+                ShowEstimateDetailDialog(est);
+            }
+        }
+
+        private async void ShowEstimateDetailDialog(StoredEstimate est)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Imported: {est.ImportedDate:g}");
+            sb.AppendLine($"Source:   {est.EstimateSource}");
+            sb.AppendLine($"Shop:     {(string.IsNullOrWhiteSpace(est.ShopName) ? "(not captured)" : est.ShopName)}");
+            sb.AppendLine($"Insurer:  {est.InsuranceCompany}");
+            sb.AppendLine($"RO #:     {est.RONumber}");
+            sb.AppendLine($"Claim #:  {est.ClaimNumber}");
+            sb.AppendLine($"Vehicle:  {est.VehicleInfo}");
+            sb.AppendLine($"VIN:      {est.VIN}");
+            sb.AppendLine($"Total:    ${est.GrandTotal:N2}");
+            sb.AppendLine($"Quality:  {est.QualityGrade} ({est.QualityScore}/100)");
+            sb.AppendLine($"Lines:    {est.LineItems.Count}");
+            if (!string.IsNullOrWhiteSpace(est.SourceFile))
+                sb.AppendLine($"File:     {est.SourceFile}");
+
+            var body = new StackPanel { Spacing = 10 };
+            body.Children.Add(new TextBlock
+            {
+                Text = sb.ToString(),
+                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var dialog = new ContentDialog
+            {
+                Title = $"Estimate Detail",
+                Content = body,
+                CloseButtonText = "Close",
+                XamlRoot = this.XamlRoot
+            };
+
+            if (!string.IsNullOrWhiteSpace(est.SourceFile) && System.IO.File.Exists(est.SourceFile))
+            {
+                dialog.PrimaryButtonText = "Open Source PDF";
+                dialog.DefaultButton = ContentDialogButton.Primary;
+            }
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary &&
+                !string.IsNullOrWhiteSpace(est.SourceFile) &&
+                System.IO.File.Exists(est.SourceFile))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = est.SourceFile, UseShellExecute = true });
+                }
+                catch { /* swallow — dialog has already closed */ }
+            }
+        }
+
+        private Grid BuildBrowserRow(
+            string date, string insurer, string shop, string ro, string claim,
+            string vehicle, string total, string quality, bool isHeader)
+        {
+            var grid = new Grid { Padding = new Thickness(6, 4, 6, 4) };
+            // 8 columns
+            double[] widths = { 70, 130, 170, 70, 110, 210, 80, 100 };
+            foreach (var w in widths)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
+
+            var values = new[] { date, insurer, shop, ro, claim, vehicle, total, quality };
+            var color = isHeader
+                ? Windows.UI.Color.FromArgb(255, 255, 255, 255)
+                : Windows.UI.Color.FromArgb(255, 210, 210, 210);
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                var tb = new TextBlock
+                {
+                    Text = values[i],
+                    Foreground = new SolidColorBrush(color),
+                    FontSize = 12,
+                    FontWeight = isHeader ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.Normal,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextWrapping = TextWrapping.NoWrap,
+                    Margin = new Thickness(2, 0, 2, 0)
+                };
+                Grid.SetColumn(tb, i);
+                grid.Children.Add(tb);
+            }
+            return grid;
+        }
+
+        // ---- By Insurer sub-tab ----
+
+        private StackPanel? _byInsurerStack;
+        private TextBlock? _byInsurerSummary;
+
+        private UIElement CreateByInsurerPanel()
+        {
+            var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            var outer = new StackPanel { Padding = new Thickness(20), Spacing = 12 };
+
+            // Privacy banner
+            outer.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 70, 40, 40)),
+                BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 80, 80)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                Child = new TextBlock
+                {
+                    Text = "Internal use only — contains insurance and claim data. Do not share with customers.",
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 210, 210)),
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    TextWrapping = TextWrapping.Wrap
+                }
+            });
+
+            var topRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+            _byInsurerSummary = new TextBlock
+            {
+                Text = "",
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            topRow.Children.Add(_byInsurerSummary);
+
+            var refreshBtn = new Button
+            {
+                Content = "Refresh",
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 55, 55, 55)),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200))
+            };
+            refreshBtn.Click += (s, e) => RefreshByInsurerGroups();
+            topRow.Children.Add(refreshBtn);
+
+            outer.Children.Add(topRow);
+
+            _byInsurerStack = new StackPanel { Spacing = 6 };
+            outer.Children.Add(_byInsurerStack);
+
+            RefreshByInsurerGroups();
+            scroll.Content = outer;
+            return scroll;
+        }
+
+        private void RefreshByInsurerGroups()
+        {
+            if (_byInsurerStack == null) return;
+            _byInsurerStack.Children.Clear();
+
+            var estimates = EstimateHistoryDatabase.Instance.AllEstimates;
+            var groups = estimates
+                .GroupBy(e => string.IsNullOrWhiteSpace(e.InsuranceCompany) ? "Unknown" : e.InsuranceCompany,
+                         StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(g => g.Count())
+                .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (_byInsurerSummary != null)
+            {
+                _byInsurerSummary.Text = estimates.Count == 0
+                    ? "No estimates imported yet. Use the Import Estimates tab to get started."
+                    : $"{estimates.Count} estimate{(estimates.Count == 1 ? "" : "s")} across " +
+                      $"{groups.Count} insurer{(groups.Count == 1 ? "" : "s")}.";
+            }
+
+            foreach (var g in groups)
+            {
+                var count = g.Count();
+                var total = g.Sum(e => e.GrandTotal);
+                var dateRange = g.Any()
+                    ? $"{g.Min(e => e.ImportedDate):MM/dd/yy} – {g.Max(e => e.ImportedDate):MM/dd/yy}"
+                    : "";
+
+                var headerText = new TextBlock
+                {
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)),
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    FontSize = 14,
+                    TextWrapping = TextWrapping.NoWrap
+                };
+                headerText.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = g.Key });
+                headerText.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+                {
+                    Text = $"   —   {count} estimate{(count == 1 ? "" : "s")}" +
+                           (total > 0 ? $", ${total:N0} total" : "") +
+                           $"   ·   {dateRange}",
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 150, 180, 210))
+                });
+
+                var contentStack = new StackPanel { Spacing = 2, Padding = new Thickness(4) };
+
+                // Column header within the group
+                contentStack.Children.Add(BuildInsurerGroupRow(
+                    "Date", "Shop", "RO #", "Claim #", "Vehicle", "Total",
+                    isHeader: true));
+
+                foreach (var est in g.OrderByDescending(e => e.ImportedDate))
+                {
+                    var row = BuildInsurerGroupRow(
+                        est.ImportedDate.ToString("MM/dd/yy"),
+                        string.IsNullOrWhiteSpace(est.ShopName) ? "—" : est.ShopName,
+                        string.IsNullOrWhiteSpace(est.RONumber) ? "—" : est.RONumber,
+                        string.IsNullOrWhiteSpace(est.ClaimNumber) ? "—" : est.ClaimNumber,
+                        string.IsNullOrWhiteSpace(est.VehicleInfo) ? "—" : est.VehicleInfo,
+                        est.GrandTotal > 0 ? $"${est.GrandTotal:N0}" : "—",
+                        isHeader: false);
+                    row.Tag = est;
+                    row.PointerPressed += BrowserRow_PointerPressed;
+                    contentStack.Children.Add(row);
+                }
+
+                var expander = new Expander
+                {
+                    Header = headerText,
+                    Content = contentStack,
+                    IsExpanded = false,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 40, 45, 55))
+                };
+                _byInsurerStack.Children.Add(expander);
+            }
+        }
+
+        private Grid BuildInsurerGroupRow(
+            string date, string shop, string ro, string claim, string vehicle, string total,
+            bool isHeader)
+        {
+            var grid = new Grid { Padding = new Thickness(4, 3, 4, 3) };
+            double[] widths = { 70, 180, 80, 120, 230, 90 };
+            foreach (var w in widths)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
+
+            var values = new[] { date, shop, ro, claim, vehicle, total };
+            var color = isHeader
+                ? Windows.UI.Color.FromArgb(255, 255, 255, 255)
+                : Windows.UI.Color.FromArgb(255, 210, 210, 210);
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                var tb = new TextBlock
+                {
+                    Text = values[i],
+                    Foreground = new SolidColorBrush(color),
+                    FontSize = 12,
+                    FontWeight = isHeader ? Microsoft.UI.Text.FontWeights.Bold : Microsoft.UI.Text.FontWeights.Normal,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextWrapping = TextWrapping.NoWrap,
+                    Margin = new Thickness(2, 0, 2, 0)
+                };
+                Grid.SetColumn(tb, i);
+                grid.Children.Add(tb);
+            }
+            return grid;
         }
 
         private UIElement CreateImportPanel()

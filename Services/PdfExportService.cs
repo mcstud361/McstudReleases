@@ -376,26 +376,29 @@ namespace McStudDesktop.Services
                         contentCol.Item().PaddingBottom(10);
                     }
 
-                    // DEG Inquiry
-                    if (!string.IsNullOrEmpty(item.DegInquiry))
+                    // DEG Inquiry / Source Reference — only show if there is a response OR
+                    // if the inquiry number is a real DEG number (numeric, not a GTE reference label)
+                    if (!string.IsNullOrEmpty(item.DegInquiry) && !string.IsNullOrEmpty(item.DegResponse))
                     {
+                        var isRealDegNumber = item.DegInquiry.Any(char.IsDigit) &&
+                                              !item.DegInquiry.Contains("GTE", StringComparison.OrdinalIgnoreCase) &&
+                                              !item.DegInquiry.Contains("P-Page", StringComparison.OrdinalIgnoreCase) &&
+                                              !item.DegInquiry.Contains("MOTOR", StringComparison.OrdinalIgnoreCase);
+                        var labelText = isRealDegNumber ? $"DEG INQUIRY #{item.DegInquiry}" : $"SOURCE: {item.DegInquiry}";
                         contentCol.Item().Background(Colors.Blue.Lighten4).Padding(8).Column(degCol =>
                         {
-                            degCol.Item().Text($"DEG INQUIRY: {item.DegInquiry}")
+                            degCol.Item().Text(labelText)
                                 .FontSize(10)
                                 .Bold()
                                 .FontColor(Colors.Blue.Darken3);
 
-                            if (!string.IsNullOrEmpty(item.DegResponse))
-                            {
-                                degCol.Item().PaddingTop(6).Text("Response:")
-                                    .FontSize(9)
-                                    .Bold()
-                                    .FontColor(Colors.Grey.Darken2);
-                                degCol.Item().PaddingTop(2).Text(item.DegResponse)
-                                    .FontSize(10)
-                                    .FontColor(Colors.Grey.Darken1);
-                            }
+                            degCol.Item().PaddingTop(6).Text("Response:")
+                                .FontSize(9)
+                                .Bold()
+                                .FontColor(Colors.Grey.Darken2);
+                            degCol.Item().PaddingTop(2).Text(item.DegResponse)
+                                .FontSize(10)
+                                .FontColor(Colors.Grey.Darken1);
                         });
                         contentCol.Item().PaddingBottom(10);
                     }

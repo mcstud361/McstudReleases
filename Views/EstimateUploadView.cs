@@ -53,7 +53,6 @@ namespace McStudDesktop.Views
         private Border? _scrubUploadDropZone;
         private TextBlock? _scrubDropZoneText;
         private Button? _scrubUploadButton;
-        private TextBox? _scrubPasteArea;
         private Grid? _scrubSideBySideGrid;
         private Border? _scrubLeftPanel;
         private ScrollViewer? _scrubRightScroll;
@@ -99,7 +98,6 @@ namespace McStudDesktop.Views
         private Border? _learnUploadDropZone;
         private TextBlock? _learnDropZoneText;
         private Button? _learnUploadButton;
-        private TextBox? _learnPasteArea;
         private Border? _learnResultsSection;
         private TextBlock? _learnResultsTitle;
         private ListView? _learnParsedItemsList;
@@ -477,14 +475,12 @@ namespace McStudDesktop.Views
 
             // Upload section
             var uploadSection = BuildUploadSection(
-                out _scrubUploadDropZone, out _scrubDropZoneText, out _scrubUploadButton,
-                out _scrubPasteArea, out var scrubParseBtn);
+                out _scrubUploadDropZone, out _scrubDropZoneText, out _scrubUploadButton);
 
             _scrubUploadButton.Click += (s, e) => HandleUpload(ParseContext.Scrubber);
             _scrubUploadDropZone.DragOver += (s, e) => HandleDragOver(s, e, _scrubUploadDropZone, _scrubDropZoneText);
             _scrubUploadDropZone.DragLeave += (s, e) => ResetDropZoneAppearance(_scrubUploadDropZone, _scrubDropZoneText);
             _scrubUploadDropZone.Drop += async (s, e) => await HandleDrop(e, ParseContext.Scrubber);
-            scrubParseBtn.Click += (s, e) => HandleParsePaste(ParseContext.Scrubber);
 
             content.Children.Add(uploadSection);
 
@@ -674,6 +670,50 @@ namespace McStudDesktop.Views
                 Margin = new Thickness(0, 0, 0, 4)
             });
 
+            // Reference match banner (matches ScreenMonitorPanel/GhostEstimatePanel style)
+            _refMatchBanner = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 45, 60)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 90, 120)),
+                BorderThickness = new Thickness(1),
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            var refRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+            refRow.Children.Add(new FontIcon
+            {
+                Glyph = "\uE82D",
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 160, 220))
+            });
+            _refMatchStatusText = new TextBlock
+            {
+                Text = "",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 220)),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            refRow.Children.Add(_refMatchStatusText);
+            _refMatchButton = new Button
+            {
+                Content = "Open Reference Tab",
+                FontSize = 11,
+                Padding = new Thickness(10, 4, 10, 4),
+                VerticalAlignment = VerticalAlignment.Center,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 70, 90)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 190, 240)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 70, 100, 140)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4)
+            };
+            _refMatchButton.Click += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
+            refRow.Children.Add(_refMatchButton);
+            _refMatchBanner.Child = refRow;
+            rightStack.Children.Add(_refMatchBanner);
+
             // Loading indicator for scoring analysis
             _scrubLoadingPanel = new StackPanel
             {
@@ -711,50 +751,6 @@ namespace McStudDesktop.Views
 
             BuildQualitySection();
             rightStack.Children.Add(_qualitySection!);
-
-            // Reference match banner (matches ScreenMonitorPanel/GhostEstimatePanel style)
-            _refMatchBanner = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 45, 60)),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(12, 8, 12, 8),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 90, 120)),
-                BorderThickness = new Thickness(1),
-                Visibility = Visibility.Collapsed,
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-            var refRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-            refRow.Children.Add(new FontIcon
-            {
-                Glyph = "\uE82D",
-                FontSize = 14,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 160, 220))
-            });
-            _refMatchStatusText = new TextBlock
-            {
-                Text = "",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 220)),
-                TextWrapping = TextWrapping.Wrap,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            refRow.Children.Add(_refMatchStatusText);
-            _refMatchButton = new Button
-            {
-                Content = "Open Reference Tab",
-                FontSize = 11,
-                Padding = new Thickness(10, 4, 10, 4),
-                VerticalAlignment = VerticalAlignment.Center,
-                Background = new SolidColorBrush(Color.FromArgb(255, 50, 70, 90)),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 190, 240)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 70, 100, 140)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(4)
-            };
-            _refMatchButton.Click += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
-            refRow.Children.Add(_refMatchButton);
-            _refMatchBanner.Child = refRow;
-            rightStack.Children.Add(_refMatchBanner);
 
             rightBorder.Child = rightStack;
 
@@ -798,14 +794,12 @@ namespace McStudDesktop.Views
 
             // Upload section
             var uploadSection = BuildUploadSection(
-                out _learnUploadDropZone, out _learnDropZoneText, out _learnUploadButton,
-                out _learnPasteArea, out var learnParseBtn);
+                out _learnUploadDropZone, out _learnDropZoneText, out _learnUploadButton);
 
             _learnUploadButton.Click += (s, e) => HandleUpload(ParseContext.Learning);
             _learnUploadDropZone.DragOver += (s, e) => HandleDragOver(s, e, _learnUploadDropZone, _learnDropZoneText);
             _learnUploadDropZone.DragLeave += (s, e) => ResetDropZoneAppearance(_learnUploadDropZone, _learnDropZoneText);
             _learnUploadDropZone.Drop += async (s, e) => await HandleDrop(e, ParseContext.Learning);
-            learnParseBtn.Click += (s, e) => HandleParsePaste(ParseContext.Learning);
 
             content.Children.Add(uploadSection);
 
@@ -945,8 +939,7 @@ namespace McStudDesktop.Views
         #region UI Builder Helpers
 
         private StackPanel BuildUploadSection(
-            out Border dropZone, out TextBlock dropText, out Button uploadBtn,
-            out TextBox pasteArea, out Button parseBtn)
+            out Border dropZone, out TextBlock dropText, out Button uploadBtn)
         {
             var section = new StackPanel { Spacing = 12 };
 
@@ -999,41 +992,6 @@ namespace McStudDesktop.Views
 
             dropZone.Child = uploadStack;
             section.Children.Add(dropZone);
-
-            // "or" text
-            section.Children.Add(new TextBlock
-            {
-                Text = "\u2014 or paste estimate text \u2014",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
-                HorizontalAlignment = HorizontalAlignment.Center
-            });
-
-            // Paste area
-            pasteArea = new TextBox
-            {
-                PlaceholderText = "Paste estimate text here...",
-                AcceptsReturn = true,
-                TextWrapping = TextWrapping.Wrap,
-                Height = 120,
-                Background = new SolidColorBrush(Color.FromArgb(255, 25, 25, 25)),
-                Foreground = new SolidColorBrush(Colors.White),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                FontFamily = new FontFamily("Consolas"),
-                FontSize = 11
-            };
-            section.Children.Add(pasteArea);
-
-            // Parse button
-            parseBtn = new Button
-            {
-                Content = "Parse Pasted Text",
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(16, 8, 16, 8),
-                HorizontalAlignment = HorizontalAlignment.Left
-            };
-            section.Children.Add(parseBtn);
 
             return section;
         }
@@ -1501,8 +1459,7 @@ namespace McStudDesktop.Views
 
                             System.Diagnostics.Debug.WriteLine($"[Import] {file.Name}: {estimate.Source} estimate, {estimate.LineItems.Count} items, Vehicle: {estimate.VehicleInfo}");
 
-                            var est = estimate;
-                            _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(est));
+                            await PersistWithDuplicateCheckAsync(estimate);
                         }
                         else
                         {
@@ -1516,7 +1473,7 @@ namespace McStudDesktop.Views
                                 totalManualLines += parsed.Count(p => p.IsManualLine);
 
                                 var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
-                                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(fallbackEstimate));
+                                await PersistWithDuplicateCheckAsync(fallbackEstimate);
                             }
                         }
                     }
@@ -1532,7 +1489,7 @@ namespace McStudDesktop.Views
                             totalManualLines += parsed.Count(p => p.IsManualLine);
 
                             var csvEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
-                            _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(csvEstimate));
+                            await PersistWithDuplicateCheckAsync(csvEstimate);
                         }
                     }
                 }
@@ -1579,6 +1536,7 @@ namespace McStudDesktop.Views
                 // Use SMART PDF parser with structured extraction
                 var estimate = await Task.Run(() => EstimatePdfParser.Instance.ParsePdfFromBytes(bytes));
                 estimate.SourceFile = file.Name;
+                estimate.SourcePdfPath = file.Path ?? "";
 
                 System.Diagnostics.Debug.WriteLine($"[PDF Smart] Parsed {estimate.LineItems.Count} items from {file.Name} ({estimate.Source})");
                 return estimate;
@@ -1588,6 +1546,142 @@ namespace McStudDesktop.Views
                 System.Diagnostics.Debug.WriteLine($"[PDF Smart] Error parsing {file.Name}: {ex.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Check whether the parsed estimate is a duplicate of something already in the history.
+        /// If so, prompt the user to Skip, Save as a new Version, or Import as Separate.
+        /// Otherwise persists normally.
+        /// </summary>
+        private async Task PersistWithDuplicateCheckAsync(ParsedEstimate estimate)
+        {
+            EstimateDuplicateResult check;
+            try
+            {
+                check = EstimateDuplicateChecker.Check(estimate);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Import] Duplicate check failed: {ex.Message} — proceeding with normal import");
+                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
+                return;
+            }
+
+            if (check.Kind == DuplicateMatchKind.None || check.Match == null)
+            {
+                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
+                return;
+            }
+
+            // There's a matching record. Ask the user what to do.
+            var dialog = BuildDuplicateDialog(estimate, check);
+            var result = await dialog.ShowAsync();
+
+            if (result == ContentDialogResult.Primary)
+            {
+                // Primary action:
+                //   ExactMatch   → "Import Anyway"  (fresh entry, no version link)
+                //   Different    → "Save as new Version" (linked to the prior version)
+                if (check.Kind == DuplicateMatchKind.Different)
+                    _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate, check.Match));
+                else
+                    _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
+            }
+            else if (result == ContentDialogResult.Secondary)
+            {
+                // Secondary action for Different = "Import as Separate" (no version link)
+                // Secondary is hidden for ExactMatch.
+                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
+            }
+            // CloseButton / Cancel → do nothing
+        }
+
+        private ContentDialog BuildDuplicateDialog(ParsedEstimate parsed, EstimateDuplicateResult check)
+        {
+            var stored = check.Match!;
+            var content = new StackPanel { Spacing = 10 };
+
+            // Reference to the existing estimate
+            var refLine = new TextBlock
+            {
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                Text = $"Existing import: {stored.ImportedDate:M/d/yy} — " +
+                       (string.IsNullOrEmpty(stored.VehicleInfo) ? "(vehicle unknown)" : stored.VehicleInfo) +
+                       (stored.GrandTotal > 0 ? $" — {stored.GrandTotal:C0}" : "") +
+                       (stored.Version > 1 ? $" (v{stored.Version})" : "")
+            };
+            content.Children.Add(refLine);
+
+            if (check.Kind == DuplicateMatchKind.ExactMatch)
+            {
+                content.Children.Add(new TextBlock
+                {
+                    FontSize = 13,
+                    TextWrapping = TextWrapping.Wrap,
+                    Text = "This PDF is an EXACT duplicate of an existing import — every field, line item, and total matches."
+                });
+                content.Children.Add(new TextBlock
+                {
+                    FontSize = 11,
+                    Opacity = 0.75,
+                    TextWrapping = TextWrapping.Wrap,
+                    Text = "Skipping avoids double-counting patterns and hours in your learned operations."
+                });
+
+                return new ContentDialog
+                {
+                    Title = "Exact duplicate found",
+                    Content = content,
+                    PrimaryButtonText = "Import Anyway",
+                    CloseButtonText = "Skip",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+            }
+
+            // Different — show the diff
+            content.Children.Add(new TextBlock
+            {
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                Text = $"This looks like the same claim with {check.Differences.Count} difference" +
+                       $"{(check.Differences.Count == 1 ? "" : "s")}:"
+            });
+
+            var diffPanel = new StackPanel { Spacing = 3, Margin = new Thickness(8, 4, 0, 4) };
+            foreach (var diff in check.Differences.Take(12))
+            {
+                diffPanel.Children.Add(new TextBlock
+                {
+                    FontSize = 11,
+                    Opacity = 0.9,
+                    TextWrapping = TextWrapping.Wrap,
+                    Text = "• " + diff
+                });
+            }
+            if (check.Differences.Count > 12)
+            {
+                diffPanel.Children.Add(new TextBlock
+                {
+                    FontSize = 11,
+                    Opacity = 0.6,
+                    FontStyle = Windows.UI.Text.FontStyle.Italic,
+                    Text = $"…and {check.Differences.Count - 12} more"
+                });
+            }
+            content.Children.Add(diffPanel);
+
+            return new ContentDialog
+            {
+                Title = $"Save as v{stored.Version + 1}?",
+                Content = content,
+                PrimaryButtonText = $"Save as v{stored.Version + 1}",
+                SecondaryButtonText = "Import as Separate",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = this.XamlRoot
+            };
         }
 
         /// <summary>
@@ -1663,80 +1757,6 @@ namespace McStudDesktop.Views
 
             if (_estimateBodyRate > 0 || _estimatePaintRate > 0 || _estimateMechRate > 0)
                 System.Diagnostics.Debug.WriteLine($"[Rates] Detected from estimate: Body=${_estimateBodyRate} Paint=${_estimatePaintRate} Mech=${_estimateMechRate}");
-        }
-
-        private async void HandleParsePaste(ParseContext ctx)
-        {
-            var pasteArea = ctx == ParseContext.Scrubber ? _scrubPasteArea : _learnPasteArea;
-            var text = pasteArea?.Text;
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                ShowStatusForContext("Please paste estimate text first", ctx, isError: true);
-                return;
-            }
-
-            _parsedLines.Clear();
-            var targetList = ctx == ParseContext.Scrubber ? _scrubParsedItemsList! : _learnParsedItemsList!;
-            FrameworkElement resultsSection = ctx == ParseContext.Scrubber ? (FrameworkElement)_scrubSideBySideGrid! : _learnResultsSection!;
-            var resultsTitle = ctx == ParseContext.Scrubber ? _scrubResultsTitle! : _learnResultsTitle!;
-
-            var estimate = EstimatePdfParser.Instance.ParseText(text);
-            if (estimate.LineItems.Count > 0)
-            {
-                // Store hourly rates detected from the estimate
-                StoreEstimateRates(estimate.Totals);
-
-                foreach (var item in estimate.LineItems)
-                {
-                    _parsedLines.Add(ConvertToParsedLine(item));
-                }
-
-                var sourceInfo = !string.IsNullOrEmpty(estimate.Source) && estimate.Source != "Unknown"
-                    ? $" ({estimate.Source})"
-                    : "";
-                var vehicleInfo = !string.IsNullOrEmpty(estimate.VehicleInfo)
-                    ? $" - {estimate.VehicleInfo}"
-                    : "";
-
-                DisplayParsedLines(targetList);
-
-                var parts = _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
-                var additionalOps = _parsedLines.Count(p => p.IsManualLine);
-
-                resultsSection.Visibility = Visibility.Visible;
-                resultsTitle.Text = $"Parsed: {parts} parts, {additionalOps} additional ops{sourceInfo}{vehicleInfo}";
-
-                ShowStatusForContext($"SMART Parse: {parts} parts, {additionalOps} additional operations detected", ctx, isSuccess: true);
-
-                estimate.SourceFile = "TextPaste";
-                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
-
-                if (ctx == ParseContext.Scrubber)
-                    await RunSmartAnalysisAsync();
-            }
-            else
-            {
-                // Even if line parsing failed, rates may have been extracted
-                StoreEstimateRates(estimate.Totals);
-
-                _parsedLines = _learningService.ParseWithManualLineDetection(text);
-
-                DisplayParsedLines(targetList);
-
-                var parts = _parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
-                var manualLines = _parsedLines.Count(p => p.IsManualLine);
-
-                resultsSection.Visibility = Visibility.Visible;
-                resultsTitle.Text = $"Parsed: {parts} parts, {manualLines} manual lines (#)";
-
-                ShowStatusForContext($"Parsed {_parsedLines.Count} lines: {parts} parts, {manualLines} manual lines", ctx);
-
-                var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(_parsedLines, text, "TextPaste");
-                _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(fallbackEstimate));
-
-                if (ctx == ParseContext.Scrubber)
-                    await RunSmartAnalysisAsync();
-            }
         }
 
         private void DisplayParsedLines(ListView targetList)
@@ -2247,11 +2267,10 @@ namespace McStudDesktop.Views
                 _qualitySection!.Visibility = Visibility.Collapsed;
                 _scoringPanel!.Reset();
                 _scoringPanel.Visibility = Visibility.Collapsed;
-                if (_scrubPasteArea != null) _scrubPasteArea.Text = "";
                 if (_refMatchBanner != null) _refMatchBanner.Visibility = Visibility.Collapsed;
                 ReferenceView.Instance?.ClearStaging();
                 ShowProgress(false, ParseContext.Scrubber);
-                ShowStatusForContext("Cleared. Drop or paste a new estimate to start over.", ParseContext.Scrubber);
+                ShowStatusForContext("Cleared. Drop a new estimate to start over.", ParseContext.Scrubber);
             }
             else
             {
@@ -2259,9 +2278,8 @@ namespace McStudDesktop.Views
                 _learnResultsSection!.Visibility = Visibility.Collapsed;
                 if (_learningSummarySection != null)
                     _learningSummarySection.Visibility = Visibility.Collapsed;
-                if (_learnPasteArea != null) _learnPasteArea.Text = "";
                 ShowProgress(false, ParseContext.Learning);
-                ShowStatusForContext("Cleared. Drop or paste a new estimate to start over.", ParseContext.Learning);
+                ShowStatusForContext("Cleared. Drop a new estimate to start over.", ParseContext.Learning);
             }
         }
 
@@ -2457,8 +2475,6 @@ namespace McStudDesktop.Views
                 // Clear parsed data but keep UI visible so Clear button stays accessible
                 _parsedLines.Clear();
                 _learnParsedItemsList!.Items.Clear();
-                if (_learnPasteArea != null)
-                    _learnPasteArea.Text = "";
                 _currentQualityRecord = null;
             }
             catch (Exception ex)
@@ -2798,6 +2814,44 @@ namespace McStudDesktop.Views
                 });
             }
 
+            // Copy button — dumps the full summary to clipboard as plain text
+            var copyBtnContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            copyBtnContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 230)) });
+            copyBtnContent.Children.Add(new TextBlock { Text = "Copy", FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(brightText) });
+            var copyBtn = new Button
+            {
+                Content = copyBtnContent,
+                Padding = new Thickness(8, 2, 8, 2),
+                CornerRadius = new CornerRadius(4),
+                Background = new SolidColorBrush(Color.FromArgb(255, 40, 60, 45)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 120, 90)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            ToolTipService.SetToolTip(copyBtn, "Copy learned-info summary to clipboard");
+            copyBtn.Click += (s, e) =>
+            {
+                try
+                {
+                    var text = BuildLearningSummaryText(parsedLines, estimateTotal, quality);
+                    var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                    dp.SetText(text);
+                    Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+                    ((TextBlock)copyBtnContent.Children[1]).Text = "Copied!";
+                    _ = System.Threading.Tasks.Task.Delay(1500).ContinueWith(_ =>
+                    {
+                        DispatcherQueue.TryEnqueue(() =>
+                        {
+                            ((TextBlock)copyBtnContent.Children[1]).Text = "Copy";
+                        });
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[LearningSummary] Copy failed: {ex.Message}");
+                }
+            };
+
             // Dismiss button
             var dismissBtn = new Button
             {
@@ -2809,18 +2863,30 @@ namespace McStudDesktop.Views
             };
             dismissBtn.Click += (s, e) => { _learningSummarySection.Visibility = Visibility.Collapsed; };
 
+            var rightActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0, HorizontalAlignment = HorizontalAlignment.Right };
+            rightActions.Children.Add(copyBtn);
+            rightActions.Children.Add(dismissBtn);
+
             var headerRow = new Grid();
             headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             Grid.SetColumn(headerStack, 0);
-            Grid.SetColumn(dismissBtn, 1);
+            Grid.SetColumn(rightActions, 1);
             headerRow.Children.Add(headerStack);
-            headerRow.Children.Add(dismissBtn);
+            headerRow.Children.Add(rightActions);
             _learningSummaryContent.Children.Add(headerRow);
 
             // Estimate value + stats
             var manualCount = parsedLines.Count(p => p.IsManualLine);
-            var partCount = parsedLines.Count(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName));
+            // Count only part lines that have meaningful data — these match what actually got learned.
+            var partCount = parsedLines.Count(p =>
+                !p.IsManualLine &&
+                !string.IsNullOrEmpty(p.PartName) &&
+                !IsDisplayGarbage(p.PartName) &&
+                (!string.IsNullOrWhiteSpace(p.OperationType) ||
+                 p.LaborHours > 0 ||
+                 p.RefinishHours > 0 ||
+                 p.Price > 0));
             var destination = _learningService.CanTrainStandard ? "standard knowledge" : "personal knowledge";
 
             _learningSummaryContent.Children.Add(new TextBlock
@@ -2856,7 +2922,19 @@ namespace McStudDesktop.Views
             });
 
             // === PARTS LEARNED ===
-            var partLines = parsedLines.Where(p => !p.IsManualLine && !string.IsNullOrEmpty(p.PartName)).ToList();
+            // Match the learning-service filter: a part must have at least one piece of
+            // useful data (operation, labor, refinish, or price) to count as a learned pattern.
+            // A bare part name alone (e.g. an address line that leaked through the parser)
+            // is NOT learned, so don't show it as "learned" either.
+            var partLines = parsedLines.Where(p =>
+                !p.IsManualLine &&
+                !string.IsNullOrEmpty(p.PartName) &&
+                !IsDisplayGarbage(p.PartName) &&
+                (!string.IsNullOrWhiteSpace(p.OperationType) ||
+                 p.LaborHours > 0 ||
+                 p.RefinishHours > 0 ||
+                 p.Price > 0)
+            ).ToList();
             if (partLines.Count > 0)
             {
                 _learningSummaryContent.Children.Add(CreateSummarySubheader($"Parts Learned ({partLines.Count}) \u2014 will suggest these for similar parts"));
@@ -3014,6 +3092,115 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 130)),
                 Margin = new Thickness(0, 8, 0, 4)
             };
+        }
+
+        /// <summary>
+        /// Same filter logic as EstimateLearningService.IsNonPartGarbage — kept private here
+        /// so the display matches exactly what gets learned.
+        /// </summary>
+        private static bool IsDisplayGarbage(string? partName)
+        {
+            if (string.IsNullOrWhiteSpace(partName)) return true;
+            var pn = partName.Trim();
+            if (pn.Length < 3) return true;
+            if (System.Text.RegularExpressions.Regex.IsMatch(pn, @"^\d+x\s+", System.Text.RegularExpressions.RegexOptions.IgnoreCase)) return true;
+            if (System.Text.RegularExpressions.Regex.IsMatch(pn, @"^[\d\s,.\-$]+$")) return true;
+            if (System.Text.RegularExpressions.Regex.IsMatch(pn, @"^[A-Z][A-Za-z\.\s]+,\s*[A-Z]{2}(\s*\d{5})?$")) return true;
+            if (System.Text.RegularExpressions.Regex.IsMatch(pn, @",\s*[A-Z]{2}\b") &&
+                !System.Text.RegularExpressions.Regex.IsMatch(pn, @"\b(cover|panel|fender|door|hood|bumper|lamp|light|mirror|glass|wheel|seat|rail|rein|absorber|molding|emblem|nameplate|sensor|module)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Build a plain-text version of the learning summary for the Copy button.
+        /// </summary>
+        private string BuildLearningSummaryText(List<ParsedEstimateLine> parsedLines, decimal estimateTotal, EstimateQualityRecord? quality)
+        {
+            var sb = new System.Text.StringBuilder();
+            var stats = _learningService.GetStatistics();
+
+            sb.AppendLine("LEARNING COMPLETE");
+            if (quality != null) sb.AppendLine($"Quality: {quality.QualityScore}/100");
+            sb.AppendLine($"Estimate value: {estimateTotal:C0}");
+            sb.AppendLine();
+
+            var partLines = parsedLines.Where(p =>
+                !p.IsManualLine &&
+                !string.IsNullOrEmpty(p.PartName) &&
+                !IsDisplayGarbage(p.PartName) &&
+                (!string.IsNullOrWhiteSpace(p.OperationType) ||
+                 p.LaborHours > 0 || p.RefinishHours > 0 || p.Price > 0)
+            ).ToList();
+            var manualLines = parsedLines.Where(p => p.IsManualLine).ToList();
+
+            var destination = _learningService.CanTrainStandard ? "standard knowledge" : "personal knowledge";
+            sb.AppendLine($"Saved {partLines.Count} part patterns and {manualLines.Count} manual operations to {destination}.");
+            sb.AppendLine($"Total patterns in database: {stats.TotalPatterns} | Estimates trained: {stats.TotalEstimatesTrained} | Avg confidence: {stats.AverageConfidence:P0}");
+            sb.AppendLine();
+
+            if (partLines.Count > 0)
+            {
+                sb.AppendLine($"PARTS LEARNED ({partLines.Count})");
+                sb.AppendLine(new string('-', 50));
+                foreach (var part in partLines)
+                {
+                    var op = string.IsNullOrWhiteSpace(part.OperationType) ? "" : part.OperationType;
+                    var labor = part.LaborHours > 0 ? $"{part.LaborHours:N1}h" : "";
+                    if (part.RefinishHours > 0) labor += (labor.Length > 0 ? " +" : "") + $"{part.RefinishHours:N1}r";
+                    var price = part.Price > 0 ? part.Price.ToString("C0") : "";
+                    sb.AppendLine($"  {part.PartName,-35} {op,-10} {labor,-10} {price}");
+                }
+                sb.AppendLine();
+            }
+
+            if (manualLines.Count > 0)
+            {
+                sb.AppendLine($"MANUAL OPERATIONS LEARNED ({manualLines.Count})");
+                sb.AppendLine(new string('-', 50));
+
+                ParsedEstimateLine? currentParent = null;
+                var groups = new List<(string parent, List<ParsedEstimateLine> ops)>();
+                var currentOps = new List<ParsedEstimateLine>();
+                foreach (var line in parsedLines)
+                {
+                    if (!line.IsManualLine && !string.IsNullOrEmpty(line.PartName))
+                    {
+                        if (currentParent != null && currentOps.Count > 0)
+                            groups.Add(($"{currentParent.PartName} ({currentParent.OperationType})", new List<ParsedEstimateLine>(currentOps)));
+                        currentParent = line;
+                        currentOps.Clear();
+                    }
+                    else if (line.IsManualLine && currentParent != null)
+                    {
+                        currentOps.Add(line);
+                    }
+                }
+                if (currentParent != null && currentOps.Count > 0)
+                    groups.Add(($"{currentParent.PartName} ({currentParent.OperationType})", new List<ParsedEstimateLine>(currentOps)));
+
+                foreach (var (parent, ops) in groups)
+                {
+                    sb.AppendLine($"  {parent}");
+                    foreach (var op in ops)
+                    {
+                        var desc = op.Description ?? op.RawLine ?? "";
+                        var labor = op.LaborHours > 0 ? $"{op.LaborHours:N1}h" : "";
+                        var price = op.Price > 0 ? op.Price.ToString("C0") : "";
+                        sb.AppendLine($"    # {desc,-40} {labor,-8} {price}");
+                    }
+                }
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("TOTALS");
+            sb.AppendLine(new string('-', 50));
+            sb.AppendLine($"  Estimates: {stats.EstimatesImported}");
+            sb.AppendLine($"  Parts: {stats.TotalPatterns}");
+            sb.AppendLine($"  Operations: {stats.TotalManualLinePatterns}");
+            sb.AppendLine($"  Avg Value: {stats.AverageEstimateValue:C0}");
+
+            return sb.ToString();
         }
 
         private StackPanel CreateTotalsStat(string label, string value)

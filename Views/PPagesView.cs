@@ -608,34 +608,6 @@ namespace McStudDesktop.Views
                 contentStack.Children.Add(notesBorder);
             }
 
-            // Full Article Expander
-            var articleExpander = new Expander
-            {
-                Header = new TextBlock
-                {
-                    Text = "View Full Article (for PDF)",
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
-                },
-                Margin = new Thickness(0, 8, 0, 0),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch
-            };
-            var articleText = new TextBox
-            {
-                Text = section.BuildFullArticle(),
-                TextWrapping = TextWrapping.Wrap,
-                IsReadOnly = true,
-                AcceptsReturn = true,
-                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
-                FontSize = 10,
-                Background = new SolidColorBrush(Color.FromArgb(255, 25, 25, 25)),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
-                MinHeight = 200
-            };
-            articleExpander.Content = articleText;
-            contentStack.Children.Add(articleExpander);
-
             // View on CCC link - copies P-Page SECTION NUMBER to clipboard then opens site
             var sectionRef = section.Section ?? "";
             var sectionTitle = section.Title ?? "";

@@ -61,11 +61,15 @@ public sealed class ReferenceView : UserControl
 
     // PDF Export panel
     private Border? _pdfPanel;
-    private StackPanel? _pdfSelectedItemsPanel;
+    private PdfWrapPanel? _pdfSelectedItemsPanel;
+    private Border? _pdfItemsClip;
+    private Button? _pdfExpandButton;
     private TextBlock? _pdfCountText;
     private TextBlock? _pdfAutoAddedText;
     private Button? _generatePdfButton;
     private PdfExportService? _pdfService;
+    private bool _pdfItemsExpanded;
+    private const double PdfItemsCollapsedHeight = 40;
 
     public ReferenceView()
     {
@@ -979,6 +983,24 @@ public sealed class ReferenceView : UserControl
         settingsBtn.Click += OpenPdfSettings_Click;
         buttonStack.Children.Add(settingsBtn);
 
+        // Expand / collapse toggle for the items row
+        _pdfExpandButton = new Button
+        {
+            Padding = new Thickness(8, 6, 8, 6),
+            Background = new SolidColorBrush(Color.FromArgb(255, 70, 70, 70)),
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(4)
+        };
+        _pdfExpandButton.Content = new FontIcon
+        {
+            Glyph = "\uE70D", // ChevronDown
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Colors.White)
+        };
+        ToolTipService.SetToolTip(_pdfExpandButton, "Expand queue");
+        _pdfExpandButton.Click += PdfExpandToggle_Click;
+        buttonStack.Children.Add(_pdfExpandButton);
+
         // Clear button
         var clearBtn = new Button
         {
@@ -998,14 +1020,28 @@ public sealed class ReferenceView : UserControl
         headerRow.Children.Add(buttonStack);
         mainStack.Children.Add(headerRow);
 
-        // Selected items panel (horizontal wrap)
-        _pdfSelectedItemsPanel = new StackPanel
+        // Selected items panel — a wrap panel (items flow to new lines when the row fills)
+        // clipped to one-row height by default with an expand/collapse toggle.
+        _pdfSelectedItemsPanel = new PdfWrapPanel
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            Margin = new Thickness(0, 8, 0, 0)
+            HorizontalSpacing = 6,
+            VerticalSpacing = 6
         };
-        mainStack.Children.Add(_pdfSelectedItemsPanel);
+        _pdfItemsClip = new Border
+        {
+            MaxHeight = PdfItemsCollapsedHeight,
+            Margin = new Thickness(0, 8, 0, 0),
+            Child = _pdfSelectedItemsPanel
+        };
+        _pdfItemsClip.Clip = new Microsoft.UI.Xaml.Media.RectangleGeometry();
+        _pdfItemsClip.SizeChanged += (s, e) =>
+        {
+            if (_pdfItemsClip?.Clip is Microsoft.UI.Xaml.Media.RectangleGeometry rg)
+            {
+                rg.Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height);
+            }
+        };
+        mainStack.Children.Add(_pdfItemsClip);
 
         // Auto-added status text
         _pdfAutoAddedText = new TextBlock
@@ -1066,10 +1102,11 @@ public sealed class ReferenceView : UserControl
 
         stack.Children.Add(new TextBlock
         {
-            Text = item.Term.Length > 25 ? item.Term.Substring(0, 22) + "..." : item.Term,
+            Text = item.Term,
             FontSize = 10,
             Foreground = new SolidColorBrush(Colors.White),
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            TextWrapping = TextWrapping.NoWrap
         });
 
         // Remove button (X)
@@ -1266,5 +1303,83 @@ public sealed class ReferenceView : UserControl
         PdfQueue.Clear();
         RefreshPdfPanel();
         DefinitionsView.RaisePdfQueueChanged();
+    }
+
+    private void PdfExpandToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _pdfItemsExpanded = !_pdfItemsExpanded;
+        if (_pdfItemsClip != null)
+        {
+            _pdfItemsClip.MaxHeight = _pdfItemsExpanded ? double.PositiveInfinity : PdfItemsCollapsedHeight;
+        }
+        if (_pdfExpandButton != null)
+        {
+            _pdfExpandButton.Content = new FontIcon
+            {
+                Glyph = _pdfItemsExpanded ? "\uE70E" : "\uE70D", // ChevronUp / ChevronDown
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Colors.White)
+            };
+            ToolTipService.SetToolTip(_pdfExpandButton, _pdfItemsExpanded ? "Collapse queue" : "Expand queue");
+        }
+    }
+}
+
+// Simple wrap panel — items flow horizontally and wrap to new rows when
+// they exceed the available width. Used by the PDF export queue.
+internal sealed class PdfWrapPanel : Panel
+{
+    public double HorizontalSpacing { get; set; }
+    public double VerticalSpacing { get; set; }
+
+    protected override Windows.Foundation.Size MeasureOverride(Windows.Foundation.Size availableSize)
+    {
+        double x = 0, y = 0, rowHeight = 0, maxRowWidth = 0;
+        var maxWidth = double.IsInfinity(availableSize.Width) ? double.MaxValue : availableSize.Width;
+
+        foreach (UIElement child in Children)
+        {
+            child.Measure(new Windows.Foundation.Size(maxWidth, double.PositiveInfinity));
+            var desired = child.DesiredSize;
+
+            if (x > 0 && x + desired.Width > maxWidth)
+            {
+                y += rowHeight + VerticalSpacing;
+                maxRowWidth = Math.Max(maxRowWidth, x - HorizontalSpacing);
+                x = 0;
+                rowHeight = 0;
+            }
+
+            x += desired.Width + HorizontalSpacing;
+            rowHeight = Math.Max(rowHeight, desired.Height);
+        }
+
+        maxRowWidth = Math.Max(maxRowWidth, x - HorizontalSpacing);
+        return new Windows.Foundation.Size(
+            double.IsInfinity(availableSize.Width) ? maxRowWidth : availableSize.Width,
+            y + rowHeight);
+    }
+
+    protected override Windows.Foundation.Size ArrangeOverride(Windows.Foundation.Size finalSize)
+    {
+        double x = 0, y = 0, rowHeight = 0;
+
+        foreach (UIElement child in Children)
+        {
+            var desired = child.DesiredSize;
+
+            if (x > 0 && x + desired.Width > finalSize.Width)
+            {
+                y += rowHeight + VerticalSpacing;
+                x = 0;
+                rowHeight = 0;
+            }
+
+            child.Arrange(new Windows.Foundation.Rect(x, y, desired.Width, desired.Height));
+            x += desired.Width + HorizontalSpacing;
+            rowHeight = Math.Max(rowHeight, desired.Height);
+        }
+
+        return finalSize;
     }
 }

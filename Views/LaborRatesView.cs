@@ -642,13 +642,95 @@ public sealed class LaborRatesView : UserControl
         var emailRows = new List<TextBox>();
         var contactCards = new List<(TextBox Name, ComboBox Role, TextBox Phone, TextBox Email, StackPanel Container)>();
 
-        var dialogContent = new ScrollViewer
-        {
-            MaxHeight = 550,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
+        // === TAB STRIP (replaces long vertical scroll with 4 logical tabs) ===
+        var dialogRoot = new StackPanel { Spacing = 10, Width = 540 };
 
-        var contentStack = new StackPanel { Spacing = 16, Width = 500 };
+        var tabButtons = new List<Border>();
+        var tabPanels = new List<ScrollViewer>();
+        int selectedTab = 0;
+
+        Border BuildTabBtn(string text, int index)
+        {
+            var b = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(14, 6, 14, 6),
+                Background = new SolidColorBrush(index == 0
+                    ? Color.FromArgb(255, 0, 100, 180)
+                    : Color.FromArgb(255, 50, 50, 50))
+            };
+            var lbl = new TextBlock
+            {
+                Text = text,
+                FontSize = 12,
+                FontWeight = index == 0
+                    ? Microsoft.UI.Text.FontWeights.SemiBold
+                    : Microsoft.UI.Text.FontWeights.Normal,
+                Foreground = new SolidColorBrush(index == 0
+                    ? Colors.White
+                    : Color.FromArgb(255, 180, 180, 180))
+            };
+            b.Child = lbl;
+            b.PointerPressed += (s, e) =>
+            {
+                selectedTab = index;
+                for (int i = 0; i < tabButtons.Count; i++)
+                {
+                    bool sel = i == selectedTab;
+                    tabButtons[i].Background = new SolidColorBrush(sel
+                        ? Color.FromArgb(255, 0, 100, 180)
+                        : Color.FromArgb(255, 50, 50, 50));
+                    if (tabButtons[i].Child is TextBlock t)
+                    {
+                        t.FontWeight = sel
+                            ? Microsoft.UI.Text.FontWeights.SemiBold
+                            : Microsoft.UI.Text.FontWeights.Normal;
+                        t.Foreground = new SolidColorBrush(sel
+                            ? Colors.White
+                            : Color.FromArgb(255, 180, 180, 180));
+                    }
+                    tabPanels[i].Visibility = sel ? Visibility.Visible : Visibility.Collapsed;
+                }
+            };
+            b.PointerEntered += (s, e) =>
+            {
+                if (selectedTab != index)
+                    b.Background = new SolidColorBrush(Color.FromArgb(255, 70, 70, 70));
+            };
+            b.PointerExited += (s, e) =>
+            {
+                if (selectedTab != index)
+                    b.Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50));
+            };
+            return b;
+        }
+
+        var tabStrip = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        tabButtons.Add(BuildTabBtn("Info & Location", 0));
+        tabButtons.Add(BuildTabBtn("Contacts", 1));
+        tabButtons.Add(BuildTabBtn("Parts & Delivery", 2));
+        tabButtons.Add(BuildTabBtn("Rates & Notes", 3));
+        foreach (var tb in tabButtons) tabStrip.Children.Add(tb);
+        dialogRoot.Children.Add(tabStrip);
+
+        // Tab content container — fixed height, each panel wrapped in its own scroller
+        var tabContainer = new Grid { Height = 420 };
+
+        ScrollViewer BuildTabPanel(StackPanel inner, int index)
+        {
+            var sv = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = inner,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
+            };
+            tabContainer.Children.Add(sv);
+            tabPanels.Add(sv);
+            return sv;
+        }
+
+        // ===== TAB 0: Info & Location =====
+        var contentStack = new StackPanel { Spacing = 12 };
 
         // === Section 1: Basic Info ===
         contentStack.Children.Add(CreateSectionHeader("Basic Info"));
@@ -705,11 +787,16 @@ public sealed class LaborRatesView : UserControl
 
         contentStack.Children.Add(locationRow);
 
+        BuildTabPanel(contentStack, 0); // register Info & Location tab
+
+        // ===== TAB 1: Contacts =====
+        var contactsStack = new StackPanel { Spacing = 12 };
+
         // === Section 3: Dealer Phones & Emails ===
-        contentStack.Children.Add(CreateSectionHeader("Dealer Phones & Emails"));
+        contactsStack.Children.Add(CreateSectionHeader("Dealer Phones & Emails"));
 
         var phonesContainer = new StackPanel { Spacing = 4 };
-        contentStack.Children.Add(phonesContainer);
+        contactsStack.Children.Add(phonesContainer);
 
         // Seed existing phones
         if (existing != null && existing.PhoneNumbers.Count > 0)
@@ -724,10 +811,10 @@ public sealed class LaborRatesView : UserControl
 
         var addPhoneBtn = new HyperlinkButton { Content = "+ Add Phone" };
         addPhoneBtn.Click += (s, e) => AddDynamicRow(phonesContainer, phoneRows, "Phone", "(555) 123-4567", "");
-        contentStack.Children.Add(addPhoneBtn);
+        contactsStack.Children.Add(addPhoneBtn);
 
         var emailsContainer = new StackPanel { Spacing = 4 };
-        contentStack.Children.Add(emailsContainer);
+        contactsStack.Children.Add(emailsContainer);
 
         if (existing != null && existing.Emails.Count > 0)
         {
@@ -741,13 +828,13 @@ public sealed class LaborRatesView : UserControl
 
         var addEmailBtn = new HyperlinkButton { Content = "+ Add Email" };
         addEmailBtn.Click += (s, e) => AddDynamicRow(emailsContainer, emailRows, "Email", "parts@dealer.com", "");
-        contentStack.Children.Add(addEmailBtn);
+        contactsStack.Children.Add(addEmailBtn);
 
         // === Section 4: Contact People ===
-        contentStack.Children.Add(CreateSectionHeader("Contact People"));
+        contactsStack.Children.Add(CreateSectionHeader("Contact People"));
 
         var contactsContainer = new StackPanel { Spacing = 8 };
-        contentStack.Children.Add(contactsContainer);
+        contactsStack.Children.Add(contactsContainer);
 
         if (existing != null && existing.Contacts.Count > 0)
         {
@@ -758,10 +845,15 @@ public sealed class LaborRatesView : UserControl
 
         var addContactBtn = new HyperlinkButton { Content = "+ Add Contact Person" };
         addContactBtn.Click += (s, e) => AddContactCard(contactsContainer, contactCards, "", "", "", "");
-        contentStack.Children.Add(addContactBtn);
+        contactsStack.Children.Add(addContactBtn);
+
+        BuildTabPanel(contactsStack, 1); // register Contacts tab
+
+        // ===== TAB 2: Parts & Delivery =====
+        var partsStack = new StackPanel { Spacing = 12 };
 
         // === Section 5: Parts & Delivery ===
-        contentStack.Children.Add(CreateSectionHeader("Parts & Delivery"));
+        partsStack.Children.Add(CreateSectionHeader("Parts & Delivery"));
 
         var discountBox = new NumberBox
         {
@@ -771,7 +863,7 @@ public sealed class LaborRatesView : UserControl
             Maximum = 100,
             SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact
         };
-        contentStack.Children.Add(discountBox);
+        partsStack.Children.Add(discountBox);
 
         // Returns
         var returnsCheck = new CheckBox
@@ -779,7 +871,7 @@ public sealed class LaborRatesView : UserControl
             Content = "Accepts Returns",
             IsChecked = existing?.Returns.AcceptsReturns ?? false
         };
-        contentStack.Children.Add(returnsCheck);
+        partsStack.Children.Add(returnsCheck);
 
         var returnsNoteBox = new TextBox
         {
@@ -787,7 +879,7 @@ public sealed class LaborRatesView : UserControl
             Text = existing?.Returns.ReturnsNote ?? "",
             Margin = new Thickness(28, 0, 0, 0)
         };
-        contentStack.Children.Add(returnsNoteBox);
+        partsStack.Children.Add(returnsNoteBox);
 
         // Delivery
         var deliveryCheck = new CheckBox
@@ -795,7 +887,7 @@ public sealed class LaborRatesView : UserControl
             Content = "Delivers Parts",
             IsChecked = existing?.Delivery.DeliversParts ?? false
         };
-        contentStack.Children.Add(deliveryCheck);
+        partsStack.Children.Add(deliveryCheck);
 
         var deliveryNoteBox = new TextBox
         {
@@ -803,7 +895,7 @@ public sealed class LaborRatesView : UserControl
             Text = existing?.Delivery.DeliveryNote ?? "",
             Margin = new Thickness(28, 0, 0, 0)
         };
-        contentStack.Children.Add(deliveryNoteBox);
+        partsStack.Children.Add(deliveryNoteBox);
 
         var deliveryDetailsRow = new Grid
         {
@@ -835,10 +927,15 @@ public sealed class LaborRatesView : UserControl
         Grid.SetColumn(runsPerDayBox, 1);
         deliveryDetailsRow.Children.Add(runsPerDayBox);
 
-        contentStack.Children.Add(deliveryDetailsRow);
+        partsStack.Children.Add(deliveryDetailsRow);
+
+        BuildTabPanel(partsStack, 2); // register Parts & Delivery tab
+
+        // ===== TAB 3: Rates & Notes =====
+        var ratesStack = new StackPanel { Spacing = 12 };
 
         // === Section 6: Labor Rates ===
-        contentStack.Children.Add(CreateSectionHeader("Labor Rates ($/hr)"));
+        ratesStack.Children.Add(CreateSectionHeader("Labor Rates ($/hr)"));
 
         var ratesGrid = new Grid
         {
@@ -877,10 +974,10 @@ public sealed class LaborRatesView : UserControl
         Grid.SetRow(glassRate, 2); Grid.SetColumn(glassRate, 0);
         ratesGrid.Children.Add(glassRate);
 
-        contentStack.Children.Add(ratesGrid);
+        ratesStack.Children.Add(ratesGrid);
 
         // === Section 7: Notes ===
-        contentStack.Children.Add(CreateSectionHeader("Notes"));
+        ratesStack.Children.Add(CreateSectionHeader("Notes"));
 
         var notesBox = new TextBox
         {
@@ -888,16 +985,18 @@ public sealed class LaborRatesView : UserControl
             Text = existing?.Notes ?? "",
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
-            Height = 60
+            Height = 80
         };
-        contentStack.Children.Add(notesBox);
+        ratesStack.Children.Add(notesBox);
 
-        dialogContent.Content = contentStack;
+        BuildTabPanel(ratesStack, 3); // register Rates & Notes tab
+
+        dialogRoot.Children.Add(tabContainer);
 
         var dialog = new ContentDialog
         {
             Title = isEdit ? "Edit Dealer" : "Add New Dealer",
-            Content = dialogContent,
+            Content = dialogRoot,
             PrimaryButtonText = isEdit ? "Save" : "Add",
             CloseButtonText = "Cancel",
             XamlRoot = this.XamlRoot

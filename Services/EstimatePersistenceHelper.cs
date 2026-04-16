@@ -114,14 +114,17 @@ public static class EstimatePersistenceHelper
     /// <summary>
     /// Save a ParsedEstimate to the history database and mine it for patterns.
     /// This is the single entry point all code paths should use.
+    /// If <paramref name="previousVersion"/> is supplied, the new estimate is saved as
+    /// the next version within the same group (used for re-uploads with differences).
     /// </summary>
-    public static void PersistAndMine(ParsedEstimate estimate)
+    public static void PersistAndMine(ParsedEstimate estimate, StoredEstimate? previousVersion = null)
     {
         try
         {
             var historyDb = EstimateHistoryDatabase.Instance;
-            var estimateId = historyDb.AddEstimate(estimate);
-            System.Diagnostics.Debug.WriteLine($"[EstimatePersistence] Saved estimate {estimateId} to history ({estimate.SourceFile})");
+            var estimateId = historyDb.AddEstimate(estimate, previousVersion: previousVersion);
+            var versionTag = previousVersion != null ? $" (v{previousVersion.Version + 1})" : "";
+            System.Diagnostics.Debug.WriteLine($"[EstimatePersistence] Saved estimate {estimateId}{versionTag} to history ({estimate.SourceFile})");
 
             try
             {

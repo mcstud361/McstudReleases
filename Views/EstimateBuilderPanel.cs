@@ -86,6 +86,10 @@ namespace McStudDesktop.Views
         private TextBlock? _estimatesCountText;
         private List<StoredEstimate> _estimatesCache = new();
 
+        // Sort state for the Estimates table (0=Date, 1=Vehicle, 2=Customer, 3=Insurance, 4=Total)
+        private int _estimatesSortColumn = 0;
+        private bool _estimatesSortDescending = true;
+
         // --- Color Palette ---
         private static readonly Color AccentBlue = Color.FromArgb(255, 56, 132, 244);
         private static readonly Color AccentGreen = Color.FromArgb(255, 40, 167, 96);
@@ -451,9 +455,10 @@ namespace McStudDesktop.Views
             host.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // list
             host.Margin = new Thickness(16, 0, 16, 14);
 
-            // Toolbar: search + count
+            // Toolbar: search + cleanup button + count
             var toolbar = new Grid { ColumnSpacing = 10, Margin = new Thickness(0, 0, 0, 8) };
             toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             _estimatesSearchBox = new TextBox
@@ -469,6 +474,23 @@ namespace McStudDesktop.Views
             Grid.SetColumn(_estimatesSearchBox, 0);
             toolbar.Children.Add(_estimatesSearchBox);
 
+            var cleanupContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            cleanupContent.Children.Add(new FontIcon { Glyph = "\uE74D", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 230, 120, 120)) });
+            cleanupContent.Children.Add(new TextBlock { Text = "Clean Up Duplicates", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+            var cleanupBtn = new Button
+            {
+                Content = cleanupContent,
+                Padding = new Thickness(10, 4, 10, 4),
+                CornerRadius = new CornerRadius(6),
+                Background = new SolidColorBrush(CardBg),
+                BorderBrush = new SolidColorBrush(BorderSubtle),
+                Foreground = new SolidColorBrush(TextPrimary)
+            };
+            ToolTipService.SetToolTip(cleanupBtn, "Remove duplicate imports, keeping the newest of each group");
+            cleanupBtn.Click += async (s, e) => await CleanupDuplicateEstimatesAsync();
+            Grid.SetColumn(cleanupBtn, 1);
+            toolbar.Children.Add(cleanupBtn);
+
             _estimatesCountText = new TextBlock
             {
                 Text = "0 estimates",
@@ -477,7 +499,7 @@ namespace McStudDesktop.Views
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 4, 0)
             };
-            Grid.SetColumn(_estimatesCountText, 1);
+            Grid.SetColumn(_estimatesCountText, 2);
             toolbar.Children.Add(_estimatesCountText);
 
             Grid.SetRow(toolbar, 0);
@@ -537,6 +559,7 @@ namespace McStudDesktop.Views
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) });      // customer
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) });      // insurance
             g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });                         // total
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(84) });                          // actions
         }
 
         /// <summary>
@@ -570,6 +593,26 @@ namespace McStudDesktop.Views
                     Contains(e.RONumber, q) ||
                     Contains(e.VIN, q));
             }
+
+            // Apply sort
+            filtered = _estimatesSortColumn switch
+            {
+                1 => _estimatesSortDescending
+                    ? filtered.OrderByDescending(e => e.VehicleInfo ?? "", StringComparer.OrdinalIgnoreCase)
+                    : filtered.OrderBy(e => e.VehicleInfo ?? "", StringComparer.OrdinalIgnoreCase),
+                2 => _estimatesSortDescending
+                    ? filtered.OrderByDescending(e => e.CustomerName ?? "", StringComparer.OrdinalIgnoreCase)
+                    : filtered.OrderBy(e => e.CustomerName ?? "", StringComparer.OrdinalIgnoreCase),
+                3 => _estimatesSortDescending
+                    ? filtered.OrderByDescending(e => e.InsuranceCompany ?? "", StringComparer.OrdinalIgnoreCase)
+                    : filtered.OrderBy(e => e.InsuranceCompany ?? "", StringComparer.OrdinalIgnoreCase),
+                4 => _estimatesSortDescending
+                    ? filtered.OrderByDescending(e => e.GrandTotal)
+                    : filtered.OrderBy(e => e.GrandTotal),
+                _ => _estimatesSortDescending
+                    ? filtered.OrderByDescending(e => e.ImportedDate)
+                    : filtered.OrderBy(e => e.ImportedDate)
+            };
 
             var list = filtered.ToList();
             _estimatesListPanel.Children.Clear();
@@ -616,22 +659,57 @@ namespace McStudDesktop.Views
 
             void AddHeader(string text, int col, HorizontalAlignment align = HorizontalAlignment.Left)
             {
+                var showArrow = _estimatesSortColumn == col;
+                var arrow = showArrow ? (_estimatesSortDescending ? " \u2193" : " \u2191") : "";
                 var t = new TextBlock
                 {
-                    Text = text,
+                    Text = text + arrow,
                     FontSize = 11,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Foreground = TextMutedBrush,
+                    Foreground = showArrow ? new SolidColorBrush(AccentBlue) : TextMutedBrush,
                     HorizontalAlignment = align
                 };
-                Grid.SetColumn(t, col);
-                header.Children.Add(t);
+                // Make the cell itself the click target so the hitbox is larger than the text.
+                var cellBorder = new Border
+                {
+                    Background = TransparentBrush,
+                    Padding = new Thickness(0),
+                    Child = t
+                };
+                cellBorder.PointerEntered += (s, e) => cellBorder.Background = CardHoverBrush;
+                cellBorder.PointerExited += (s, e) => cellBorder.Background = TransparentBrush;
+                cellBorder.Tapped += (s, e) =>
+                {
+                    if (_estimatesSortColumn == col)
+                        _estimatesSortDescending = !_estimatesSortDescending;
+                    else
+                    {
+                        _estimatesSortColumn = col;
+                        _estimatesSortDescending = true; // new column defaults to desc
+                    }
+                    RenderEstimatesList();
+                };
+                Grid.SetColumn(cellBorder, col);
+                header.Children.Add(cellBorder);
             }
             AddHeader("DATE", 0);
             AddHeader("VEHICLE", 1);
             AddHeader("CUSTOMER", 2);
             AddHeader("INSURANCE", 3);
             AddHeader("TOTAL", 4, HorizontalAlignment.Right);
+
+            // Actions column header (no sort)
+            var actionsLabel = new TextBlock
+            {
+                Text = "",
+                FontSize = 11,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = TextMutedBrush,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            Grid.SetColumn(actionsLabel, 5);
+            header.Children.Add(actionsLabel);
+
             return header;
         }
 
@@ -663,10 +741,72 @@ namespace McStudDesktop.Views
             }
 
             Cell(est.ImportedDate.ToString("M/d/yy"), 0, TextSecondaryBrush);
-            Cell(est.VehicleInfo, 1, TextPrimaryBrush);
+            var vehicleLabel = est.VehicleInfo ?? "";
+            if (est.Version > 1) vehicleLabel = $"{vehicleLabel} (v{est.Version})".TrimStart();
+            Cell(vehicleLabel, 1, TextPrimaryBrush);
             Cell(est.CustomerName, 2, TextPrimaryBrush);
             Cell(est.InsuranceCompany, 3, TextSecondaryBrush);
             Cell(est.GrandTotal > 0 ? $"${est.GrandTotal:N0}" : "—", 4, AccentGreenBrush, HorizontalAlignment.Right);
+
+            // Actions cell: [Open PDF] [Delete]
+            var actionsPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            // Open PDF button — shown only when we have a path on disk
+            bool hasPdfPath = !string.IsNullOrEmpty(est.SourcePdfPath) && System.IO.File.Exists(est.SourcePdfPath);
+            var openBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE8A7", FontSize = 13 }, // "OpenFile"
+                Background = TransparentBrush,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(6, 4, 6, 4),
+                MinWidth = 0,
+                MinHeight = 0,
+                IsEnabled = hasPdfPath,
+                Opacity = hasPdfPath ? 1.0 : 0.35
+            };
+            ToolTipService.SetToolTip(openBtn, hasPdfPath ? "Open original PDF" : "Original PDF not found");
+            openBtn.Click += (s, e) =>
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = est.SourcePdfPath,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Learned] Failed to open PDF: {ex.Message}");
+                }
+            };
+            // Don't bubble row tap when clicking buttons
+            openBtn.AddHandler(UIElement.TappedEvent, new TappedEventHandler((s, e) => e.Handled = true), true);
+            actionsPanel.Children.Add(openBtn);
+
+            // Delete button
+            var deleteBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE74D", FontSize = 13, Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 100, 100)) }, // "Delete"
+                Background = TransparentBrush,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(6, 4, 6, 4),
+                MinWidth = 0,
+                MinHeight = 0
+            };
+            ToolTipService.SetToolTip(deleteBtn, "Delete this estimate");
+            deleteBtn.Click += async (s, e) => await ConfirmDeleteEstimateAsync(est);
+            deleteBtn.AddHandler(UIElement.TappedEvent, new TappedEventHandler((s, e) => e.Handled = true), true);
+            actionsPanel.Children.Add(deleteBtn);
+
+            Grid.SetColumn(actionsPanel, 5);
+            grid.Children.Add(actionsPanel);
 
             border.Child = grid;
 
@@ -676,6 +816,78 @@ namespace McStudDesktop.Views
             border.Tapped += (s, e) => ShowEstimateDetails(est, border);
 
             return border;
+        }
+
+        private async System.Threading.Tasks.Task CleanupDuplicateEstimatesAsync()
+        {
+            var db = EstimateHistoryDatabase.Instance;
+            var dupIds = db.FindDuplicateIds();
+
+            if (dupIds.Count == 0)
+            {
+                var none = new ContentDialog
+                {
+                    Title = "No duplicates found",
+                    Content = "Nothing to clean up — every saved estimate has a unique signature (file + total + VIN).",
+                    CloseButtonText = "OK",
+                    XamlRoot = this.XamlRoot
+                };
+                await none.ShowAsync();
+                return;
+            }
+
+            var confirm = new ContentDialog
+            {
+                Title = $"Remove {dupIds.Count} duplicate estimate{(dupIds.Count == 1 ? "" : "s")}?",
+                Content = $"Found {dupIds.Count} duplicate import{(dupIds.Count == 1 ? "" : "s")} " +
+                          "(same file + grand total + VIN). The most recent version of each will be kept. " +
+                          "This also removes the duplicate rows' operations from the learned index. " +
+                          "This cannot be undone.",
+                PrimaryButtonText = "Clean Up",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            var result = await confirm.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            int removed = db.DeleteDuplicates();
+            ReloadAndRenderEstimates();
+            RefreshStatsValues();
+
+            var done = new ContentDialog
+            {
+                Title = "Cleanup complete",
+                Content = $"Removed {removed} duplicate estimate{(removed == 1 ? "" : "s")}.",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await done.ShowAsync();
+        }
+
+        private async System.Threading.Tasks.Task ConfirmDeleteEstimateAsync(StoredEstimate est)
+        {
+            var label = !string.IsNullOrEmpty(est.VehicleInfo)
+                ? est.VehicleInfo
+                : (!string.IsNullOrEmpty(est.CustomerName) ? est.CustomerName : est.SourceFile);
+            var dlg = new ContentDialog
+            {
+                Title = "Delete estimate?",
+                Content = $"Remove \"{label}\" from your learned estimates?\n\nThis also removes its operations from the learned operations index. This cannot be undone.",
+                PrimaryButtonText = "Delete",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.XamlRoot
+            };
+            var result = await dlg.ShowAsync();
+            if (result != ContentDialogResult.Primary) return;
+
+            var ok = EstimateHistoryDatabase.Instance.DeleteEstimate(est.Id);
+            if (ok)
+            {
+                ReloadAndRenderEstimates();
+                RefreshStatsValues();
+            }
         }
 
         private void ShowEstimateDetails(StoredEstimate est, FrameworkElement anchor)
@@ -701,6 +913,7 @@ namespace McStudDesktop.Views
 
             // Title
             var titleText = string.IsNullOrEmpty(est.VehicleInfo) ? "(Unknown vehicle)" : est.VehicleInfo;
+            if (est.Version > 1) titleText = $"{titleText}  v{est.Version}";
             stack.Children.Add(new TextBlock
             {
                 Text = titleText,

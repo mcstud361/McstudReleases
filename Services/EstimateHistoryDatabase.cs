@@ -29,6 +29,8 @@ public class EstimateHistoryDatabase
 
     public bool IsLoaded => _isLoaded;
     public int EstimateCount => _data.Estimates.Count;
+    /// <summary>All imported estimates, newest-first ordering is not guaranteed — sort at call site.</summary>
+    public IReadOnlyList<StoredEstimate> AllEstimates => _data.Estimates;
     public List<string> KnownInsurers => _data.Estimates
         .Select(e => e.InsuranceCompany)
         .Where(i => !string.IsNullOrWhiteSpace(i))
@@ -154,17 +156,34 @@ public class EstimateHistoryDatabase
     #region Add/Import Estimates
 
     /// <summary>
-    /// Add a parsed estimate to the history database
+    /// Add a parsed estimate to the history database.
+    /// If previousVersion is provided, the new estimate inherits its EstimateGroupId and
+    /// its Version is incremented — useful for supplements / revised imports.
     /// </summary>
-    public string AddEstimate(ParsedEstimate parsed, string? insuranceCompany = null, string? roNumber = null)
+    public string AddEstimate(ParsedEstimate parsed, string? insuranceCompany = null, string? roNumber = null, StoredEstimate? previousVersion = null)
     {
+        var newId = Guid.NewGuid().ToString();
+        var groupId = previousVersion?.EstimateGroupId;
+        if (string.IsNullOrEmpty(groupId)) groupId = previousVersion?.Id ?? newId;
+        var version = previousVersion == null
+            ? 1
+            : _data.Estimates
+                .Where(e => e.EstimateGroupId == groupId || e.Id == groupId)
+                .Select(e => e.Version)
+                .DefaultIfEmpty(1)
+                .Max() + 1;
+
         var estimate = new StoredEstimate
         {
-            Id = Guid.NewGuid().ToString(),
+            Id = newId,
             ImportedDate = DateTime.Now,
             SourceFile = parsed.SourceFile,
+            SourcePdfPath = parsed.SourcePdfPath,
             EstimateSource = parsed.Source, // CCC, Mitchell, Audatex
+            EstimateGroupId = groupId,
+            Version = version,
             InsuranceCompany = insuranceCompany ?? ExtractInsuranceCompany(parsed.RawText),
+            ShopName = ExtractShopName(parsed.RawText),
             RONumber = roNumber ?? ExtractRONumber(parsed.RawText),
             ClaimNumber = ExtractClaimNumber(parsed.RawText),
             VehicleInfo = parsed.VehicleInfo,
@@ -294,6 +313,90 @@ public class EstimateHistoryDatabase
         }
 
         return "Unknown";
+    }
+
+    /// <summary>
+    /// Extract the body shop name from the raw estimate text.
+    /// Scans the header area (first ~25 lines) for a line containing common
+    /// body-shop keywords (COLLISION, AUTO BODY, BODY SHOP, AUTO REPAIR, etc.).
+    /// Returns an empty string if none can be confidently identified.
+    /// </summary>
+    private string ExtractShopName(string rawText)
+    {
+        if (string.IsNullOrWhiteSpace(rawText))
+            return "";
+
+        var lines = rawText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var headerLines = lines.Take(30).Select(l => l.Trim()).ToList();
+
+        // Keywords that identify a shop-name line
+        var shopKeywords = new[]
+        {
+            "COLLISION", "AUTO BODY", "BODY SHOP", "AUTO REPAIR", "COLLISION CENTER",
+            "COLLISION REPAIR", "BODY WORKS", "AUTOBODY", "CAR CARE", "COACHWORKS",
+            "PAINT & BODY", "PAINT AND BODY"
+        };
+
+        // Exclusion patterns — these are labels/boilerplate, not shop names
+        var excludeSubstrings = new[]
+        {
+            "CUSTOMER:", "INSURED:", "INSURANCE", "CLAIM", "POLICY", "VIN", "VEHICLE",
+            "ESTIMATE", "APPRAISER", "ADJUSTER", "WORKFILE", "DATE OF", "LOSS TYPE",
+            "DEDUCTIBLE", "INSPECTION", "POINT OF IMPACT", "RATE", "TOTAL", "SUBTOTAL"
+        };
+
+        foreach (var line in headerLines)
+        {
+            if (line.Length < 4 || line.Length > 80) continue;
+
+            var upper = line.ToUpperInvariant();
+
+            // Skip label/header boilerplate
+            if (excludeSubstrings.Any(ex => upper.Contains(ex)))
+                continue;
+
+            // Skip lines that are just addresses/phones
+            if (System.Text.RegularExpressions.Regex.IsMatch(line, @"^\s*\d+\s"))  // starts with a street number
+                continue;
+            if (System.Text.RegularExpressions.Regex.IsMatch(line, @"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b"))  // phone
+                continue;
+
+            // Match against shop keywords
+            if (shopKeywords.Any(kw => upper.Contains(kw)))
+            {
+                // Clean up trailing punctuation / pipes / extra whitespace
+                var cleaned = System.Text.RegularExpressions.Regex
+                    .Replace(line, @"\s+", " ")
+                    .Trim(' ', '-', '|', ',', '.', '*');
+                if (cleaned.Length >= 4 && cleaned.Length <= 80)
+                    return TitleCaseShopName(cleaned);
+            }
+        }
+
+        return "";
+    }
+
+    private static string TitleCaseShopName(string s)
+    {
+        // If the source was already mixed-case, leave it; if it's all-caps or all-lower,
+        // apply a simple title case so "ULTIMATE COLLISION CENTER" renders as "Ultimate Collision Center".
+        var hasLower = s.Any(char.IsLower);
+        var hasUpper = s.Any(char.IsUpper);
+        if (hasLower && hasUpper) return s;
+
+        var words = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < words.Length; i++)
+        {
+            var w = words[i];
+            if (w.Length == 1) { words[i] = w.ToUpperInvariant(); continue; }
+            // Keep short acronyms (&, OEM) as-is
+            if (w.Length <= 3 && w.All(c => !char.IsLetter(c) || char.IsUpper(c)))
+            {
+                continue;
+            }
+            words[i] = char.ToUpperInvariant(w[0]) + w.Substring(1).ToLowerInvariant();
+        }
+        return string.Join(' ', words);
     }
 
     /// <summary>
@@ -1101,6 +1204,52 @@ public class EstimateHistoryDatabase
         return _data.Estimates.FirstOrDefault(e => e.Id == id);
     }
 
+    /// <summary>
+    /// Find likely-duplicate estimates (same SourceFile + GrandTotal + VIN) for the
+    /// current user. Returns the IDs of all estimates that would be removed if duplicates
+    /// were cleaned up, keeping only the most recently-imported row in each group.
+    /// </summary>
+    public List<string> FindDuplicateIds()
+    {
+        var userId = GetCurrentUserId();
+        var mine = _data.Estimates
+            .Where(e => string.IsNullOrEmpty(e.OwnedBy) || e.OwnedBy == userId)
+            .ToList();
+
+        var toRemove = new List<string>();
+        var groups = mine.GroupBy(e =>
+            $"{(e.SourceFile ?? string.Empty).Trim().ToLowerInvariant()}|" +
+            $"{e.GrandTotal:F2}|" +
+            $"{(e.VIN ?? string.Empty).Trim().ToUpperInvariant()}");
+
+        foreach (var g in groups)
+        {
+            var list = g.ToList();
+            if (list.Count < 2) continue;
+            var keep = list.OrderByDescending(e => e.ImportedDate).First();
+            foreach (var dup in list.Where(e => e.Id != keep.Id))
+                toRemove.Add(dup.Id);
+        }
+        return toRemove;
+    }
+
+    /// <summary>
+    /// Delete all duplicate estimates for the current user, keeping the newest
+    /// of each duplicate group. Returns the number of estimates removed.
+    /// </summary>
+    public int DeleteDuplicates()
+    {
+        var ids = FindDuplicateIds();
+        if (ids.Count == 0) return 0;
+
+        var idSet = new HashSet<string>(ids);
+        int before = _data.Estimates.Count;
+        _data.Estimates.RemoveAll(e => idSet.Contains(e.Id));
+        int removed = before - _data.Estimates.Count;
+        if (removed > 0) SaveDatabase();
+        return removed;
+    }
+
     #endregion
 }
 
@@ -1119,8 +1268,10 @@ public class StoredEstimate
     public string Id { get; set; } = "";
     public DateTime ImportedDate { get; set; }
     public string SourceFile { get; set; } = "";
+    public string SourcePdfPath { get; set; } = ""; // Full path to original PDF for reopen
     public string EstimateSource { get; set; } = ""; // CCC, Mitchell, Audatex
     public string InsuranceCompany { get; set; } = "";
+    public string ShopName { get; set; } = ""; // Body shop name (e.g. "Ultimate Collision"). Empty for pre-extraction records.
     public string RONumber { get; set; } = "";
     public string ClaimNumber { get; set; } = "";
     public string VehicleInfo { get; set; } = "";
@@ -1151,6 +1302,11 @@ public class StoredEstimate
     public decimal MechanicalHourlyRate { get; set; }
     public decimal FrameHourlyRate { get; set; }
     public string OwnedBy { get; set; } = "";  // user ID for per-user filtering
+
+    // Versioning — all imports of the "same" claim share an EstimateGroupId.
+    // Version 1 is the initial import; subsequent versions are supplements/updates.
+    public string EstimateGroupId { get; set; } = "";
+    public int Version { get; set; } = 1;
 }
 
 public class StoredLineItem

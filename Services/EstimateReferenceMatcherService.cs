@@ -361,16 +361,31 @@ public sealed class EstimateReferenceMatcherService
                 var id = $"deg-{deg.Id}";
                 if (items.Any(i => i.Id == id)) continue;
 
+                // Format the title based on whether inquiryNumber is a real DEG number
+                // (numeric) vs a GTE / P-Page / MOTOR reference label.
+                var inqNum = deg.InquiryNumber ?? "";
+                var isRealDegNumber = inqNum.Any(char.IsDigit) &&
+                                      !inqNum.Contains("GTE", StringComparison.OrdinalIgnoreCase) &&
+                                      !inqNum.Contains("P-Page", StringComparison.OrdinalIgnoreCase) &&
+                                      !inqNum.Contains("MOTOR", StringComparison.OrdinalIgnoreCase) &&
+                                      !inqNum.Contains("CEG", StringComparison.OrdinalIgnoreCase) &&
+                                      !inqNum.Contains("Multiple", StringComparison.OrdinalIgnoreCase) &&
+                                      !inqNum.Contains("NAGS", StringComparison.OrdinalIgnoreCase);
+                var termText = isRealDegNumber
+                    ? $"DEG #{inqNum}: {deg.Title}"
+                    : (string.IsNullOrWhiteSpace(inqNum) ? deg.Title : $"{deg.Title} ({inqNum})");
+                var statusText = isRealDegNumber ? "DEG Inquiry" : "P-Page / GTE Reference";
+
                 items.Add(new PdfQueueItem
                 {
                     Id = id,
-                    Term = $"DEG #{deg.InquiryNumber}: {deg.Title}",
-                    Category = deg.Category ?? "DEG Inquiry",
+                    Term = termText,
+                    Category = deg.Category ?? (isRealDegNumber ? "DEG Inquiry" : "P-Page / GTE Reference"),
                     Definition = deg.Response ?? "",
                     Details = deg.KeyPoints != null ? string.Join("\n", deg.KeyPoints.Select(k => $"- {k}")) : null,
                     DegInquiry = deg.InquiryNumber,
                     PPageRef = deg.PPageRef,
-                    Status = "DEG Inquiry"
+                    Status = statusText
                 });
 
                 result.MatchedTerms.Add(deg.Title ?? term);
