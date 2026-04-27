@@ -41,6 +41,15 @@ public sealed class EstimateReferenceMatcherService
         "w/", "w/o", "with", "without", "the", "and", "for", "from", "into"
     };
 
+    // Single-word generic operational terms that must NOT trigger Level 2 reverse matching.
+    // These appear in virtually every estimate (repair, replace, remove, install) and would
+    // cause unrelated references to match any estimate line. More specific terms like "scan",
+    // "weld", "seal" are left out — they're specific enough to be valid single-word signals.
+    private static readonly HashSet<string> OperationalMatchWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "repair", "replace", "remove", "install", "paint", "clean", "test", "check"
+    };
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -176,27 +185,32 @@ public sealed class EstimateReferenceMatcherService
         {
             if (IsStopWordOnly(term)) continue;
 
-            // 1. IncludedNotIncluded — best for part names
+            // 1. IncludedNotIncluded — primary anchor: matches specific part+operation combos
+            //    and collects the P-Page cross-refs that are valid for this operation type.
             MatchIncludedNotIncluded(term, itemsToAdd, crossRefPPages, result);
 
-            // 2. Definitions
+            // 2. Definitions — specific multi-word technical terms (adhesion promoter, blend, etc.)
             MatchDefinitions(term, itemsToAdd, crossRefPPages, result);
 
-            // 3. P-Pages
-            MatchPPages(term, itemsToAdd, result);
-
-            // 4. DEG Inquiries
+            // 3. DEG Inquiries — specific inquiry topics
             MatchDEGInquiries(term, itemsToAdd, crossRefPPages, result);
 
-            // 5. Procedures
+            // 4. Procedures — specific shop procedure names
             MatchProcedures(term, itemsToAdd, crossRefPPages, result);
+
+            // NOTE: P-Pages are intentionally NOT directly matched here.
+            // P-Pages are reference chapters (G4, G5, G33, etc.) that apply to specific
+            // operations — not to loose keyword matches. They are added exclusively via
+            // cross-references earned by IncludedNotIncluded / Definition / DEG matches above.
+            // This prevents G9 (Diagnostics), G10 (Structural), G20 (Wiring) etc. from
+            // appearing on every estimate just because a tag loosely overlaps.
         }
 
         // Track sources for items added so far (before cross-refs)
         foreach (var item in itemsToAdd)
             sourceMap[item.Id] = InferMatchSource(item.Id);
 
-        // 6. Cross-references: add P-Pages referenced by other matches
+        // 5. Cross-references: resolve the P-Pages that were earned by matched operations
         var preCount = itemsToAdd.Count;
         ResolveCrossReferences(crossRefPPages, itemsToAdd, result);
 
@@ -482,11 +496,16 @@ public sealed class EstimateReferenceMatcherService
         if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(searchTerm))
             return false;
 
-        // Exact contains match (case-insensitive)
+        // Level 1: Exact substring — reference text contains the full search term
         if (text.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        if (searchTerm.Contains(text, StringComparison.OrdinalIgnoreCase))
+        // Level 2: Reverse match — search term contains the reference text.
+        // Blocked for single-word generic operational words (e.g. "repair", "weld", "replace")
+        // because they appear in too many unrelated part names and would cause false positives
+        // (e.g. G20 Wiring Repair must not match "Bumper Repair" just because of the tag "repair").
+        bool isSingleWordOperational = !text.Contains(' ') && OperationalMatchWords.Contains(text);
+        if (!isSingleWordOperational && searchTerm.Contains(text, StringComparison.OrdinalIgnoreCase))
             return true;
 
         // Word-level matching: if 2+ significant words from the search term appear in the text

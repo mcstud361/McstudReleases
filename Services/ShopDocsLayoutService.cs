@@ -82,6 +82,14 @@ public class ShopDocsLayoutService
                         needsSave = true;
                     }
 
+                    // Hide Price Catalogs widget (merged into Invoices tab)
+                    var priceCatWidget = config.Widgets.FirstOrDefault(w => w.Id == "price-catalogs");
+                    if (priceCatWidget != null && priceCatWidget.IsVisible)
+                    {
+                        priceCatWidget.IsVisible = false;
+                        needsSave = true;
+                    }
+
                     // Add Parts Request if missing (migration for existing users)
                     if (!config.Widgets.Any(w => w.Id == "parts-request"))
                     {
@@ -210,7 +218,7 @@ public class ShopDocsLayoutService
                     Description = "Supplier price sheets for auto-fill",
                     WidgetType = WidgetType.PriceCatalogs,
                     IsBuiltIn = true,
-                    IsVisible = true,
+                    IsVisible = false, // Merged into Invoices tab
                     Order = 5
                 },
                 new WidgetEntry

@@ -51,6 +51,12 @@ public class ChatbotView : UserControl
     private Border? _screenMonitorTabButton;
     private int _selectedTab = 0;
     private Button? _subtabHelpButton;
+
+    // Public accessors for tour spotlight targeting
+    public Border? ChatSubTabButton => _chatTabButton;
+    public Border? LearnedSubTabButton => _estimateBuilderTabButton;
+    public Border? GhostSubTabButton => _ghostTabButton;
+    public Border? ScreenOcrSubTabButton => _screenMonitorTabButton;
     private Border? _chatHeaderBorder;
 
     // Track operations mentioned in conversation for context
@@ -905,7 +911,7 @@ public class ChatbotView : UserControl
         return resultBorder;
     }
 
-    private void SelectTab(int index)
+    public void SelectTab(int index)
     {
         _selectedTab = index;
 

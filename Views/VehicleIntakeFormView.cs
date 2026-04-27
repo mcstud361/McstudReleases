@@ -17,8 +17,6 @@ public class VehicleIntakeFormView : UserControl
     private static readonly Windows.UI.Color AccentGreen = Windows.UI.Color.FromArgb(255, 0, 180, 80);
 
     private TemplateFormBuilder? _formBuilder;
-    private Button? _exportButton;
-    private Button? _clearButton;
     private InfoBar? _infoBar;
 
     public VehicleIntakeFormView()
@@ -40,10 +38,11 @@ public class VehicleIntakeFormView : UserControl
 
         // Template form builder
         _formBuilder = new TemplateFormBuilder(ShopDocType.VehicleIntakeForm);
+        _formBuilder.ExportRequested += OnExportRequested;
         Grid.SetRow(_formBuilder, 0);
         mainGrid.Children.Add(_formBuilder);
 
-        // Footer with action buttons
+        // Footer — status label only (action buttons are in TemplateFormBuilder header)
         var footer = new Border
         {
             Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 40, 40, 40)),
@@ -52,12 +51,6 @@ public class VehicleIntakeFormView : UserControl
             BorderThickness = new Thickness(0, 1, 0, 0)
         };
 
-        var footerContent = new Grid();
-        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        // Status text
         var statusText = new TextBlock
         {
             Text = "Vehicle Check-In Report",
@@ -65,42 +58,8 @@ public class VehicleIntakeFormView : UserControl
             Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
             VerticalAlignment = VerticalAlignment.Center
         };
-        Grid.SetColumn(statusText, 0);
-        footerContent.Children.Add(statusText);
 
-        // Clear button
-        _clearButton = new Button
-        {
-            Content = "Clear Form",
-            Padding = new Thickness(16, 10, 16, 10),
-            Margin = new Thickness(0, 0, 12, 0)
-        };
-        _clearButton.Click += (s, e) => _formBuilder?.ClearForm();
-        Grid.SetColumn(_clearButton, 1);
-        footerContent.Children.Add(_clearButton);
-
-        // Export button
-        _exportButton = new Button
-        {
-            Content = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Children =
-                {
-                    new FontIcon { Glyph = "\uE749", FontSize = 16 },
-                    new TextBlock { Text = "Export to PDF", VerticalAlignment = VerticalAlignment.Center }
-                }
-            },
-            Padding = new Thickness(20, 10, 20, 10),
-            Background = new SolidColorBrush(AccentGreen),
-            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White)
-        };
-        _exportButton.Click += OnExportClick;
-        Grid.SetColumn(_exportButton, 2);
-        footerContent.Children.Add(_exportButton);
-
-        footer.Child = footerContent;
+        footer.Child = statusText;
         Grid.SetRow(footer, 1);
         mainGrid.Children.Add(footer);
 
@@ -117,7 +76,7 @@ public class VehicleIntakeFormView : UserControl
         Content = mainGrid;
     }
 
-    private void OnExportClick(object sender, RoutedEventArgs e)
+    private void OnExportRequested(object? sender, Dictionary<string, object> data)
     {
         if (_formBuilder?.CurrentTemplate == null)
         {
@@ -127,7 +86,6 @@ public class VehicleIntakeFormView : UserControl
 
         try
         {
-            var data = _formBuilder.GetAllData();
             var template = _formBuilder.CurrentTemplate;
             var pdfPath = GeneratePdf(data, template);
 

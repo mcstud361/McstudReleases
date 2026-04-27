@@ -64,7 +64,7 @@ public class TemplateFormBuilder : UserControl
     private Button? _saveButton;
     private Button? _deleteButton;
     private Button? _copyButton;
-    private Button? _clearButton;
+    // Clear Form is accessed via ClearForm() method — no separate button
     private Button? _exportPdfButton;
     private StackPanel? _formContent;
     private Border? _editModeIndicator;
@@ -83,6 +83,8 @@ public class TemplateFormBuilder : UserControl
     // Events
     public event EventHandler<ShopDocTemplate>? TemplateChanged;
     public event EventHandler<Dictionary<string, object>>? ExportRequested;
+    /// <summary>Fires whenever a charge checkbox, amount, or quantity changes so the host can update live totals.</summary>
+    public event EventHandler? ChargeTotalsChanged;
 
     public TemplateFormBuilder(ShopDocType docType)
     {
@@ -170,10 +172,15 @@ public class TemplateFormBuilder : UserControl
 
         headerStack.Children.Add(tabRow);
 
-        // Template selection row
+        // Template selection row — uses same Grid-per-button layout as Checklist
         var selectorRow = new Grid();
-        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Dropdown
+        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Duplicate
+        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Edit
+        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Save
+        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Delete
+        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Copy
+        selectorRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Export
 
         // Template dropdown
         _templateSelector = new ComboBox
@@ -186,120 +193,56 @@ public class TemplateFormBuilder : UserControl
         Grid.SetColumn(_templateSelector, 0);
         selectorRow.Children.Add(_templateSelector);
 
-        // Action buttons
-        var buttonsStack = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            VerticalAlignment = VerticalAlignment.Bottom
-        };
-
-        var makeCopyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        makeCopyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 14 });
-        makeCopyContent.Children.Add(new TextBlock { Text = "Make a Copy", VerticalAlignment = VerticalAlignment.Center });
-
-        _makeCopyButton = new Button
-        {
-            Content = makeCopyContent,
-            Padding = new Thickness(12, 8, 12, 8),
-            IsEnabled = false
-        };
+        // Duplicate button (amber) — matches Checklist "Duplicate"
+        _makeCopyButton = CreateStyledButton("Duplicate", "\uE8C5", Color.FromArgb(255, 150, 100, 0));
+        _makeCopyButton.IsEnabled = false;
+        _makeCopyButton.Margin = new Thickness(8, 0, 0, 0);
         _makeCopyButton.Click += OnMakeCopyClick;
-        buttonsStack.Children.Add(_makeCopyButton);
+        Grid.SetColumn(_makeCopyButton, 1);
+        selectorRow.Children.Add(_makeCopyButton);
 
-        var editContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        editContent.Children.Add(new FontIcon { Glyph = "\uE70F", FontSize = 14 });
-        editContent.Children.Add(new TextBlock { Text = "Edit Template", VerticalAlignment = VerticalAlignment.Center });
-
-        _editButton = new Button
-        {
-            Content = editContent,
-            Padding = new Thickness(12, 8, 12, 8),
-            IsEnabled = false,
-            Visibility = Visibility.Collapsed
-        };
+        // Edit button (purple) — matches Checklist "Edit"
+        _editButton = CreateStyledButton("Edit", "\uE70F", Color.FromArgb(255, 100, 100, 180));
+        _editButton.IsEnabled = false;
+        _editButton.Visibility = Visibility.Collapsed;
+        _editButton.Margin = new Thickness(8, 0, 0, 0);
         _editButton.Click += OnEditClick;
-        buttonsStack.Children.Add(_editButton);
+        Grid.SetColumn(_editButton, 2);
+        selectorRow.Children.Add(_editButton);
 
-        var saveContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        saveContent.Children.Add(new FontIcon { Glyph = "\uE74E", FontSize = 14 });
-        saveContent.Children.Add(new TextBlock { Text = "Save Changes", VerticalAlignment = VerticalAlignment.Center });
-
-        _saveButton = new Button
-        {
-            Content = saveContent,
-            Padding = new Thickness(12, 8, 12, 8),
-            Background = new SolidColorBrush(AccentGreen),
-            Foreground = new SolidColorBrush(Colors.White),
-            Visibility = Visibility.Collapsed
-        };
+        // Save button (green, edit-mode only)
+        _saveButton = CreateStyledButton("Save", "\uE74E", AccentGreen);
+        _saveButton.Visibility = Visibility.Collapsed;
+        _saveButton.Margin = new Thickness(8, 0, 0, 0);
         _saveButton.Click += OnSaveClick;
-        buttonsStack.Children.Add(_saveButton);
+        Grid.SetColumn(_saveButton, 3);
+        selectorRow.Children.Add(_saveButton);
 
-        var deleteContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        deleteContent.Children.Add(new FontIcon { Glyph = "\uE74D", FontSize = 14 });
-        deleteContent.Children.Add(new TextBlock { Text = "Delete", VerticalAlignment = VerticalAlignment.Center });
-
-        _deleteButton = new Button
-        {
-            Content = deleteContent,
-            Padding = new Thickness(12, 8, 12, 8),
-            Background = new SolidColorBrush(Color.FromArgb(255, 200, 50, 50)),
-            Foreground = new SolidColorBrush(Colors.White),
-            Visibility = Visibility.Collapsed
-        };
+        // Delete button (red, edit-mode only)
+        _deleteButton = CreateStyledButton("Delete", "\uE74D", Color.FromArgb(255, 200, 50, 50));
+        _deleteButton.Visibility = Visibility.Collapsed;
+        _deleteButton.Margin = new Thickness(8, 0, 0, 0);
         _deleteButton.Click += OnDeleteClick;
-        buttonsStack.Children.Add(_deleteButton);
+        Grid.SetColumn(_deleteButton, 4);
+        selectorRow.Children.Add(_deleteButton);
 
-        // Separator
-        buttonsStack.Children.Add(new Border { Width = 1, Background = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)), Margin = new Thickness(4, 2, 4, 2) });
-
-        // Copy to Clipboard button
-        var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 14, Foreground = new SolidColorBrush(Colors.White) });
-        copyContent.Children.Add(new TextBlock { Text = "Copy", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
-
-        _copyButton = new Button
-        {
-            Content = copyContent,
-            Padding = new Thickness(12, 8, 12, 8),
-            Background = new SolidColorBrush(AccentBlue),
-            IsEnabled = false
-        };
+        // Copy button (blue) — matches Checklist "Copy"
+        _copyButton = CreateStyledButton("Copy", "\uE8C8", AccentBlue);
+        _copyButton.IsEnabled = false;
+        _copyButton.Margin = new Thickness(8, 0, 0, 0);
         _copyButton.Click += OnCopyToClipboardClick;
-        buttonsStack.Children.Add(_copyButton);
+        Grid.SetColumn(_copyButton, 5);
+        selectorRow.Children.Add(_copyButton);
 
-        // Clear Form button
-        var clearContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        clearContent.Children.Add(new FontIcon { Glyph = "\uE74D", FontSize = 14 });
-        clearContent.Children.Add(new TextBlock { Text = "Clear", VerticalAlignment = VerticalAlignment.Center });
-
-        _clearButton = new Button
-        {
-            Content = clearContent,
-            Padding = new Thickness(12, 8, 12, 8),
-            IsEnabled = false
-        };
-        _clearButton.Click += (s, e) => ClearForm();
-        buttonsStack.Children.Add(_clearButton);
-
-        // Export to PDF button
-        var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        exportContent.Children.Add(new FontIcon { Glyph = "\uE749", FontSize = 14, Foreground = new SolidColorBrush(Colors.White) });
-        exportContent.Children.Add(new TextBlock { Text = "Export to PDF", VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
-
-        _exportPdfButton = new Button
-        {
-            Content = exportContent,
-            Padding = new Thickness(12, 8, 12, 8),
-            Background = new SolidColorBrush(AccentGreen),
-            IsEnabled = false
-        };
+        // Export to PDF button (green) — matches Checklist "Export to PDF"
+        _exportPdfButton = CreateStyledButton("Export to PDF", "\uE749", AccentGreen);
+        _exportPdfButton.IsEnabled = false;
+        _exportPdfButton.Margin = new Thickness(8, 0, 0, 0);
         _exportPdfButton.Click += OnExportPdfClick;
-        buttonsStack.Children.Add(_exportPdfButton);
+        Grid.SetColumn(_exportPdfButton, 6);
+        selectorRow.Children.Add(_exportPdfButton);
 
-        Grid.SetColumn(buttonsStack, 1);
-        selectorRow.Children.Add(buttonsStack);
+        // Clear Form is handled via TemplateFormBuilder's ClearForm() — no separate button needed
 
         headerStack.Children.Add(selectorRow);
 
@@ -420,7 +363,7 @@ public class TemplateFormBuilder : UserControl
         _deleteButton!.Visibility = template.IsReadOnly ? Visibility.Collapsed : Visibility.Visible;
         _editModeIndicator!.Visibility = Visibility.Collapsed;
         if (_copyButton != null) _copyButton.IsEnabled = true;
-        if (_clearButton != null) _clearButton.IsEnabled = true;
+        // Clear Form available via ClearForm() method
         if (_exportPdfButton != null) _exportPdfButton.IsEnabled = true;
 
         // Render the form
@@ -465,22 +408,55 @@ public class TemplateFormBuilder : UserControl
         };
 
         var infoStack = new StackPanel { Spacing = 4 };
-        infoStack.Children.Add(new TextBlock
-        {
-            Text = _currentTemplate.Name,
-            FontSize = 18,
-            FontWeight = FontWeights.Bold,
-            Foreground = new SolidColorBrush(TextWhite)
-        });
 
-        if (!string.IsNullOrEmpty(_currentTemplate.Description))
+        if (_isEditMode)
+        {
+            // Editable template name
+            var nameBox = new TextBox
+            {
+                Text = _currentTemplate.Name,
+                PlaceholderText = "Template name...",
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+                Foreground = new SolidColorBrush(Colors.White),
+                BorderThickness = new Thickness(0)
+            };
+            nameBox.TextChanged += (s, e) => _currentTemplate.Name = nameBox.Text;
+            infoStack.Children.Add(nameBox);
+
+            // Editable description
+            var descBox = new TextBox
+            {
+                Text = _currentTemplate.Description ?? "",
+                PlaceholderText = "Description...",
+                FontSize = 12,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+                Foreground = new SolidColorBrush(TextGray),
+                BorderThickness = new Thickness(0)
+            };
+            descBox.TextChanged += (s, e) => _currentTemplate.Description = descBox.Text;
+            infoStack.Children.Add(descBox);
+        }
+        else
         {
             infoStack.Children.Add(new TextBlock
             {
-                Text = _currentTemplate.Description,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(TextGray)
+                Text = _currentTemplate.Name,
+                FontSize = 18,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(TextWhite)
             });
+
+            if (!string.IsNullOrEmpty(_currentTemplate.Description))
+            {
+                infoStack.Children.Add(new TextBlock
+                {
+                    Text = _currentTemplate.Description,
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(TextGray)
+                });
+            }
         }
 
         var badgeRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
@@ -548,6 +524,26 @@ public class TemplateFormBuilder : UserControl
                 _formContent.Children.Add(sectionUI);
                 i++;
             }
+        }
+
+        // "+ Add Section" button at the bottom in edit mode
+        if (_isEditMode)
+        {
+            var addSectionBtn = new Button
+            {
+                Padding = new Thickness(16, 10, 16, 10),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 8, 0, 0),
+                Background = new SolidColorBrush(Color.FromArgb(255, 0, 100, 180)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(6)
+            };
+            var addContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            addContent.Children.Add(new FontIcon { Glyph = "\uE710", FontSize = 12 });
+            addContent.Children.Add(new TextBlock { Text = "Add Section", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+            addSectionBtn.Content = addContent;
+            addSectionBtn.Click += async (s, e) => await AddSectionAsync();
+            _formContent.Children.Add(addSectionBtn);
         }
     }
 
@@ -642,6 +638,10 @@ public class TemplateFormBuilder : UserControl
             CornerRadius = new CornerRadius(6, 6, 0, 0)
         };
 
+        var headerGrid = new Grid();
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
         var headerContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
 
         if (!string.IsNullOrEmpty(section.Icon))
@@ -650,34 +650,80 @@ public class TemplateFormBuilder : UserControl
             {
                 Glyph = section.Icon,
                 FontSize = 16,
-                Foreground = new SolidColorBrush(AccentBlue)
+                Foreground = new SolidColorBrush(AccentBlue),
+                VerticalAlignment = VerticalAlignment.Center
             });
         }
 
-        headerContent.Children.Add(new TextBlock
+        if (_isEditMode)
         {
-            Text = section.Title,
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(TextWhite)
-        });
-
-        // Add field button in edit mode
-        if (_isEditMode && !section.IsChargeSection)
-        {
-            var addFieldBtn = new Button
+            // Editable section title (like checklist editor)
+            var titleBox = new TextBox
             {
-                Content = "+ Add Field",
-                FontSize = 11,
-                Padding = new Thickness(8, 4, 8, 4),
-                Margin = new Thickness(16, 0, 0, 0),
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60))
+                Text = section.Title,
+                PlaceholderText = "Section title...",
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+                Foreground = new SolidColorBrush(Colors.White),
+                BorderThickness = new Thickness(0),
+                MinWidth = 150,
+                VerticalAlignment = VerticalAlignment.Center
             };
-            addFieldBtn.Click += (s, e) => AddFieldToSection(section);
-            headerContent.Children.Add(addFieldBtn);
+            titleBox.TextChanged += (s, e) => section.Title = titleBox.Text;
+            headerContent.Children.Add(titleBox);
+        }
+        else
+        {
+            headerContent.Children.Add(new TextBlock
+            {
+                Text = section.Title,
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextWhite),
+                VerticalAlignment = VerticalAlignment.Center
+            });
         }
 
-        header.Child = headerContent;
+        Grid.SetColumn(headerContent, 0);
+        headerGrid.Children.Add(headerContent);
+
+        // Edit mode: action buttons (add field + delete section)
+        if (_isEditMode)
+        {
+            var editActions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+            if (!section.IsChargeSection)
+            {
+                var addFieldBtn = new Button
+                {
+                    Content = "+ Add Field",
+                    FontSize = 11,
+                    Padding = new Thickness(8, 4, 8, 4),
+                    Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+                    Foreground = new SolidColorBrush(Colors.White)
+                };
+                addFieldBtn.Click += (s, e) => AddFieldToSection(section);
+                editActions.Children.Add(addFieldBtn);
+            }
+
+            var removeSectionBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE74D", FontSize = 11 },
+                Padding = new Thickness(6, 4, 6, 4),
+                Background = new SolidColorBrush(Color.FromArgb(255, 150, 50, 50)),
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(removeSectionBtn, "Remove this section");
+            removeSectionBtn.Click += (s, e) => RemoveSection(section);
+            editActions.Children.Add(removeSectionBtn);
+
+            Grid.SetColumn(editActions, 1);
+            headerGrid.Children.Add(editActions);
+        }
+
+        header.Child = headerGrid;
         stack.Children.Add(header);
 
         // Section content
@@ -945,8 +991,8 @@ public class TemplateFormBuilder : UserControl
             IsChecked = state.Selected,
             VerticalAlignment = VerticalAlignment.Center
         };
-        checkbox.Checked += (s, e) => _chargeStates[item.Id].Selected = true;
-        checkbox.Unchecked += (s, e) => _chargeStates[item.Id].Selected = false;
+        checkbox.Checked += (s, e) => { _chargeStates[item.Id].Selected = true; NotifyChargeTotalsChanged(); };
+        checkbox.Unchecked += (s, e) => { _chargeStates[item.Id].Selected = false; NotifyChargeTotalsChanged(); };
         Grid.SetColumn(checkbox, 0);
         row.Children.Add(checkbox);
 
@@ -994,6 +1040,7 @@ public class TemplateFormBuilder : UserControl
             {
                 _chargeStates[item.Id].CostPrice = (decimal)costBox.Value;
                 if (_isEditMode) item.DefaultCostPrice = (decimal)costBox.Value;
+                NotifyChargeTotalsChanged();
             };
             Grid.SetColumn(costBox, costCol);
             row.Children.Add(costBox);
@@ -1011,6 +1058,7 @@ public class TemplateFormBuilder : UserControl
         {
             _chargeStates[item.Id].Amount = (decimal)amountBox.Value;
             if (_isEditMode) item.DefaultAmount = (decimal)amountBox.Value;
+            NotifyChargeTotalsChanged();
         };
         Grid.SetColumn(amountBox, amountCol);
         row.Children.Add(amountBox);
@@ -1048,6 +1096,7 @@ public class TemplateFormBuilder : UserControl
             qtyBox.ValueChanged += (s, e) =>
             {
                 _chargeStates[item.Id].Quantity = (decimal)qtyBox.Value;
+                NotifyChargeTotalsChanged();
             };
             Grid.SetColumn(qtyBox, qtyCol);
             row.Children.Add(qtyBox);
@@ -1244,6 +1293,49 @@ public class TemplateFormBuilder : UserControl
         }
     }
 
+    private void RemoveSection(TemplateSection section)
+    {
+        if (_currentTemplate == null) return;
+        _currentTemplate.Sections.Remove(section);
+        RenderForm();
+    }
+
+    private async System.Threading.Tasks.Task AddSectionAsync()
+    {
+        if (_currentTemplate == null) return;
+
+        var textBox = new TextBox
+        {
+            PlaceholderText = "Section title...",
+            Width = 300
+        };
+
+        var dialog = new ContentDialog
+        {
+            Title = "Add Section",
+            Content = textBox,
+            PrimaryButtonText = "Add",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.XamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(textBox.Text))
+        {
+            _currentTemplate.Sections.Add(new TemplateSection
+            {
+                Id = $"section_{DateTime.Now.Ticks}",
+                Title = textBox.Text.Trim(),
+                Icon = "",
+                Order = _currentTemplate.Sections.Count,
+                Fields = new List<TemplateField>(),
+                ChargeItems = new List<TemplateChargeItem>()
+            });
+            RenderForm();
+        }
+    }
+
     private void AddChargeItem(TemplateSection section)
     {
         var newItem = new TemplateChargeItem
@@ -1346,10 +1438,16 @@ public class TemplateFormBuilder : UserControl
 
         var data = GetAllData();
 
-        // Let wrapper views handle via event first
-        ExportRequested?.Invoke(this, data);
+        // Let wrapper views handle via event if subscribed
+        if (ExportRequested != null)
+        {
+            ExportRequested.Invoke(this, data);
+            if (sender is Button btn)
+                FlashButtonFeedback(btn, "Exported!");
+            return;
+        }
 
-        // Generic PDF export
+        // Generic PDF export (fallback for views without specific export)
         try
         {
             var pdfPath = GenerateGenericPdf(data, _currentTemplate);
@@ -1373,6 +1471,35 @@ public class TemplateFormBuilder : UserControl
         {
             System.Diagnostics.Debug.WriteLine($"[TemplateFormBuilder] PDF export error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Creates an action button matching the Checklist header style:
+    /// colored background, white text/icon, standard padding/corner/font.
+    /// </summary>
+    private static Button CreateStyledButton(string text, string glyph, Color bgColor)
+    {
+        var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        stack.Children.Add(new FontIcon
+        {
+            Glyph = glyph,
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Colors.White)
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = text,
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Colors.White)
+        });
+
+        return new Button
+        {
+            Content = stack,
+            Background = new SolidColorBrush(bgColor),
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4)
+        };
     }
 
     private async void FlashButtonFeedback(Button btn, string text)
@@ -1523,6 +1650,28 @@ public class TemplateFormBuilder : UserControl
     /// Get all data for export.
     /// Returns expanded charge data with cost/list prices and toggle flags.
     /// </summary>
+    /// <summary>
+    /// Compute the current subtotal/tax/total from charge states for live display.
+    /// </summary>
+    public (decimal subtotal, decimal tax, decimal total) GetLiveTotals()
+    {
+        decimal subtotal = 0;
+        foreach (var (_, state) in _chargeStates)
+        {
+            if (state.Selected)
+                subtotal += state.Amount * state.Quantity;
+        }
+        decimal tax = 0;
+        if (_currentTemplate?.Settings.IncludeTax == true)
+            tax = subtotal * (_currentTemplate.Settings.TaxRate / 100);
+        return (subtotal, tax, subtotal + tax);
+    }
+
+    private void NotifyChargeTotalsChanged()
+    {
+        ChargeTotalsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public Dictionary<string, object> GetAllData()
     {
         var data = new Dictionary<string, object>(_fieldValues);

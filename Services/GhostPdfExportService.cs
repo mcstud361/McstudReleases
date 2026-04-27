@@ -292,7 +292,7 @@ namespace McStudDesktop.Services
                 });
 
                 // Column headers
-                col.Item().Background(Colors.Grey.Lighten3).Padding(4).Row(hdr =>
+                col.Item().Background(Colors.Grey.Lighten3).PaddingVertical(4).PaddingHorizontal(8).Row(hdr =>
                 {
                     hdr.ConstantItem(25).Text("#").FontSize(8).Bold().FontColor(Colors.Grey.Darken2);
                     hdr.RelativeItem(4).Text("Description").FontSize(8).Bold().FontColor(Colors.Grey.Darken2);
@@ -309,7 +309,7 @@ namespace McStudDesktop.Services
                     var isEven = lineNum % 2 == 0;
                     var bgColor = isEven ? Colors.Grey.Lighten4 : Colors.White;
 
-                    col.Item().Background(bgColor).Padding(4).Column(opCol =>
+                    col.Item().Background(bgColor).PaddingVertical(4).PaddingHorizontal(8).Column(opCol =>
                     {
                         // Main row
                         opCol.Item().Row(opRow =>
@@ -389,7 +389,7 @@ namespace McStudDesktop.Services
                     var paintTotal = operations.Sum(o => o.RefinishHours);
                     var partsTotal = operations.Sum(o => o.Price);
 
-                    col.Item().Background(Colors.Grey.Lighten2).Padding(4).Row(subRow =>
+                    col.Item().Background(Colors.Grey.Lighten2).PaddingVertical(4).PaddingHorizontal(8).Row(subRow =>
                     {
                         subRow.ConstantItem(25).Text("");
                         subRow.RelativeItem(4).Text($"Section Total ({operations.Count} ops)")
@@ -412,32 +412,50 @@ namespace McStudDesktop.Services
             var totalPaint = allOps.Sum(o => o.RefinishHours);
             var totalParts = allOps.Sum(o => o.Price);
 
-            container.Background(Colors.Blue.Darken3).Padding(10).Row(row =>
+            container.Background(Colors.Blue.Darken3).Padding(10).Column(outerCol =>
             {
-                row.RelativeItem().Column(col =>
+                // Top row: title + hours/parts breakdown
+                outerCol.Item().Row(row =>
                 {
-                    col.Item().Text("GRAND TOTALS")
-                        .FontSize(12).Bold().FontColor(Colors.White);
-                    col.Item().PaddingTop(2).Text($"{allOps.Count} operations")
-                        .FontSize(9).FontColor(Colors.Blue.Lighten3);
-                });
-
-                row.AutoItem().AlignRight().AlignMiddle().Column(col =>
-                {
-                    var parts = new List<string>();
-                    if (totalBody > 0) parts.Add($"Body: {totalBody:F1}h");
-                    if (totalPaint > 0) parts.Add($"Refinish: {totalPaint:F1}h");
-                    if (totalParts > 0) parts.Add($"Parts: ${totalParts:F2}");
-
-                    col.Item().Text(string.Join("   |   ", parts))
-                        .FontSize(11).Bold().FontColor(Colors.White);
-
-                    if (result.GrandTotalLaborDollars > 0)
+                    row.RelativeItem().Column(col =>
                     {
-                        col.Item().AlignRight().Text($"Est. Labor Total: ${result.GrandTotalLaborDollars:F0}")
+                        col.Item().Text("GRAND TOTALS")
+                            .FontSize(12).Bold().FontColor(Colors.White);
+                        col.Item().PaddingTop(2).Text($"{allOps.Count} operations")
                             .FontSize(9).FontColor(Colors.Blue.Lighten3);
-                    }
+                    });
+
+                    row.AutoItem().AlignRight().AlignMiddle().Column(col =>
+                    {
+                        var parts = new List<string>();
+                        if (totalBody > 0) parts.Add($"Body: {totalBody:F1}h");
+                        if (totalPaint > 0) parts.Add($"Refinish: {totalPaint:F1}h");
+                        if (totalParts > 0) parts.Add($"Parts: ${totalParts:F2}");
+
+                        col.Item().Text(string.Join("   |   ", parts))
+                            .FontSize(11).Bold().FontColor(Colors.White);
+                    });
                 });
+
+                // Bottom row: dollar totals
+                var grandDollarTotal = result.GrandTotalLaborDollars + totalParts;
+                if (grandDollarTotal > 0)
+                {
+                    outerCol.Item().PaddingTop(6).BorderTop(1).BorderColor(Colors.Blue.Lighten2)
+                        .PaddingTop(4).Row(totalRow =>
+                    {
+                        var detailParts = new List<string>();
+                        if (result.GrandTotalLaborDollars > 0) detailParts.Add($"Labor: ${result.GrandTotalLaborDollars:N2}");
+                        if (totalParts > 0) detailParts.Add($"Parts: ${totalParts:N2}");
+
+                        totalRow.RelativeItem().AlignLeft().AlignBottom()
+                            .Text(string.Join("  +  ", detailParts))
+                            .FontSize(9).FontColor(Colors.Blue.Lighten3);
+
+                        totalRow.AutoItem().AlignRight().Text($"TOTAL: ${grandDollarTotal:N2}")
+                            .FontSize(14).Bold().FontColor(Colors.White);
+                    });
+                }
             });
         }
 

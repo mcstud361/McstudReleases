@@ -251,6 +251,8 @@ namespace McStudDesktop.Services
         /// </summary>
         public string GeneratePdf(Checklist checklist, string? roNumber = null, HashSet<string>? checkedItems = null)
         {
+            System.Diagnostics.Debug.WriteLine($"[ChecklistPDF] GeneratePdf called — roNumber='{roNumber}', checklistId='{checklist.Id}', sections={checklist.Sections?.Count ?? 0}");
+
             // Set QuestPDF license (Community license for open source)
             QuestPDF.Settings.License = LicenseType.Community;
 
@@ -290,7 +292,7 @@ namespace McStudDesktop.Services
                         page.DefaultTextStyle(x => x.FontSize(isCompact ? 8 : 10).FontFamily("Arial"));
 
                         page.Header().Element(c => ComposeHeader(c, checklist, roNumber, isCompact));
-                        page.Content().Element(c => ComposeContent(c, checklist, isCompact));
+                        page.Content().Element(c => ComposeContent(c, checklist, isCompact, roNumber));
                         page.Footer().Element(c => ComposeFooter(c, checklist, isCompact));
                     });
                 }).GeneratePdf(tempPath);
@@ -581,63 +583,56 @@ namespace McStudDesktop.Services
 
         private void ComposeHeader(IContainer container, Checklist checklist, string? roNumber, bool isCompact = false)
         {
+            System.Diagnostics.Debug.WriteLine($"[ChecklistPDF] ComposeHeader called — roNumber='{roNumber}', isCompact={isCompact}");
+
             container.Column(column =>
             {
                 if (isCompact)
                 {
-                    // Compact single-line header (white background for pen visibility)
-                    column.Item().Background(Colors.White).BorderBottom(1).BorderColor(Colors.Grey.Medium).Padding(6).Row(row =>
+                    column.Item().Background(Colors.White).Padding(6).Text(text =>
                     {
-                        row.RelativeItem().AlignLeft().Text(text =>
-                        {
-                            text.Span(checklist.ShopName ?? "Shop").FontSize(11).Bold().FontColor(Colors.Black);
-                            text.Span("  |  ").FontSize(9).FontColor(Colors.Grey.Medium);
-                            text.Span(checklist.Title ?? "Checklist").FontSize(11).Bold().FontColor(Colors.Black);
-                        });
-
-                        row.ConstantItem(150).AlignRight().Text(text =>
-                        {
-                            text.Span("RO# ").FontSize(9).FontColor(Colors.Grey.Darken2);
-                            text.Span(string.IsNullOrEmpty(roNumber) ? new string('_', RoLineLength) : roNumber)
-                                .FontSize(9).Bold().FontColor(Colors.Black);
-                        });
+                        text.Span(checklist.ShopName ?? "Shop").FontSize(11).Bold().FontColor(Colors.Black);
+                        text.Span("  |  ").FontSize(9).FontColor(Colors.Grey.Medium);
+                        text.Span(checklist.Title ?? "Checklist").FontSize(11).Bold().FontColor(Colors.Black);
                     });
-                    column.Item().PaddingTop(4);
+                    column.Item().PaddingTop(2);
                 }
                 else
                 {
-                    // Top banner with shop name (white background for pen visibility)
-                    column.Item().Background(Colors.White).BorderBottom(1).BorderColor(Colors.Grey.Medium).Padding(12).Row(row =>
-                    {
-                        row.RelativeItem().AlignLeft().Text(checklist.ShopName ?? "Shop Name")
-                            .FontSize(16).Bold().FontColor(Colors.Black);
-                    });
-
-                    // Title and RO number
-                    column.Item().Background(Colors.Grey.Lighten4).Padding(10).Row(row =>
-                    {
-                        row.ConstantItem(200).AlignLeft().Text(checklist.Title ?? "Checklist")
-                            .FontSize(14).Bold();
-
-                        row.RelativeItem().AlignRight().Text(text =>
-                        {
-                            text.Span("RO # ").FontSize(11);
-                            text.Span(string.IsNullOrEmpty(roNumber) ? new string('_', RoLineLength) : roNumber)
-                                .FontSize(11).Bold().Underline();
-                        });
-                    });
-
+                    column.Item().Background(Colors.White).PaddingTop(6).PaddingLeft(12).PaddingRight(12)
+                        .Text(checklist.ShopName ?? "Shop Name").FontSize(16).Bold().FontColor(Colors.Black);
+                    column.Item().Background(Colors.White).BorderBottom(1).BorderColor(Colors.Grey.Medium)
+                        .PaddingLeft(12).PaddingRight(12).PaddingBottom(8)
+                        .Text(checklist.Title ?? "Checklist").FontSize(14).Bold().FontColor(Colors.Black);
                     column.Item().PaddingTop(8);
                 }
             });
         }
 
-        private void ComposeContent(IContainer container, Checklist checklist, bool isCompact = false)
+        private void ComposeContent(IContainer container, Checklist checklist, bool isCompact = false, string? roNumber = null)
         {
             var sections = checklist.Sections ?? new List<ChecklistSection>();
 
+            var roDisplay = string.IsNullOrEmpty(roNumber) ? new string('_', RoLineLength) : roNumber;
+
             container.Column(mainColumn =>
             {
+                // RO# — prominent labeled row at top of content (same pattern as QC layout)
+                mainColumn.Item()
+                    .Border(1).BorderColor(Colors.Grey.Medium)
+                    .Background(Colors.Grey.Lighten4)
+                    .Padding(5)
+                    .Row(row =>
+                    {
+                        row.RelativeItem().Text(text =>
+                        {
+                            text.Span("RO #:  ").FontSize(isCompact ? 9 : 11).Bold().FontColor(Colors.Grey.Darken2);
+                            text.Span(roDisplay).FontSize(isCompact ? 10 : 12).Bold().FontColor(Colors.Black);
+                        });
+                    });
+
+                mainColumn.Item().PaddingBottom(isCompact ? 4 : 8);
+
                 if (isCompact && sections.Count > 6)
                 {
                     // 3-column layout for compact mode with many sections
@@ -758,14 +753,13 @@ namespace McStudDesktop.Services
 
                         items.Item().Background(bgColor).Padding(itemPadding).Row(row =>
                         {
-                            // Checkbox with checkmark if checked
+                            // Checkbox — no fill, just border + checkmark (saves ink)
                             if (isChecked)
                             {
                                 row.ConstantItem(checkboxSize + 2).Height(checkboxSize).Width(checkboxSize)
-                                    .Border(isCompact ? 1f : 1.5f).BorderColor(Colors.Green.Darken2)
-                                    .Background(Colors.Green.Lighten4)
+                                    .Border(isCompact ? 1f : 1.5f).BorderColor(Colors.Black)
                                     .AlignCenter().AlignMiddle()
-                                    .Text("✓").FontSize(isCompact ? 6 : 9).Bold().FontColor(Colors.Green.Darken3);
+                                    .Text("✓").FontSize(isCompact ? 6 : 9).Bold().FontColor(Colors.Black);
                             }
                             else
                             {
@@ -775,17 +769,10 @@ namespace McStudDesktop.Services
 
                             row.ConstantItem(isCompact ? 3 : 6); // Spacing
 
-                            // Item text (strikethrough if checked)
+                            // Item text
                             row.RelativeItem().AlignMiddle().Text(text =>
                             {
-                                if (isChecked)
-                                {
-                                    text.Span(item.Text ?? "").FontSize(itemFontSize).FontColor(Colors.Grey.Darken1);
-                                }
-                                else
-                                {
-                                    text.Span(item.Text ?? "").FontSize(itemFontSize);
-                                }
+                                text.Span(item.Text ?? "").FontSize(itemFontSize);
                                 if (item.Required)
                                 {
                                     text.Span(" *").FontSize(itemFontSize).FontColor(Colors.Red.Medium).Bold();

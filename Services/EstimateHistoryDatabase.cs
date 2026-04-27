@@ -232,6 +232,33 @@ public class EstimateHistoryDatabase
             estimate.LineItems.Add(storedItem);
         }
 
+        // GrandTotal fallback: if the parsed total equals PartsTotal (common CCC parsing issue),
+        // recompute from components so the display shows the real claim value.
+        if (estimate.GrandTotal <= 0 || estimate.GrandTotal == estimate.PartsTotal)
+        {
+            decimal computed = estimate.PartsTotal;
+            decimal bodyHrs = 0, refinishHrs = 0, mechHrs = 0;
+            foreach (var li in estimate.LineItems)
+            {
+                bodyHrs += li.LaborHours;
+                refinishHrs += li.RefinishHours;
+                if (li.LaborType.IndexOf("mech", StringComparison.OrdinalIgnoreCase) >= 0)
+                    mechHrs += li.LaborHours;
+            }
+            bodyHrs -= mechHrs;
+            if (bodyHrs < 0) bodyHrs = 0;
+            if (estimate.BodyHourlyRate > 0) computed += bodyHrs * estimate.BodyHourlyRate;
+            else if (estimate.LaborHourlyRate > 0) computed += bodyHrs * estimate.LaborHourlyRate;
+            if (estimate.RefinishHourlyRate > 0) computed += refinishHrs * estimate.RefinishHourlyRate;
+            if (estimate.MechanicalHourlyRate > 0) computed += mechHrs * estimate.MechanicalHourlyRate;
+            computed += estimate.LineItems.Where(li => li.IsManualLine && li.Price > 0).Sum(li => li.Price);
+            if (computed > estimate.GrandTotal)
+            {
+                System.Diagnostics.Debug.WriteLine($"[EstimateHistory] GrandTotal corrected: ${estimate.GrandTotal:N2} → ${computed:N2}");
+                estimate.GrandTotal = computed;
+            }
+        }
+
         // Generate DNA fingerprint
         estimate.DNA = GenerateEstimateDNA(estimate);
 

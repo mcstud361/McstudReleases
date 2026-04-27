@@ -288,7 +288,7 @@
       "partName": "Bumper Cover",
       "operationType": "Replace",
       "attachmentType": "Clip/Bolt-on",
-      "aliases": ["bumper", "front bumper", "rear bumper", "bumper cover", "fascia", "bumper replace", "bumper repair", "replace bumper", "repair bumper", "front fascia", "rear fascia"],
+      "aliases": ["front bumper", "rear bumper", "bumper cover", "fascia", "bumper cover replace", "bumper cover repair", "front fascia", "rear fascia"],
       "sourceRefs": {
         "cccMotor": "G4, G5, G33",
         "mitchell": "CEG Section 22, 28",
@@ -330,7 +330,7 @@
       "partName": "Fender",
       "operationType": "Replace/Repair",
       "attachmentType": "Bolted",
-      "aliases": ["fender", "front fender", "fender replace", "fender repair", "repair fender", "replace fender"],
+      "aliases": ["front fender", "fender replace", "fender repair", "repair fender", "replace fender"],
       "sourceRefs": {
         "cccMotor": "G4, G5, G28",
         "mitchell": "CEG Section 28",
@@ -375,7 +375,7 @@
       "partName": "Door Shell",
       "operationType": "Replace",
       "attachmentType": "Hinged/Bolted",
-      "aliases": ["door", "front door", "rear door", "door shell", "door replace", "door repair", "door skin", "replace door", "repair door", "door panel"],
+      "aliases": ["front door", "rear door", "door shell", "door replace", "door repair", "door skin", "replace door", "repair door", "door panel"],
       "sourceRefs": {
         "cccMotor": "G4, G5",
         "mitchell": "CEG Section 23, 28",
@@ -415,7 +415,7 @@
       "partName": "Hood",
       "operationType": "Replace",
       "attachmentType": "Hinged/Bolted",
-      "aliases": ["hood", "hood panel", "hood replace", "hood repair", "replace hood", "repair hood", "bonnet"],
+      "aliases": ["hood panel", "hood replace", "hood repair", "replace hood", "repair hood", "bonnet"],
       "sourceRefs": {
         "cccMotor": "G4, G5",
         "mitchell": "CEG Section 28",

@@ -352,6 +352,7 @@ public class PPFPricingView : UserControl
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         // Totals
         var totalsPanel = new StackPanel
@@ -392,35 +393,53 @@ public class PPFPricingView : UserControl
         Grid.SetColumn(totalsPanel, 0);
         footerGrid.Children.Add(totalsPanel);
 
-        // Clear button
+        // Clear Form button
+        var clearContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        clearContent.Children.Add(new FontIcon { Glyph = "\uE74D", FontSize = 12 });
+        clearContent.Children.Add(new TextBlock { Text = "Clear Form", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+
         var clearBtn = new Button
         {
-            Content = "Clear",
-            Padding = new Thickness(16, 10, 16, 10),
-            Margin = new Thickness(0, 0, 12, 0)
+            Content = clearContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Margin = new Thickness(0, 0, 8, 0)
         };
         clearBtn.Click += OnClearClick;
         Grid.SetColumn(clearBtn, 1);
         footerGrid.Children.Add(clearBtn);
 
-        // Export button
-        var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        exportContent.Children.Add(new FontIcon { Glyph = "\uE749", FontSize = 16 });
-        exportContent.Children.Add(new TextBlock
+        // Copy button
+        var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        copyContent.Children.Add(new TextBlock { Text = "Copy", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        var copyBtn = new Button
         {
-            Text = "Generate Quote PDF",
-            VerticalAlignment = VerticalAlignment.Center
-        });
+            Content = copyContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 215)),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        copyBtn.Click += OnCopyClick;
+        Grid.SetColumn(copyBtn, 2);
+        footerGrid.Children.Add(copyBtn);
+
+        // Export to PDF button
+        var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        exportContent.Children.Add(new FontIcon { Glyph = "\uE749", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        exportContent.Children.Add(new TextBlock { Text = "Export to PDF", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
 
         var exportBtn = new Button
         {
             Content = exportContent,
-            Padding = new Thickness(20, 10, 20, 10),
-            Background = new SolidColorBrush(AccentGreen),
-            Foreground = new SolidColorBrush(Colors.White)
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(AccentGreen)
         };
         exportBtn.Click += OnExportClick;
-        Grid.SetColumn(exportBtn, 2);
+        Grid.SetColumn(exportBtn, 3);
         footerGrid.Children.Add(exportBtn);
 
         footer.Child = footerGrid;
@@ -525,6 +544,40 @@ public class PPFPricingView : UserControl
         }
 
         UpdateTotals();
+    }
+
+    private async void OnCopyClick(object sender, RoutedEventArgs e)
+    {
+        if (_panelPrices.Count == 0)
+        {
+            ShowNotification("Select at least one panel first", InfoBarSeverity.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        var serviceConfig = _ppfService.GetServiceType(_activeServiceType);
+        var serviceTypeName = serviceConfig?.Name ?? _activeServiceType;
+        sb.AppendLine($"{serviceTypeName} Quote — {_activeVehicleStyle?.Name ?? "Unknown"}");
+        sb.AppendLine(new string('-', 40));
+
+        foreach (var kvp in _panelPrices)
+        {
+            var name = _panelDisplayNames.GetValueOrDefault(kvp.Key, kvp.Key);
+            sb.AppendLine($"{name}: {kvp.Value:C2}");
+        }
+
+        var subtotal = _panelPrices.Values.Sum();
+        var (discountPct, discountAmt) = CalculateDiscount(subtotal, _panelPrices.Count);
+        sb.AppendLine(new string('-', 40));
+        sb.AppendLine($"Subtotal: {subtotal:C2}");
+        if (discountPct > 0)
+            sb.AppendLine($"Discount ({discountPct}%): -{discountAmt:C2}");
+        sb.AppendLine($"Total: {(subtotal - discountAmt):C2}");
+
+        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        dp.SetText(sb.ToString());
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        ShowNotification("Copied to clipboard!", InfoBarSeverity.Success);
     }
 
     private void OnClearClick(object sender, RoutedEventArgs e)

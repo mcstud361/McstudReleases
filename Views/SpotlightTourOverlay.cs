@@ -1,4 +1,5 @@
 #nullable enable
+using McStudDesktop.Services;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,6 +10,7 @@ using Windows.Foundation;
 using Windows.UI;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace McStudDesktop.Views
 {
@@ -19,6 +21,10 @@ namespace McStudDesktop.Views
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
         public int TabIndex { get; set; }
+        public Action? OnShow { get; set; }
+        public string? TryItPrompt { get; set; }
+        public string? AchievementId { get; set; }
+        public string? AchievementTitle { get; set; }
     }
 
     public sealed class SpotlightTourOverlay : UserControl
@@ -53,6 +59,19 @@ namespace McStudDesktop.Views
         private Button _nextButton = null!;
         private Button _skipButton = null!;
 
+        // Try It mode
+        private Button _tryItButton = null!;
+        private Button _continueButton = null!;
+        private bool _isTryItMode;
+        private string? _originalDescription;
+        private readonly HashSet<string> _earnedThisSession = new();
+        private int _totalPossibleAchievements;
+
+        // Achievement banner
+        private Border _achievementBanner = null!;
+        private TextBlock _achievementText = null!;
+        private FontIcon _achievementStar = null!;
+
         // Welcome/finish flourish
         private TextBlock _welcomeHeader = null!;
         private FontIcon _finishCheckmark = null!;
@@ -81,6 +100,7 @@ namespace McStudDesktop.Views
         private static readonly Color OverlayColor = Color.FromArgb(210, 10, 12, 18);
         private static readonly Color AccentBlue = Color.FromArgb(255, 0, 120, 215);
         private static readonly Color AccentTeal = Color.FromArgb(255, 0, 200, 180);
+        private static readonly Color AccentGold = Color.FromArgb(255, 255, 193, 7);
         private static readonly Color CardBg = Color.FromArgb(255, 28, 30, 36);
         private static readonly Color CardBorder = Color.FromArgb(255, 50, 55, 65);
         private static readonly Color ButtonDarkBg = Color.FromArgb(255, 42, 44, 52);
@@ -90,6 +110,7 @@ namespace McStudDesktop.Views
             _steps = steps;
             _currentStepIndex = 0;
             _selectTabAction = selectTabAction;
+            _totalPossibleAchievements = steps.Count(s => s.AchievementId != null);
 
             _rootGrid = new Grid();
             BuildOverlay();
@@ -157,6 +178,10 @@ namespace McStudDesktop.Views
             };
             _rootGrid.Children.Add(_glowInner);
 
+            // Achievement banner (hidden until earned)
+            BuildAchievementBanner();
+            _rootGrid.Children.Add(_achievementBanner);
+
             // Welcome header (shown on first step briefly)
             _welcomeHeader = new TextBlock
             {
@@ -173,6 +198,45 @@ namespace McStudDesktop.Views
 
             BuildTooltipCard();
             _rootGrid.Children.Add(_tooltipCard);
+        }
+
+        private void BuildAchievementBanner()
+        {
+            _achievementBanner = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(240, 40, 35, 10)),
+                BorderBrush = new SolidColorBrush(AccentGold),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16, 10, 16, 10),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 60, 0, 0),
+                Opacity = 0,
+                IsHitTestVisible = false
+            };
+
+            var bannerStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+            _achievementStar = new FontIcon
+            {
+                Glyph = "\uE735",
+                FontSize = 18,
+                Foreground = new SolidColorBrush(AccentGold),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            bannerStack.Children.Add(_achievementStar);
+
+            _achievementText = new TextBlock
+            {
+                FontSize = 15,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(AccentGold),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            bannerStack.Children.Add(_achievementText);
+
+            _achievementBanner.Child = bannerStack;
         }
 
         private Border CreateOverlayRect(SolidColorBrush brush)
@@ -322,6 +386,30 @@ namespace McStudDesktop.Views
             };
             _nextButton.Click += (s, e) => NavigateStep(1);
 
+            _tryItButton = new Button
+            {
+                Content = "Try It!",
+                Padding = new Thickness(18, 7, 18, 7),
+                Background = new SolidColorBrush(AccentTeal),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(16),
+                BorderThickness = new Thickness(0),
+                Visibility = Visibility.Collapsed
+            };
+            _tryItButton.Click += (s, e) => EnterTryItMode();
+
+            _continueButton = new Button
+            {
+                Content = "Continue >",
+                Padding = new Thickness(18, 7, 18, 7),
+                Background = new SolidColorBrush(AccentBlue),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(16),
+                BorderThickness = new Thickness(0),
+                Visibility = Visibility.Collapsed
+            };
+            _continueButton.Click += (s, e) => ExitTryItMode();
+
             _skipButton = new Button
             {
                 Padding = new Thickness(12, 7, 12, 7),
@@ -342,6 +430,8 @@ namespace McStudDesktop.Views
 
             buttonRow.Children.Add(_backButton);
             buttonRow.Children.Add(_nextButton);
+            buttonRow.Children.Add(_tryItButton);
+            buttonRow.Children.Add(_continueButton);
             buttonRow.Children.Add(_skipButton);
             contentStack.Children.Add(buttonRow);
 
@@ -412,19 +502,31 @@ namespace McStudDesktop.Views
         {
             if (index < 0 || index >= _steps.Count) return;
 
+            // Reset Try It state from previous step
+            if (_isTryItMode)
+                CancelTryItMode();
+
             _currentStepIndex = index;
             var step = _steps[index];
 
             // Switch to the tab
             _selectTabAction(step.TabIndex);
 
+            // Run custom show action (e.g. switch sub-tabs)
+            step.OnShow?.Invoke();
+
             // Update tooltip content
             _tooltipIcon.Glyph = step.Icon;
             _tooltipTitle.Text = step.Title;
             _tooltipDescription.Text = step.Description;
+            _originalDescription = step.Description;
 
             // Update progress dots
             UpdateProgressDots();
+
+            // Reset Try It / Continue button visibility
+            _tryItButton.Visibility = step.TryItPrompt != null ? Visibility.Visible : Visibility.Collapsed;
+            _continueButton.Visibility = Visibility.Collapsed;
 
             // Update button states
             _backButton.Visibility = index > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -432,9 +534,15 @@ namespace McStudDesktop.Views
             bool isLast = index == _steps.Count - 1;
             if (isLast)
             {
-                _nextButton.Content = "You're all set!";
+                // Show achievement summary on last step
+                int earned = OnboardingStateService.Instance.GetAchievementCount();
+                _tooltipDescription.Text = step.Description
+                    + $"\n\nYou earned {earned} of {_totalPossibleAchievements} achievements!"
+                    + "\nTry importing your first estimate to get started!";
+                _nextButton.Content = "Let's Go!";
                 _finishCheckmark.Visibility = Visibility.Visible;
                 _skipButton.Visibility = Visibility.Collapsed;
+                _tryItButton.Visibility = Visibility.Collapsed;
             }
             else
             {
@@ -442,6 +550,8 @@ namespace McStudDesktop.Views
                 _finishCheckmark.Visibility = Visibility.Collapsed;
                 _skipButton.Visibility = Visibility.Visible;
             }
+
+            _nextButton.Visibility = Visibility.Visible;
 
             // Welcome flourish on first step
             if (index == 0)
@@ -469,6 +579,122 @@ namespace McStudDesktop.Views
                 // Start animation
                 _animTimer?.Start();
             }
+        }
+
+        private void EnterTryItMode()
+        {
+            var step = _steps[_currentStepIndex];
+            if (step.TryItPrompt == null) return;
+
+            _isTryItMode = true;
+
+            // Swap description to the try-it prompt
+            _tooltipDescription.Text = step.TryItPrompt;
+
+            // Make overlay rects transparent and non-blocking so user can interact
+            _topRect.Opacity = 0.3;
+            _bottomRect.Opacity = 0.3;
+            _leftRect.Opacity = 0.3;
+            _rightRect.Opacity = 0.3;
+            _topRect.IsHitTestVisible = false;
+            _bottomRect.IsHitTestVisible = false;
+            _leftRect.IsHitTestVisible = false;
+            _rightRect.IsHitTestVisible = false;
+
+            // Show Continue, hide other nav buttons
+            _continueButton.Visibility = Visibility.Visible;
+            _nextButton.Visibility = Visibility.Collapsed;
+            _backButton.Visibility = Visibility.Collapsed;
+            _tryItButton.Visibility = Visibility.Collapsed;
+            _skipButton.Visibility = Visibility.Collapsed;
+        }
+
+        private void ExitTryItMode()
+        {
+            var step = _steps[_currentStepIndex];
+            _isTryItMode = false;
+
+            // Restore overlay
+            RestoreOverlay();
+
+            // Award achievement
+            if (step.AchievementId != null && step.AchievementTitle != null)
+            {
+                bool isNew = OnboardingStateService.Instance.EarnAchievement(step.AchievementId, step.AchievementTitle);
+                _earnedThisSession.Add(step.AchievementId);
+
+                if (isNew)
+                {
+                    ShowAchievementCelebration(step.AchievementTitle);
+                    return; // celebration will auto-advance
+                }
+            }
+
+            // No achievement or already earned — just advance
+            NavigateStep(1);
+        }
+
+        private void CancelTryItMode()
+        {
+            _isTryItMode = false;
+            RestoreOverlay();
+
+            // Restore original description
+            if (_originalDescription != null)
+                _tooltipDescription.Text = _originalDescription;
+
+            // Restore button visibility for current step
+            var step = _steps[_currentStepIndex];
+            _continueButton.Visibility = Visibility.Collapsed;
+            _nextButton.Visibility = Visibility.Visible;
+            _backButton.Visibility = _currentStepIndex > 0 ? Visibility.Visible : Visibility.Collapsed;
+            _tryItButton.Visibility = step.TryItPrompt != null ? Visibility.Visible : Visibility.Collapsed;
+            _skipButton.Visibility = _currentStepIndex < _steps.Count - 1 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void RestoreOverlay()
+        {
+            _topRect.Opacity = 1;
+            _bottomRect.Opacity = 1;
+            _leftRect.Opacity = 1;
+            _rightRect.Opacity = 1;
+            _topRect.IsHitTestVisible = true;
+            _bottomRect.IsHitTestVisible = true;
+            _leftRect.IsHitTestVisible = true;
+            _rightRect.IsHitTestVisible = true;
+        }
+
+        private void ShowAchievementCelebration(string title)
+        {
+            _achievementText.Text = $"Achievement: {title}!";
+            _achievementBanner.Opacity = 1;
+
+            var celebTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            double elapsed = 0;
+            double holdDuration = 1100; // hold visible
+            double fadeDuration = 400;  // then fade
+
+            celebTimer.Tick += (s, e) =>
+            {
+                elapsed += 16;
+                if (elapsed < holdDuration)
+                {
+                    // Holding visible
+                }
+                else if (elapsed < holdDuration + fadeDuration)
+                {
+                    double t = (elapsed - holdDuration) / fadeDuration;
+                    _achievementBanner.Opacity = 1.0 - t;
+                }
+                else
+                {
+                    _achievementBanner.Opacity = 0;
+                    celebTimer.Stop();
+                    // Auto-advance after celebration
+                    NavigateStep(1);
+                }
+            };
+            celebTimer.Start();
         }
 
         private void ShowWelcomeFlourish()
@@ -643,6 +869,10 @@ namespace McStudDesktop.Views
 
         private void EndTour(bool skipped)
         {
+            // Cancel Try It mode if active
+            if (_isTryItMode)
+                CancelTryItMode();
+
             // Stop animation timer
             _animTimer?.Stop();
             _animTimer = null;
@@ -698,8 +928,25 @@ namespace McStudDesktop.Views
         {
             if (e.Key == Windows.System.VirtualKey.Escape)
             {
-                EndTour(skipped: true);
+                if (_isTryItMode)
+                {
+                    CancelTryItMode();
+                }
+                else
+                {
+                    EndTour(skipped: true);
+                }
                 e.Handled = true;
+            }
+            else if (_isTryItMode)
+            {
+                // Block arrow/enter keys during Try It mode
+                if (e.Key == Windows.System.VirtualKey.Right
+                    || e.Key == Windows.System.VirtualKey.Left
+                    || e.Key == Windows.System.VirtualKey.Enter)
+                {
+                    e.Handled = true;
+                }
             }
             else if (e.Key == Windows.System.VirtualKey.Right || e.Key == Windows.System.VirtualKey.Enter)
             {

@@ -99,17 +99,43 @@ public class PriceCatalogManagementView : UserControl
         // List header
         var listHeader = new Border
         {
-            Padding = new Thickness(14, 10, 14, 10),
+            Padding = new Thickness(14, 10, 10, 10),
             BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
             BorderThickness = new Thickness(0, 0, 0, 1)
         };
-        listHeader.Child = new TextBlock
+        var listHeaderGrid = new Grid();
+        listHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        listHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        listHeaderGrid.Children.Add(new TextBlock
         {
             Text = "My Catalogs",
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Colors.White)
+            Foreground = new SolidColorBrush(Colors.White),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        var newCatalogBtn = new Button
+        {
+            Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Children =
+                {
+                    new FontIcon { Glyph = "\uE710", FontSize = 12 },
+                    new TextBlock { Text = "New", FontSize = 12, VerticalAlignment = VerticalAlignment.Center }
+                }
+            },
+            Padding = new Thickness(8, 4, 8, 4),
+            Background = new SolidColorBrush(AccentGreen),
+            Foreground = new SolidColorBrush(Colors.White),
+            VerticalAlignment = VerticalAlignment.Center
         };
+        ToolTipService.SetToolTip(newCatalogBtn, "Create an empty catalog manually");
+        newCatalogBtn.Click += OnNewCatalogClick;
+        Grid.SetColumn(newCatalogBtn, 1);
+        listHeaderGrid.Children.Add(newCatalogBtn);
+        listHeader.Child = listHeaderGrid;
         listStack.Children.Add(listHeader);
 
         var listScroll = new ScrollViewer
@@ -174,6 +200,7 @@ public class PriceCatalogManagementView : UserControl
         var detailHeaderRow = new Grid();
         detailHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         detailHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        detailHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var detailTitleStack = new StackPanel { Spacing = 2 };
         _detailTitle = new TextBlock
@@ -192,6 +219,30 @@ public class PriceCatalogManagementView : UserControl
         detailTitleStack.Children.Add(_detailInfo);
         detailHeaderRow.Children.Add(detailTitleStack);
 
+        // Add Item button
+        var addItemBtn = new Button
+        {
+            Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Children =
+                {
+                    new FontIcon { Glyph = "\uE710", FontSize = 13 },
+                    new TextBlock { Text = "Add Item", FontSize = 13, VerticalAlignment = VerticalAlignment.Center }
+                }
+            },
+            Padding = new Thickness(12, 8, 12, 8),
+            Background = new SolidColorBrush(AccentGreen),
+            Foreground = new SolidColorBrush(Colors.White),
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        ToolTipService.SetToolTip(addItemBtn, "Add a single item to this catalog");
+        addItemBtn.Click += OnAddItemClick;
+        Grid.SetColumn(addItemBtn, 1);
+        detailHeaderRow.Children.Add(addItemBtn);
+
         // Delete button
         var deleteCatBtn = new Button
         {
@@ -202,7 +253,7 @@ public class PriceCatalogManagementView : UserControl
         };
         ToolTipService.SetToolTip(deleteCatBtn, "Delete this catalog");
         deleteCatBtn.Click += OnDeleteCatalogClick;
-        Grid.SetColumn(deleteCatBtn, 1);
+        Grid.SetColumn(deleteCatBtn, 2);
         detailHeaderRow.Children.Add(deleteCatBtn);
 
         detailStack.Children.Add(detailHeaderRow);
@@ -334,6 +385,8 @@ public class PriceCatalogManagementView : UserControl
         var footerContent = new Grid();
         footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         _footerCountText = new TextBlock
         {
@@ -345,19 +398,53 @@ public class PriceCatalogManagementView : UserControl
         Grid.SetColumn(_footerCountText, 0);
         footerContent.Children.Add(_footerCountText);
 
-        var importContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        importContent.Children.Add(new FontIcon { Glyph = "\uE8B5", FontSize = 16 });
-        importContent.Children.Add(new TextBlock { Text = "Import Price Sheet", VerticalAlignment = VerticalAlignment.Center });
+        // Copy button
+        var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        copyContent.Children.Add(new TextBlock { Text = "Copy", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        var copyBtn = new Button
+        {
+            Content = copyContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(AccentBlue),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        copyBtn.Click += OnCopyClick;
+        Grid.SetColumn(copyBtn, 1);
+        footerContent.Children.Add(copyBtn);
+
+        // Export to PDF button
+        var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        exportContent.Children.Add(new FontIcon { Glyph = "\uE749", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        exportContent.Children.Add(new TextBlock { Text = "Export to PDF", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        var exportPdfBtn = new Button
+        {
+            Content = exportContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(AccentGreen),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        exportPdfBtn.Click += OnExportPdfClick;
+        Grid.SetColumn(exportPdfBtn, 2);
+        footerContent.Children.Add(exportPdfBtn);
+
+        // Import button
+        var importContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        importContent.Children.Add(new FontIcon { Glyph = "\uE8B5", FontSize = 12 });
+        importContent.Children.Add(new TextBlock { Text = "Import Price Sheet", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
 
         var importBtn = new Button
         {
             Content = importContent,
-            Padding = new Thickness(20, 10, 20, 10),
-            Background = new SolidColorBrush(AccentGreen),
-            Foreground = new SolidColorBrush(Colors.White)
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4)
         };
         importBtn.Click += OnImportClick;
-        Grid.SetColumn(importBtn, 1);
+        Grid.SetColumn(importBtn, 3);
         footerContent.Children.Add(importBtn);
 
         footer.Child = footerContent;
@@ -374,15 +461,19 @@ public class PriceCatalogManagementView : UserControl
         };
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) });
+        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
 
         AddHeaderText(headerGrid, "Part #", 0);
         AddHeaderText(headerGrid, "Description", 1);
         AddHeaderText(headerGrid, "Category", 2);
         AddHeaderText(headerGrid, "Cost", 3, HorizontalAlignment.Right);
         AddHeaderText(headerGrid, "List Price", 4, HorizontalAlignment.Right);
+        AddHeaderText(headerGrid, "Qty", 5, HorizontalAlignment.Right);
+        AddHeaderText(headerGrid, "Total", 6, HorizontalAlignment.Right);
 
         return headerGrid;
     }
@@ -669,7 +760,7 @@ public class PriceCatalogManagementView : UserControl
         }
     }
 
-    private static Border CreateItemRow(PriceCatalogItem item, int index)
+    private Border CreateItemRow(PriceCatalogItem item, int index)
     {
         var rowBg = index % 2 == 0
             ? Color.FromArgb(255, 38, 38, 38)
@@ -678,16 +769,18 @@ public class PriceCatalogManagementView : UserControl
         var row = new Border
         {
             Background = new SolidColorBrush(rowBg),
-            Padding = new Thickness(10, 7, 10, 7),
+            Padding = new Thickness(10, 4, 10, 4),
             CornerRadius = new CornerRadius(2)
         };
 
         var rowGrid = new Grid();
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
-        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
-        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) });
+        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
 
         // Part #
         var partText = new TextBlock
@@ -735,30 +828,125 @@ public class PriceCatalogManagementView : UserControl
             rowGrid.Children.Add(catBorder);
         }
 
-        // Cost
-        var costText = new TextBlock
+        // Cost — editable inline TextBox
+        var costBox = new TextBox
         {
-            Text = item.CostPrice > 0 ? $"${item.CostPrice:F2}" : "-",
+            Text = item.CostPrice > 0 ? $"{item.CostPrice:F2}" : "",
+            PlaceholderText = "0.00",
             FontSize = 12,
+            TextAlignment = TextAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(4, 3, 4, 3),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Colors.Transparent),
             Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
+            MinWidth = 0
         };
-        Grid.SetColumn(costText, 3);
-        rowGrid.Children.Add(costText);
-
-        // List Price
-        var listText = new TextBlock
+        costBox.LostFocus += (s, e) =>
         {
-            Text = item.ListPrice > 0 ? $"${item.ListPrice:F2}" : "-",
+            if (decimal.TryParse(costBox.Text, out var newCost) && newCost >= 0)
+            {
+                item.CostPrice = newCost;
+                if (_selectedCatalog != null)
+                    _catalogService.UpdateCatalog(_selectedCatalog);
+            }
+            else
+            {
+                costBox.Text = item.CostPrice > 0 ? $"{item.CostPrice:F2}" : "";
+            }
+        };
+        Grid.SetColumn(costBox, 3);
+        rowGrid.Children.Add(costBox);
+
+        // Total TextBlock (updated by qty and list price changes)
+        var totalText = new TextBlock
+        {
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 200, 100)),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 80)),
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            Text = "-"
         };
-        Grid.SetColumn(listText, 4);
-        rowGrid.Children.Add(listText);
+
+        // List Price — editable inline TextBox
+        var listBox = new TextBox
+        {
+            Text = item.ListPrice > 0 ? $"{item.ListPrice:F2}" : "",
+            PlaceholderText = "0.00",
+            FontSize = 12,
+            TextAlignment = TextAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(4, 3, 4, 3),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Colors.Transparent),
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 200, 100)),
+            FontWeight = FontWeights.SemiBold,
+            MinWidth = 0
+        };
+
+        // Qty — editable, supports decimals like 0.5
+        var qtyBox = new TextBox
+        {
+            Text = "1",
+            PlaceholderText = "1",
+            FontSize = 12,
+            TextAlignment = TextAlignment.Right,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(4, 3, 4, 3),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+            Foreground = new SolidColorBrush(Colors.White),
+            MinWidth = 0
+        };
+
+        void RecalcTotal()
+        {
+            if (decimal.TryParse(qtyBox.Text, out var qty) && qty > 0)
+            {
+                var unitPrice = item.ListPrice > 0 ? item.ListPrice : item.CostPrice;
+                if (unitPrice > 0)
+                    totalText.Text = $"${qty * unitPrice:F2}";
+                else
+                    totalText.Text = "-";
+            }
+            else
+            {
+                totalText.Text = "-";
+            }
+        }
+
+        listBox.LostFocus += (s, e) =>
+        {
+            if (decimal.TryParse(listBox.Text, out var newPrice) && newPrice >= 0)
+            {
+                item.ListPrice = newPrice;
+                if (_selectedCatalog != null)
+                    _catalogService.UpdateCatalog(_selectedCatalog);
+                RecalcTotal();
+            }
+            else
+            {
+                listBox.Text = item.ListPrice > 0 ? $"{item.ListPrice:F2}" : "";
+            }
+        };
+
+        qtyBox.TextChanged += (s, e) => RecalcTotal();
+
+        Grid.SetColumn(listBox, 4);
+        rowGrid.Children.Add(listBox);
+
+        Grid.SetColumn(qtyBox, 5);
+        rowGrid.Children.Add(qtyBox);
+
+        Grid.SetColumn(totalText, 6);
+        rowGrid.Children.Add(totalText);
+
+        // Seed the total on load
+        RecalcTotal();
 
         row.Child = rowGrid;
         return row;
@@ -920,6 +1108,132 @@ public class PriceCatalogManagementView : UserControl
 
     #region Actions
 
+    private async void OnNewCatalogClick(object sender, RoutedEventArgs e)
+    {
+        var dialogContent = new StackPanel { Spacing = 12, Width = 380 };
+
+        var nameBox = new TextBox
+        {
+            PlaceholderText = "e.g., PPG Refinish Supplies",
+            Header = "Catalog Name"
+        };
+        dialogContent.Children.Add(nameBox);
+
+        var supplierBox = new TextBox
+        {
+            PlaceholderText = "e.g., PPG, 3M, SEM, BASF",
+            Header = "Supplier (optional)"
+        };
+        dialogContent.Children.Add(supplierBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = "New Catalog",
+            Content = dialogContent,
+            PrimaryButtonText = "Create",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.XamlRoot
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            var name = nameBox.Text.Trim();
+            if (string.IsNullOrEmpty(name)) name = "Untitled Catalog";
+
+            var catalog = new PriceCatalog
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = name,
+                Supplier = string.IsNullOrWhiteSpace(supplierBox.Text) ? null : supplierBox.Text.Trim(),
+                CreatedDate = DateTime.Now,
+                ModifiedDate = DateTime.Now,
+                Items = new List<PriceCatalogItem>()
+            };
+
+            _catalogService.AddCatalog(catalog);
+            SelectCatalog(catalog);
+            ShowNotification($"Created catalog \"{catalog.Name}\"", InfoBarSeverity.Success);
+        }
+    }
+
+    private async void OnAddItemClick(object sender, RoutedEventArgs e)
+    {
+        if (_selectedCatalog == null) return;
+
+        var dialogContent = new StackPanel { Spacing = 12, Width = 400 };
+
+        var descBox = new TextBox { PlaceholderText = "e.g., 2K Urethane Clear Coat", Header = "Description" };
+        dialogContent.Children.Add(descBox);
+
+        var partBox = new TextBox { PlaceholderText = "e.g., DCU2042", Header = "Part Number (optional)" };
+        dialogContent.Children.Add(partBox);
+
+        var categoryBox = new TextBox { PlaceholderText = "e.g., Clear Coat, Primer, Adhesion Promoter", Header = "Category (optional)" };
+        dialogContent.Children.Add(categoryBox);
+
+        var priceRow = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(12) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+            }
+        };
+
+        var costBox = new TextBox { PlaceholderText = "0.00", Header = "Cost Price" };
+        Grid.SetColumn(costBox, 0);
+        priceRow.Children.Add(costBox);
+
+        var listPriceBox = new TextBox { PlaceholderText = "0.00", Header = "List Price" };
+        Grid.SetColumn(listPriceBox, 2);
+        priceRow.Children.Add(listPriceBox);
+
+        dialogContent.Children.Add(priceRow);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Add Item",
+            Content = dialogContent,
+            PrimaryButtonText = "Add",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = this.XamlRoot
+        };
+
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            var desc = descBox.Text.Trim();
+            if (string.IsNullOrEmpty(desc)) desc = "Unnamed Item";
+
+            decimal.TryParse(costBox.Text, out var cost);
+            decimal.TryParse(listPriceBox.Text, out var listPrice);
+
+            var item = new PriceCatalogItem
+            {
+                Description = desc,
+                PartNumber = string.IsNullOrWhiteSpace(partBox.Text) ? null : partBox.Text.Trim(),
+                Category = string.IsNullOrWhiteSpace(categoryBox.Text) ? null : categoryBox.Text.Trim(),
+                CostPrice = cost,
+                ListPrice = listPrice
+            };
+
+            _selectedCatalog.Items.Add(item);
+            _catalogService.UpdateCatalog(_selectedCatalog);
+
+            // Update the detail header info text
+            var info = $"{_selectedCatalog.Items.Count} items";
+            if (!string.IsNullOrEmpty(_selectedCatalog.Supplier))
+                info += $"  |  Supplier: {_selectedCatalog.Supplier}";
+            info += $"  |  Imported: {_selectedCatalog.CreatedDate:MMM dd, yyyy}";
+            if (_detailInfo != null) _detailInfo.Text = info;
+
+            RefreshItemsList();
+            ShowNotification($"Added \"{item.Description}\"", InfoBarSeverity.Success);
+        }
+    }
+
     private async void OnDeleteCatalogClick(object sender, RoutedEventArgs e)
     {
         if (_selectedCatalog == null) return;
@@ -961,6 +1275,56 @@ public class PriceCatalogManagementView : UserControl
     }
 
     #endregion
+
+    private void OnCopyClick(object sender, RoutedEventArgs e)
+    {
+        if (_selectedCatalog == null || _selectedCatalog.Items.Count == 0)
+        {
+            ShowNotification("Select a catalog with items first", InfoBarSeverity.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(_selectedCatalog.Name);
+        sb.AppendLine(new string('-', 60));
+        sb.AppendLine($"{"Item",-30} {"Category",-15} {"List",10}");
+        sb.AppendLine(new string('-', 60));
+        foreach (var item in _selectedCatalog.Items)
+        {
+            sb.AppendLine($"{item.Description,-30} {item.Category,-15} {item.ListPrice,10:C2}");
+        }
+
+        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        dp.SetText(sb.ToString());
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        ShowNotification("Catalog copied to clipboard!", InfoBarSeverity.Success);
+    }
+
+    private void OnExportPdfClick(object sender, RoutedEventArgs e)
+    {
+        if (_selectedCatalog == null || _selectedCatalog.Items.Count == 0)
+        {
+            ShowNotification("Select a catalog with items first", InfoBarSeverity.Warning);
+            return;
+        }
+
+        try
+        {
+            var pdfPath = ShopDocsPdfService.Instance.GeneratePriceCatalogPdf(_selectedCatalog);
+            DocumentUsageTrackingService.Instance.RecordPdfExport("PriceCatalog", System.IO.Path.GetFileName(pdfPath), _selectedCatalog.Items.Count);
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = pdfPath,
+                UseShellExecute = true
+            });
+            ShowNotification("Catalog exported to PDF!", InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowNotification($"Export failed: {ex.Message}", InfoBarSeverity.Error);
+        }
+    }
 
     private void ShowNotification(string message, InfoBarSeverity severity)
     {

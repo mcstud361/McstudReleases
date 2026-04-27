@@ -84,6 +84,12 @@ namespace McStudDesktop.Views
         private EstimateScoringPanel? _scoringPanel;
         private readonly EstimateScoringService _scoringService;
         private TextBlock? _refMatchStatusText;
+
+        // Insurance / DRP compliance
+        private Button? _insuranceButton;
+        private InsurerProfile? _activeInsurerProfile;
+        private Border? _drpComplianceSection;
+        private StackPanel? _drpComplianceContent;
         private Border? _refMatchBanner;
         private Button? _refMatchButton;
 
@@ -264,40 +270,6 @@ namespace McStudDesktop.Views
             mainStack.Children.Add(_scrubberTabContent);
             mainStack.Children.Add(_learningTabContent);
 
-            // === HELP TEXT (shared) ===
-            var helpBorder = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 35)),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(16),
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-
-            var helpText = new TextBlock
-            {
-                Text = "WHAT THIS TAB DOES\n" +
-                       "Feed it an estimate (PDF or pasted text) and it reads every line \u2014 parts, labor,\n" +
-                       "refinish, additional ops \u2014 so you can analyze it, learn from it, or scrub for missing ops.\n\n" +
-                       "SCRUBBER TAB\n" +
-                       "Parse an estimate and it automatically scores for missing operations, reads the\n" +
-                       "hourly rates from the estimate, and benchmarks against similar repairs in your history.\n" +
-                       "Use \u201cCopy to Clipboard\u201d to grab the missing items list for CCC.\n\n" +
-                       "ESTIMATE LEARNING TAB\n" +
-                       "Parse an estimate and hit \u201cLearn from This\u201d to save the part\u2192operation patterns.\n" +
-                       "Next time you see that part, McStud remembers what ops usually go with it.\n" +
-                       "The more estimates you learn, the better the scrubber\u2019s benchmark comparison becomes.\n\n" +
-                       "GETTING ESTIMATES IN\n" +
-                       "   \u2022 PDF: Click \"Upload\" or drag-drop the file onto the upload area.\n" +
-                       "   \u2022 Paste: Ctrl+A / Ctrl+C from CCC ONE, paste into the text box, hit Parse.\n" +
-                       "   \u2022 Batch: Drop multiple PDFs at once for bulk processing.",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)),
-                TextWrapping = TextWrapping.Wrap,
-                LineHeight = 20
-            };
-            helpBorder.Child = helpText;
-            mainStack.Children.Add(helpBorder);
-
             scroll.Content = mainStack;
             mainBorder.Child = scroll;
             Content = mainBorder;
@@ -431,9 +403,10 @@ namespace McStudDesktop.Views
         {
             var content = new StackPanel { Spacing = 16 };
 
-            // Top bar: description + Must-Haves gear button (prominent, right-aligned)
+            // Top bar: description + Insurance button + Must-Haves button
             var topBar = new Grid();
             topBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            topBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             topBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var descText = new TextBlock
@@ -468,8 +441,34 @@ namespace McStudDesktop.Views
             ToolTipService.SetToolTip(_scrubMustHavesButton,
                 "Configure which operations must appear on every estimate.\n" +
                 "The Scrubber checks for these plus commonly missed items.");
-            Grid.SetColumn(_scrubMustHavesButton, 1);
+            Grid.SetColumn(_scrubMustHavesButton, 2);
             topBar.Children.Add(_scrubMustHavesButton);
+
+            // Insurance button
+            _insuranceButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE8D4", FontSize = 16 },
+                        new TextBlock { Text = "Insurance", FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 65)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+                Padding = new Thickness(16, 10, 16, 10),
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            ToolTipService.SetToolTip(_insuranceButton,
+                "Select an insurer DRP profile to check compliance before submitting.\n" +
+                "After parsing, flags missing or non-compliant items for that insurer.");
+            _insuranceButton.Click += async (s, e) => await ShowInsuranceProfileSelector();
+            Grid.SetColumn(_insuranceButton, 1);
+            topBar.Children.Add(_insuranceButton);
 
             content.Children.Add(topBar);
 
@@ -748,6 +747,21 @@ namespace McStudDesktop.Views
             _scoringPanel.OnAddItems += ScoringPanel_OnAddItems;
             _scoringPanel.OnNavigateToReference += (s, e) => OnNavigateToReference?.Invoke(this, e);
             rightStack.Children.Add(_scoringPanel);
+
+            // DRP compliance section (shown when an insurer profile is active + estimate parsed)
+            _drpComplianceSection = new Border
+            {
+                Visibility = Visibility.Collapsed,
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 25, 42)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 10, 12, 10),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 100, 60, 160)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            _drpComplianceContent = new StackPanel { Spacing = 4 };
+            _drpComplianceSection.Child = _drpComplianceContent;
+            rightStack.Children.Add(_drpComplianceSection);
 
             BuildQualitySection();
             rightStack.Children.Add(_qualitySection!);
@@ -3267,6 +3281,140 @@ namespace McStudDesktop.Views
             uploadBtn.IsEnabled = !show;
         }
 
+        #region Insurance / DRP Compliance
+
+        private void UpdateInsuranceButtonState()
+        {
+            if (_insuranceButton == null) return;
+            if (_activeInsurerProfile != null)
+            {
+                _insuranceButton.Background = new SolidColorBrush(Color.FromArgb(255, 80, 50, 120));
+                _insuranceButton.Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 160, 240));
+                ToolTipService.SetToolTip(_insuranceButton,
+                    $"DRP Profile active: {_activeInsurerProfile.CompanyName}\n" +
+                    $"Program: {_activeInsurerProfile.ProgramName}\n" +
+                    "Click to change or clear.");
+            }
+            else
+            {
+                _insuranceButton.Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 65));
+                _insuranceButton.Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180));
+                ToolTipService.SetToolTip(_insuranceButton,
+                    "Select an insurer DRP profile to check compliance before submitting.\n" +
+                    "After parsing, flags missing or non-compliant items for that insurer.");
+            }
+        }
+
+        private void UpdateDrpComplianceDisplay()
+        {
+            if (_drpComplianceSection == null || _drpComplianceContent == null) return;
+            if (_activeInsurerProfile == null || _parsedLines.Count == 0)
+            {
+                _drpComplianceSection.Visibility = Visibility.Collapsed;
+                return;
+            }
+            var textBlob = string.Join(" ", _parsedLines.Select(l =>
+                ((l.PartName ?? "") + " " + (l.Description ?? "")).ToLowerInvariant()));
+            var compliance = InsurerProfileService.Instance.CheckCompliance(_activeInsurerProfile, textBlob);
+            _drpComplianceContent.Children.Clear();
+            var notMet = compliance.Where(c => !c.IsMet).ToList();
+            var met = compliance.Where(c => c.IsMet).ToList();
+            _drpComplianceSection.BorderBrush = new SolidColorBrush(notMet.Count > 0
+                ? Color.FromArgb(255, 140, 60, 200) : Color.FromArgb(255, 50, 130, 200));
+            var titleGrid = new Grid();
+            titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var titleStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            titleStack.Children.Add(new FontIcon { Glyph = "\uE8D4", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 140, 220)) });
+            titleStack.Children.Add(new TextBlock { Text = $"DRP COMPLIANCE \u2014 {_activeInsurerProfile.CompanyName.ToUpperInvariant()}", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 160, 240)) });
+            Grid.SetColumn(titleStack, 0); titleGrid.Children.Add(titleStack);
+            var scoreBlock = new TextBlock { Text = $"{met.Count}/{compliance.Count}", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(notMet.Count > 0 ? Color.FromArgb(255, 220, 140, 255) : Color.FromArgb(255, 80, 200, 120)) };
+            Grid.SetColumn(scoreBlock, 1); titleGrid.Children.Add(scoreBlock);
+            _drpComplianceContent.Children.Add(titleGrid);
+            if (!string.IsNullOrEmpty(_activeInsurerProfile.ProgramName))
+                _drpComplianceContent.Children.Add(new TextBlock { Text = _activeInsurerProfile.ProgramName, FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 110, 170)), Margin = new Thickness(0, 0, 0, 4) });
+            foreach (var grp in compliance.GroupBy(c => c.Item.Category))
+            {
+                _drpComplianceContent.Children.Add(new TextBlock { Text = grp.Key.ToUpperInvariant(), FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 110, 150)), Margin = new Thickness(0, 6, 0, 1) });
+                foreach (var (item, isMet, _) in grp)
+                {
+                    var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                    row.Children.Add(new TextBlock { Text = isMet ? "\u2705" : (item.EstimateKeywords == null ? "\u26A0\uFE0F" : "\u274C"), FontSize = 11, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 0, 0) });
+                    var inner = new StackPanel { Spacing = 1 };
+                    inner.Children.Add(new TextBlock { Text = item.Description, FontSize = 11, Foreground = new SolidColorBrush(isMet ? Color.FromArgb(255, 100, 200, 120) : (item.EstimateKeywords == null ? Color.FromArgb(255, 200, 180, 100) : Color.FromArgb(255, 220, 130, 80))), TextWrapping = TextWrapping.Wrap, TextDecorations = isMet ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None });
+                    if (!string.IsNullOrEmpty(item.Notes))
+                        inner.Children.Add(new TextBlock { Text = item.Notes, FontSize = 9, Foreground = new SolidColorBrush(Color.FromArgb(255, 110, 100, 130)), TextWrapping = TextWrapping.Wrap });
+                    row.Children.Add(inner);
+                    _drpComplianceContent.Children.Add(row);
+                }
+            }
+            if (notMet.Count == 0 && compliance.Count > 0)
+                _drpComplianceContent.Children.Add(new TextBlock { Text = "All detectable items confirmed \u2014 verify manual items before submitting.", FontSize = 10, FontStyle = Windows.UI.Text.FontStyle.Italic, Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 180, 120)), Margin = new Thickness(0, 4, 0, 0) });
+            _drpComplianceSection.Visibility = Visibility.Visible;
+        }
+
+        private async Task ShowInsuranceProfileSelector()
+        {
+            var service = InsurerProfileService.Instance;
+            var dialogContent = new StackPanel { Spacing = 12, MinWidth = 500 };
+            var activeRow = new Border { Background = new SolidColorBrush(Color.FromArgb(255, 30, 25, 45)), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 8, 10, 8), Visibility = _activeInsurerProfile != null ? Visibility.Visible : Visibility.Collapsed };
+            var activeText = new TextBlock { Text = _activeInsurerProfile != null ? $"Active: {_activeInsurerProfile.CompanyName} \u2014 {_activeInsurerProfile.ProgramName}" : "", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 160, 240)) };
+            activeRow.Child = activeText;
+            dialogContent.Children.Add(activeRow);
+            var profilesScroll = new ScrollViewer { MaxHeight = 300, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+            var profilesStack = new StackPanel { Spacing = 4 };
+            InsurerProfile? selectedProfile = _activeInsurerProfile;
+            void RefreshList()
+            {
+                profilesStack.Children.Clear();
+                var profiles = service.GetAll();
+                if (profiles.Count == 0) { profilesStack.Children.Add(new TextBlock { Text = "No profiles yet. Add one below.", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), FontStyle = Windows.UI.Text.FontStyle.Italic }); return; }
+                foreach (var p in profiles)
+                {
+                    var capturedP = p; var isSelected = selectedProfile?.Id == p.Id;
+                    var rb = new Border { Background = new SolidColorBrush(isSelected ? Color.FromArgb(255, 55, 35, 80) : Color.FromArgb(255, 35, 38, 48)), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 8, 10, 8), BorderBrush = new SolidColorBrush(isSelected ? Color.FromArgb(255, 140, 80, 200) : Color.FromArgb(255, 55, 55, 70)), BorderThickness = new Thickness(1) };
+                    var rg = new Grid(); rg.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); rg.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    var info = new StackPanel { Spacing = 2 };
+                    info.Children.Add(new TextBlock { Text = p.CompanyName, FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) });
+                    if (!string.IsNullOrEmpty(p.ProgramName)) info.Children.Add(new TextBlock { Text = p.ProgramName, FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 130, 200)) });
+                    info.Children.Add(new TextBlock { Text = $"{p.ChecklistItems.Count} checklist items{(p.IsExample ? "  \u00b7  Example" : "")}", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 110, 110, 130)) });
+                    Grid.SetColumn(info, 0); rg.Children.Add(info);
+                    if (!p.IsExample) { var del = new Button { Content = new FontIcon { Glyph = "\uE74D", FontSize = 11 }, Background = new SolidColorBrush(Colors.Transparent), BorderBrush = new SolidColorBrush(Colors.Transparent), Padding = new Thickness(6, 4, 6, 4) }; del.Click += (s, e) => { service.Remove(capturedP.Id); if (selectedProfile?.Id == capturedP.Id) selectedProfile = null; RefreshList(); }; Grid.SetColumn(del, 1); rg.Children.Add(del); }
+                    rb.Child = rg;
+                    rb.PointerPressed += (s, e) => { selectedProfile = capturedP; activeText.Text = $"Active: {capturedP.CompanyName} \u2014 {capturedP.ProgramName}"; activeRow.Visibility = Visibility.Visible; RefreshList(); };
+                    profilesStack.Children.Add(rb);
+                }
+            }
+            RefreshList();
+            profilesScroll.Content = profilesStack;
+            dialogContent.Children.Add(profilesScroll);
+            var clearBtn = new Button { Content = "Clear Active Profile", Padding = new Thickness(10, 4, 10, 4), FontSize = 11, Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 65)), Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)), CornerRadius = new CornerRadius(4), HorizontalAlignment = HorizontalAlignment.Left, Visibility = _activeInsurerProfile != null ? Visibility.Visible : Visibility.Collapsed };
+            clearBtn.Click += (s, e) => { selectedProfile = null; activeText.Text = ""; activeRow.Visibility = Visibility.Collapsed; clearBtn.Visibility = Visibility.Collapsed; RefreshList(); };
+            dialogContent.Children.Add(clearBtn);
+            dialogContent.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 70)), Margin = new Thickness(0, 4, 0, 4) });
+            dialogContent.Children.Add(new TextBlock { Text = "Add New Profile", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 180)) });
+            var addGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+            addGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            addGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            addGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var companyInput = new TextBox { PlaceholderText = "Company name", FontSize = 12, Margin = new Thickness(0, 0, 6, 0) };
+            var programInput = new TextBox { PlaceholderText = "Program name", FontSize = 12, Margin = new Thickness(0, 0, 6, 0) };
+            var addBtn = new Button { Content = "Add", FontSize = 12, Padding = new Thickness(14, 6, 14, 6), Background = new SolidColorBrush(Color.FromArgb(255, 70, 40, 100)), Foreground = new SolidColorBrush(Colors.White), CornerRadius = new CornerRadius(4) };
+            addBtn.Click += (s, e) => { var c = companyInput.Text?.Trim(); var pg = programInput.Text?.Trim(); if (string.IsNullOrEmpty(c)) return; service.Add(c, pg ?? "DRP Program"); companyInput.Text = ""; programInput.Text = ""; RefreshList(); };
+            Grid.SetColumn(companyInput, 0); Grid.SetColumn(programInput, 1); Grid.SetColumn(addBtn, 2);
+            addGrid.Children.Add(companyInput); addGrid.Children.Add(programInput); addGrid.Children.Add(addBtn);
+            dialogContent.Children.Add(addGrid);
+            var dialog = new ContentDialog { Title = "Insurance / DRP Profile", Content = dialogContent, PrimaryButtonText = "Apply", SecondaryButtonText = "Cancel", XamlRoot = this.XamlRoot };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                _activeInsurerProfile = selectedProfile;
+                UpdateInsuranceButtonState();
+                UpdateDrpComplianceDisplay();
+            }
+        }
+
+        #endregion
+
         #region Smart Analysis
 
         /// <summary>
@@ -3470,6 +3618,9 @@ namespace McStudDesktop.Views
                 {
                     ShowStatusForContext("Scrubber: scoring returned no results", ParseContext.Scrubber);
                 }
+
+                // DRP compliance check
+                UpdateDrpComplianceDisplay();
 
                 _currentAnalysis = analysis;
 
@@ -3705,6 +3856,7 @@ namespace McStudDesktop.Views
 
 
         #endregion
+
     }
 
     public class TrainingCompletedEventArgs : EventArgs

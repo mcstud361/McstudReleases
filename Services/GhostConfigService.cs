@@ -520,7 +520,33 @@ namespace McStudDesktop.Services
 
         #region Must-Haves
 
+        public static readonly string[] KnownVehicleFuelTypes = { "Gas Vehicle", "Electric Vehicle", "Hybrid Vehicle" };
+
         public List<MustHaveOperation> GetMustHaves() => _config.MustHaves;
+
+        /// <summary>
+        /// Get must-haves filtered by insurance company and vehicle fuel type context.
+        /// Returns enabled must-haves that are universal (no tags) OR match the given context.
+        /// </summary>
+        public List<MustHaveOperation> GetMustHavesForContext(string? insuranceCompany, string? vehicleFuelType)
+        {
+            return _config.MustHaves.Where(m => m.Enabled && MatchesContext(m, insuranceCompany, vehicleFuelType)).ToList();
+        }
+
+        private static bool MatchesContext(MustHaveOperation mh, string? insuranceCompany, string? vehicleFuelType)
+        {
+            // Insurance filter: empty list = universal, otherwise must match
+            bool insuranceOk = mh.InsuranceCompanies.Count == 0 ||
+                (!string.IsNullOrEmpty(insuranceCompany) &&
+                 mh.InsuranceCompanies.Any(ic => ic.Equals(insuranceCompany, StringComparison.OrdinalIgnoreCase)));
+
+            // Vehicle type filter: empty list = universal, otherwise must match
+            bool vehicleOk = mh.VehicleTypes.Count == 0 ||
+                (!string.IsNullOrEmpty(vehicleFuelType) &&
+                 mh.VehicleTypes.Any(vt => vt.Equals(vehicleFuelType, StringComparison.OrdinalIgnoreCase)));
+
+            return insuranceOk && vehicleOk;
+        }
 
         public void AddMustHave(MustHaveOperation mh)
         {
@@ -859,6 +885,8 @@ namespace McStudDesktop.Services
         public decimal RefinishHours { get; set; }
         public string Conditions { get; set; } = "always";
         public bool Enabled { get; set; } = true;
+        public List<string> InsuranceCompanies { get; set; } = new(); // empty = applies to all
+        public List<string> VehicleTypes { get; set; } = new();       // empty = applies to all
     }
 
     /// <summary>

@@ -213,6 +213,7 @@ public class PartsRequestView : UserControl
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         // Summary
         var summaryPanel = new StackPanel
@@ -232,36 +233,53 @@ public class PartsRequestView : UserControl
         Grid.SetColumn(summaryPanel, 0);
         footerGrid.Children.Add(summaryPanel);
 
-        // Clear
+        // Clear Form
+        var clearContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        clearContent.Children.Add(new FontIcon { Glyph = "\uE74D", FontSize = 12 });
+        clearContent.Children.Add(new TextBlock { Text = "Clear Form", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+
         var clearBtn = new Button
         {
-            Content = "Clear Form",
-            Padding = new Thickness(16, 10, 16, 10),
-            Margin = new Thickness(0, 0, 12, 0)
+            Content = clearContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Margin = new Thickness(0, 0, 8, 0)
         };
         clearBtn.Click += OnClear;
         Grid.SetColumn(clearBtn, 1);
         footerGrid.Children.Add(clearBtn);
 
-        // Export
+        // Copy
+        var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        copyContent.Children.Add(new TextBlock { Text = "Copy", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        var copyBtn = new Button
+        {
+            Content = copyContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 215)),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        copyBtn.Click += OnCopy;
+        Grid.SetColumn(copyBtn, 2);
+        footerGrid.Children.Add(copyBtn);
+
+        // Export to PDF
+        var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        exportContent.Children.Add(new FontIcon { Glyph = "\uE749", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        exportContent.Children.Add(new TextBlock { Text = "Export to PDF", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
         var exportBtn = new Button
         {
-            Content = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Children =
-                {
-                    new FontIcon { Glyph = "\uE749", FontSize = 16 },
-                    new TextBlock { Text = "Export to PDF", VerticalAlignment = VerticalAlignment.Center }
-                }
-            },
-            Padding = new Thickness(20, 10, 20, 10),
-            Background = new SolidColorBrush(AccentGreen),
-            Foreground = new SolidColorBrush(Colors.White)
+            Content = exportContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(AccentGreen)
         };
         exportBtn.Click += OnExport;
-        Grid.SetColumn(exportBtn, 2);
+        Grid.SetColumn(exportBtn, 3);
         footerGrid.Children.Add(exportBtn);
 
         footer.Child = footerGrid;
@@ -594,6 +612,30 @@ public class PartsRequestView : UserControl
         _partsListPanel?.Children.Add(CreatePartRow(item));
         UpdatePartCount();
         DebounceSave();
+    }
+
+    private void OnCopy(object sender, RoutedEventArgs e)
+    {
+        if (_currentRequest == null || _currentRequest.Items.Count == 0)
+        {
+            ShowNotification("Add at least one part before copying", InfoBarSeverity.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Parts Request{(string.IsNullOrWhiteSpace(_currentRequest.RoNumber) ? "" : $" — RO# {_currentRequest.RoNumber}")}");
+        sb.AppendLine(new string('-', 50));
+        sb.AppendLine($"{"Description",-30} {"Part #",-15} {"Qty",-5} {"Status",-12}");
+        sb.AppendLine(new string('-', 50));
+        foreach (var item in _currentRequest.Items)
+        {
+            sb.AppendLine($"{item.Description,-30} {item.PartNumber,-15} {item.Quantity,-5} {item.Status,-12}");
+        }
+
+        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        dp.SetText(sb.ToString());
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        ShowNotification("Copied to clipboard!", InfoBarSeverity.Success);
     }
 
     private void OnClear(object sender, RoutedEventArgs e)

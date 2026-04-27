@@ -26,8 +26,6 @@ public class TowBillView : UserControl
 
     private readonly TowBillService _towBillService = TowBillService.Instance;
     private TemplateFormBuilder? _formBuilder;
-    private Button? _exportButton;
-    private Button? _clearButton;
     private InfoBar? _infoBar;
 
     public TowBillView()
@@ -49,10 +47,11 @@ public class TowBillView : UserControl
 
         // Template form builder
         _formBuilder = new TemplateFormBuilder(ShopDocType.TowBill);
+        _formBuilder.ExportRequested += OnExportRequested;
         Grid.SetRow(_formBuilder, 0);
         mainGrid.Children.Add(_formBuilder);
 
-        // Footer with export/clear buttons
+        // Footer — totals only (action buttons are in TemplateFormBuilder header)
         var footer = new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
@@ -61,12 +60,6 @@ public class TowBillView : UserControl
             BorderThickness = new Thickness(0, 1, 0, 0)
         };
 
-        var footerContent = new Grid();
-        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        // Totals display
         var totalsPanel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -93,42 +86,17 @@ public class TowBillView : UserControl
         };
         totalsPanel.Children.Add(totalText);
 
-        Grid.SetColumn(totalsPanel, 0);
-        footerContent.Children.Add(totalsPanel);
-
-        // Clear button
-        _clearButton = new Button
+        // Live totals: update footer whenever charges change
+        _formBuilder.ChargeTotalsChanged += (s, e) =>
         {
-            Content = "Clear Form",
-            Padding = new Thickness(16, 10, 16, 10),
-            Margin = new Thickness(0, 0, 12, 0)
+            var (subtotal, tax, total) = _formBuilder.GetLiveTotals();
+            subtotalText.Text = $"Subtotal: {subtotal:C2}";
+            totalText.Text = tax > 0
+                ? $"Total: {(subtotal + tax):C2}  (tax: {tax:C2})"
+                : $"Total: {total:C2}";
         };
-        _clearButton.Click += (s, e) => _formBuilder?.ClearForm();
-        Grid.SetColumn(_clearButton, 1);
-        footerContent.Children.Add(_clearButton);
 
-        // Export button
-        _exportButton = new Button
-        {
-            Content = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Children =
-                {
-                    new FontIcon { Glyph = "\uE749", FontSize = 16 },
-                    new TextBlock { Text = "Export to PDF", VerticalAlignment = VerticalAlignment.Center }
-                }
-            },
-            Padding = new Thickness(20, 10, 20, 10),
-            Background = new SolidColorBrush(AccentGreen),
-            Foreground = new SolidColorBrush(Colors.White)
-        };
-        _exportButton.Click += OnExportClick;
-        Grid.SetColumn(_exportButton, 2);
-        footerContent.Children.Add(_exportButton);
-
-        footer.Child = footerContent;
+        footer.Child = totalsPanel;
         Grid.SetRow(footer, 1);
         mainGrid.Children.Add(footer);
 
@@ -145,7 +113,7 @@ public class TowBillView : UserControl
         Content = mainGrid;
     }
 
-    private void OnExportClick(object sender, RoutedEventArgs e)
+    private void OnExportRequested(object? sender, Dictionary<string, object> data)
     {
         if (_formBuilder?.CurrentTemplate == null)
         {
@@ -155,7 +123,6 @@ public class TowBillView : UserControl
 
         try
         {
-            var data = _formBuilder.GetAllData();
 
             // Build TowBillData from form data
             var billData = new TowBillData

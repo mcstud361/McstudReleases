@@ -100,6 +100,43 @@ namespace McStudDesktop.Services
             return pattern.VehicleType.Equals(vehicleType, StringComparison.OrdinalIgnoreCase);
         }
 
+        // Electric vehicle model/brand indicators
+        private static readonly string[] ElectricPatterns = new[]
+        {
+            "tesla", "model 3", "model y", "model s", "model x", "bolt ev", "mach-e",
+            "ioniq", "ev6", "id.4", "id4", "rivian", "lucid", "leaf", "e-tron", "etron",
+            "electric", "polestar", "taycan", "bz4x", "solterra", "ariya", "lyriq",
+            "blazer ev", "equinox ev", "f-150 lightning", "f150 lightning",
+            "hummer ev", "cybertruck"
+        };
+
+        private static readonly string[] HybridPatterns = new[]
+        {
+            "hybrid", "phev", "plug-in", "prius"
+        };
+
+        /// <summary>
+        /// Classify vehicle fuel type from vehicle info string.
+        /// Returns "Electric Vehicle", "Hybrid Vehicle", or "Gas Vehicle".
+        /// </summary>
+        public string ClassifyVehicleFuelType(string? vehicleInfo)
+        {
+            if (string.IsNullOrEmpty(vehicleInfo))
+                return "Gas Vehicle";
+
+            var lower = vehicleInfo.ToLowerInvariant();
+
+            // Check electric first (more specific)
+            if (ElectricPatterns.Any(p => lower.Contains(p)))
+                return "Electric Vehicle";
+
+            // Check hybrid
+            if (HybridPatterns.Any(p => lower.Contains(p)))
+                return "Hybrid Vehicle";
+
+            return "Gas Vehicle";
+        }
+
         #endregion
 
         #region Pattern Versioning

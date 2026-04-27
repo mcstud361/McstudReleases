@@ -614,14 +614,162 @@ public class ShopDocsPdfService
         });
     }
 
+    #endregion
+
+    #region Price Catalog PDF
+
+    public string GeneratePriceCatalogPdf(PriceCatalog catalog, string? outputPath = null)
+    {
+        outputPath ??= GetDefaultOutputPath("PriceCatalog");
+
+        Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.Letter);
+                page.Margin(0.5f, Unit.Inch);
+                page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                    {
+                        row.RelativeItem().Text(catalog.Name.ToUpperInvariant())
+                            .FontSize(16).Bold().FontColor(Colors.White);
+                        row.ConstantItem(200).AlignRight().Column(right =>
+                        {
+                            if (!string.IsNullOrEmpty(catalog.Supplier))
+                                right.Item().Text($"Supplier: {catalog.Supplier}")
+                                    .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                            right.Item().Text($"Items: {catalog.Items.Count}")
+                                .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                            right.Item().Text($"Date: {DateTime.Now:MM/dd/yyyy}")
+                                .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                        });
+                    });
+                });
+
+                page.Content().PaddingTop(8).Table(table =>
+                {
+                    table.ColumnsDefinition(cols =>
+                    {
+                        cols.RelativeColumn(3);  // Description
+                        cols.RelativeColumn(1.5f); // Part #
+                        cols.RelativeColumn(1);  // Category
+                        cols.ConstantColumn(70);  // Cost
+                        cols.ConstantColumn(70);  // List
+                    });
+
+                    // Header row
+                    table.Header(header =>
+                    {
+                        foreach (var label in new[] { "Description", "Part #", "Category", "Cost", "List" })
+                        {
+                            header.Cell().Background(Colors.Grey.Darken2).Padding(4)
+                                .Text(label).FontSize(9).Bold().FontColor(Colors.White);
+                        }
+                    });
+
+                    // Data rows
+                    var alt = false;
+                    foreach (var item in catalog.Items)
+                    {
+                        var bg = alt ? Colors.Grey.Lighten4 : Colors.White;
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .Text(item.Description ?? "").FontSize(8);
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .Text(item.PartNumber ?? "").FontSize(8);
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .Text(item.Category ?? "").FontSize(8);
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .AlignRight().Text(item.CostPrice > 0 ? item.CostPrice.ToString("C2") : "").FontSize(8);
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .AlignRight().Text(item.ListPrice > 0 ? item.ListPrice.ToString("C2") : "").FontSize(8);
+                        alt = !alt;
+                    }
+                });
+
+                page.Footer().Element(c => ComposeFooter(c, "Price Catalog"));
+            });
+        }).GeneratePdf(outputPath);
+
+        return outputPath;
+    }
+
+    #endregion
+
+    #region Dealer List PDF
+
+    public string GenerateDealerListPdf(List<(string Name, string Phone, string Address, string Manufacturer)> dealers, string? outputPath = null)
+    {
+        outputPath ??= GetDefaultOutputPath("DealerList");
+
+        Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.Letter);
+                page.Margin(0.5f, Unit.Inch);
+                page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+
+                page.Header().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                {
+                    row.RelativeItem().Text("DEALER / LABOR RATES")
+                        .FontSize(16).Bold().FontColor(Colors.White);
+                    row.ConstantItem(150).AlignRight().Text($"Date: {DateTime.Now:MM/dd/yyyy}")
+                        .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                });
+
+                page.Content().PaddingTop(8).Table(table =>
+                {
+                    table.ColumnsDefinition(cols =>
+                    {
+                        cols.RelativeColumn(2);  // Name
+                        cols.RelativeColumn(1.5f); // Phone
+                        cols.RelativeColumn(2);  // Address
+                        cols.RelativeColumn(1);  // Manufacturer
+                    });
+
+                    table.Header(header =>
+                    {
+                        foreach (var label in new[] { "Dealer Name", "Phone", "Address", "Manufacturer" })
+                        {
+                            header.Cell().Background(Colors.Grey.Darken2).Padding(4)
+                                .Text(label).FontSize(9).Bold().FontColor(Colors.White);
+                        }
+                    });
+
+                    var alt = false;
+                    foreach (var d in dealers)
+                    {
+                        var bg = alt ? Colors.Grey.Lighten4 : Colors.White;
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .Text(d.Name).FontSize(8);
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .Text(d.Phone).FontSize(8);
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .Text(d.Address).FontSize(8);
+                        table.Cell().Background(bg).BorderBottom(0.25f).BorderColor(Colors.Grey.Lighten2).Padding(3)
+                            .Text(d.Manufacturer).FontSize(8);
+                        alt = !alt;
+                    }
+                });
+
+                page.Footer().Element(c => ComposeFooter(c, "Dealer List"));
+            });
+        }).GeneratePdf(outputPath);
+
+        return outputPath;
+    }
+
+    #endregion
+
     private string GetDefaultOutputPath(string prefix)
     {
         var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         var fileName = $"{prefix}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
         return Path.Combine(documentsPath, fileName);
     }
-
-    #endregion
 }
 
 #region PDF Data Models

@@ -117,15 +117,26 @@ namespace McStudDesktop.Views
             var mustHaves = config.GetMustHaves();
             var groups = config.GetMustHaveGroups();
 
-            var dialogStack = new StackPanel { Spacing = 10, MinWidth = 960 };
+            var dialogStack = new Grid { MinWidth = 960, MaxHeight = 700, RowSpacing = 10 };
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // row 0: description
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // row 1: presets
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // row 2: user templates
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // row 3: group mgmt
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // row 4: search
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // row 5: context filter
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // row 6: content (fills remaining)
+            dialogStack.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // row 7: summary
+            int _dialogRow = 0;
 
-            dialogStack.Children.Add(new TextBlock
+            var descText = new TextBlock
             {
                 Text = "Check the operations that should always appear on every estimate. Scoring will flag any that are missing.",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(TextMuted),
                 TextWrapping = TextWrapping.Wrap
-            });
+            };
+            Grid.SetRow(descText, _dialogRow++);
+            dialogStack.Children.Add(descText);
 
             // === TRACKING STATE ===
             var activePresets = new HashSet<string>();
@@ -134,6 +145,7 @@ namespace McStudDesktop.Views
             var pendingEdits = new Dictionary<CheckBox, (string Description, string CccOpType, int Quantity, decimal Price, decimal BodyHours, string BodyLaborCategory, decimal RefinishHours, string Condition, string? GroupId)>();
             var pendingDeletes = new HashSet<string>(); // operation IDs to delete on save
             var pendingAdds = new List<MustHaveOperation>(); // new ops to add on save
+            var pendingTagEdits = new Dictionary<string, (List<string> InsuranceCompanies, List<string> VehicleTypes)>(); // op ID -> tags
 
             // === PRESET BUTTONS ===
             var presetRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 0, 4) };
@@ -154,6 +166,143 @@ namespace McStudDesktop.Views
             };
             searchRow.Children.Add(searchFilterBox);
             searchRow.Children.Add(searchBox);
+
+            // === CONTEXT FILTER BAR (Insurance Company / Vehicle Type) ===
+            var contextFilterRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+            var contextCategoryBox = new ComboBox
+            {
+                FontSize = 11, Width = 180, SelectedIndex = 0,
+                Items = { "All Must-Haves", "Insurance Company", "Vehicle Type" }
+            };
+            var contextValueBox = new ComboBox
+            {
+                FontSize = 11, Width = 200, Visibility = Visibility.Collapsed, PlaceholderText = "Select..."
+            };
+            var contextInfoText = new TextBlock
+            {
+                Text = "Showing all must-haves (universal + tagged)",
+                FontSize = 10, Foreground = new SolidColorBrush(TextDim),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+
+            string? activeContextCategory = null; // "insurance" or "vehicle"
+            string? activeContextValue = null;     // e.g., "GEICO" or "Electric Vehicle"
+
+            void PopulateContextValues()
+            {
+                contextValueBox.Items.Clear();
+                if (contextCategoryBox.SelectedIndex == 1) // Insurance Company
+                {
+                    activeContextCategory = "insurance";
+                    var insurers = EstimateHistoryDatabase.Instance.KnownInsurers;
+                    // Also collect insurers already tagged on must-haves
+                    var taggedInsurers = mustHaves.SelectMany(m => m.InsuranceCompanies)
+                        .Concat(pendingAdds.SelectMany(m => m.InsuranceCompanies))
+                        .Distinct(StringComparer.OrdinalIgnoreCase);
+                    var allInsurers = insurers.Concat(taggedInsurers)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(s => s).ToList();
+                    foreach (var ins in allInsurers)
+                        contextValueBox.Items.Add(ins);
+                    contextValueBox.Visibility = Visibility.Visible;
+                }
+                else if (contextCategoryBox.SelectedIndex == 2) // Vehicle Type
+                {
+                    activeContextCategory = "vehicle";
+                    foreach (var vt in GhostConfigService.KnownVehicleFuelTypes)
+                        contextValueBox.Items.Add(vt);
+                    contextValueBox.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    activeContextCategory = null;
+                    activeContextValue = null;
+                    contextValueBox.Visibility = Visibility.Collapsed;
+                    contextInfoText.Text = "Showing all must-haves (universal + tagged)";
+                }
+            }
+
+            void ApplyContextFilter()
+            {
+                if (activeContextCategory == null || activeContextValue == null)
+                {
+                    // Show all rows — remove context-based visibility override
+                    foreach (var (groupId, (panel, header, countText, checkAll, addForm)) in sectionPanels)
+                    {
+                        foreach (var child in panel.Children)
+                        {
+                            if (child is FrameworkElement fe && fe.Tag is Dictionary<string, string>)
+                                fe.Visibility = Visibility.Visible;
+                        }
+                    }
+                    contextInfoText.Text = "Showing all must-haves (universal + tagged)";
+                    return;
+                }
+
+                int shownCount = 0;
+                foreach (var (groupId, (panel, header, countText, checkAll, addForm)) in sectionPanels)
+                {
+                    foreach (var child in panel.Children)
+                    {
+                        if (child is FrameworkElement fe && fe.Tag is Dictionary<string, string> tags)
+                        {
+                            // Check if this must-have matches the context filter
+                            bool show = true;
+                            if (tags.TryGetValue("__opid__", out var opId))
+                            {
+                                var mhItem = mustHaves.FirstOrDefault(m => m.Id == opId)
+                                    ?? pendingAdds.FirstOrDefault(m => m.Id == opId);
+                                if (mhItem != null)
+                                {
+                                    // Get current tags (pending edits override original)
+                                    var curInsurers = pendingTagEdits.TryGetValue(opId, out var te) ? te.InsuranceCompanies : mhItem.InsuranceCompanies;
+                                    var curVehicles = pendingTagEdits.TryGetValue(opId, out var tv) ? tv.VehicleTypes : mhItem.VehicleTypes;
+
+                                    if (activeContextCategory == "insurance")
+                                    {
+                                        // Show if universal (no insurance tags) or matches the selected insurer
+                                        show = curInsurers.Count == 0 ||
+                                            curInsurers.Any(ic => ic.Equals(activeContextValue, StringComparison.OrdinalIgnoreCase));
+                                    }
+                                    else if (activeContextCategory == "vehicle")
+                                    {
+                                        show = curVehicles.Count == 0 ||
+                                            curVehicles.Any(vt => vt.Equals(activeContextValue, StringComparison.OrdinalIgnoreCase));
+                                    }
+                                }
+                            }
+                            fe.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                            if (show) shownCount++;
+                        }
+                    }
+                }
+                contextInfoText.Text = $"Showing {shownCount} must-haves for {activeContextValue}";
+            }
+
+            contextCategoryBox.SelectionChanged += (s, ev) =>
+            {
+                PopulateContextValues();
+                activeContextValue = null;
+                contextValueBox.SelectedIndex = -1;
+                ApplyContextFilter();
+            };
+            contextValueBox.SelectionChanged += (s, ev) =>
+            {
+                activeContextValue = contextValueBox.SelectedItem?.ToString();
+                ApplyContextFilter();
+            };
+
+            contextFilterRow.Children.Add(new TextBlock
+            {
+                Text = "Context:",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(TextMuted),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            contextFilterRow.Children.Add(contextCategoryBox);
+            contextFilterRow.Children.Add(contextValueBox);
+            contextFilterRow.Children.Add(contextInfoText);
 
             // === SUMMARY FOOTER ===
             var summaryText = new TextBlock
@@ -230,8 +379,7 @@ namespace McStudDesktop.Views
 
             var scrollViewer = new ScrollViewer
             {
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                MaxHeight = 520
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
 
             var sectionsStack = new StackPanel { Spacing = 8 };
@@ -754,7 +902,7 @@ namespace McStudDesktop.Views
 
                         // Add row to current section
                         AddOperationRow(newMh, capturedGroup, accent, capturedSectionItems, allCheckBoxes,
-                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(capturedGroup.Id); UpdateSummary(); });
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(capturedGroup.Id); UpdateSummary(); }, pendingTagEdits);
 
                         addNameBox.Text = "";
                         addOpTypeBox.SelectedIndex = 0;
@@ -820,12 +968,12 @@ namespace McStudDesktop.Views
                     foreach (var mh in groupOps)
                     {
                         AddOperationRow(mh, group, accent, sectionItemsPanel, allCheckBoxes,
-                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); });
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); }, pendingTagEdits);
                     }
                     foreach (var mh in pendingGroupOps)
                     {
                         AddOperationRow(mh, group, accent, sectionItemsPanel, allCheckBoxes,
-                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); });
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); }, pendingTagEdits);
                     }
                 }
 
@@ -1244,19 +1392,23 @@ namespace McStudDesktop.Views
 
             // === ASSEMBLE DIALOG (wide: preset/template/search on top, sidebar + content below) ===
             dialogStack.MinWidth = 1280;
+            Grid.SetRow(presetRow, _dialogRow++);
             dialogStack.Children.Add(presetRow);
+            Grid.SetRow(userTemplateRow, _dialogRow++);
             dialogStack.Children.Add(userTemplateRow);
+            Grid.SetRow(groupMgmtPanel, _dialogRow++);
             dialogStack.Children.Add(groupMgmtPanel);
+            Grid.SetRow(searchRow, _dialogRow++);
             dialogStack.Children.Add(searchRow);
+            Grid.SetRow(contextFilterRow, _dialogRow++);
+            dialogStack.Children.Add(contextFilterRow);
 
             scrollViewer.Content = sectionsStack;
-            scrollViewer.MaxHeight = 560;
 
             var sidebarScroll = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                MaxHeight = 560,
                 Content = sidebarStack
             };
 
@@ -1272,6 +1424,7 @@ namespace McStudDesktop.Views
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 55, 65)),
                 BorderThickness = new Thickness(1),
                 Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Stretch,
                 Child = sidebarScroll
             };
             Grid.SetColumn(sidebarBorder, 0);
@@ -1280,7 +1433,9 @@ namespace McStudDesktop.Views
             Grid.SetColumn(scrollViewer, 1);
             contentGrid.Children.Add(scrollViewer);
 
+            Grid.SetRow(contentGrid, _dialogRow++);
             dialogStack.Children.Add(contentGrid);
+            Grid.SetRow(summaryText, _dialogRow++);
             dialogStack.Children.Add(summaryText);
 
             var dialog = new ContentDialog
@@ -1298,7 +1453,7 @@ namespace McStudDesktop.Views
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {
-                SaveMustHaves(config, allCheckBoxes, pendingEdits, pendingDeletes, pendingAdds);
+                SaveMustHaves(config, allCheckBoxes, pendingEdits, pendingDeletes, pendingAdds, pendingTagEdits);
                 return true;
             }
             return false;
@@ -1316,7 +1471,8 @@ namespace McStudDesktop.Views
             Dictionary<CheckBox, (string Description, string CccOpType, int Quantity, decimal Price, decimal BodyHours, string BodyLaborCategory, decimal RefinishHours, string Condition, string? GroupId)> pendingEdits,
             HashSet<string> pendingDeletes,
             List<MustHaveGroup> groups,
-            Action updateCounts)
+            Action updateCounts,
+            Dictionary<string, (List<string> InsuranceCompanies, List<string> VehicleTypes)>? pendingTagEdits = null)
         {
             var opPrice = mh.ExpectedPrice;
             var opHours = mh.ExpectedHours;
@@ -1456,6 +1612,186 @@ namespace McStudDesktop.Views
                 Visibility = Visibility.Collapsed
             };
 
+            // === TAG PILLS (Insurance Companies + Vehicle Types) ===
+            var tagPillsPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 3,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(2, 0, 0, 0)
+            };
+
+            void RebuildTagPills()
+            {
+                tagPillsPanel.Children.Clear();
+                var curInsurers = pendingTagEdits != null && pendingTagEdits.TryGetValue(mh.Id, out var te)
+                    ? te.InsuranceCompanies : mh.InsuranceCompanies;
+                var curVehicles = pendingTagEdits != null && pendingTagEdits.TryGetValue(mh.Id, out var tv)
+                    ? tv.VehicleTypes : mh.VehicleTypes;
+
+                foreach (var ins in curInsurers)
+                {
+                    tagPillsPanel.Children.Add(new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 40, 50, 70)),
+                        CornerRadius = new CornerRadius(8),
+                        Padding = new Thickness(6, 1, 6, 1),
+                        Child = new TextBlock
+                        {
+                            Text = ins,
+                            FontSize = 9,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 170, 230))
+                        }
+                    });
+                }
+                foreach (var vt in curVehicles)
+                {
+                    var vtColor = vt.Contains("Electric") ? Color.FromArgb(255, 40, 70, 50) :
+                                  vt.Contains("Hybrid") ? Color.FromArgb(255, 60, 55, 30) :
+                                  Color.FromArgb(255, 50, 50, 50);
+                    var vtFg = vt.Contains("Electric") ? Color.FromArgb(255, 120, 220, 140) :
+                               vt.Contains("Hybrid") ? Color.FromArgb(255, 230, 200, 100) :
+                               Color.FromArgb(255, 180, 180, 180);
+                    tagPillsPanel.Children.Add(new Border
+                    {
+                        Background = new SolidColorBrush(vtColor),
+                        CornerRadius = new CornerRadius(8),
+                        Padding = new Thickness(6, 1, 6, 1),
+                        Child = new TextBlock { Text = vt, FontSize = 9, Foreground = new SolidColorBrush(vtFg) }
+                    });
+                }
+                if (curInsurers.Count == 0 && curVehicles.Count == 0)
+                {
+                    tagPillsPanel.Children.Add(new TextBlock
+                    {
+                        Text = "All",
+                        FontSize = 8,
+                        Foreground = new SolidColorBrush(TextDim),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Opacity = 0.6
+                    });
+                }
+            }
+            RebuildTagPills();
+            rowWrapper.Children.Add(tagPillsPanel);
+
+            // Tag edit button
+            var tagEditBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE1CB", FontSize = 9 },
+                Padding = new Thickness(4, 2, 4, 2),
+                Background = new SolidColorBrush(Colors.Transparent),
+                Foreground = new SolidColorBrush(TextDim),
+                CornerRadius = new CornerRadius(3),
+                MinWidth = 0,
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.7
+            };
+            ToolTipService.SetToolTip(tagEditBtn, "Edit insurance/vehicle tags");
+            rowWrapper.Children.Add(tagEditBtn);
+
+            tagEditBtn.Click += (s, ev) =>
+            {
+                // Build a flyout with checkboxes for insurers and vehicle types
+                var flyoutPanel = new StackPanel { Spacing = 6, Padding = new Thickness(4), MinWidth = 200 };
+
+                flyoutPanel.Children.Add(new TextBlock
+                {
+                    Text = "INSURANCE COMPANIES",
+                    FontSize = 10,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 170, 230))
+                });
+
+                var curInsurers = pendingTagEdits != null && pendingTagEdits.TryGetValue(mh.Id, out var te2)
+                    ? new List<string>(te2.InsuranceCompanies) : new List<string>(mh.InsuranceCompanies);
+                var curVehicles = pendingTagEdits != null && pendingTagEdits.TryGetValue(mh.Id, out var tv2)
+                    ? new List<string>(tv2.VehicleTypes) : new List<string>(mh.VehicleTypes);
+
+                // Known insurers from history + already tagged
+                var allInsurers = EstimateHistoryDatabase.Instance.KnownInsurers
+                    .Concat(curInsurers)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(s => s).ToList();
+
+                var insurerChecks = new Dictionary<string, CheckBox>();
+                foreach (var ins in allInsurers)
+                {
+                    var insCheck = new CheckBox
+                    {
+                        Content = ins,
+                        FontSize = 11,
+                        IsChecked = curInsurers.Any(i => i.Equals(ins, StringComparison.OrdinalIgnoreCase)),
+                        MinWidth = 0, Padding = new Thickness(0)
+                    };
+                    insurerChecks[ins] = insCheck;
+                    flyoutPanel.Children.Add(insCheck);
+                }
+
+                if (allInsurers.Count == 0)
+                {
+                    flyoutPanel.Children.Add(new TextBlock
+                    {
+                        Text = "No insurers in database yet",
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(TextDim),
+                        FontStyle = Windows.UI.Text.FontStyle.Italic
+                    });
+                }
+
+                flyoutPanel.Children.Add(new Border
+                {
+                    Height = 1, Margin = new Thickness(0, 4, 0, 4),
+                    Background = new SolidColorBrush(Color.FromArgb(60, 255, 255, 255))
+                });
+
+                flyoutPanel.Children.Add(new TextBlock
+                {
+                    Text = "VEHICLE TYPE",
+                    FontSize = 10,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 220, 140))
+                });
+
+                var vehicleChecks = new Dictionary<string, CheckBox>();
+                foreach (var vt in GhostConfigService.KnownVehicleFuelTypes)
+                {
+                    var vtCheck = new CheckBox
+                    {
+                        Content = vt,
+                        FontSize = 11,
+                        IsChecked = curVehicles.Any(v => v.Equals(vt, StringComparison.OrdinalIgnoreCase)),
+                        MinWidth = 0, Padding = new Thickness(0)
+                    };
+                    vehicleChecks[vt] = vtCheck;
+                    flyoutPanel.Children.Add(vtCheck);
+                }
+
+                flyoutPanel.Children.Add(new TextBlock
+                {
+                    Text = "Unchecked = applies to all",
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(TextDim),
+                    Margin = new Thickness(0, 4, 0, 0)
+                });
+
+                var flyout = new Flyout
+                {
+                    Content = flyoutPanel,
+                    Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom
+                };
+                flyout.Closed += (fs, fe) =>
+                {
+                    // Collect checked insurers
+                    var newInsurers = insurerChecks.Where(kv => kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
+                    var newVehicles = vehicleChecks.Where(kv => kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
+                    pendingTagEdits ??= new();
+                    pendingTagEdits[mh.Id] = (newInsurers, newVehicles);
+                    RebuildTagPills();
+                };
+                flyout.ShowAt(tagEditBtn);
+            };
+
             var deleteBtn = new Button
             {
                 Content = new FontIcon { Glyph = "\uE74D", FontSize = 9 },
@@ -1554,7 +1890,8 @@ namespace McStudDesktop.Views
                     ["optype"] = opType,
                     ["laborcat"] = laborCat,
                     ["condition"] = cond,
-                    ["group"] = grpName
+                    ["group"] = grpName,
+                    ["__opid__"] = mh.Id
                 };
             }
             UpdateSearchTag();
@@ -1574,7 +1911,8 @@ namespace McStudDesktop.Views
             Dictionary<CheckBox, (string Id, string Description, string Section, string? GroupId, decimal Price, decimal Hours)> checkBoxMap,
             Dictionary<CheckBox, (string Description, string CccOpType, int Quantity, decimal Price, decimal BodyHours, string BodyLaborCategory, decimal RefinishHours, string Condition, string? GroupId)> pendingEdits,
             HashSet<string> pendingDeletes,
-            List<MustHaveOperation> pendingAdds)
+            List<MustHaveOperation> pendingAdds,
+            Dictionary<string, (List<string> InsuranceCompanies, List<string> VehicleTypes)>? pendingTagEdits = null)
         {
             // 1. Apply deletes
             foreach (var id in pendingDeletes)
@@ -1603,6 +1941,13 @@ namespace McStudDesktop.Views
                         existing.GroupId = edit.GroupId;
                     }
 
+                    // Apply tag edits (insurance companies / vehicle types)
+                    if (pendingTagEdits != null && pendingTagEdits.TryGetValue(info.Id, out var tagEdit))
+                    {
+                        existing.InsuranceCompanies = tagEdit.InsuranceCompanies;
+                        existing.VehicleTypes = tagEdit.VehicleTypes;
+                    }
+
                     config.UpdateMustHave(existing);
                 }
             }
@@ -1611,7 +1956,15 @@ namespace McStudDesktop.Views
             foreach (var newMh in pendingAdds)
             {
                 if (!pendingDeletes.Contains(newMh.Id))
+                {
+                    // Apply tag edits to new operations too
+                    if (pendingTagEdits != null && pendingTagEdits.TryGetValue(newMh.Id, out var newTagEdit))
+                    {
+                        newMh.InsuranceCompanies = newTagEdit.InsuranceCompanies;
+                        newMh.VehicleTypes = newTagEdit.VehicleTypes;
+                    }
                     config.AddMustHave(newMh);
+                }
             }
         }
     }

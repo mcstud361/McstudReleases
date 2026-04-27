@@ -631,8 +631,8 @@ namespace McStudDesktop.Services
             if (result.GuidanceOperations.Any(o => o.PartName.Contains("quarter") || o.PartName.Contains("rocker")))
                 result.ProTips.Add("Welded panels require destructive weld tests, corrosion protection, and cavity wax.");
 
-            // Add must-have operations that aren't already present
-            AddMustHaveOperations(result);
+            // Add must-have operations that aren't already present (filtered by insurance/vehicle context)
+            AddMustHaveOperations(result, input.InsuranceCompany);
 
             // Final filter: remove operations whose section maps to a panel the user didn't request.
             // Allow global sections (diagnostics, restraints, misc) to pass through.
@@ -741,14 +741,17 @@ namespace McStudDesktop.Services
         /// These always appear on every ghost estimate with correct hours/prices.
         /// Skips any that are already present (by normalized description match).
         /// </summary>
-        private void AddMustHaveOperations(GuidanceEstimateResult result)
+        private void AddMustHaveOperations(GuidanceEstimateResult result, string? insuranceCompany = null)
         {
+            // Detect vehicle fuel type for context-aware must-have filtering
+            var vehicleFuelType = _patternIntelligence.ClassifyVehicleFuelType(result.VehicleInfo);
+
             var existingNorms = result.GuidanceOperations
                 .Select(o => GhostConfigService.NormalizeMustHaveDesc(o.Description ?? ""))
                 .Where(d => d.Length > 0)
                 .ToList();
 
-            foreach (var mh in _ghostConfig.GetMustHaves().Where(m => m.Enabled))
+            foreach (var mh in _ghostConfig.GetMustHavesForContext(insuranceCompany, vehicleFuelType))
             {
                 // Skip if already present (unified fuzzy match)
                 var mhNorm = GhostConfigService.NormalizeMustHaveDesc(mh.Description);
@@ -2696,7 +2699,7 @@ namespace McStudDesktop.Services
         /// <summary>
         /// Maps a part name (and optional category) to a CCC estimate section name.
         /// </summary>
-        private static string MapToCCCSection(string partName, string category = "")
+        internal static string MapToCCCSection(string partName, string category = "")
         {
             var lower = (partName ?? "").ToLowerInvariant();
 
@@ -3245,6 +3248,7 @@ namespace McStudDesktop.Services
         public List<string> ImpactZones { get; set; } = new();
         public string Severity { get; set; } = "moderate";
         public List<string> SelectedPanels { get; set; } = new(); // From damage zone selector
+        public string? InsuranceCompany { get; set; } // For must-have context filtering
 
         /// <summary>
         /// Per-panel severity overrides. Key = panel name, Value = severity string (light/moderate/heavy/severe).

@@ -49,6 +49,9 @@ namespace McStudDesktop.Views
         // Track checked items (key = "sectionIndex_itemIndex")
         private HashSet<string> _checkedItems = new();
 
+        // Checklist toolbar buttons
+        private Button? _editButton;
+
         // Checklist tabs (Templates vs My Checklists)
         private Button? _templatesTabBtn;
         private Button? _myChecklistsTabBtn;
@@ -76,7 +79,7 @@ namespace McStudDesktop.Views
         private static readonly Color CardBg = Color.FromArgb(255, 28, 28, 28);
         private static readonly Color SectionBg = Color.FromArgb(255, 35, 35, 35);
         private static readonly Color AccentBlue = Color.FromArgb(255, 0, 120, 215);
-        private static readonly Color AccentGreen = Color.FromArgb(255, 0, 150, 80);
+        private static readonly Color AccentGreen = Color.FromArgb(255, 0, 180, 80);
         private static readonly Color AccentOrange = Color.FromArgb(255, 255, 150, 0);
         private static readonly Color TextGray = Color.FromArgb(255, 160, 160, 160);
 
@@ -200,7 +203,7 @@ namespace McStudDesktop.Views
                 case WidgetType.PPFPricing:
                     return BuildPPFContentInner(widget.Id, index);
                 case WidgetType.PriceCatalogs:
-                    return BuildPriceCatalogsContentInner(widget.Id, index);
+                    return null; // Merged into Invoices tab dropdown; hidden in layout config
                 case WidgetType.MyDocs:
                     return BuildMyDocsContentInner(widget.Id, index);
                 case WidgetType.TemplateForm:
@@ -934,64 +937,46 @@ namespace McStudDesktop.Views
                 Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
             };
 
-            container.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sub-tabs
+            container.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Dropdown
             container.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Content
 
-            // Invoice sub-tabs (Color Tint vs Shop Stock)
-            var subTabPanel = new StackPanel
+            // Invoice type dropdown
+            var invoiceTypeCombo = new ComboBox
             {
-                Orientation = Orientation.Horizontal,
-                Spacing = 5,
-                Margin = new Thickness(0, 0, 0, 10)
+                Margin = new Thickness(0, 0, 0, 10),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                MinWidth = 230
             };
+            invoiceTypeCombo.Items.Add(new ComboBoxItem { Content = "Color Tint Invoice", Tag = "colorTint" });
+            invoiceTypeCombo.Items.Add(new ComboBoxItem { Content = "Shop Stock Invoice", Tag = "shopStock" });
+            invoiceTypeCombo.Items.Add(new ComboBoxItem { Content = "Price Catalog", Tag = "priceCatalog" });
+            invoiceTypeCombo.SelectedIndex = 0;
+            Grid.SetRow(invoiceTypeCombo, 0);
+            container.Children.Add(invoiceTypeCombo);
 
-            var colorTintBtn = new Button
-            {
-                Content = "Color Tint Invoice",
-                Background = new SolidColorBrush(AccentBlue),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 6, 12, 6)
-            };
-
-            var shopStockBtn = new Button
-            {
-                Content = "Shop Stock Invoice",
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(12, 6, 12, 6)
-            };
-
-            colorTintBtn.Click += (s, e) =>
-            {
-                colorTintBtn.Background = new SolidColorBrush(AccentBlue);
-                shopStockBtn.Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60));
-                if (_colorTintInvoiceView != null) _colorTintInvoiceView.Visibility = Visibility.Visible;
-                if (_shopStockInvoiceView != null) _shopStockInvoiceView.Visibility = Visibility.Collapsed;
-            };
-
-            shopStockBtn.Click += (s, e) =>
-            {
-                shopStockBtn.Background = new SolidColorBrush(AccentBlue);
-                colorTintBtn.Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60));
-                if (_colorTintInvoiceView != null) _colorTintInvoiceView.Visibility = Visibility.Collapsed;
-                if (_shopStockInvoiceView != null) _shopStockInvoiceView.Visibility = Visibility.Visible;
-            };
-
-            subTabPanel.Children.Add(colorTintBtn);
-            subTabPanel.Children.Add(shopStockBtn);
-            Grid.SetRow(subTabPanel, 0);
-            container.Children.Add(subTabPanel);
-
-            // Invoice content
+            // Invoice content area
             var invoiceSubContent = new Grid();
             Grid.SetRow(invoiceSubContent, 1);
 
             _colorTintInvoiceView = new ColorTintInvoiceView { Visibility = Visibility.Visible };
             _shopStockInvoiceView = new ShopStockInvoiceView { Visibility = Visibility.Collapsed };
+            _priceCatalogView = new PriceCatalogManagementView { Visibility = Visibility.Collapsed };
 
             invoiceSubContent.Children.Add(_colorTintInvoiceView);
             invoiceSubContent.Children.Add(_shopStockInvoiceView);
+            invoiceSubContent.Children.Add(_priceCatalogView);
             container.Children.Add(invoiceSubContent);
+
+            invoiceTypeCombo.SelectionChanged += (s, e) =>
+            {
+                var selected = (invoiceTypeCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+                if (_colorTintInvoiceView != null)
+                    _colorTintInvoiceView.Visibility = selected == "colorTint" ? Visibility.Visible : Visibility.Collapsed;
+                if (_shopStockInvoiceView != null)
+                    _shopStockInvoiceView.Visibility = selected == "shopStock" ? Visibility.Visible : Visibility.Collapsed;
+                if (_priceCatalogView != null)
+                    _priceCatalogView.Visibility = selected == "priceCatalog" ? Visibility.Visible : Visibility.Collapsed;
+            };
 
             _viewCache[widgetId] = container;
             return container;
@@ -1036,24 +1021,6 @@ namespace McStudDesktop.Views
             };
             _ppfEditorContainer.Children.Add(_ppfCustomizationEditor);
             container.Children.Add(_ppfEditorContainer);
-
-            _viewCache[widgetId] = container;
-            return container;
-        }
-
-        private UIElement BuildPriceCatalogsContentInner(string widgetId, int index)
-        {
-            if (_viewCache.TryGetValue(widgetId, out var cached))
-                return cached;
-
-            var container = new Grid
-            {
-                Tag = widgetId,
-                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
-            };
-
-            _priceCatalogView = new PriceCatalogManagementView();
-            container.Children.Add(_priceCatalogView);
 
             _viewCache[widgetId] = container;
             return container;
@@ -1674,21 +1641,22 @@ namespace McStudDesktop.Views
             Grid.SetColumn(roStack, 1);
             grid.Children.Add(roStack);
 
-            // Duplicate button
-            var duplicateButton = CreateActionButton("Duplicate", "\uE8C8", Color.FromArgb(255, 150, 100, 0));
+            // Duplicate button (E8C5 = Paste, distinct from Copy icon E8C8)
+            var duplicateButton = CreateActionButton("Duplicate", "\uE8C5", Color.FromArgb(255, 150, 100, 0));
             duplicateButton.Click += OnDuplicateChecklist;
             duplicateButton.Margin = new Thickness(8, 0, 0, 0);
             Grid.SetColumn(duplicateButton, 2);
             grid.Children.Add(duplicateButton);
 
-            // Edit button (only visible for custom checklists)
-            var editButton = CreateActionButton("Edit", "\uE70F", Color.FromArgb(255, 100, 100, 180));
-            editButton.Click += OnEditChecklist;
-            editButton.Margin = new Thickness(8, 0, 0, 0);
-            Grid.SetColumn(editButton, 3);
-            grid.Children.Add(editButton);
+            // Edit button — only shown for custom checklists
+            _editButton = CreateActionButton("Edit", "\uE70F", Color.FromArgb(255, 100, 100, 180));
+            _editButton.Click += OnEditChecklist;
+            _editButton.Margin = new Thickness(8, 0, 0, 0);
+            _editButton.Visibility = Visibility.Collapsed;
+            Grid.SetColumn(_editButton, 3);
+            grid.Children.Add(_editButton);
 
-            // Copy button
+            // Copy button (E8C8 = Copy)
             var copyButton = CreateActionButton("Copy", "\uE8C8", AccentBlue);
             copyButton.Click += OnCopyClick;
             copyButton.Margin = new Thickness(8, 0, 0, 0);
@@ -1950,6 +1918,10 @@ namespace McStudDesktop.Views
                 _checkedItems.Clear();
             _checklistContent?.Children.Clear();
 
+            // Show Edit only for custom checklists; built-in templates should be duplicated first
+            if (_editButton != null)
+                _editButton.Visibility = _isCurrentChecklistCustom ? Visibility.Visible : Visibility.Collapsed;
+
             if (_checklistContent == null || checklist.Sections == null) return;
 
             // Header card with stats
@@ -2067,7 +2039,7 @@ namespace McStudDesktop.Views
                 Value = 0,
                 Height = 8,
                 Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                Foreground = new SolidColorBrush(AccentGreen)
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)) // starts gray; goes green as items are checked
             };
             progressStack.Children.Add(_progressBar);
 
@@ -2115,36 +2087,61 @@ namespace McStudDesktop.Views
             };
             buttonRow.Children.Add(checkAllBtn);
 
+            var resetContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            resetContent.Children.Add(new FontIcon { Glyph = "\uE72C", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 180, 180)) });
+            resetContent.Children.Add(new TextBlock { Text = "Reset", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 180, 180)) });
+            var resetBtn = new Button
+            {
+                Content = resetContent,
+                Padding = new Thickness(8, 4, 8, 4),
+                Background = new SolidColorBrush(Color.FromArgb(255, 80, 45, 45))
+            };
+            resetBtn.Click += (s, e) =>
+            {
+                _checkedItems.Clear();
+                if (_roNumberBox != null) _roNumberBox.Text = "";
+                if (_currentChecklist != null)
+                    LoadChecklist(_currentChecklist, preserveChecked: false);
+            };
+            buttonRow.Children.Add(resetBtn);
+
             progressStack.Children.Add(buttonRow);
 
             progressCard.Child = progressStack;
             _checklistContent.Children.Add(progressCard);
 
-            // Two-column layout for sections if more than 4
+            // 3-column layout for sections (matches PDF orientation)
             if (checklist.Sections.Count > 4)
             {
                 var columnsGrid = new Grid();
                 columnsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 columnsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
                 columnsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                columnsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
+                columnsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-                var leftColumn = new StackPanel { Spacing = 8 };
-                var rightColumn = new StackPanel { Spacing = 8 };
+                var col1 = new StackPanel { Spacing = 8 };
+                var col2 = new StackPanel { Spacing = 8 };
+                var col3 = new StackPanel { Spacing = 8 };
 
-                var midPoint = (checklist.Sections.Count + 1) / 2;
+                var colSize = (checklist.Sections.Count + 2) / 3;
                 for (int i = 0; i < checklist.Sections.Count; i++)
                 {
                     var sectionCard = BuildSectionCard(checklist.Sections[i], i);
-                    if (i < midPoint)
-                        leftColumn.Children.Add(sectionCard);
+                    if (i < colSize)
+                        col1.Children.Add(sectionCard);
+                    else if (i < colSize * 2)
+                        col2.Children.Add(sectionCard);
                     else
-                        rightColumn.Children.Add(sectionCard);
+                        col3.Children.Add(sectionCard);
                 }
 
-                Grid.SetColumn(leftColumn, 0);
-                Grid.SetColumn(rightColumn, 2);
-                columnsGrid.Children.Add(leftColumn);
-                columnsGrid.Children.Add(rightColumn);
+                Grid.SetColumn(col1, 0);
+                Grid.SetColumn(col2, 2);
+                Grid.SetColumn(col3, 4);
+                columnsGrid.Children.Add(col1);
+                columnsGrid.Children.Add(col2);
+                columnsGrid.Children.Add(col3);
 
                 _checklistContent.Children.Add(columnsGrid);
             }
@@ -2360,6 +2357,8 @@ namespace McStudDesktop.Views
             {
                 _progressBar.Maximum = totalItems;
                 _progressBar.Value = checkedCount;
+                _progressBar.Foreground = new SolidColorBrush(
+                    checkedCount == 0 ? Color.FromArgb(255, 80, 80, 80) : AccentGreen);
             }
         }
 
@@ -2411,6 +2410,7 @@ namespace McStudDesktop.Views
             if (_currentChecklist == null) return;
 
             var roNumber = _roNumberBox?.Text?.Trim();
+            System.Diagnostics.Debug.WriteLine($"[ShopDocs] OnPrintClick — roNumber='{roNumber}', checklistId='{_currentChecklist.Id}'");
 
             try
             {

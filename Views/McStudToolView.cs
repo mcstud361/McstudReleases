@@ -250,14 +250,18 @@ namespace McStudDesktop.Views
         {
             var steps = new System.Collections.Generic.List<TourStep>
             {
-                new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Your virtual clipboard. Copy lines from Excel and McStud reads them automatically. Hit the CCC or Mitchell button and it types everything into the estimating platform for you.\n\nTip: Look for the ? button in the top-right corner for detailed help on any tab.", TabIndex = 0 },
-                new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Ask estimating questions and get help with procedures, guidelines, and best practices.", TabIndex = 1 },
-                new TourStep { Target = _guideTabButton!, Icon = "\uE82D", Title = "Guide", Description = "Step-by-step MET guides to help you through common estimating tasks and procedures. Hit the ? for more details.", TabIndex = 2 },
-                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDF estimates for analysis. The tool will parse operations, identify references, and help you review the estimate. Hit the ? for more details.", TabIndex = 3 },
-                new TourStep { Target = _referenceTabButton!, Icon = "\uE82D", Title = "Reference", Description = "Access Definitions, DEG Inquiries, P-Pages, and How-To Library all in one place. Search and queue references for PDF export. Hit the ? for more details.", TabIndex = 4 },
-                new TourStep { Target = _settingsTabButton!, Icon = "\uE713", Title = "Settings", Description = "Manage app settings, check for updates, view version info, and configure text-to-speech voice.", TabIndex = 5 },
-                new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Access checklists, invoices, and shop documents. Create custom checklists and export them to PDF. Hit the ? for more details.", TabIndex = 6 },
-                new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Track your export statistics — see how many operations you've exported, which platforms you use most, and your activity over time. Hit the ? for more details.", TabIndex = 7 }
+                new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Paste from MET, types into CCC hands-free. Hit \u2753 on any tab for tips.", TabIndex = 0 },
+                new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Your estimating assistant with four tools. Let's walk through each.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0) },
+                new TourStep { Target = _chatbotView?.ChatSubTabButton!, Icon = "\uE9CE", Title = "Chat \u2014 Ask", Description = "Ask questions in plain English, get answers from your knowledge base.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0), TryItPrompt = "Type a question and hit Send!", AchievementId = "first_question", AchievementTitle = "First Question" },
+                new TourStep { Target = _chatbotView?.LearnedSubTabButton!, Icon = "\uE7BE", Title = "Chat \u2014 Learned", Description = "What McStud has learned from your uploads. More uploads = smarter.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(1) },
+                new TourStep { Target = _chatbotView?.GhostSubTabButton!, Icon = "\uE8B7", Title = "Chat \u2014 Ghost", Description = "Shadow estimate from learned data. Scores against your history.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(2) },
+                new TourStep { Target = _chatbotView?.ScreenOcrSubTabButton!, Icon = "\uE7B3", Title = "Chat \u2014 Screen OCR", Description = "Reads CCC/Mitchell in real time via OCR \u2014 no copy-paste needed.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(3) },
+                new TourStep { Target = _guideTabButton!, Icon = "\uE7BC", Title = "Guide", Description = "Searchable MET guides, workflow tips, and tech efficiency tracking.", TabIndex = 2, TryItPrompt = "Try searching for a topic!", AchievementId = "quick_learner", AchievementTitle = "Quick Learner" },
+                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDFs for scoring, or teach McStud patterns from completed repairs.", TabIndex = 3, TryItPrompt = "Click between Scrubber and Learning!", AchievementId = "data_detective", AchievementTitle = "Data Detective" },
+                new TourStep { Target = _referenceTabButton!, Icon = "\uE8F1", Title = "Reference", Description = "Definitions, P-Pages, DEG, procedures, OEM statements \u2014 all searchable.", TabIndex = 4, TryItPrompt = "Click through the section tabs!", AchievementId = "reference_explorer", AchievementTitle = "Reference Explorer" },
+                new TourStep { Target = _settingsTabButton!, Icon = "\uE713", Title = "Settings", Description = "Shop name, learning mode, voice, and updates.", TabIndex = 5, TryItPrompt = "Enter your shop name!", AchievementId = "made_it_yours", AchievementTitle = "Made It Yours" },
+                new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Checklists, invoices, tow bills, PPF, and custom forms.", TabIndex = 6, TryItPrompt = "Open the document type dropdown!", AchievementId = "paperwork_pro", AchievementTitle = "Paperwork Pro" },
+                new TourStep { Target = _statsTabButton!, Icon = "\uE9D9", Title = "Stats", Description = "Charts and metrics \u2014 exports, uploads, activity by user or period.", TabIndex = 7 }
             };
 
             var overlay = new SpotlightTourOverlay(steps, SelectTab);
@@ -2234,6 +2238,13 @@ namespace McStudDesktop.Views
             }
         }
 
+        // Guide sub-tab state
+        private int _guideSelectedSubTab;
+        private Border? _guideSubTabMet;
+        private Border? _guideSubTabTechEff;
+        private FrameworkElement? _guideMetContent;
+        private FrameworkElement? _guideTechEffContent;
+
         private void BuildGuideTab()
         {
             var guideContent = new Grid
@@ -2241,8 +2252,9 @@ namespace McStudDesktop.Views
                 Tag = 2,
                 Visibility = Visibility.Collapsed
             };
-            guideContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            guideContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            guideContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // help button
+            guideContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // sub-tab bar
+            guideContent.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // content
 
             // Header with help button
             var guideHeader = new Grid { Margin = new Thickness(16, 8, 16, 4) };
@@ -2254,12 +2266,169 @@ namespace McStudDesktop.Views
             Grid.SetRow(guideHeader, 0);
             guideContent.Children.Add(guideHeader);
 
-            // Create the METGuideView
-            _metGuideView = new METGuideView();
-            Grid.SetRow(_metGuideView, 1);
+            // Sub-tab button bar (matching ChatbotView pattern)
+            var subTabBar = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 20, 20, 20)),
+                Padding = new Thickness(8, 8, 8, 0)
+            };
 
-            guideContent.Children.Add(_metGuideView);
+            _guideSubTabMet = CreateGuideSubTabButton("\uE82D MET Guide", "Searchable repair guides", 0, true);
+            _guideSubTabTechEff = CreateGuideSubTabButton("\u23F1 Tech Efficiency", "Plan & track tech hours", 1, false);
+            subTabBar.Children.Add(_guideSubTabMet);
+            subTabBar.Children.Add(_guideSubTabTechEff);
+
+            Grid.SetRow(subTabBar, 1);
+            guideContent.Children.Add(subTabBar);
+
+            // Content area
+            var contentArea = new Grid();
+
+            _metGuideView = new METGuideView();
+            _guideMetContent = _metGuideView;
+            _guideMetContent.Visibility = Visibility.Visible;
+            contentArea.Children.Add(_guideMetContent);
+
+            _guideTechEffContent = new TechEfficiencyView();
+            _guideTechEffContent.Visibility = Visibility.Collapsed;
+            contentArea.Children.Add(_guideTechEffContent);
+
+            Grid.SetRow(contentArea, 2);
+            guideContent.Children.Add(contentArea);
             _tabContent?.Children.Add(guideContent);
+        }
+
+        private Border CreateGuideSubTabButton(string text, string subtitle, int index, bool isSelected)
+        {
+            var outerGrid = new Grid();
+            outerGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            outerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(3) });
+
+            var border = new Border
+            {
+                Background = isSelected
+                    ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 50, 55))
+                    : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 28, 28, 28)),
+                CornerRadius = new CornerRadius(8, 8, 0, 0),
+                Padding = new Thickness(14, 10, 14, 8),
+                Tag = index
+            };
+
+            var stack = new StackPanel { Spacing = 2 };
+            stack.Children.Add(new TextBlock
+            {
+                Text = text,
+                FontSize = 12,
+                FontWeight = isSelected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal,
+                Foreground = new SolidColorBrush(isSelected ? Colors.White : Windows.UI.Color.FromArgb(255, 140, 140, 140))
+            });
+
+            var subtitleBlock = new TextBlock
+            {
+                Text = subtitle,
+                FontSize = 9,
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 100, 100, 100)),
+                Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed,
+                Name = "Subtitle"
+            };
+            stack.Children.Add(subtitleBlock);
+
+            border.Child = stack;
+            Grid.SetRow(border, 0);
+            outerGrid.Children.Add(border);
+
+            var indicator = new Border
+            {
+                Background = isSelected
+                    ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 150, 200))
+                    : new SolidColorBrush(Colors.Transparent),
+                CornerRadius = new CornerRadius(2, 2, 0, 0),
+                Height = 3,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Name = "Indicator"
+            };
+            Grid.SetRow(indicator, 1);
+            outerGrid.Children.Add(indicator);
+
+            var resultBorder = new Border
+            {
+                Child = outerGrid,
+                Margin = new Thickness(0, 0, 2, 0),
+                Tag = index
+            };
+
+            resultBorder.PointerEntered += (s, e) =>
+            {
+                if (_guideSelectedSubTab != index)
+                {
+                    border.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 38, 42, 48));
+                    subtitleBlock.Visibility = Visibility.Visible;
+                }
+            };
+            resultBorder.PointerExited += (s, e) =>
+            {
+                if (_guideSelectedSubTab != index)
+                {
+                    border.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 28, 28, 28));
+                    subtitleBlock.Visibility = Visibility.Collapsed;
+                }
+            };
+            resultBorder.PointerPressed += (s, e) => SelectGuideSubTab(index);
+
+            return resultBorder;
+        }
+
+        private void SelectGuideSubTab(int index)
+        {
+            _guideSelectedSubTab = index;
+
+            UpdateGuideSubTabStyle(_guideSubTabMet, index == 0);
+            UpdateGuideSubTabStyle(_guideSubTabTechEff, index == 1);
+
+            if (_guideMetContent != null)
+                _guideMetContent.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (_guideTechEffContent != null)
+                _guideTechEffContent.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private static void UpdateGuideSubTabStyle(Border? button, bool isSelected)
+        {
+            if (button?.Child is not Grid outerGrid || outerGrid.Children.Count < 2) return;
+
+            if (outerGrid.Children[0] is Border contentBorder)
+            {
+                contentBorder.Background = isSelected
+                    ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 45, 50, 55))
+                    : new SolidColorBrush(Windows.UI.Color.FromArgb(255, 28, 28, 28));
+
+                if (contentBorder.Child is StackPanel stack)
+                {
+                    foreach (var child in stack.Children)
+                    {
+                        if (child is TextBlock text)
+                        {
+                            if (text.Name == "Subtitle")
+                            {
+                                text.Visibility = isSelected ? Visibility.Visible : Visibility.Collapsed;
+                            }
+                            else
+                            {
+                                text.Foreground = new SolidColorBrush(isSelected ? Colors.White : Windows.UI.Color.FromArgb(255, 140, 140, 140));
+                                text.FontWeight = isSelected ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (outerGrid.Children[1] is Border indicator)
+            {
+                indicator.Background = isSelected
+                    ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 0, 150, 200))
+                    : new SolidColorBrush(Colors.Transparent);
+            }
         }
 
         private void BuildShopDocsTab()

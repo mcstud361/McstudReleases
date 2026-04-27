@@ -399,7 +399,9 @@ namespace McStudDesktop.Services
                 // of the previous line's description (PDF text wrapping).
                 if (items.Count > 0 && !Regex.IsMatch(line, @"^\d") && !line.StartsWith("#") && !line.StartsWith("*")
                     && !line.StartsWith("Note:", StringComparison.OrdinalIgnoreCase)
-                    && string.IsNullOrEmpty(DetectSectionHeader(line)))
+                    && string.IsNullOrEmpty(DetectSectionHeader(line))
+                    && !IsHeaderOrFooter(line)
+                    && !IsSummaryContent(line))
                 {
                     var lastItem = items[^1];
                     // Strip any trailing numbers that iText7 may have picked up from column alignment
@@ -1519,6 +1521,25 @@ namespace McStudDesktop.Services
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Detect summary/totals content that can appear mid-line in PDF text extraction.
+        /// Used to prevent the continuation logic from appending totals to the last line item.
+        /// </summary>
+        private static bool IsSummaryContent(string line)
+        {
+            var upper = line.ToUpperInvariant();
+            var summaryKeywords = new[]
+            {
+                "SUBTOTAL", "ESTIMATE TOTAL", "GRAND TOTAL", "NET TOTAL",
+                "CATEGORY BASIS RATE", "CATEGORY RATE COST",
+                "BODY LABOR", "PAINT LABOR", "MECHANICAL LABOR", "REFINISH LABOR",
+                "FRAME LABOR", "STRUCTURAL LABOR",
+                "PAINT SUPPLIES", "BODY SUPPLIES", "SHOP MATERIALS",
+                "SALES TAX", "CUSTOMER RESPONSIBILITY",
+            };
+            return summaryKeywords.Any(kw => upper.Contains(kw));
         }
 
         /// <summary>

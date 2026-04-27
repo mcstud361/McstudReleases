@@ -1,10 +1,19 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace McStudDesktop.Services
 {
+    public class OnboardingAchievement
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string EarnedDate { get; set; } = "";
+    }
+
     public class OnboardingStateService
     {
         private static OnboardingStateService? _instance;
@@ -55,6 +64,25 @@ namespace McStudDesktop.Services
             SaveState();
         }
 
+        public bool EarnAchievement(string id, string title)
+        {
+            if (_state.Achievements.Any(a => a.Id == id))
+                return false;
+
+            _state.Achievements.Add(new OnboardingAchievement
+            {
+                Id = id,
+                Title = title,
+                EarnedDate = DateTime.Now.ToString("o")
+            });
+            SaveState();
+            return true;
+        }
+
+        public bool HasAchievement(string id) => _state.Achievements.Any(a => a.Id == id);
+
+        public int GetAchievementCount() => _state.Achievements.Count;
+
         private void SaveState()
         {
             try
@@ -103,5 +131,6 @@ namespace McStudDesktop.Services
     {
         public bool HasCompletedFirstLaunch { get; set; } = false;
         public string LastSeenVersion { get; set; } = "";
+        public List<OnboardingAchievement> Achievements { get; set; } = new();
     }
 }

@@ -1,6 +1,8 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
@@ -169,6 +171,8 @@ public sealed class LaborRatesView : UserControl
         var footerContent = new Grid();
         footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footerContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var countText = new TextBlock
         {
@@ -181,19 +185,53 @@ public sealed class LaborRatesView : UserControl
         Grid.SetColumn(countText, 0);
         footerContent.Children.Add(countText);
 
-        var addContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        addContent.Children.Add(new FontIcon { Glyph = "\uE710", FontSize = 16 });
-        addContent.Children.Add(new TextBlock { Text = "Add Dealer", VerticalAlignment = VerticalAlignment.Center });
+        // Copy button
+        var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        copyContent.Children.Add(new TextBlock { Text = "Copy", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        var copyBtn = new Button
+        {
+            Content = copyContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(AccentBlue),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        copyBtn.Click += OnCopyClick;
+        Grid.SetColumn(copyBtn, 1);
+        footerContent.Children.Add(copyBtn);
+
+        // Export to PDF button
+        var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        exportContent.Children.Add(new FontIcon { Glyph = "\uE749", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
+        exportContent.Children.Add(new TextBlock { Text = "Export to PDF", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
+
+        var exportBtn = new Button
+        {
+            Content = exportContent,
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4),
+            Background = new SolidColorBrush(AccentGreen),
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        exportBtn.Click += OnExportPdfClick;
+        Grid.SetColumn(exportBtn, 2);
+        footerContent.Children.Add(exportBtn);
+
+        // Add Dealer button
+        var addContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        addContent.Children.Add(new FontIcon { Glyph = "\uE710", FontSize = 12 });
+        addContent.Children.Add(new TextBlock { Text = "Add Dealer", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
 
         var addButton = new Button
         {
             Content = addContent,
-            Padding = new Thickness(20, 10, 20, 10),
-            Background = new SolidColorBrush(AccentGreen),
-            Foreground = new SolidColorBrush(Colors.White)
+            Padding = new Thickness(12, 6, 12, 6),
+            CornerRadius = new CornerRadius(4)
         };
         addButton.Click += OnAddDealerClick;
-        Grid.SetColumn(addButton, 1);
+        Grid.SetColumn(addButton, 3);
         footerContent.Children.Add(addButton);
 
         footer.Child = footerContent;
@@ -1226,6 +1264,65 @@ public sealed class LaborRatesView : UserControl
     }
 
     #endregion
+
+    private void OnCopyClick(object sender, RoutedEventArgs e)
+    {
+        var dealers = _laborService.GetAllDealers();
+        if (dealers.Count == 0)
+        {
+            ShowNotification("No dealers to copy", InfoBarSeverity.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Dealer / Labor Rates");
+        sb.AppendLine(new string('-', 70));
+        sb.AppendLine($"{"Dealer",-25} {"Manufacturer",-15} {"Body",8} {"Mech",8} {"Paint",8}");
+        sb.AppendLine(new string('-', 70));
+        foreach (var d in dealers)
+        {
+            sb.AppendLine($"{d.DealerName,-25} {d.Manufacturer,-15} {d.BodyLaborRate,8:C2} {d.MechLaborRate,8:C2} {d.PaintLaborRate,8:C2}");
+        }
+
+        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        dp.SetText(sb.ToString());
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+        ShowNotification("Dealer list copied to clipboard!", InfoBarSeverity.Success);
+    }
+
+    private void OnExportPdfClick(object sender, RoutedEventArgs e)
+    {
+        var dealers = _laborService.GetAllDealers();
+        if (dealers.Count == 0)
+        {
+            ShowNotification("No dealers to export", InfoBarSeverity.Warning);
+            return;
+        }
+
+        try
+        {
+            var dealerData = dealers.Select(d => (
+                Name: d.DealerName ?? "",
+                Phone: d.PhoneNumbers.FirstOrDefault() ?? "",
+                Address: string.Join(", ", new[] { d.Address, d.City, d.State, d.Zip }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                Manufacturer: d.Manufacturer ?? ""
+            )).ToList();
+
+            var pdfPath = ShopDocsPdfService.Instance.GenerateDealerListPdf(dealerData);
+            DocumentUsageTrackingService.Instance.RecordPdfExport("DealerList", System.IO.Path.GetFileName(pdfPath), dealers.Count);
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = pdfPath,
+                UseShellExecute = true
+            });
+            ShowNotification("Dealer list exported to PDF!", InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            ShowNotification($"Export failed: {ex.Message}", InfoBarSeverity.Error);
+        }
+    }
 
     private void ShowNotification(string message, InfoBarSeverity severity)
     {

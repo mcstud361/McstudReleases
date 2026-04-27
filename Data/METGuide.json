@@ -300,14 +300,23 @@
     },
     "import-tab": {
       "title": "Import Tab — Estimate Analyzer",
-      "description": "Upload or paste an existing estimate so McStud can read it, find what's missing, and learn patterns for next time.",
+      "description": "Feed it an estimate (PDF or pasted text) and it reads every line — parts, labor, refinish, additional ops — so you can analyze it, learn from it, or scrub for missing ops.",
       "steps": [
-        "1. Upload a PDF (drag-drop or browse) OR paste estimate text from CCC (Ctrl+A → Ctrl+C → Ctrl+V) and hit Parse",
-        "2. Parsed lines appear in green — every part, operation, labor hour, and dollar amount the parser found",
-        "3. Click 'Build Operation Lines' to get suggested missing ops for THIS estimate (nothing is saved)",
-        "4. Click 'Learn from This' to teach McStud the patterns (e.g. Front Bumper + Replace → typical ops) for FUTURE estimates",
-        "5. Check the purple Suggestions panel for items the knowledge base flagged as missing (adhesion promoter, blend, flex additive, etc.)",
-        "6. Use 'Add High Priority' to grab critical suggestions, or select individual items"
+        "GETTING ESTIMATES IN",
+        "• PDF: Click 'Upload' or drag-drop the file onto the upload area",
+        "• Paste: Ctrl+A / Ctrl+C from CCC ONE, paste into the text box, hit Parse",
+        "• Batch: Drop multiple PDFs at once for bulk processing",
+        "",
+        "SCRUBBER TAB",
+        "1. Parse an estimate and it automatically scores for missing operations",
+        "2. Reads the hourly rates directly from the estimate",
+        "3. Benchmarks against similar repairs in your history",
+        "4. Use 'Copy to Clipboard' to grab the missing items list for CCC",
+        "",
+        "ESTIMATE LEARNING TAB",
+        "1. Parse an estimate and hit 'Learn from This' to save the part→operation patterns",
+        "2. Next time you see that part, McStud remembers what ops usually go with it",
+        "3. The more estimates you learn, the better the scrubber's benchmark comparison becomes"
       ],
       "tips": [
         "Works with CCC ONE, Mitchell, and Audatex estimate formats",

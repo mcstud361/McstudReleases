@@ -52,7 +52,7 @@
       ],
       "notes": "Consider total repair cost including labor, materials, and quality outcome when deciding.",
       "mitchellRef": "Section 3",
-      "tags": ["repair", "replace", "decision", "guidelines", "P-3", "P3"]
+      "tags": ["repair vs replace", "decision", "guidelines", "P-3", "P3"]
     },
     {
       "id": "G4",
@@ -77,7 +77,7 @@
       ],
       "notes": "R&I assumes the same serviceable part is reinstalled. If a different or new part is installed, use R&R.",
       "mitchellRef": "Section 4",
-      "tags": ["R&I", "remove", "install", "access", "P-4", "P4"]
+      "tags": ["R&I", "remove and install", "access", "P-4", "P4"]
     },
     {
       "id": "G5",
@@ -103,7 +103,7 @@
       ],
       "notes": "R&R times assume new OEM parts with factory fit. Aftermarket or recycled parts may require additional time.",
       "mitchellRef": "Section 5",
-      "tags": ["R&R", "remove", "replace", "new part", "P-5", "P5"]
+      "tags": ["R&R", "remove and replace", "new part", "P-5", "P5"]
     },
     {
       "id": "G6",
@@ -366,7 +366,7 @@
       ],
       "notes": "Wiring repair should follow OEM procedures. Document all wiring repairs.",
       "mitchellRef": "Section 20",
-      "tags": ["wiring", "connector", "harness", "repair", "splice", "P-20", "P20"]
+      "tags": ["wiring", "connector", "harness", "wire splice", "P-20", "P20"]
     },
     {
       "id": "G21",

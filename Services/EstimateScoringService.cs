@@ -287,7 +287,8 @@ namespace McStudDesktop.Services
         /// Returns a detailed scoring result with suggestions.
         /// </summary>
         public EstimateScoringResult ScoreEstimate(List<ParsedEstimateLine> lines, string? vehicleInfo = null,
-            decimal estimateBodyRate = 0, decimal estimatePaintRate = 0, decimal estimateMechRate = 0)
+            decimal estimateBodyRate = 0, decimal estimatePaintRate = 0, decimal estimateMechRate = 0,
+            string? insuranceCompany = null)
         {
             // Pre-process: join continuation lines (e.g., "Rub-Out &" + "& Buff" → "Rub-Out & Buff")
             // OCR and PDF parsers sometimes split wrapped descriptions across multiple lines.
@@ -335,7 +336,7 @@ namespace McStudDesktop.Services
             RunCheck(() => CheckDiagnosticScans(lines, result), "DiagnosticScans");
             RunCheck(() => CheckADASCalibrations(lines, result), "ADASCalibrations");
             RunCheck(() => CheckGlobalRules(lines, result), "GlobalRules");
-            RunCheck(() => CheckMustHaves(lines, result), "MustHaves");
+            RunCheck(() => CheckMustHaves(lines, result, insuranceCompany), "MustHaves");
 
             // Collapse synonym-equivalent issues (e.g., "Battery Disconnect/Reconnect" + "Battery Disconnect"
             // + "Battery Reconnect & Initialize" → keep highest-severity only)
@@ -1051,9 +1052,11 @@ namespace McStudDesktop.Services
 
         #region Must-Haves Check
 
-        private void CheckMustHaves(List<ParsedEstimateLine> lines, EstimateScoringResult result)
+        private void CheckMustHaves(List<ParsedEstimateLine> lines, EstimateScoringResult result, string? insuranceCompany = null)
         {
-            var mustHaves = GhostConfigService.Instance.GetMustHaves();
+            // Detect vehicle fuel type from vehicle info for context-aware filtering
+            var vehicleFuelType = PatternIntelligenceService.Instance.ClassifyVehicleFuelType(result.VehicleInfo);
+            var mustHaves = GhostConfigService.Instance.GetMustHavesForContext(insuranceCompany, vehicleFuelType);
             if (mustHaves == null || mustHaves.Count == 0) return;
 
             // Build combined text blob for condition evaluation (reuse indexed data)
