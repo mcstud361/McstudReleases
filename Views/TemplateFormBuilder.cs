@@ -1350,6 +1350,41 @@ public class TemplateFormBuilder : UserControl
         RenderForm();
     }
 
+    public void AddStockPartAsCharge(string name, decimal sellPrice, decimal costPrice, decimal listPrice, string? partNumber)
+    {
+        if (_currentTemplate == null) return;
+
+        var chargeSection = _currentTemplate.Sections.FirstOrDefault(s => s.IsChargeSection);
+        if (chargeSection == null) return;
+
+        var newItem = new TemplateChargeItem
+        {
+            Id = $"stock_{DateTime.Now.Ticks}",
+            Name = name,
+            DefaultAmount = sellPrice,
+            DefaultCostPrice = costPrice,
+            DefaultListPrice = listPrice,
+            PartNumber = partNumber,
+            IsEnabled = true,
+            ShowQuantity = true,
+            QuantityLabel = "Each",
+            Order = chargeSection.ChargeItems.Count
+        };
+        chargeSection.ChargeItems.Add(newItem);
+
+        _chargeStates[newItem.Id] = new ChargeItemState
+        {
+            Selected = true,
+            Amount = sellPrice,
+            CostPrice = costPrice,
+            ListPrice = listPrice,
+            Quantity = 1
+        };
+
+        RenderForm();
+        NotifyChargeTotalsChanged();
+    }
+
     private void RemoveChargeItem(TemplateChargeItem item)
     {
         if (_currentTemplate == null) return;

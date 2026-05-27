@@ -83,7 +83,7 @@ public class ShopStockService
             // Fasteners & Hardware
             new() { PartNumber = "CLIP-001", Description = "Door Panel Clip - Universal", Category = "Fasteners", CostPrice = 0.50m, SellPrice = 2.00m, QuantityInStock = 100 },
             new() { PartNumber = "CLIP-002", Description = "Fender Liner Clip - Universal", Category = "Fasteners", CostPrice = 0.45m, SellPrice = 1.75m, QuantityInStock = 100 },
-            new() { PartNumber = "CLIP-003", Description = "Bumper Cover Clip", Category = "Fasteners", CostPrice = 0.60m, SellPrice = 2.25m, QuantityInStock = 75 },
+            new() { PartNumber = "CLIP-003", Description = "Bumper Cover Clip", Category = "Fasteners", CostPrice = 0.60m, SellPrice = 2.25m, QuantityInStock = 75, VehicleMake = "Toyota" },
             new() { PartNumber = "CLIP-004", Description = "Splash Shield Clip", Category = "Fasteners", CostPrice = 0.40m, SellPrice = 1.50m, QuantityInStock = 100 },
             new() { PartNumber = "CLIP-005", Description = "Grille Clip", Category = "Fasteners", CostPrice = 0.55m, SellPrice = 2.00m, QuantityInStock = 50 },
             new() { PartNumber = "BOLT-001", Description = "Bumper Bolt 10mm", Category = "Fasteners", CostPrice = 0.75m, SellPrice = 2.50m, QuantityInStock = 50 },
@@ -91,9 +91,9 @@ public class ShopStockService
             new() { PartNumber = "NUT-001", Description = "Push Nut - Universal", Category = "Fasteners", CostPrice = 0.30m, SellPrice = 1.25m, QuantityInStock = 100 },
 
             // Body Parts
-            new() { PartNumber = "MOLD-001", Description = "Door Edge Guard - Black", Category = "Moldings", CostPrice = 8.00m, SellPrice = 25.00m, QuantityInStock = 10 },
-            new() { PartNumber = "MOLD-002", Description = "Wheel Well Molding - Universal", Category = "Moldings", CostPrice = 12.00m, SellPrice = 35.00m, QuantityInStock = 8 },
-            new() { PartNumber = "SEAL-001", Description = "Door Weatherstrip - Universal", Category = "Seals", CostPrice = 15.00m, SellPrice = 45.00m, QuantityInStock = 6 },
+            new() { PartNumber = "MOLD-001", Description = "Door Edge Guard - Black", Category = "Moldings", CostPrice = 8.00m, SellPrice = 25.00m, QuantityInStock = 10, VehicleMake = "Honda" },
+            new() { PartNumber = "MOLD-002", Description = "Wheel Well Molding - Universal", Category = "Moldings", CostPrice = 12.00m, SellPrice = 35.00m, QuantityInStock = 8, VehicleMake = "Ford" },
+            new() { PartNumber = "SEAL-001", Description = "Door Weatherstrip - Universal", Category = "Seals", CostPrice = 15.00m, SellPrice = 45.00m, QuantityInStock = 6, VehicleMake = "Chevrolet" },
             new() { PartNumber = "SEAL-002", Description = "Window Channel Seal", Category = "Seals", CostPrice = 10.00m, SellPrice = 30.00m, QuantityInStock = 8 },
 
             // Adhesives & Tape
@@ -211,7 +211,10 @@ public class ShopStockService
         return _data.Parts
             .Where(p => (p.PartNumber?.ToLowerInvariant().Contains(term) ?? false) ||
                         (p.Description?.ToLowerInvariant().Contains(term) ?? false) ||
-                        (p.Category?.ToLowerInvariant().Contains(term) ?? false))
+                        (p.Category?.ToLowerInvariant().Contains(term) ?? false) ||
+                        (p.Notes?.ToLowerInvariant().Contains(term) ?? false) ||
+                        (p.OriginalInvoiceNumber?.ToLowerInvariant().Contains(term) ?? false) ||
+                        (p.VehicleMake?.ToLowerInvariant().Contains(term) ?? false))
             .ToList();
     }
 
@@ -237,6 +240,19 @@ public class ShopStockService
         return categories;
     }
 
+    public List<string> GetVehicleMakes()
+    {
+        var makes = _data.Parts
+            .Where(p => !string.IsNullOrEmpty(p.VehicleMake))
+            .Select(p => p.VehicleMake!)
+            .Distinct()
+            .OrderBy(m => m)
+            .ToList();
+
+        makes.Insert(0, "All");
+        return makes;
+    }
+
     public StockPart? GetPart(string partNumber)
     {
         return _data.Parts.FirstOrDefault(p =>
@@ -259,6 +275,10 @@ public class ShopStockService
             existing.CostPrice = part.CostPrice;
             existing.SellPrice = part.SellPrice;
             existing.QuantityInStock = part.QuantityInStock;
+            existing.Notes = part.Notes;
+            existing.OriginalInvoiceNumber = part.OriginalInvoiceNumber;
+            existing.ListPrice = part.ListPrice;
+            existing.VehicleMake = part.VehicleMake;
             SaveParts();
         }
     }
@@ -370,6 +390,18 @@ public class StockPart
 
     [JsonPropertyName("quantityInStock")]
     public int QuantityInStock { get; set; }
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+
+    [JsonPropertyName("originalInvoiceNumber")]
+    public string? OriginalInvoiceNumber { get; set; }
+
+    [JsonPropertyName("listPrice")]
+    public decimal ListPrice { get; set; }
+
+    [JsonPropertyName("vehicleMake")]
+    public string? VehicleMake { get; set; }
 }
 
 public class ShopStockSettings

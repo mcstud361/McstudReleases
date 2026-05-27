@@ -45,9 +45,12 @@ namespace McStudDesktop.Views
         // Inner tab infrastructure
         private Border? _scrubberTabButton;
         private Border? _learningTabButton;
+        private Border? _learnedDataTabButton;
         private StackPanel? _scrubberTabContent;
         private StackPanel? _learningTabContent;
-        private int _activeSubTab = 0; // 0=Scrubber, 1=Learning
+        private StackPanel? _learnedDataContent;
+        private EstimateBuilderPanel? _estimateBuilderPanel;
+        private int _activeSubTab = 0; // 0=Scrubber, 1=Learning, 2=Learned Data
 
         // Scrubber tab UI
         private Border? _scrubUploadDropZone;
@@ -63,6 +66,7 @@ namespace McStudDesktop.Views
         private ProgressRing? _scrubProgressRing;
         private Button? _scrubClearButton;
         private Button? _scrubCopyButton;
+        private Button? _scrubCCCExportButton;
         private Button? _scrubExportPdfButton;
         private Button? _scrubMustHavesButton;
         private TextBlock? _scrubStatusText;
@@ -120,6 +124,11 @@ namespace McStudDesktop.Views
         // Events
         public event EventHandler<TrainingCompletedEventArgs>? OnTrainingCompleted;
         public event EventHandler? OnNavigateToReference;
+        public event EventHandler? OnNavigateToExport;
+        public event EventHandler<List<Services.GeneratedOperation>>? OnOperationsGenerated;
+
+        // Public accessors for tour targeting
+        public Border? LearnedDataTabButton => _learnedDataTabButton;
 
         // Parsed data (shared between tabs)
         private List<ParsedEstimateLine> _parsedLines = new();
@@ -128,6 +137,10 @@ namespace McStudDesktop.Views
         private decimal _estimateBodyRate;
         private decimal _estimatePaintRate;
         private decimal _estimateMechRate;
+
+        // Current estimate context for Reference PDF auto-populate
+        private string? _scrubVehicleInfo;
+        private string? _scrubVin;
 
         // Parse context
         private enum ParseContext { Scrubber, Learning }
@@ -260,15 +273,19 @@ namespace McStudDesktop.Views
             };
             _scrubberTabButton = CreateInnerTabButton("\uE7BA", "Scrubber", 0);
             _learningTabButton = CreateInnerTabButton("\uE7BE", "Estimate Learning", 1);
+            _learnedDataTabButton = CreateInnerTabButton("\uE8F1", "Learned Data", 2);
             innerTabBar.Children.Add(_scrubberTabButton);
             innerTabBar.Children.Add(_learningTabButton);
+            innerTabBar.Children.Add(_learnedDataTabButton);
             mainStack.Children.Add(innerTabBar);
 
             // === TAB CONTENTS ===
             _scrubberTabContent = BuildScrubberTab();
             _learningTabContent = BuildLearningTab();
+            _learnedDataContent = BuildLearnedDataTab();
             mainStack.Children.Add(_scrubberTabContent);
             mainStack.Children.Add(_learningTabContent);
+            mainStack.Children.Add(_learnedDataContent);
 
             scroll.Content = mainStack;
             mainBorder.Child = scroll;
@@ -390,9 +407,12 @@ namespace McStudDesktop.Views
                 _scrubberTabContent.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
             if (_learningTabContent != null)
                 _learningTabContent.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+            if (_learnedDataContent != null)
+                _learnedDataContent.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
 
             UpdateInnerTabButtonStyle(_scrubberTabButton, 0);
             UpdateInnerTabButtonStyle(_learningTabButton, 1);
+            UpdateInnerTabButtonStyle(_learnedDataTabButton, 2);
         }
 
         #endregion
@@ -512,6 +532,29 @@ namespace McStudDesktop.Views
                 "Copy all missing items to clipboard.\n" +
                 "Includes must-haves, commonly missed, and learned pattern suggestions.");
             scrubActions.Children.Add(_scrubCopyButton);
+
+            _scrubCCCExportButton = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children =
+                    {
+                        new FontIcon { Glyph = "\uE710", FontSize = 14 },
+                        new TextBlock { Text = "+ Export", FontSize = 12 }
+                    }
+                },
+                Background = new SolidColorBrush(Color.FromArgb(255, 40, 120, 60)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(16, 8, 16, 8),
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            _scrubCCCExportButton.Click += AddToExport_Click;
+            ToolTipService.SetToolTip(_scrubCCCExportButton,
+                "Stage missing items to the Export tab.\n" +
+                "Then use CCC Desktop, CCC Web, or Mitchell to export.");
+            scrubActions.Children.Add(_scrubCCCExportButton);
 
             _scrubExportPdfButton = new Button
             {
@@ -946,6 +989,27 @@ namespace McStudDesktop.Views
             content.Children.Add(_learnStatusText);
 
             return content;
+        }
+
+        private StackPanel BuildLearnedDataTab()
+        {
+            var content = new StackPanel { Spacing = 8, Visibility = Visibility.Collapsed };
+
+            _estimateBuilderPanel = new EstimateBuilderPanel();
+            _estimateBuilderPanel.OnOperationsGenerated += (s, ops) => OnOperationsGenerated?.Invoke(this, ops);
+            content.Children.Add(_estimateBuilderPanel);
+
+            return content;
+        }
+
+        /// <summary>
+        /// Navigate to the Learned Data sub-tab and optionally load OCR operations.
+        /// </summary>
+        public void SelectLearnedDataAndLoadOperations(List<McstudDesktop.Models.OcrDetectedOperation>? operations = null)
+        {
+            SelectInnerTab(2);
+            if (operations != null && operations.Count > 0)
+                _estimateBuilderPanel?.AddOperationsFromOcr(operations);
         }
 
         #endregion
@@ -1443,6 +1507,8 @@ namespace McStudDesktop.Views
             int totalManualLines = 0;
             string? detectedSource = null;
             string? vehicleInfo = null;
+            string? vin = null;
+            EstimateTotals? totals = null;
 
             foreach (var file in files)
             {
@@ -1457,6 +1523,8 @@ namespace McStudDesktop.Views
                         {
                             detectedSource = estimate.Source;
                             vehicleInfo = estimate.VehicleInfo;
+                            vin = estimate.VIN;
+                            totals = estimate.Totals;
 
                             // Store hourly rates detected from the PDF
                             StoreEstimateRates(estimate.Totals);
@@ -1473,7 +1541,8 @@ namespace McStudDesktop.Views
 
                             System.Diagnostics.Debug.WriteLine($"[Import] {file.Name}: {estimate.Source} estimate, {estimate.LineItems.Count} items, Vehicle: {estimate.VehicleInfo}");
 
-                            await PersistWithDuplicateCheckAsync(estimate);
+                            if (ctx == ParseContext.Learning)
+                                await PersistWithDuplicateCheckAsync(estimate);
                         }
                         else
                         {
@@ -1487,7 +1556,8 @@ namespace McStudDesktop.Views
                                 totalManualLines += parsed.Count(p => p.IsManualLine);
 
                                 var fallbackEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
-                                await PersistWithDuplicateCheckAsync(fallbackEstimate);
+                                if (ctx == ParseContext.Learning)
+                                    await PersistWithDuplicateCheckAsync(fallbackEstimate);
                             }
                         }
                     }
@@ -1503,7 +1573,8 @@ namespace McStudDesktop.Views
                             totalManualLines += parsed.Count(p => p.IsManualLine);
 
                             var csvEstimate = EstimatePersistenceHelper.ConvertFromParsedLines(parsed, text, file.Name);
-                            await PersistWithDuplicateCheckAsync(csvEstimate);
+                            if (ctx == ParseContext.Learning)
+                                await PersistWithDuplicateCheckAsync(csvEstimate);
                         }
                     }
                 }
@@ -1516,20 +1587,30 @@ namespace McStudDesktop.Views
 
             DisplayParsedLines(targetList);
 
+            // Insert estimate summary banner at top of list
+            if (!string.IsNullOrEmpty(vehicleInfo) || !string.IsNullOrEmpty(vin) || (totals != null && totals.GrandTotal > 0))
+            {
+                var banner = BuildEstimateSummaryBanner(vehicleInfo, vin, detectedSource, totals);
+                targetList.Items.Insert(0, banner);
+            }
+
             ShowProgress(false, ctx);
             FrameworkElement resultsSection = ctx == ParseContext.Scrubber ? (FrameworkElement)_scrubSideBySideGrid! : _learnResultsSection!;
             var resultsTitle = ctx == ParseContext.Scrubber ? _scrubResultsTitle! : _learnResultsTitle!;
             resultsSection.Visibility = Visibility.Visible;
 
             var sourceInfo = !string.IsNullOrEmpty(detectedSource) ? $" ({detectedSource})" : "";
-            var vehicleInfoText = !string.IsNullOrEmpty(vehicleInfo) ? $" - {vehicleInfo}" : "";
-            resultsTitle.Text = $"Parsed: {totalParts} parts, {totalManualLines} additional ops{sourceInfo}{vehicleInfoText}";
+            resultsTitle.Text = $"Parsed: {totalParts} parts, {totalManualLines} additional ops{sourceInfo}";
 
             ShowStatusForContext($"Processed {files.Count} file(s): {totalParts} parts, {totalManualLines} additional operations", ctx);
 
             // Auto-scrub only in Scrubber tab
             if (ctx == ParseContext.Scrubber)
+            {
+                _scrubVehicleInfo = vehicleInfo;
+                _scrubVin = vin;
                 await RunSmartAnalysisAsync();
+            }
         }
 
         /// <summary>
@@ -1868,6 +1949,106 @@ namespace McStudDesktop.Views
             if (line.LaborHours > 20) reasons.Add($"High labor hours: {line.LaborHours:F1}");
             if (line.RefinishHours > 20) reasons.Add($"High refinish hours: {line.RefinishHours:F1}");
             return string.Join("\n", reasons);
+        }
+
+        private Border BuildEstimateSummaryBanner(string? vehicleInfo, string? vin, string? source, EstimateTotals? totals)
+        {
+            var border = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 45, 65)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(0, 0, 0, 8),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 100, 160)),
+                BorderThickness = new Thickness(1)
+            };
+
+            var stack = new StackPanel { Spacing = 6 };
+
+            // Vehicle info — prominent
+            if (!string.IsNullOrEmpty(vehicleInfo))
+            {
+                var vehicleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                vehicleRow.Children.Add(new FontIcon
+                {
+                    Glyph = "\uE804",
+                    FontSize = 16,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                vehicleRow.Children.Add(new TextBlock
+                {
+                    Text = vehicleInfo,
+                    FontSize = 15,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Colors.White),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                if (!string.IsNullOrEmpty(source))
+                {
+                    vehicleRow.Children.Add(new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(255, 60, 100, 160)),
+                        CornerRadius = new CornerRadius(4),
+                        Padding = new Thickness(8, 2, 8, 2),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Child = new TextBlock
+                        {
+                            Text = source,
+                            FontSize = 10,
+                            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                            Foreground = new SolidColorBrush(Colors.White)
+                        }
+                    });
+                }
+                stack.Children.Add(vehicleRow);
+            }
+
+            // Detail row: VIN + totals
+            var detailRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+
+            if (!string.IsNullOrEmpty(vin))
+            {
+                detailRow.Children.Add(new TextBlock
+                {
+                    Text = $"VIN: {vin}",
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
+                    IsTextSelectionEnabled = true,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            if (totals != null)
+            {
+                if (totals.GrandTotal > 0)
+                    detailRow.Children.Add(MakeTotalChip("Total", totals.GrandTotal, Color.FromArgb(255, 255, 200, 80)));
+                if (totals.LaborTotal > 0)
+                    detailRow.Children.Add(MakeTotalChip("Labor", totals.LaborTotal, Color.FromArgb(255, 150, 200, 255)));
+                if (totals.PartsTotal > 0)
+                    detailRow.Children.Add(MakeTotalChip("Parts", totals.PartsTotal, Color.FromArgb(255, 150, 255, 150)));
+                if (totals.RefinishTotal > 0)
+                    detailRow.Children.Add(MakeTotalChip("Refinish", totals.RefinishTotal, Color.FromArgb(255, 220, 160, 255)));
+                if (totals.PaintMaterial > 0)
+                    detailRow.Children.Add(MakeTotalChip("Paint Mtl", totals.PaintMaterial, Color.FromArgb(255, 255, 180, 160)));
+            }
+
+            if (detailRow.Children.Count > 0)
+                stack.Children.Add(detailRow);
+
+            border.Child = stack;
+            return border;
+        }
+
+        private static TextBlock MakeTotalChip(string label, decimal value, Color color)
+        {
+            return new TextBlock
+            {
+                Text = $"{label}: {value:C0}",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(color),
+                VerticalAlignment = VerticalAlignment.Center
+            };
         }
 
         private Border CreateParsedLineItem(ParsedEstimateLine line)
@@ -2222,6 +2403,113 @@ namespace McStudDesktop.Views
             }
         }
 
+        /// <summary>
+        /// Stage scoring results (missing items) to the Virtual Clipboard for the Export tab.
+        /// The Export tab then formats per target system (CCC Desktop, CCC Web, Mitchell).
+        /// Falls back to parsed estimate lines if no scoring results available.
+        /// </summary>
+        private void AddToExport_Click(object sender, RoutedEventArgs e)
+        {
+            if (_parsedLines.Count == 0)
+            {
+                ShowStatus("No data — upload or paste an estimate first", isError: true);
+                return;
+            }
+
+            try
+            {
+                var result = _scoringPanel?.CurrentResult;
+
+                // Try on-demand scoring if needed
+                if (result == null && _parsedLines.Count > 0)
+                {
+                    try
+                    {
+                        result = RunEstimateScoringAndReturn();
+                        if (result != null)
+                        {
+                            foreach (var issue in result.Issues)
+                                issue.Source ??= "Scoring";
+                            _scoringPanel?.UpdateScore(result);
+                        }
+                    }
+                    catch { }
+                }
+
+                var exportOps = new List<SmartExportOp>();
+
+                if (result != null && result.Issues.Count > 0)
+                {
+                    // Convert scoring issues (missing items) to export ops
+                    foreach (var issue in result.Issues)
+                    {
+                        if (issue.SuggestedFix == null) continue;
+                        var fix = issue.SuggestedFix;
+                        string desc = !string.IsNullOrEmpty(fix.Description) ? fix.Description : issue.Title ?? "";
+                        if (string.IsNullOrEmpty(desc)) continue;
+
+                        string opType = fix.OperationType;
+                        if (string.IsNullOrEmpty(opType)) opType = "Add";
+                        if (opType == "Refn") opType = "Refinish";
+
+                        bool isPriceBased = opType.Equals("Sublet", StringComparison.OrdinalIgnoreCase) ||
+                                            opType.Equals("Replace", StringComparison.OrdinalIgnoreCase);
+
+                        exportOps.Add(new SmartExportOp
+                        {
+                            OperationType = opType,
+                            Description = desc,
+                            Quantity = 1,
+                            Price = isPriceBased ? fix.EstimatedCost : 0,
+                            LaborHours = fix.LaborCategory == "Paint" ? 0 : fix.LaborHours,
+                            RefinishHours = fix.LaborCategory == "Paint" ? fix.LaborHours : 0,
+                            Category = issue.SourceDetail ?? ""
+                        });
+                    }
+                }
+                else
+                {
+                    // Fallback: convert parsed estimate lines to export ops
+                    foreach (var pl in _parsedLines)
+                    {
+                        if (string.IsNullOrEmpty(pl.Description)) continue;
+
+                        string opType = pl.OperationType;
+                        if (string.IsNullOrEmpty(opType)) opType = "Add";
+                        if (opType.Equals("Repair", StringComparison.OrdinalIgnoreCase)) opType = "Rpr";
+
+                        exportOps.Add(new SmartExportOp
+                        {
+                            OperationType = opType,
+                            Description = pl.Description,
+                            Quantity = pl.Quantity > 0 ? pl.Quantity : 1,
+                            Price = pl.Price,
+                            LaborHours = pl.LaborHours,
+                            RefinishHours = pl.RefinishHours,
+                            Category = pl.Category ?? ""
+                        });
+                    }
+                }
+
+                if (exportOps.Count == 0)
+                {
+                    ShowStatus("No exportable operations found", isError: true);
+                    return;
+                }
+
+                VirtualClipboardService.Instance.SetOperations(exportOps, "Import Scrubber");
+
+                ShowStatus($"{exportOps.Count} items staged for export", isSuccess: true);
+
+                // Navigate to Export tab so user can pick target system
+                OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"Error staging for export: {ex.Message}", isError: true);
+            }
+        }
+
         private void ExportPdf_Click(object sender, RoutedEventArgs e)
         {
             if (_parsedLines.Count == 0)
@@ -2272,6 +2560,8 @@ namespace McStudDesktop.Views
             _estimatePaintRate = 0;
             _estimateMechRate = 0;
             _currentAnalysis = null;
+            _scrubVehicleInfo = null;
+            _scrubVin = null;
 
             if (ctx == ParseContext.Scrubber)
             {
@@ -3717,6 +4007,26 @@ namespace McStudDesktop.Views
                         if (_refMatchBanner != null) _refMatchBanner.Visibility = Visibility.Visible;
                     }
                 }
+
+                // Auto-populate vehicle context for Reference PDF
+                // Pull RONumber/ShopName from the most recent stored estimate (if available)
+                string? roNumber = null;
+                string? shopName = null;
+                try
+                {
+                    var lastEstimate = EstimateHistoryDatabase.Instance.GetAllEstimates()
+                        .OrderByDescending(est => est.ImportedDate)
+                        .FirstOrDefault();
+                    if (lastEstimate != null)
+                    {
+                        roNumber = lastEstimate.RONumber;
+                        shopName = lastEstimate.ShopName;
+                    }
+                }
+                catch { /* non-critical */ }
+
+                ReferenceView.Instance?.SetEstimateContext(
+                    _scrubVehicleInfo, _scrubVin, roNumber, shopName);
             }
             catch (Exception ex)
             {

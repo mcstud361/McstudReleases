@@ -72,6 +72,14 @@ namespace McstudDesktop.Services
         private static readonly Regex _refinishPattern = new(@"(\d+\.?\d*)\s*(?:ref|refinish|paint)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _qtyPattern = new(@"qty[:\s]*(\d+)|(\d+)\s*(?:ea|each|x\s)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex _vinPattern = new(@"\b([A-HJ-NPR-Z0-9]{17})\b", RegexOptions.Compiled);
+        // RO / Repair Order patterns: "RO: 12345", "RO #12345", "Repair Order: 12345", "Work Order: WO-12345"
+        private static readonly Regex _roPattern = new(
+            @"(?:R\.?O\.?|Repair\s*Order|Work\s*Order)\s*[:#\-]?\s*([\w\-]{3,15})",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        // Insurance company detection from CCC/Mitchell estimate headers
+        private static readonly Regex _insurerPattern = new(
+            @"(?:Insurance|Ins\.?\s*Co\.?|Carrier|Insurer)\s*[:\-]\s*(.+?)(?:\r|\n|$)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         // Diagnostic/scan canonical names — these should always get op type "Sublet", not context-guessed
         private static readonly HashSet<string> _diagnosticCanonicalNames = new(StringComparer.OrdinalIgnoreCase)
@@ -249,6 +257,20 @@ namespace McstudDesktop.Services
                 var vinMatch = _vinPattern.Match(result.RawText);
                 if (vinMatch.Success)
                     result.DetectedVin = vinMatch.Groups[1].Value;
+
+                // Extract RO number if present
+                var roMatch = _roPattern.Match(result.RawText);
+                if (roMatch.Success)
+                    result.DetectedRO = roMatch.Groups[1].Value.Trim();
+
+                // Extract Insurance Company if present
+                var insurerMatch = _insurerPattern.Match(result.RawText);
+                if (insurerMatch.Success)
+                {
+                    var insurer = insurerMatch.Groups[1].Value.Trim();
+                    if (insurer.Length >= 3 && insurer.Length <= 60)
+                        result.DetectedInsurer = insurer;
+                }
 
                 StatusChanged?.Invoke(this, $"OCR complete: {result.LineCount} lines, {result.OperationCount} operations");
             }

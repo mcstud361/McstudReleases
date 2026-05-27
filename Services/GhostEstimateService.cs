@@ -1812,22 +1812,23 @@ namespace McStudDesktop.Services
                 }
             }
 
-            // Add blend operations — check for learned blend hours first, then formula
+            // Add blend operations — pull average refinish hours from uploaded estimates first
             var blendPanelList = panelsToBlend.ToList();
             for (int i = 0; i < blendPanelList.Count; i++)
             {
                 var blendPanel = blendPanelList[i];
 
-                // First: check if we have direct learned blend hours
-                var blendResolution = ResolveLaborTime(blendPanel, "blend", "");
+                // Blend is a refinish operation — look up RefinishHours (not LaborHours) from learned data
+                var blendResolution = ResolveRefinishTime(blendPanel, "blend");
                 decimal blendHours;
                 string blendSource;
                 int blendSamples;
                 decimal blendMin, blendMax;
+                bool hasLearnedBlend = blendResolution.HasLearnedData;
 
-                if (blendResolution.HasLearnedData)
+                if (hasLearnedBlend)
                 {
-                    // Use direct learned blend hours (halved for additional panels)
+                    // Use learned blend refinish hours from uploaded estimates
                     blendHours = i == 0 ? blendResolution.Hours : blendResolution.Hours * 0.5m;
                     blendSource = $"Learned blend from {blendResolution.SampleCount} estimates";
                     blendSamples = blendResolution.SampleCount;
@@ -1836,7 +1837,7 @@ namespace McStudDesktop.Services
                 }
                 else
                 {
-                    // Check for learned blend percentage formula
+                    // No direct blend data — fall back to percentage of refinish time
                     var blendFormula = _knowledgeBase.GetFormula("blend_percentage");
                     decimal blendPercent;
                     if (blendFormula?.DerivedPercentage != null && blendFormula.DerivedPercentage > 0)
@@ -1867,8 +1868,8 @@ namespace McStudDesktop.Services
                     MinRefinishHours = blendMin,
                     MaxRefinishHours = blendMax,
                     SampleCount = blendSamples,
-                    LaborSource = blendResolution.HasLearnedData ? blendResolution.Source : "fallback",
-                    Confidence = blendResolution.HasLearnedData ? 0.90 : 0.80,
+                    LaborSource = hasLearnedBlend ? blendResolution.Source : "fallback",
+                    Confidence = hasLearnedBlend ? 0.90 : 0.80,
                     Source = blendSource
                 });
             }
@@ -1899,8 +1900,8 @@ namespace McStudDesktop.Services
                     {
                         var key = suggestion.Name;
 
-                        // Learned data check: if learned data exists for this op, use it instead
-                        var resolved = ResolveLaborTime(key, "Paint", result.VehicleType);
+                        // Learned data check: paint ops store hours as RefinishHours, not LaborHours
+                        var resolved = ResolveRefinishTime(key, "Paint");
                         if (resolved.HasLearnedData)
                         {
                             // Only add once with learned hours (not per-panel)
@@ -2406,6 +2407,7 @@ namespace McStudDesktop.Services
             var historyEstimates = _historyDb.GetAllEstimates();
             if (historyEstimates.Count > 0)
             {
+                // When a specific operation type is requested (e.g. "blend"), filter by it first
                 var matchingLines = historyEstimates
                     .SelectMany(e => e.LineItems)
                     .Where(li => li.RefinishHours > 0 &&
@@ -2413,10 +2415,23 @@ namespace McStudDesktop.Services
                                  li.PartName.ToLower().Contains(partLower))
                     .ToList();
 
+                if (!string.IsNullOrEmpty(operationType))
+                {
+                    var opFiltered = matchingLines
+                        .Where(li => !string.IsNullOrEmpty(li.OperationType) &&
+                                     (li.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase) ||
+                                      li.OperationType.Equals("bld", StringComparison.OrdinalIgnoreCase) && operationType.Equals("blend", StringComparison.OrdinalIgnoreCase)))
+                        .ToList();
+                    if (opFiltered.Count >= 1)
+                        matchingLines = opFiltered;
+                    else if (operationType.Equals("blend", StringComparison.OrdinalIgnoreCase))
+                        matchingLines = new List<StoredLineItem>(); // Don't mix blend with full refinish
+                }
+
                 if (matchingLines.Count >= 1)
                 {
                     var avgHours = matchingLines.Average(li => li.RefinishHours);
-                    System.Diagnostics.Debug.WriteLine($"[Ghost] History DB refinish for {partName}: {avgHours:F2}h (from {matchingLines.Count} lines)");
+                    System.Diagnostics.Debug.WriteLine($"[Ghost] History DB refinish for {partName} ({operationType ?? "any"}): {avgHours:F2}h (from {matchingLines.Count} lines)");
                     return new LaborResolution
                     {
                         Hours = avgHours,

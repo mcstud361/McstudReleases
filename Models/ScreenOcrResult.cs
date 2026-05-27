@@ -44,6 +44,8 @@ public class ScreenOcrResult
     public bool IsDialogCapture { get; set; }
     public string? ErrorMessage { get; set; }
     public string? DetectedVin { get; set; }
+    public string? DetectedRO { get; set; }
+    public string? DetectedInsurer { get; set; }
 
     public int OperationCount => DetectedOperations.Count;
     public int LineCount => Lines.Count;

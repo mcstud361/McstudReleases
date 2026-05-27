@@ -41,13 +41,23 @@ public sealed class EstimateReferenceMatcherService
         "w/", "w/o", "with", "without", "the", "and", "for", "from", "into"
     };
 
-    // Single-word generic operational terms that must NOT trigger Level 2 reverse matching.
-    // These appear in virtually every estimate (repair, replace, remove, install) and would
-    // cause unrelated references to match any estimate line. More specific terms like "scan",
-    // "weld", "seal" are left out — they're specific enough to be valid single-word signals.
-    private static readonly HashSet<string> OperationalMatchWords = new(StringComparer.OrdinalIgnoreCase)
+    // Single-word terms that are too generic to trigger Level 2 (reverse) matching.
+    // Group 1: operational verbs — appear on nearly every estimate line.
+    // Group 2: common part / location nouns — shared across unrelated reference topics.
+    //          e.g. "panel" as a tag on a welding DEG must NOT pull that DEG into a
+    //          bumper-only estimate just because "panel" appears in "Bumper Panel".
+    // Specific process terms (weld, blend, scan, calibrate, etc.) are intentionally
+    // left out — if the estimate explicitly says "weld" or "blend", that IS relevant.
+    private static readonly HashSet<string> GenericSingleWords = new(StringComparer.OrdinalIgnoreCase)
     {
-        "repair", "replace", "remove", "install", "paint", "clean", "test", "check"
+        // Operational verbs
+        "repair", "replace", "remove", "install", "paint", "clean", "test", "check",
+        // Generic part / location nouns
+        "panel", "cover", "bumper", "fender", "door", "hood", "roof", "trunk", "lid",
+        "frame", "rail", "glass", "trim", "wire", "wiring", "body", "structural",
+        "bracket", "support", "reinforcement", "bar", "beam", "shield", "liner",
+        "molding", "moulding", "lamp", "light", "mirror", "handle", "hinge",
+        "assembly", "component", "section", "area", "side", "part", "piece"
     };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -497,27 +507,45 @@ public sealed class EstimateReferenceMatcherService
             return false;
 
         // Level 1: Exact substring — reference text contains the full search term
+        // (e.g. reference "Quarter Panel" contains search term "Quarter Panel")
         if (text.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // Level 2: Reverse match — search term contains the reference text.
-        // Blocked for single-word generic operational words (e.g. "repair", "weld", "replace")
-        // because they appear in too many unrelated part names and would cause false positives
-        // (e.g. G20 Wiring Repair must not match "Bumper Repair" just because of the tag "repair").
-        bool isSingleWordOperational = !text.Contains(' ') && OperationalMatchWords.Contains(text);
-        if (!isSingleWordOperational && searchTerm.Contains(text, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Word-level matching: if 2+ significant words from the search term appear in the text
+        // Extract significant words for fuzzy matching
+        var textWords = text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => !StopWords.Contains(w) && w.Length > 2)
+            .ToList();
         var searchWords = searchTerm.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(w => !StopWords.Contains(w) && w.Length > 2)
             .ToList();
 
-        if (searchWords.Count >= 2)
+        // Level 2: Reverse match — search term contains the reference text.
+        if (searchTerm.Contains(text, StringComparison.OrdinalIgnoreCase))
+        {
+            // Multi-word reference text (2+ significant words) is specific enough to trust.
+            // e.g. "Quarter Panel" on a reference → "Quarter Panel Replace" on estimate → good match.
+            if (textWords.Count >= 2)
+                return true;
+
+            // Single-word reference text: block generic terms entirely (verbs + common nouns).
+            // e.g. tag "panel" on a welding DEG must NOT match "Bumper Panel" on the estimate.
+            // For non-generic single words (e.g. "blend", "scan"), allow only when the
+            // search term is short (≤3 words) so the word is a substantial part of the concept.
+            var singleWord = textWords.FirstOrDefault() ?? text.Trim();
+            if (!GenericSingleWords.Contains(singleWord) && searchWords.Count <= 3)
+                return true;
+        }
+
+        // Word-level matching: require ≥60% overlap of the shorter side's significant words,
+        // with a minimum of 2. This prevents "Bumper Cover" (2 words) from matching
+        // "Structural Panel Welding Procedures" (3 words) just because 1 word overlaps.
+        if (searchWords.Count >= 2 && textWords.Count >= 2)
         {
             var matchCount = searchWords.Count(w =>
                 text.Contains(w, StringComparison.OrdinalIgnoreCase));
-            if (matchCount >= Math.Min(2, searchWords.Count))
+            var shorterCount = Math.Min(searchWords.Count, textWords.Count);
+            var minRequired = Math.Max(2, (int)Math.Ceiling(shorterCount * 0.6));
+            if (matchCount >= minRequired)
                 return true;
         }
 

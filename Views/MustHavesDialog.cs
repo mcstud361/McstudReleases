@@ -1739,6 +1739,74 @@ namespace McStudDesktop.Views
                     });
                 }
 
+                // Add new insurer input
+                var addInsurerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(0, 4, 0, 0) };
+                var addInsurerBox = new TextBox
+                {
+                    PlaceholderText = "Add insurer...",
+                    FontSize = 11,
+                    Width = 160,
+                    Height = 28,
+                    Padding = new Thickness(6, 2, 6, 2)
+                };
+                var addInsurerBtn = new Button
+                {
+                    Content = new FontIcon { Glyph = "\uE710", FontSize = 10 },
+                    Padding = new Thickness(6, 4, 6, 4),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                // Insert panel reference for adding checkboxes dynamically
+                var insurerListPanel = flyoutPanel;
+                var insurerListInsertIndex = flyoutPanel.Children.Count; // index where new checkboxes go (before this row)
+                addInsurerBtn.Click += (ab, ae) =>
+                {
+                    var name = addInsurerBox.Text?.Trim() ?? "";
+                    if (string.IsNullOrWhiteSpace(name)) return;
+                    // Don't add duplicates
+                    if (insurerChecks.ContainsKey(name)) return;
+                    var newCheck = new CheckBox
+                    {
+                        Content = name,
+                        FontSize = 11,
+                        IsChecked = true,
+                        MinWidth = 0, Padding = new Thickness(0)
+                    };
+                    insurerChecks[name] = newCheck;
+                    // Insert before the add-insurer row
+                    var idx = insurerListPanel.Children.IndexOf(addInsurerRow);
+                    if (idx >= 0)
+                        insurerListPanel.Children.Insert(idx, newCheck);
+                    else
+                        insurerListPanel.Children.Add(newCheck);
+                    addInsurerBox.Text = "";
+                };
+                addInsurerBox.KeyDown += (kb, ke) =>
+                {
+                    if (ke.Key == Windows.System.VirtualKey.Enter)
+                    {
+                        var name = addInsurerBox.Text?.Trim() ?? "";
+                        if (!string.IsNullOrWhiteSpace(name) && !insurerChecks.ContainsKey(name))
+                        {
+                            var newCheck = new CheckBox
+                            {
+                                Content = name,
+                                FontSize = 11,
+                                IsChecked = true,
+                                MinWidth = 0, Padding = new Thickness(0)
+                            };
+                            insurerChecks[name] = newCheck;
+                            var idx = insurerListPanel.Children.IndexOf(addInsurerRow);
+                            if (idx >= 0) insurerListPanel.Children.Insert(idx, newCheck);
+                            else insurerListPanel.Children.Add(newCheck);
+                            addInsurerBox.Text = "";
+                        }
+                        ke.Handled = true;
+                    }
+                };
+                addInsurerRow.Children.Add(addInsurerBox);
+                addInsurerRow.Children.Add(addInsurerBtn);
+                flyoutPanel.Children.Add(addInsurerRow);
+
                 flyoutPanel.Children.Add(new Border
                 {
                     Height = 1, Margin = new Thickness(0, 4, 0, 4),

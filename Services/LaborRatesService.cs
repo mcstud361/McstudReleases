@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace McStudDesktop.Services
 {
@@ -66,7 +67,8 @@ namespace McStudDesktop.Services
                     var json = File.ReadAllText(_dataFilePath);
                     var data = JsonSerializer.Deserialize<LaborRatesData>(json, new JsonSerializerOptions
                     {
-                        PropertyNameCaseInsensitive = true
+                        PropertyNameCaseInsensitive = true,
+                        Converters = { new JsonStringEnumConverter() }
                     });
 
                     if (data != null)
@@ -78,6 +80,25 @@ namespace McStudDesktop.Services
                             {
                                 dealer.PhoneNumbers.Add(dealer.Phone);
                                 dealer.Phone = null;
+                            }
+
+                            // Migrate flat rates into first RateTemplate if none exist
+                            if (dealer.RateTemplates.Count == 0)
+                            {
+                                bool hasAnyRate = dealer.BodyLaborRate > 0 || dealer.MechLaborRate > 0 ||
+                                    dealer.PaintLaborRate > 0 || dealer.FrameLaborRate > 0 || dealer.GlassLaborRate > 0;
+                                if (hasAnyRate)
+                                {
+                                    dealer.RateTemplates.Add(new RateTemplate
+                                    {
+                                        Name = "Standard Rates",
+                                        BodyLaborRate = dealer.BodyLaborRate,
+                                        MechLaborRate = dealer.MechLaborRate,
+                                        PaintLaborRate = dealer.PaintLaborRate,
+                                        FrameLaborRate = dealer.FrameLaborRate,
+                                        GlassLaborRate = dealer.GlassLaborRate
+                                    });
+                                }
                             }
                         }
                         return data;
@@ -135,12 +156,24 @@ namespace McStudDesktop.Services
                     DeliveryTime = "10:00 AM",
                     RunsPerDay = 2
                 },
+                RateTemplates = new List<RateTemplate>
+                {
+                    new RateTemplate
+                    {
+                        Name = "Standard Rates",
+                        BodyLaborRate = 72.00m,
+                        MechLaborRate = 85.00m,
+                        PaintLaborRate = 68.00m,
+                        FrameLaborRate = 90.00m,
+                        GlassLaborRate = 65.00m
+                    }
+                },
                 MechLaborRate = 85.00m,
                 BodyLaborRate = 72.00m,
                 PaintLaborRate = 68.00m,
                 FrameLaborRate = 90.00m,
                 GlassLaborRate = 65.00m,
-                Notes = "This is an example dealer to show how the feature works. Feel free to edit or delete it.",
+                Notes = "This is an example vendor to show how the feature works. Feel free to edit or delete it.",
                 DateAdded = DateTime.Now,
                 DateUpdated = DateTime.Now
             };
@@ -152,7 +185,8 @@ namespace McStudDesktop.Services
             {
                 var json = JsonSerializer.Serialize(_data, new JsonSerializerOptions
                 {
-                    WriteIndented = true
+                    WriteIndented = true,
+                    Converters = { new JsonStringEnumConverter() }
                 });
                 File.WriteAllText(_dataFilePath, json);
                 System.Diagnostics.Debug.WriteLine($"[LaborRates] Saved {_data.Dealers.Count} dealers");
@@ -216,6 +250,17 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Get dealers by vendor type
+        /// </summary>
+        public List<DealerLaborRate> GetByVendorType(VendorType vendorType)
+        {
+            return _data.Dealers
+                .Where(d => d.VendorType == vendorType)
+                .OrderBy(d => d.DealerName)
+                .ToList();
+        }
+
+        /// <summary>
         /// Get unique manufacturers for filtering
         /// </summary>
         public List<string> GetManufacturers()
@@ -237,6 +282,17 @@ namespace McStudDesktop.Services
             dealer.DateAdded = DateTime.Now;
             dealer.DateUpdated = DateTime.Now;
 
+            // Sync flat rate fields from first template
+            var first = dealer.RateTemplates.FirstOrDefault();
+            if (first != null)
+            {
+                dealer.BodyLaborRate = first.BodyLaborRate;
+                dealer.MechLaborRate = first.MechLaborRate;
+                dealer.PaintLaborRate = first.PaintLaborRate;
+                dealer.FrameLaborRate = first.FrameLaborRate;
+                dealer.GlassLaborRate = first.GlassLaborRate;
+            }
+
             _data.Dealers.Add(dealer);
             SaveData();
             DataChanged?.Invoke(this, EventArgs.Empty);
@@ -252,6 +308,7 @@ namespace McStudDesktop.Services
             {
                 existing.DealerName = dealer.DealerName;
                 existing.Manufacturer = dealer.Manufacturer;
+                existing.VendorType = dealer.VendorType;
                 existing.Address = dealer.Address;
                 existing.City = dealer.City;
                 existing.State = dealer.State;
@@ -262,11 +319,14 @@ namespace McStudDesktop.Services
                 existing.PartsDiscountPercent = dealer.PartsDiscountPercent;
                 existing.Returns = dealer.Returns;
                 existing.Delivery = dealer.Delivery;
-                existing.BodyLaborRate = dealer.BodyLaborRate;
-                existing.MechLaborRate = dealer.MechLaborRate;
-                existing.PaintLaborRate = dealer.PaintLaborRate;
-                existing.FrameLaborRate = dealer.FrameLaborRate;
-                existing.GlassLaborRate = dealer.GlassLaborRate;
+                existing.RateTemplates = dealer.RateTemplates;
+                // Sync flat rate fields from first template for backward compat
+                var first = dealer.RateTemplates.FirstOrDefault();
+                existing.BodyLaborRate = first?.BodyLaborRate ?? 0;
+                existing.MechLaborRate = first?.MechLaborRate ?? 0;
+                existing.PaintLaborRate = first?.PaintLaborRate ?? 0;
+                existing.FrameLaborRate = first?.FrameLaborRate ?? 0;
+                existing.GlassLaborRate = first?.GlassLaborRate ?? 0;
                 existing.Phone = dealer.Phone;
                 existing.Notes = dealer.Notes;
                 existing.IsExample = dealer.IsExample;
@@ -357,6 +417,28 @@ namespace McStudDesktop.Services
 
     #region Data Models
 
+    public enum VendorType
+    {
+        Dealer = 0,
+        TowCompany,
+        GlassShop,
+        AlignmentShop,
+        MechanicalShop,
+        SubletOther
+    }
+
+    public class RateTemplate
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = "Standard Rates";
+        public decimal BodyLaborRate { get; set; }
+        public decimal MechLaborRate { get; set; }
+        public decimal PaintLaborRate { get; set; }
+        public decimal FrameLaborRate { get; set; }
+        public decimal GlassLaborRate { get; set; }
+        public string? Notes { get; set; }
+    }
+
     public class LaborRatesData
     {
         public List<DealerLaborRate> Dealers { get; set; } = new();
@@ -391,6 +473,9 @@ namespace McStudDesktop.Services
         public string? Manufacturer { get; set; }
         public bool IsExample { get; set; }
 
+        // Vendor type (defaults to Dealer for backward compat)
+        public VendorType VendorType { get; set; } = VendorType.Dealer;
+
         // Location
         public string? Address { get; set; }
         public string? City { get; set; }
@@ -409,7 +494,10 @@ namespace McStudDesktop.Services
         public ReturnsInfo Returns { get; set; } = new();
         public DeliveryInfo Delivery { get; set; } = new();
 
-        // Labor rates
+        // Rate templates (multiple rate sets per vendor)
+        public List<RateTemplate> RateTemplates { get; set; } = new();
+
+        // Legacy flat labor rates — kept for backward compat, synced from first template
         public decimal BodyLaborRate { get; set; }
         public decimal MechLaborRate { get; set; }
         public decimal PaintLaborRate { get; set; }

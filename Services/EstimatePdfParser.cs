@@ -1775,7 +1775,7 @@ namespace McStudDesktop.Services
                 { @"Refinish\s*(?:Total)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.RefinishTotal = val },
                 { @"(?:Sub)?Total[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.Subtotal = val },
                 { @"Tax[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.Tax = val },
-                { @"Grand\s*Total[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.GrandTotal = val },
+                { @"(?:Grand|Net|Estimate)\s*Total[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.GrandTotal = val },
             };
 
             foreach (var kvp in patterns)

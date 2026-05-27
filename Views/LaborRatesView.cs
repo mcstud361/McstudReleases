@@ -14,7 +14,7 @@ using McStudDesktop.Services;
 namespace McStudDesktop.Views;
 
 /// <summary>
-/// Dealer Information View - Searchable dealer database
+/// Vendor Information View - Searchable vendor database
 /// Manages contacts, labor rates, parts discount, delivery/returns info
 /// </summary>
 public sealed class LaborRatesView : UserControl
@@ -23,15 +23,19 @@ public sealed class LaborRatesView : UserControl
     private static readonly Color AccentBlue = Color.FromArgb(255, 0, 120, 212);
     private static readonly Color AccentOrange = Color.FromArgb(255, 220, 140, 30);
     private static readonly Color AccentPurple = Color.FromArgb(255, 140, 80, 200);
+    private static readonly Color AccentTeal = Color.FromArgb(255, 0, 160, 160);
+    private static readonly Color AccentRed = Color.FromArgb(255, 200, 60, 60);
 
     private readonly LaborRatesService _laborService = LaborRatesService.Instance;
     private TextBox? _searchBox;
     private ComboBox? _manufacturerFilter;
+    private ComboBox? _vendorTypeFilter;
     private StackPanel? _dealerList;
     private ScrollViewer? _scrollViewer;
     private InfoBar? _infoBar;
     private string _currentSearch = "";
     private string _currentManufacturer = "";
+    private VendorType? _currentVendorType = null;
     private bool _isUpdatingFilter = false;
 
     public LaborRatesView()
@@ -40,6 +44,28 @@ public sealed class LaborRatesView : UserControl
         BuildUI();
         RefreshList();
     }
+
+    private static string VendorTypeDisplayName(VendorType vt) => vt switch
+    {
+        VendorType.Dealer => "Dealer",
+        VendorType.TowCompany => "Tow Company",
+        VendorType.GlassShop => "Glass Shop",
+        VendorType.AlignmentShop => "Alignment Shop",
+        VendorType.MechanicalShop => "Mechanical Shop",
+        VendorType.SubletOther => "Sublet / Other",
+        _ => vt.ToString()
+    };
+
+    private static Color VendorTypeColor(VendorType vt) => vt switch
+    {
+        VendorType.Dealer => Color.FromArgb(255, 0, 120, 212),
+        VendorType.TowCompany => Color.FromArgb(255, 200, 60, 60),
+        VendorType.GlassShop => Color.FromArgb(255, 0, 160, 160),
+        VendorType.AlignmentShop => Color.FromArgb(255, 140, 80, 200),
+        VendorType.MechanicalShop => Color.FromArgb(255, 220, 140, 30),
+        VendorType.SubletOther => Color.FromArgb(255, 120, 120, 120),
+        _ => Color.FromArgb(255, 120, 120, 120)
+    };
 
     private void BuildUI()
     {
@@ -94,7 +120,7 @@ public sealed class LaborRatesView : UserControl
 
         headerContent.Children.Add(new TextBlock
         {
-            Text = "Dealer Information",
+            Text = "Vendor Information",
             FontSize = 22,
             FontWeight = Microsoft.UI.Text.FontWeights.Bold,
             Foreground = new SolidColorBrush(Colors.White)
@@ -102,7 +128,7 @@ public sealed class LaborRatesView : UserControl
 
         headerContent.Children.Add(new TextBlock
         {
-            Text = "Manage dealer contacts, labor rates, and parts information. Search by name, manufacturer, contact, or address.",
+            Text = "Manage vendor contacts, labor rates, and parts information. Search by name, manufacturer, contact, or address.",
             FontSize = 13,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
             TextWrapping = TextWrapping.Wrap
@@ -114,14 +140,15 @@ public sealed class LaborRatesView : UserControl
             ColumnDefinitions =
             {
                 new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto },
                 new ColumnDefinition { Width = GridLength.Auto }
-            }
+            },
+            ColumnSpacing = 8
         };
 
         _searchBox = new TextBox
         {
-            PlaceholderText = "Search dealers... (name, manufacturer, contact, address, phone)",
-            Margin = new Thickness(0, 0, 12, 0)
+            PlaceholderText = "Search vendors... (name, manufacturer, contact, address, phone)"
         };
         _searchBox.TextChanged += (s, e) =>
         {
@@ -130,6 +157,34 @@ public sealed class LaborRatesView : UserControl
         };
         Grid.SetColumn(_searchBox, 0);
         searchRow.Children.Add(_searchBox);
+
+        _vendorTypeFilter = new ComboBox
+        {
+            PlaceholderText = "All Types",
+            MinWidth = 160
+        };
+        _vendorTypeFilter.Items.Add(new ComboBoxItem { Content = "All Types", Tag = "" });
+        foreach (VendorType vt in Enum.GetValues(typeof(VendorType)))
+        {
+            _vendorTypeFilter.Items.Add(new ComboBoxItem { Content = VendorTypeDisplayName(vt), Tag = vt.ToString() });
+        }
+        _vendorTypeFilter.SelectedIndex = 0;
+        _vendorTypeFilter.SelectionChanged += (s, e) =>
+        {
+            if (_isUpdatingFilter) return;
+            if (_vendorTypeFilter.SelectedItem is ComboBoxItem item)
+            {
+                var tag = item.Tag?.ToString() ?? "";
+                _currentVendorType = string.IsNullOrEmpty(tag) ? null : Enum.Parse<VendorType>(tag);
+            }
+            else
+            {
+                _currentVendorType = null;
+            }
+            RefreshList();
+        };
+        Grid.SetColumn(_vendorTypeFilter, 1);
+        searchRow.Children.Add(_vendorTypeFilter);
 
         _manufacturerFilter = new ComboBox
         {
@@ -150,7 +205,7 @@ public sealed class LaborRatesView : UserControl
             }
             RefreshList();
         };
-        Grid.SetColumn(_manufacturerFilter, 1);
+        Grid.SetColumn(_manufacturerFilter, 2);
         searchRow.Children.Add(_manufacturerFilter);
 
         headerContent.Children.Add(searchRow);
@@ -176,7 +231,7 @@ public sealed class LaborRatesView : UserControl
 
         var countText = new TextBlock
         {
-            Text = "0 dealers",
+            Text = "0 vendors",
             FontSize = 14,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
             VerticalAlignment = VerticalAlignment.Center
@@ -219,10 +274,10 @@ public sealed class LaborRatesView : UserControl
         Grid.SetColumn(exportBtn, 2);
         footerContent.Children.Add(exportBtn);
 
-        // Add Dealer button
+        // Add Vendor button
         var addContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         addContent.Children.Add(new FontIcon { Glyph = "\uE710", FontSize = 12 });
-        addContent.Children.Add(new TextBlock { Text = "Add Dealer", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+        addContent.Children.Add(new TextBlock { Text = "Add Vendor", FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
 
         var addButton = new Button
         {
@@ -238,13 +293,8 @@ public sealed class LaborRatesView : UserControl
         return footer;
     }
 
-    private void RefreshList()
+    private List<DealerLaborRate> GetFilteredDealers()
     {
-        if (_dealerList == null) return;
-        _dealerList.Children.Clear();
-
-        UpdateManufacturerFilter();
-
         List<DealerLaborRate> dealers;
         if (!string.IsNullOrWhiteSpace(_currentSearch))
         {
@@ -265,13 +315,30 @@ public sealed class LaborRatesView : UserControl
                 d.Manufacturer?.Equals(_currentManufacturer, StringComparison.OrdinalIgnoreCase) == true).ToList();
         }
 
+        if (_currentVendorType.HasValue)
+        {
+            dealers = dealers.Where(d => d.VendorType == _currentVendorType.Value).ToList();
+        }
+
+        return dealers;
+    }
+
+    private void RefreshList()
+    {
+        if (_dealerList == null) return;
+        _dealerList.Children.Clear();
+
+        UpdateManufacturerFilter();
+
+        var dealers = GetFilteredDealers();
+
         if (dealers.Count == 0)
         {
             _dealerList.Children.Add(new TextBlock
             {
-                Text = string.IsNullOrWhiteSpace(_currentSearch) && string.IsNullOrWhiteSpace(_currentManufacturer)
-                    ? "No dealers added yet. Click 'Add Dealer' to get started."
-                    : "No dealers match your search.",
+                Text = string.IsNullOrWhiteSpace(_currentSearch) && string.IsNullOrWhiteSpace(_currentManufacturer) && !_currentVendorType.HasValue
+                    ? "No vendors added yet. Click 'Add Vendor' to get started."
+                    : "No vendors match your search.",
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -338,7 +405,7 @@ public sealed class LaborRatesView : UserControl
                         {
                             if (footerChild is TextBlock tb && tb.Name == "CountText")
                             {
-                                tb.Text = $"{count} dealer{(count != 1 ? "s" : "")}";
+                                tb.Text = $"{count} vendor{(count != 1 ? "s" : "")}";
                                 return;
                             }
                         }
@@ -371,15 +438,17 @@ public sealed class LaborRatesView : UserControl
         // Left side - dealer info
         var infoPanel = new StackPanel { Spacing = 6 };
 
-        // Row 1: Name + Manufacturer badge + Example badge
+        // Row 1: Name + Vendor type badge + Manufacturer badge + Example badge
         var nameRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         nameRow.Children.Add(new TextBlock
         {
-            Text = dealer.DealerName ?? "Unknown Dealer",
+            Text = dealer.DealerName ?? "Unknown Vendor",
             FontSize = 16,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Colors.White)
         });
+
+        nameRow.Children.Add(CreateBadge(VendorTypeDisplayName(dealer.VendorType), VendorTypeColor(dealer.VendorType)));
 
         if (!string.IsNullOrEmpty(dealer.Manufacturer))
         {
@@ -512,16 +581,44 @@ public sealed class LaborRatesView : UserControl
         if (hasChips)
             infoPanel.Children.Add(chipsPanel);
 
-        // Row 6: Labor rate badges
-        var ratesPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-        bool hasRates = false;
-        if (dealer.MechLaborRate > 0) { AddRateBadge(ratesPanel, "Mech", dealer.MechLaborRate); hasRates = true; }
-        if (dealer.BodyLaborRate > 0) { AddRateBadge(ratesPanel, "Body", dealer.BodyLaborRate); hasRates = true; }
-        if (dealer.PaintLaborRate > 0) { AddRateBadge(ratesPanel, "Paint", dealer.PaintLaborRate); hasRates = true; }
-        if (dealer.FrameLaborRate > 0) { AddRateBadge(ratesPanel, "Frame", dealer.FrameLaborRate); hasRates = true; }
-        if (dealer.GlassLaborRate > 0) { AddRateBadge(ratesPanel, "Glass", dealer.GlassLaborRate); hasRates = true; }
-        if (hasRates)
-            infoPanel.Children.Add(ratesPanel);
+        // Row 6: Rate templates with badges
+        if (dealer.RateTemplates.Count > 0)
+        {
+            foreach (var tmpl in dealer.RateTemplates)
+            {
+                var tmplRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 2, 0, 0) };
+
+                tmplRow.Children.Add(new TextBlock
+                {
+                    Text = tmpl.Name + ":",
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 190, 190, 190)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+                if (tmpl.MechLaborRate > 0) AddRateBadge(tmplRow, "Mech", tmpl.MechLaborRate);
+                if (tmpl.BodyLaborRate > 0) AddRateBadge(tmplRow, "Body", tmpl.BodyLaborRate);
+                if (tmpl.PaintLaborRate > 0) AddRateBadge(tmplRow, "Paint", tmpl.PaintLaborRate);
+                if (tmpl.FrameLaborRate > 0) AddRateBadge(tmplRow, "Frame", tmpl.FrameLaborRate);
+                if (tmpl.GlassLaborRate > 0) AddRateBadge(tmplRow, "Glass", tmpl.GlassLaborRate);
+
+                infoPanel.Children.Add(tmplRow);
+            }
+        }
+        else
+        {
+            // Fallback: show flat rates if no templates
+            var ratesPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+            bool hasRates = false;
+            if (dealer.MechLaborRate > 0) { AddRateBadge(ratesPanel, "Mech", dealer.MechLaborRate); hasRates = true; }
+            if (dealer.BodyLaborRate > 0) { AddRateBadge(ratesPanel, "Body", dealer.BodyLaborRate); hasRates = true; }
+            if (dealer.PaintLaborRate > 0) { AddRateBadge(ratesPanel, "Paint", dealer.PaintLaborRate); hasRates = true; }
+            if (dealer.FrameLaborRate > 0) { AddRateBadge(ratesPanel, "Frame", dealer.FrameLaborRate); hasRates = true; }
+            if (dealer.GlassLaborRate > 0) { AddRateBadge(ratesPanel, "Glass", dealer.GlassLaborRate); hasRates = true; }
+            if (hasRates)
+                infoPanel.Children.Add(ratesPanel);
+        }
 
         // Row 7: Notes preview
         if (!string.IsNullOrEmpty(dealer.Notes))
@@ -567,7 +664,7 @@ public sealed class LaborRatesView : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = "Delete Dealer",
+                Title = "Delete Vendor",
                 Content = $"Are you sure you want to delete {dealer.DealerName}?",
                 PrimaryButtonText = "Delete",
                 CloseButtonText = "Cancel",
@@ -679,8 +776,9 @@ public sealed class LaborRatesView : UserControl
         var phoneRows = new List<TextBox>();
         var emailRows = new List<TextBox>();
         var contactCards = new List<(TextBox Name, ComboBox Role, TextBox Phone, TextBox Email, StackPanel Container)>();
+        var rateTemplateCards = new List<(TextBox Name, NumberBox Body, NumberBox Mech, NumberBox Paint, NumberBox Frame, NumberBox Glass, TextBox Notes, StackPanel Container)>();
 
-        // === TAB STRIP (replaces long vertical scroll with 4 logical tabs) ===
+        // === TAB STRIP ===
         var dialogRoot = new StackPanel { Spacing = 10, Width = 540 };
 
         var tabButtons = new List<Border>();
@@ -751,7 +849,6 @@ public sealed class LaborRatesView : UserControl
         foreach (var tb in tabButtons) tabStrip.Children.Add(tb);
         dialogRoot.Children.Add(tabStrip);
 
-        // Tab content container — fixed height, each panel wrapped in its own scroller
         var tabContainer = new Grid { Height = 420 };
 
         ScrollViewer BuildTabPanel(StackPanel inner, int index)
@@ -770,12 +867,11 @@ public sealed class LaborRatesView : UserControl
         // ===== TAB 0: Info & Location =====
         var contentStack = new StackPanel { Spacing = 12 };
 
-        // === Section 1: Basic Info ===
         contentStack.Children.Add(CreateSectionHeader("Basic Info"));
 
         var nameBox = new TextBox
         {
-            Header = "Dealer Name",
+            Header = "Vendor Name",
             PlaceholderText = "e.g., AutoNation Ford",
             Text = existing?.DealerName ?? ""
         };
@@ -789,7 +885,24 @@ public sealed class LaborRatesView : UserControl
         };
         contentStack.Children.Add(mfrBox);
 
-        // === Section 2: Location ===
+        // Vendor type dropdown
+        var vendorTypeBox = new ComboBox
+        {
+            Header = "Vendor Type",
+            MinWidth = 200
+        };
+        foreach (VendorType vt in Enum.GetValues(typeof(VendorType)))
+        {
+            var item = new ComboBoxItem { Content = VendorTypeDisplayName(vt), Tag = vt };
+            vendorTypeBox.Items.Add(item);
+            if (existing != null && existing.VendorType == vt)
+                vendorTypeBox.SelectedItem = item;
+        }
+        if (existing == null)
+            vendorTypeBox.SelectedIndex = 0; // Default to Dealer
+        contentStack.Children.Add(vendorTypeBox);
+
+        // Location
         contentStack.Children.Add(CreateSectionHeader("Location"));
 
         var addressBox = new TextBox
@@ -825,18 +938,16 @@ public sealed class LaborRatesView : UserControl
 
         contentStack.Children.Add(locationRow);
 
-        BuildTabPanel(contentStack, 0); // register Info & Location tab
+        BuildTabPanel(contentStack, 0);
 
         // ===== TAB 1: Contacts =====
         var contactsStack = new StackPanel { Spacing = 12 };
 
-        // === Section 3: Dealer Phones & Emails ===
-        contactsStack.Children.Add(CreateSectionHeader("Dealer Phones & Emails"));
+        contactsStack.Children.Add(CreateSectionHeader("Vendor Phones & Emails"));
 
         var phonesContainer = new StackPanel { Spacing = 4 };
         contactsStack.Children.Add(phonesContainer);
 
-        // Seed existing phones
         if (existing != null && existing.PhoneNumbers.Count > 0)
         {
             foreach (var ph in existing.PhoneNumbers)
@@ -857,18 +968,17 @@ public sealed class LaborRatesView : UserControl
         if (existing != null && existing.Emails.Count > 0)
         {
             foreach (var em in existing.Emails)
-                AddDynamicRow(emailsContainer, emailRows, "Email", "parts@dealer.com", em);
+                AddDynamicRow(emailsContainer, emailRows, "Email", "parts@vendor.com", em);
         }
         else
         {
-            AddDynamicRow(emailsContainer, emailRows, "Email", "parts@dealer.com", "");
+            AddDynamicRow(emailsContainer, emailRows, "Email", "parts@vendor.com", "");
         }
 
         var addEmailBtn = new HyperlinkButton { Content = "+ Add Email" };
-        addEmailBtn.Click += (s, e) => AddDynamicRow(emailsContainer, emailRows, "Email", "parts@dealer.com", "");
+        addEmailBtn.Click += (s, e) => AddDynamicRow(emailsContainer, emailRows, "Email", "parts@vendor.com", "");
         contactsStack.Children.Add(addEmailBtn);
 
-        // === Section 4: Contact People ===
         contactsStack.Children.Add(CreateSectionHeader("Contact People"));
 
         var contactsContainer = new StackPanel { Spacing = 8 };
@@ -885,12 +995,11 @@ public sealed class LaborRatesView : UserControl
         addContactBtn.Click += (s, e) => AddContactCard(contactsContainer, contactCards, "", "", "", "");
         contactsStack.Children.Add(addContactBtn);
 
-        BuildTabPanel(contactsStack, 1); // register Contacts tab
+        BuildTabPanel(contactsStack, 1);
 
         // ===== TAB 2: Parts & Delivery =====
         var partsStack = new StackPanel { Spacing = 12 };
 
-        // === Section 5: Parts & Delivery ===
         partsStack.Children.Add(CreateSectionHeader("Parts & Delivery"));
 
         var discountBox = new NumberBox
@@ -903,7 +1012,6 @@ public sealed class LaborRatesView : UserControl
         };
         partsStack.Children.Add(discountBox);
 
-        // Returns
         var returnsCheck = new CheckBox
         {
             Content = "Accepts Returns",
@@ -919,7 +1027,6 @@ public sealed class LaborRatesView : UserControl
         };
         partsStack.Children.Add(returnsNoteBox);
 
-        // Delivery
         var deliveryCheck = new CheckBox
         {
             Content = "Delivers Parts",
@@ -967,54 +1074,33 @@ public sealed class LaborRatesView : UserControl
 
         partsStack.Children.Add(deliveryDetailsRow);
 
-        BuildTabPanel(partsStack, 2); // register Parts & Delivery tab
+        BuildTabPanel(partsStack, 2);
 
         // ===== TAB 3: Rates & Notes =====
         var ratesStack = new StackPanel { Spacing = 12 };
 
-        // === Section 6: Labor Rates ===
-        ratesStack.Children.Add(CreateSectionHeader("Labor Rates ($/hr)"));
+        ratesStack.Children.Add(CreateSectionHeader("Rate Templates"));
 
-        var ratesGrid = new Grid
+        var rateTemplatesContainer = new StackPanel { Spacing = 8 };
+        ratesStack.Children.Add(rateTemplatesContainer);
+
+        // Seed existing rate templates
+        if (existing != null && existing.RateTemplates.Count > 0)
         {
-            ColumnDefinitions =
-            {
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
-            },
-            RowDefinitions =
-            {
-                new RowDefinition { Height = GridLength.Auto },
-                new RowDefinition { Height = GridLength.Auto },
-                new RowDefinition { Height = GridLength.Auto }
-            },
-            ColumnSpacing = 12,
-            RowSpacing = 8
-        };
+            foreach (var tmpl in existing.RateTemplates)
+                AddRateTemplateCard(rateTemplatesContainer, rateTemplateCards, tmpl.Name, tmpl.BodyLaborRate, tmpl.MechLaborRate, tmpl.PaintLaborRate, tmpl.FrameLaborRate, tmpl.GlassLaborRate, tmpl.Notes ?? "");
+        }
+        else
+        {
+            // Default: one empty "Standard Rates" template
+            AddRateTemplateCard(rateTemplatesContainer, rateTemplateCards, "Standard Rates", 0, 0, 0, 0, 0, "");
+        }
 
-        var mechRate = new NumberBox { Header = "Mechanical", Value = (double)(existing?.MechLaborRate ?? 0), Minimum = 0 };
-        Grid.SetRow(mechRate, 0); Grid.SetColumn(mechRate, 0);
-        ratesGrid.Children.Add(mechRate);
+        var addRateTemplateBtn = new HyperlinkButton { Content = "+ Add Rate Template" };
+        addRateTemplateBtn.Click += (s, e) => AddRateTemplateCard(rateTemplatesContainer, rateTemplateCards, "", 0, 0, 0, 0, 0, "");
+        ratesStack.Children.Add(addRateTemplateBtn);
 
-        var bodyRate = new NumberBox { Header = "Body", Value = (double)(existing?.BodyLaborRate ?? 0), Minimum = 0 };
-        Grid.SetRow(bodyRate, 0); Grid.SetColumn(bodyRate, 1);
-        ratesGrid.Children.Add(bodyRate);
-
-        var paintRate = new NumberBox { Header = "Paint", Value = (double)(existing?.PaintLaborRate ?? 0), Minimum = 0 };
-        Grid.SetRow(paintRate, 1); Grid.SetColumn(paintRate, 0);
-        ratesGrid.Children.Add(paintRate);
-
-        var frameRate = new NumberBox { Header = "Frame", Value = (double)(existing?.FrameLaborRate ?? 0), Minimum = 0 };
-        Grid.SetRow(frameRate, 1); Grid.SetColumn(frameRate, 1);
-        ratesGrid.Children.Add(frameRate);
-
-        var glassRate = new NumberBox { Header = "Glass", Value = (double)(existing?.GlassLaborRate ?? 0), Minimum = 0 };
-        Grid.SetRow(glassRate, 2); Grid.SetColumn(glassRate, 0);
-        ratesGrid.Children.Add(glassRate);
-
-        ratesStack.Children.Add(ratesGrid);
-
-        // === Section 7: Notes ===
+        // Notes
         ratesStack.Children.Add(CreateSectionHeader("Notes"));
 
         var notesBox = new TextBox
@@ -1027,13 +1113,13 @@ public sealed class LaborRatesView : UserControl
         };
         ratesStack.Children.Add(notesBox);
 
-        BuildTabPanel(ratesStack, 3); // register Rates & Notes tab
+        BuildTabPanel(ratesStack, 3);
 
         dialogRoot.Children.Add(tabContainer);
 
         var dialog = new ContentDialog
         {
-            Title = isEdit ? "Edit Dealer" : "Add New Dealer",
+            Title = isEdit ? "Edit Vendor" : "Add New Vendor",
             Content = dialogRoot,
             PrimaryButtonText = isEdit ? "Save" : "Add",
             CloseButtonText = "Cancel",
@@ -1044,13 +1130,18 @@ public sealed class LaborRatesView : UserControl
         {
             if (string.IsNullOrWhiteSpace(nameBox.Text))
             {
-                ShowNotification("Please enter a dealer name", InfoBarSeverity.Warning);
+                ShowNotification("Please enter a vendor name", InfoBarSeverity.Warning);
                 return;
             }
 
             var dealer = existing ?? new DealerLaborRate();
             dealer.DealerName = nameBox.Text.Trim();
             dealer.Manufacturer = mfrBox.Text.Trim();
+
+            // Vendor type
+            if (vendorTypeBox.SelectedItem is ComboBoxItem vtItem && vtItem.Tag is VendorType vt)
+                dealer.VendorType = vt;
+
             dealer.Address = addressBox.Text.Trim();
             dealer.City = cityBox.Text.Trim();
             dealer.State = stateBox.Text.Trim();
@@ -1103,11 +1194,28 @@ public sealed class LaborRatesView : UserControl
                 RunsPerDay = (int)runsPerDayBox.Value
             };
 
-            dealer.MechLaborRate = (decimal)mechRate.Value;
-            dealer.BodyLaborRate = (decimal)bodyRate.Value;
-            dealer.PaintLaborRate = (decimal)paintRate.Value;
-            dealer.FrameLaborRate = (decimal)frameRate.Value;
-            dealer.GlassLaborRate = (decimal)glassRate.Value;
+            // Collect rate templates
+            dealer.RateTemplates = rateTemplateCards
+                .Select(rt => new RateTemplate
+                {
+                    Name = string.IsNullOrWhiteSpace(rt.Name.Text) ? "Untitled" : rt.Name.Text.Trim(),
+                    BodyLaborRate = (decimal)rt.Body.Value,
+                    MechLaborRate = (decimal)rt.Mech.Value,
+                    PaintLaborRate = (decimal)rt.Paint.Value,
+                    FrameLaborRate = (decimal)rt.Frame.Value,
+                    GlassLaborRate = (decimal)rt.Glass.Value,
+                    Notes = string.IsNullOrWhiteSpace(rt.Notes.Text) ? null : rt.Notes.Text.Trim()
+                })
+                .ToList();
+
+            // Sync flat rate fields from first template
+            var firstTmpl = dealer.RateTemplates.FirstOrDefault();
+            dealer.BodyLaborRate = firstTmpl?.BodyLaborRate ?? 0;
+            dealer.MechLaborRate = firstTmpl?.MechLaborRate ?? 0;
+            dealer.PaintLaborRate = firstTmpl?.PaintLaborRate ?? 0;
+            dealer.FrameLaborRate = firstTmpl?.FrameLaborRate ?? 0;
+            dealer.GlassLaborRate = firstTmpl?.GlassLaborRate ?? 0;
+
             dealer.Notes = notesBox.Text.Trim();
 
             // Clear IsExample flag when user edits the example dealer
@@ -1190,7 +1298,6 @@ public sealed class LaborRatesView : UserControl
             CornerRadius = new CornerRadius(6)
         };
 
-        // Name + Role row
         var topRow = new Grid
         {
             ColumnDefinitions =
@@ -1230,7 +1337,6 @@ public sealed class LaborRatesView : UserControl
 
         card.Children.Add(topRow);
 
-        // Phone + Email row
         var bottomRow = new Grid
         {
             ColumnDefinitions =
@@ -1263,60 +1369,271 @@ public sealed class LaborRatesView : UserControl
         container.Children.Add(card);
     }
 
+    private void AddRateTemplateCard(StackPanel container,
+        List<(TextBox Name, NumberBox Body, NumberBox Mech, NumberBox Paint, NumberBox Frame, NumberBox Glass, TextBox Notes, StackPanel Container)> trackedList,
+        string name, decimal body, decimal mech, decimal paint, decimal frame, decimal glass, string notes)
+    {
+        var card = new StackPanel
+        {
+            Spacing = 8,
+            Padding = new Thickness(10),
+            Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+            CornerRadius = new CornerRadius(6)
+        };
+
+        // Header row: Name + remove button
+        var headerRow = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto }
+            },
+            ColumnSpacing = 8
+        };
+
+        var nameBox = new TextBox { PlaceholderText = "Template name (e.g., Standard, Warranty, Insurance)", Text = name };
+        Grid.SetColumn(nameBox, 0);
+        headerRow.Children.Add(nameBox);
+
+        var removeBtn = new Button
+        {
+            Content = new FontIcon { Glyph = "\uE711", FontSize = 12 },
+            Padding = new Thickness(6),
+            Background = new SolidColorBrush(Colors.Transparent),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(removeBtn, 1);
+        headerRow.Children.Add(removeBtn);
+
+        card.Children.Add(headerRow);
+
+        // Rate row 1: Body, Mech, Paint
+        var rateRow1 = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+            },
+            ColumnSpacing = 8
+        };
+
+        var bodyBox = new NumberBox { Header = "Body", Value = (double)body, Minimum = 0 };
+        Grid.SetColumn(bodyBox, 0);
+        rateRow1.Children.Add(bodyBox);
+
+        var mechBox = new NumberBox { Header = "Mechanical", Value = (double)mech, Minimum = 0 };
+        Grid.SetColumn(mechBox, 1);
+        rateRow1.Children.Add(mechBox);
+
+        var paintBox = new NumberBox { Header = "Paint", Value = (double)paint, Minimum = 0 };
+        Grid.SetColumn(paintBox, 2);
+        rateRow1.Children.Add(paintBox);
+
+        card.Children.Add(rateRow1);
+
+        // Rate row 2: Frame, Glass
+        var rateRow2 = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+            },
+            ColumnSpacing = 8
+        };
+
+        var frameBox = new NumberBox { Header = "Frame", Value = (double)frame, Minimum = 0 };
+        Grid.SetColumn(frameBox, 0);
+        rateRow2.Children.Add(frameBox);
+
+        var glassBox = new NumberBox { Header = "Glass", Value = (double)glass, Minimum = 0 };
+        Grid.SetColumn(glassBox, 1);
+        rateRow2.Children.Add(glassBox);
+
+        card.Children.Add(rateRow2);
+
+        // Notes
+        var notesBox = new TextBox { PlaceholderText = "Template notes...", Text = notes };
+        card.Children.Add(notesBox);
+
+        var entry = (nameBox, bodyBox, mechBox, paintBox, frameBox, glassBox, notesBox, card);
+        trackedList.Add(entry);
+
+        removeBtn.Click += (s, e) =>
+        {
+            container.Children.Remove(card);
+            trackedList.Remove(entry);
+        };
+
+        container.Children.Add(card);
+    }
+
     #endregion
 
     private void OnCopyClick(object sender, RoutedEventArgs e)
     {
-        var dealers = _laborService.GetAllDealers();
+        var dealers = GetFilteredDealers();
         if (dealers.Count == 0)
         {
-            ShowNotification("No dealers to copy", InfoBarSeverity.Warning);
+            ShowNotification("No vendors to copy", InfoBarSeverity.Warning);
             return;
         }
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Dealer / Labor Rates");
-        sb.AppendLine(new string('-', 70));
-        sb.AppendLine($"{"Dealer",-25} {"Manufacturer",-15} {"Body",8} {"Mech",8} {"Paint",8}");
-        sb.AppendLine(new string('-', 70));
+        sb.AppendLine("VENDOR INFORMATION");
+        sb.AppendLine(new string('=', 80));
+
         foreach (var d in dealers)
         {
-            sb.AppendLine($"{d.DealerName,-25} {d.Manufacturer,-15} {d.BodyLaborRate,8:C2} {d.MechLaborRate,8:C2} {d.PaintLaborRate,8:C2}");
+            sb.AppendLine();
+            sb.AppendLine($"{d.DealerName}  [{VendorTypeDisplayName(d.VendorType)}]");
+            if (!string.IsNullOrEmpty(d.Manufacturer))
+                sb.AppendLine($"  Manufacturer: {d.Manufacturer}");
+
+            var addr = FormatAddress(d);
+            if (!string.IsNullOrEmpty(addr))
+                sb.AppendLine($"  Address: {addr}");
+
+            if (d.PhoneNumbers.Count > 0)
+                sb.AppendLine($"  Phone: {string.Join(", ", d.PhoneNumbers)}");
+            if (d.Emails.Count > 0)
+                sb.AppendLine($"  Email: {string.Join(", ", d.Emails)}");
+
+            foreach (var c in d.Contacts)
+            {
+                var contactLine = $"  Contact: {c.Name}";
+                if (!string.IsNullOrEmpty(c.Role)) contactLine += $" ({c.Role})";
+                if (c.PhoneNumbers.Count > 0) contactLine += $" - {c.PhoneNumbers[0]}";
+                if (c.Emails.Count > 0) contactLine += $" - {c.Emails[0]}";
+                sb.AppendLine(contactLine);
+            }
+
+            if (d.RateTemplates.Count > 0)
+            {
+                foreach (var tmpl in d.RateTemplates)
+                {
+                    var rates = new List<string>();
+                    if (tmpl.BodyLaborRate > 0) rates.Add($"Body: ${tmpl.BodyLaborRate:N2}");
+                    if (tmpl.MechLaborRate > 0) rates.Add($"Mech: ${tmpl.MechLaborRate:N2}");
+                    if (tmpl.PaintLaborRate > 0) rates.Add($"Paint: ${tmpl.PaintLaborRate:N2}");
+                    if (tmpl.FrameLaborRate > 0) rates.Add($"Frame: ${tmpl.FrameLaborRate:N2}");
+                    if (tmpl.GlassLaborRate > 0) rates.Add($"Glass: ${tmpl.GlassLaborRate:N2}");
+                    if (rates.Count > 0)
+                        sb.AppendLine($"  {tmpl.Name}: {string.Join("  |  ", rates)}");
+                }
+            }
+
+            if (d.PartsDiscountPercent > 0)
+                sb.AppendLine($"  Parts Discount: {d.PartsDiscountPercent}%");
+            if (d.Delivery.DeliversParts)
+            {
+                var delParts = new List<string> { "Yes" };
+                if (!string.IsNullOrEmpty(d.Delivery.DeliveryTime)) delParts.Add(d.Delivery.DeliveryTime);
+                if (d.Delivery.RunsPerDay > 0) delParts.Add($"{d.Delivery.RunsPerDay}x/day");
+                if (!string.IsNullOrEmpty(d.Delivery.DeliveryNote)) delParts.Add(d.Delivery.DeliveryNote);
+                sb.AppendLine($"  Delivery: {string.Join(", ", delParts)}");
+            }
+            if (d.Returns.AcceptsReturns)
+            {
+                var retNote = "Yes";
+                if (!string.IsNullOrEmpty(d.Returns.ReturnsNote)) retNote += $" ({d.Returns.ReturnsNote})";
+                sb.AppendLine($"  Returns: {retNote}");
+            }
+            if (!string.IsNullOrEmpty(d.Notes))
+                sb.AppendLine($"  Notes: {d.Notes}");
+
+            sb.AppendLine(new string('-', 80));
         }
 
         var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
         dp.SetText(sb.ToString());
         Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
-        ShowNotification("Dealer list copied to clipboard!", InfoBarSeverity.Success);
+        ShowNotification($"Copied {dealers.Count} vendor{(dealers.Count != 1 ? "s" : "")} to clipboard!", InfoBarSeverity.Success);
     }
 
-    private void OnExportPdfClick(object sender, RoutedEventArgs e)
+    private async void OnExportPdfClick(object sender, RoutedEventArgs e)
     {
-        var dealers = _laborService.GetAllDealers();
-        if (dealers.Count == 0)
+        var allDealers = GetFilteredDealers();
+        if (allDealers.Count == 0)
         {
-            ShowNotification("No dealers to export", InfoBarSeverity.Warning);
+            ShowNotification("No vendors to export", InfoBarSeverity.Warning);
+            return;
+        }
+
+        // Selection dialog with checkboxes
+        var selectionPanel = new StackPanel { Spacing = 4, Width = 400 };
+        selectionPanel.Children.Add(new TextBlock
+        {
+            Text = "Select vendors to include in the PDF export:",
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+
+        // Select all / deselect all buttons
+        var selectRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 0, 0, 8) };
+        var selectAllBtn = new HyperlinkButton { Content = "Select All" };
+        var deselectAllBtn = new HyperlinkButton { Content = "Deselect All" };
+        selectRow.Children.Add(selectAllBtn);
+        selectRow.Children.Add(deselectAllBtn);
+        selectionPanel.Children.Add(selectRow);
+
+        var checkBoxes = new List<(CheckBox cb, DealerLaborRate dealer)>();
+        var listScroller = new ScrollViewer { MaxHeight = 350 };
+        var listPanel = new StackPanel { Spacing = 2 };
+
+        foreach (var d in allDealers)
+        {
+            var cb = new CheckBox
+            {
+                Content = $"{d.DealerName}  [{VendorTypeDisplayName(d.VendorType)}]",
+                IsChecked = true,
+                FontSize = 13
+            };
+            checkBoxes.Add((cb, d));
+            listPanel.Children.Add(cb);
+        }
+
+        listScroller.Content = listPanel;
+        selectionPanel.Children.Add(listScroller);
+
+        selectAllBtn.Click += (s, args) => { foreach (var (cb, _) in checkBoxes) cb.IsChecked = true; };
+        deselectAllBtn.Click += (s, args) => { foreach (var (cb, _) in checkBoxes) cb.IsChecked = false; };
+
+        var selDialog = new ContentDialog
+        {
+            Title = "Export Vendors to PDF",
+            Content = selectionPanel,
+            PrimaryButtonText = "Export",
+            CloseButtonText = "Cancel",
+            XamlRoot = this.XamlRoot
+        };
+
+        if (await selDialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
+        var selected = checkBoxes.Where(x => x.cb.IsChecked == true).Select(x => x.dealer).ToList();
+        if (selected.Count == 0)
+        {
+            ShowNotification("No vendors selected", InfoBarSeverity.Warning);
             return;
         }
 
         try
         {
-            var dealerData = dealers.Select(d => (
-                Name: d.DealerName ?? "",
-                Phone: d.PhoneNumbers.FirstOrDefault() ?? "",
-                Address: string.Join(", ", new[] { d.Address, d.City, d.State, d.Zip }.Where(s => !string.IsNullOrWhiteSpace(s))),
-                Manufacturer: d.Manufacturer ?? ""
-            )).ToList();
-
-            var pdfPath = ShopDocsPdfService.Instance.GenerateDealerListPdf(dealerData);
-            DocumentUsageTrackingService.Instance.RecordPdfExport("DealerList", System.IO.Path.GetFileName(pdfPath), dealers.Count);
+            var pdfPath = ShopDocsPdfService.Instance.GenerateVendorListPdf(selected);
+            DocumentUsageTrackingService.Instance.RecordPdfExport("VendorList", System.IO.Path.GetFileName(pdfPath), selected.Count);
 
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = pdfPath,
                 UseShellExecute = true
             });
-            ShowNotification("Dealer list exported to PDF!", InfoBarSeverity.Success);
+            ShowNotification($"Exported {selected.Count} vendor{(selected.Count != 1 ? "s" : "")} to PDF!", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {

@@ -19,9 +19,20 @@ namespace McStudDesktop.Views
         private List<Operation> _operations = new List<Operation>();
         private TypeItService? _typeService;
 
+        // Document header field values
+        private string _headerTitle = "";
+        private string _subHeader = "";
+        private DateTimeOffset? _docDate;
+        private string _roNumber = "";
+        private string _vehicle = "";
+        private string _customerName = "";
+
         public CoverCarPage()
         {
             this.InitializeComponent();
+
+            // Set default date to today
+            DocDatePicker.Date = DateTimeOffset.Now;
 
             // Wire up export panel events
             ExportPanel.ClipItClicked += ExportPanel_ClipItClicked;
@@ -66,6 +77,13 @@ namespace McStudDesktop.Views
             if (_operations.Count == 0)
             {
                 ExportPanel.Status = "No lines to export";
+                return;
+            }
+
+            // CCC Web: use CccWebInsertService
+            if (e.Target == ExportPanel.ExportTarget.CCCWeb)
+            {
+                await TypeItCccWebAsync(_operations);
                 return;
             }
 
@@ -170,6 +188,23 @@ namespace McStudDesktop.Views
         private void ExportPanel_SpeedChanged(object? sender, int speedLevel)
         {
             _typeService?.SetSpeedLevel(speedLevel);
+        }
+
+        private void OnHeaderFieldChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox tb)
+            {
+                if (tb == HeaderTitleBox) _headerTitle = tb.Text;
+                else if (tb == SubHeaderBox) _subHeader = tb.Text;
+                else if (tb == RoNumberBox) _roNumber = tb.Text;
+                else if (tb == VehicleBox) _vehicle = tb.Text;
+                else if (tb == CustomerNameBox) _customerName = tb.Text;
+            }
+        }
+
+        private void OnDateChanged(CalendarDatePicker sender, CalendarDatePickerDateChangedEventArgs e)
+        {
+            _docDate = e.NewDate;
         }
 
         private void OnInputChanged(object sender, RoutedEventArgs e)
@@ -431,6 +466,43 @@ namespace McStudDesktop.Views
         {
             ExportPanel.LineCount = _operations.Count;
             ExportPanel.ResetStatus();
+        }
+
+        private async Task TypeItCccWebAsync(List<Operation> operations)
+        {
+            var webOps = new List<VirtualClipboardOp>();
+            foreach (var op in operations)
+            {
+                webOps.Add(new VirtualClipboardOp
+                {
+                    OperationType = "Refinish",
+                    Description = op.Description,
+                    Quantity = op.Quantity,
+                    Price = op.Price,
+                    LaborHours = op.LaborHours,
+                    RefinishHours = op.RefinishHours,
+                    Category = op.Category ?? ""
+                });
+            }
+
+            int count = webOps.Count;
+            var webService = CccWebInsertService.Instance;
+            webService.StatusChanged += (s, status) =>
+                ExportPanel.DispatcherQueue.TryEnqueue(() => ExportPanel.Status = status);
+            webService.ProgressChanged += (s, p) =>
+                ExportPanel.DispatcherQueue.TryEnqueue(() => ExportPanel.SetTyping(p.Current, p.Total));
+            webService.InsertCompleted += (s, success) =>
+                ExportPanel.DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (success) ExportPanel.SetComplete(count);
+                    else ExportPanel.SetError("CCC Web insert failed");
+                });
+
+            webService.SetSpeedLevel(ExportPanel.SelectedSpeedLevel);
+            ExportPanel.SetTyping(0, count);
+            var cccSvc = McstudDesktop.Services.CCCInsertService.Instance;
+            var (cx, cy, hp) = cccSvc.GetClickPosition();
+            await webService.InsertOperationsAsync(webOps, cccSvc.TargetWindow, cx, cy);
         }
     }
 }

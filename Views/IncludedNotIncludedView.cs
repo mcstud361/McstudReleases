@@ -347,27 +347,118 @@ namespace McStudDesktop.Views
             // Content
             var contentStack = new StackPanel { Spacing = 12, Margin = new Thickness(0, 8, 0, 0) };
 
-            // Source references
+            // Source references with clickable links
             if (operation.SourceRefs != null)
             {
-                var sourcesText = new StringBuilder();
-                if (!string.IsNullOrEmpty(operation.SourceRefs.CccMotor))
-                    sourcesText.Append($"CCC/MOTOR: {operation.SourceRefs.CccMotor}  ");
-                if (!string.IsNullOrEmpty(operation.SourceRefs.Mitchell))
-                    sourcesText.Append($"Mitchell: {operation.SourceRefs.Mitchell}  ");
-                if (operation.SourceRefs.DegInquiries?.Count > 0)
-                    sourcesText.Append($"DEG: {string.Join(", ", operation.SourceRefs.DegInquiries)}");
+                var linksRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
 
-                if (sourcesText.Length > 0)
+                // CCC/MOTOR link
+                if (!string.IsNullOrEmpty(operation.SourceRefs.CccMotor))
                 {
-                    contentStack.Children.Add(new TextBlock
+                    var cccUrl = DefinitionsView.GetPPageUrl(operation.SourceRefs.CccMotor);
+                    if (cccUrl != null)
                     {
-                        Text = sourcesText.ToString().Trim(),
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
-                        TextWrapping = TextWrapping.Wrap
-                    });
+                        var cccLink = new Button
+                        {
+                            Content = new StackPanel
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 4,
+                                Children =
+                                {
+                                    new FontIcon { Glyph = "\uE774", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)) },
+                                    new TextBlock { Text = $"CCC/MOTOR: {operation.SourceRefs.CccMotor}", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 200, 100)) }
+                                }
+                            },
+                            Background = new SolidColorBrush(Colors.Transparent),
+                            BorderThickness = new Thickness(0),
+                            Padding = new Thickness(0)
+                        };
+                        var capturedCccUrl = cccUrl;
+                        cccLink.Click += (s, e) =>
+                        {
+                            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = capturedCccUrl, UseShellExecute = true }); } catch { }
+                        };
+                        ToolTipService.SetToolTip(cccLink, $"Open {operation.SourceRefs.CccMotor} on CCC MOTOR Guide");
+                        linksRow.Children.Add(cccLink);
+                    }
+                    else
+                    {
+                        linksRow.Children.Add(new TextBlock
+                        {
+                            Text = $"CCC/MOTOR: {operation.SourceRefs.CccMotor}",
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                            VerticalAlignment = VerticalAlignment.Center
+                        });
+                    }
                 }
+
+                // Mitchell link
+                if (!string.IsNullOrEmpty(operation.SourceRefs.Mitchell))
+                {
+                    var mitchellLink = new Button
+                    {
+                        Content = new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Spacing = 4,
+                            Children =
+                            {
+                                new FontIcon { Glyph = "\uE774", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)) },
+                                new TextBlock { Text = $"Mitchell: {operation.SourceRefs.Mitchell}", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255)) }
+                            }
+                        },
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        BorderThickness = new Thickness(0),
+                        Padding = new Thickness(0)
+                    };
+                    mitchellLink.Click += (s, e) =>
+                    {
+                        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "http://static.mymitchell.com/static/webhelp/ppages/ceg/1033/Content/ceg010400.htm", UseShellExecute = true }); } catch { }
+                    };
+                    ToolTipService.SetToolTip(mitchellLink, $"Open Mitchell {operation.SourceRefs.Mitchell}");
+                    linksRow.Children.Add(mitchellLink);
+                }
+
+                // DEG inquiry links
+                if (operation.SourceRefs.DegInquiries?.Count > 0)
+                {
+                    foreach (var deg in operation.SourceRefs.DegInquiries)
+                    {
+                        var degLink = new Button
+                        {
+                            Content = new StackPanel
+                            {
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 4,
+                                Children =
+                                {
+                                    new FontIcon { Glyph = "\uE774", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 255, 150)) },
+                                    new TextBlock { Text = $"DEG: {deg}", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 255, 150)) }
+                                }
+                            },
+                            Background = new SolidColorBrush(Colors.Transparent),
+                            BorderThickness = new Thickness(0),
+                            Padding = new Thickness(0)
+                        };
+                        var capturedDeg = deg;
+                        degLink.Click += (s, e) =>
+                        {
+                            try
+                            {
+                                var query = Uri.EscapeDataString($"DEG inquiry {capturedDeg}");
+                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = $"https://degweb.org/search?q={query}", UseShellExecute = true });
+                            }
+                            catch { }
+                        };
+                        ToolTipService.SetToolTip(degLink, $"Search DEG Inquiry {deg}");
+                        linksRow.Children.Add(degLink);
+                    }
+                }
+
+                if (linksRow.Children.Count > 0)
+                    contentStack.Children.Add(linksRow);
             }
 
             // Two columns: Included and Not Included (same as P-Pages)

@@ -98,6 +98,12 @@ namespace McStudDesktop.Views
         private StackPanel? _criteriaContent;
         private TextBlock? _criteriaSummaryText;
 
+        // === Blend & Refinish section ===
+        private Border? _blendRefinishSection;
+        private StackPanel? _blendRefinishContent;
+        private StackPanel? _blendRefinishContainer;
+        private TextBlock? _blendRefinishSummaryText;
+
         // === Benchmark section ===
         private Border? _benchmarkSection;
         private Border? _benchmarkAccent;
@@ -153,6 +159,9 @@ namespace McStudDesktop.Views
             _issueGroupsContainer = new StackPanel { Spacing = 8 };
             _issuesSection.Child = _issueGroupsContainer;
             mainStack.Children.Add(_issuesSection);
+
+            // === COLLAPSIBLE: BLEND & REFINISH SUGGESTIONS ===
+            mainStack.Children.Add(BuildCollapsibleBlendRefinishSection());
 
             // === COLLAPSIBLE: CATEGORY BREAKDOWN ===
             mainStack.Children.Add(BuildCollapsibleCategorySection());
@@ -651,6 +660,215 @@ namespace McStudDesktop.Views
             return _breakdownSection;
         }
 
+        private Border BuildCollapsibleBlendRefinishSection()
+        {
+            _blendRefinishSection = new Border
+            {
+                Background = new SolidColorBrush(BgMedium),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12),
+                Visibility = Visibility.Collapsed
+            };
+
+            var stack = new StackPanel { Spacing = 6 };
+
+            var headerGrid = new Grid();
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var chevron = new TextBlock
+            {
+                Text = "\uE76C",
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(TextMuted),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+
+            var headerBtn = new Button
+            {
+                Content = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Children = { chevron, new TextBlock
+                    {
+                        Text = "BLEND & REFINISH SUGGESTIONS",
+                        FontSize = 10,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(CatBlend)
+                    }}
+                },
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left
+            };
+
+            _blendRefinishSummaryText = new TextBlock
+            {
+                FontSize = 10,
+                Foreground = new SolidColorBrush(TextDim),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(_blendRefinishSummaryText, 2);
+
+            headerGrid.Children.Add(headerBtn);
+            headerGrid.Children.Add(_blendRefinishSummaryText);
+            stack.Children.Add(headerGrid);
+
+            _blendRefinishContent = new StackPanel { Spacing = 6, Visibility = Visibility.Collapsed };
+            var scroll = new ScrollViewer
+            {
+                MaxHeight = 400,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            _blendRefinishContainer = new StackPanel { Spacing = 4 };
+            scroll.Content = _blendRefinishContainer;
+            _blendRefinishContent.Children.Add(scroll);
+
+            headerBtn.Click += (s, e) =>
+            {
+                bool show = _blendRefinishContent.Visibility != Visibility.Visible;
+                _blendRefinishContent.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+                chevron.Text = show ? "\uE70D" : "\uE76C";
+            };
+
+            stack.Children.Add(_blendRefinishContent);
+            _blendRefinishSection.Child = stack;
+            return _blendRefinishSection;
+        }
+
+        private void UpdateBlendRefinishSection(List<ScoringIssue> allIssues)
+        {
+            _blendRefinishContainer!.Children.Clear();
+
+            // Filter to blend + learned refinish issues
+            var blendIssues = allIssues
+                .Where(i => i.Category == IssueCategoryType.Blend ||
+                           (i.Category == IssueCategoryType.Refinish && i.Source == "Learned"))
+                .ToList();
+
+            if (blendIssues.Count == 0)
+            {
+                _blendRefinishSection!.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            _blendRefinishSection!.Visibility = Visibility.Visible;
+
+            // Group by triggering panel
+            var byPanel = blendIssues
+                .GroupBy(i => i.TriggeredBy)
+                .OrderBy(g => g.Key)
+                .ToList();
+
+            decimal totalHrs = blendIssues
+                .Where(i => i.SuggestedFix != null)
+                .Sum(i => i.SuggestedFix!.LaborHours);
+            _blendRefinishSummaryText!.Text = $"{blendIssues.Count} suggestions" +
+                (totalHrs > 0 ? $"  •  {totalHrs:F1} hrs from learned data" : "");
+
+            foreach (var panelGroup in byPanel)
+            {
+                // Panel header
+                var panelHeader = new TextBlock
+                {
+                    Text = panelGroup.Key.ToUpperInvariant(),
+                    FontSize = 10,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(TextLight),
+                    Margin = new Thickness(0, 6, 0, 2)
+                };
+                _blendRefinishContainer.Children.Add(panelHeader);
+
+                foreach (var issue in panelGroup.OrderByDescending(i => i.Category == IssueCategoryType.Blend)
+                                                .ThenByDescending(i => i.Severity))
+                {
+                    var row = new Grid
+                    {
+                        Padding = new Thickness(8, 5, 8, 5),
+                        Background = new SolidColorBrush(BgCard),
+                        CornerRadius = new CornerRadius(4)
+                    };
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // icon
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // text
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // hours
+
+                    // Category dot
+                    var isBlend = issue.Category == IssueCategoryType.Blend;
+                    var dot = new Ellipse
+                    {
+                        Width = 6, Height = 6, Fill = new SolidColorBrush(isBlend ? CatBlend : CatRefinish),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 8, 0)
+                    };
+                    row.Children.Add(dot);
+
+                    // Title + description
+                    var textStack = new StackPanel { Spacing = 1 };
+                    textStack.Children.Add(new TextBlock
+                    {
+                        Text = issue.Title,
+                        FontSize = 11,
+                        Foreground = new SolidColorBrush(TextBright),
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    });
+                    if (!string.IsNullOrEmpty(issue.Description))
+                    {
+                        textStack.Children.Add(new TextBlock
+                        {
+                            Text = issue.Description,
+                            FontSize = 9,
+                            Foreground = new SolidColorBrush(TextMuted),
+                            TextTrimming = TextTrimming.CharacterEllipsis
+                        });
+                    }
+                    Grid.SetColumn(textStack, 1);
+                    row.Children.Add(textStack);
+
+                    // Hours badge
+                    if (issue.SuggestedFix != null && issue.SuggestedFix.LaborHours > 0)
+                    {
+                        var hrsBadge = new Border
+                        {
+                            Background = new SolidColorBrush(Color.FromArgb(255, 40, 50, 35)),
+                            CornerRadius = new CornerRadius(3),
+                            Padding = new Thickness(6, 2, 6, 2),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = new Thickness(8, 0, 0, 0),
+                            Child = new TextBlock
+                            {
+                                Text = $"{issue.SuggestedFix.LaborHours:F1} hrs",
+                                FontSize = 10,
+                                Foreground = new SolidColorBrush(GreenMoney)
+                            }
+                        };
+                        Grid.SetColumn(hrsBadge, 2);
+                        row.Children.Add(hrsBadge);
+                    }
+                    else if (isBlend)
+                    {
+                        // Show "no data" for blend with no learned hours
+                        var noDataText = new TextBlock
+                        {
+                            Text = "no data",
+                            FontSize = 9,
+                            Foreground = new SolidColorBrush(TextDim),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = new Thickness(8, 0, 0, 0)
+                        };
+                        Grid.SetColumn(noDataText, 2);
+                        row.Children.Add(noDataText);
+                    }
+
+                    _blendRefinishContainer.Children.Add(row);
+                }
+            }
+        }
+
         private Border BuildCollapsibleCriteriaSection()
         {
             _criteriaSection = new Border
@@ -823,6 +1041,9 @@ namespace McStudDesktop.Views
 
             // Update action-based issue groups
             UpdateIssueGroups(result.Issues);
+
+            // Update blend & refinish suggestions
+            UpdateBlendRefinishSection(result.Issues);
 
             // Update category breakdown
             UpdateCategoryBreakdown(result.CategoryScores);

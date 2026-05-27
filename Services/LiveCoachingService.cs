@@ -42,11 +42,19 @@ namespace McstudDesktop.Services
         private string? _vehicleInfo;
         private string? _customerName;
         private string? _trackedVin;
+        private string? _trackedRO;
+        private string? _insuranceCompany;
         private int _accumulatedOpsOrder = 0;
         private readonly Dictionary<string, int> _opInsertionOrder = new(StringComparer.OrdinalIgnoreCase);
         // Freshness tracking: how many consecutive captures each operation has been absent
         private readonly Dictionary<string, int> _opMissCount = new(StringComparer.OrdinalIgnoreCase);
-        private const int MaxMissesBeforeRemoval = 12; // Remove after 12 consecutive absences (allows scrolling through long estimates)
+        // How many captures each operation has been seen in (confidence measure)
+        private readonly Dictionary<string, int> _opSeenCount = new(StringComparer.OrdinalIgnoreCase);
+        // Tiered eviction: ops seen many times are clearly real and survive long scrolling sessions.
+        // Ops seen only 1-2 times could be noise and get evicted faster.
+        private const int MaxMissesNoise = 15;       // Seen 1-2x: evict after 30 sec (noise filter)
+        private const int MaxMissesConfirmed = 90;    // Seen 3-5x: evict after 3 min (probably real)
+        private const int MaxMissesEstablished = 300;  // Seen 6+x: evict after 10 min (definitely real)
 
         // Confirmation lock: once a suggestion is confirmed on the estimate, keep it confirmed
         // for the rest of the session (until vehicle/estimate changes). Prevents OCR variability
@@ -163,9 +171,12 @@ namespace McstudDesktop.Services
             _accumulatedRawText.Clear();
             _opInsertionOrder.Clear();
             _opMissCount.Clear();
+            _opSeenCount.Clear();
             _lockedConfirmations.Clear();
             _lockedMustHaves.Clear();
             _accumulatedOpsOrder = 0;
+            _trackedRO = null;
+            _insuranceCompany = null;
             _vehicleInfo = null;
             _customerName = null;
             _trackedVin = null;
@@ -243,6 +254,31 @@ namespace McstudDesktop.Services
                     _trackedVin = result.DetectedVin;
             }
 
+            // RO number tracking — lock on first detection. If a different RO appears for
+            // the same VIN, it could be a supplement or new estimate, so reset ops but keep vehicle info.
+            if (!string.IsNullOrEmpty(result.DetectedRO))
+            {
+                if (_trackedRO != null && !string.Equals(_trackedRO, result.DetectedRO, StringComparison.OrdinalIgnoreCase))
+                {
+                    Debug.WriteLine($"[LiveCoaching] RO changed from \"{_trackedRO}\" to \"{result.DetectedRO}\" — resetting operations for new estimate");
+                    // Keep vehicle info (same car) but clear operations (different estimate/supplement)
+                    _accumulatedOps.Clear();
+                    _accumulatedRawText.Clear();
+                    _opInsertionOrder.Clear();
+                    _opMissCount.Clear();
+                    _opSeenCount.Clear();
+                    _lockedConfirmations.Clear();
+                    _lockedMustHaves.Clear();
+                    _accumulatedOpsOrder = 0;
+                }
+                if (_trackedRO == null)
+                    _trackedRO = result.DetectedRO;
+            }
+
+            // Insurance company tracking (first detection wins)
+            if (_insuranceCompany == null && !string.IsNullOrEmpty(result.DetectedInsurer))
+                _insuranceCompany = result.DetectedInsurer;
+
             // Accumulate structured operations from this capture
             // Skip garbage: must have a valid operation type and a meaningful part name
             var currentCaptureKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -266,10 +302,21 @@ namespace McstudDesktop.Services
                     if (!trimmedPart.Contains(' ') && _hardwareSubParts.Contains(trimmedPart)) continue;
 
                     var key = $"{op.Description}|{op.PartName}|{op.OperationType}".ToLowerInvariant();
+
+                    // Fuzzy dedup: if exact key doesn't exist, check if an existing key matches
+                    // the same operation type with a similar part name (OCR reads "Hood Panel" vs "Hood").
+                    if (!_accumulatedOps.ContainsKey(key))
+                    {
+                        var fuzzyMatch = FindFuzzyMatchingKey(key, op.PartName, op.OperationType);
+                        if (fuzzyMatch != null)
+                            key = fuzzyMatch; // Merge into existing entry instead of creating duplicate
+                    }
+
                     currentCaptureKeys.Add(key);
                     if (!_opInsertionOrder.ContainsKey(key))
                         _opInsertionOrder[key] = _accumulatedOpsOrder++;
                     _opMissCount[key] = 0; // Reset miss count — we just saw it
+                    _opSeenCount[key] = _opSeenCount.GetValueOrDefault(key, 0) + 1; // Track confidence
                     _accumulatedOps[key] = new ParsedEstimateLine
                     {
                         RawLine = op.RawLine,
@@ -285,7 +332,9 @@ namespace McstudDesktop.Services
             }
 
             // Deletion detection: increment miss count for operations not seen in this capture,
-            // remove if they've been absent for too many consecutive captures.
+            // remove if they've been absent past their tiered threshold.
+            // Ops confirmed across many captures survive much longer (normal scrolling),
+            // while ops seen only once or twice get evicted faster (OCR noise).
             if (currentCaptureKeys.Count > 0)
             {
                 var keysToRemove = new List<string>();
@@ -296,7 +345,13 @@ namespace McstudDesktop.Services
                         _opMissCount.TryGetValue(existingKey, out var misses);
                         misses++;
                         _opMissCount[existingKey] = misses;
-                        if (misses >= MaxMissesBeforeRemoval)
+
+                        var seenCount = _opSeenCount.GetValueOrDefault(existingKey, 1);
+                        var maxMisses = seenCount >= 6 ? MaxMissesEstablished
+                                      : seenCount >= 3 ? MaxMissesConfirmed
+                                      : MaxMissesNoise;
+
+                        if (misses >= maxMisses)
                             keysToRemove.Add(existingKey);
                     }
                 }
@@ -305,6 +360,7 @@ namespace McstudDesktop.Services
                     _accumulatedOps.Remove(key);
                     _opInsertionOrder.Remove(key);
                     _opMissCount.Remove(key);
+                    _opSeenCount.Remove(key);
                     Debug.WriteLine($"[LiveCoaching] Removed stale operation: {key}");
                 }
             }
@@ -331,6 +387,10 @@ namespace McstudDesktop.Services
                     _vehicleInfo = ExtractVehicleInfo(cleanedRaw);
                 if (_customerName == null)
                     _customerName = ExtractCustomerName(cleanedRaw);
+                if (_trackedRO == null)
+                    _trackedRO = ExtractRONumber(cleanedRaw);
+                if (_insuranceCompany == null)
+                    _insuranceCompany = ExtractInsuranceCompany(cleanedRaw);
             }
 
             // Build parsed lines from ONLY structured operations
@@ -347,6 +407,9 @@ namespace McstudDesktop.Services
 
             // 2.5 Rules Engine suggestions (material + op-type aware)
             var rulesSuggestions = GetRulesEngineSuggestions(parsedLines);
+
+            // 2.75 Material inventory suggestions (triggered by confirmed material ops)
+            var materialInvSuggestions = GetMaterialInventorySuggestions(parsedLines);
 
             // 3. Knowledge Base suggestions (missing ops detection)
             var kbSuggestions = GetKnowledgeBaseSuggestions(parsedLines);
@@ -395,6 +458,17 @@ namespace McstudDesktop.Services
                 seenKeys.Add(key);
                 rule.Id = key;
                 suggestions.Add(rule);
+            }
+
+            // 2.75. Material inventory suggestions (Medium — inventory line items for material ops)
+            foreach (var mat in materialInvSuggestions)
+            {
+                var key = NormalizeKey(mat.Category, mat.Title);
+                if (seenKeys.Contains(key)) continue;
+                if (IsFuzzyDuplicate(key, seenKeys)) continue;
+                seenKeys.Add(key);
+                mat.Id = key;
+                suggestions.Add(mat);
             }
 
             // 3. Knowledge Base suggestions (High — structural/procedural requirements)
@@ -532,6 +606,8 @@ namespace McstudDesktop.Services
                 VehicleInfo = _vehicleInfo,
                 CustomerName = _customerName,
                 VIN = _trackedVin,
+                RONumber = _trackedRO,
+                InsuranceCompany = _insuranceCompany,
                 FocusedPart = focusedPart,
                 Timestamp = DateTime.Now
             };
@@ -957,6 +1033,189 @@ namespace McstudDesktop.Services
                     });
                 }
                 isFirstPanel = false;
+            }
+
+            return suggestions;
+        }
+
+        /// <summary>
+        /// When material labor operations (cavity wax, seam sealer, etc.) are confirmed on the
+        /// estimate, suggest the corresponding inventory line items (Central Paint, Wurth, etc.).
+        /// </summary>
+        private List<CoachingSuggestion> GetMaterialInventorySuggestions(List<ParsedEstimateLine> structuredOps)
+        {
+            var suggestions = new List<CoachingSuggestion>();
+            if (structuredOps.Count == 0) return suggestions;
+
+            // Material-to-product mapping: trigger keyword → (inventory title, product description)
+            var materialMappings = new (string[] Triggers, string InventoryTitle, string ProductDesc)[]
+            {
+                (new[] { "cavity wax", "cavity wax injection" },
+                    "Central Paint Inventory — Cavity Wax", "3M 08852 — add to material invoice"),
+                (new[] { "seam sealer" },
+                    "Central Paint Inventory — Seam Sealer", "3M 08308 — add to material invoice"),
+                (new[] { "structural adhesive" },
+                    "Central Paint Inventory — Structural Adhesive", "3M 08115 / 07333 — add to material invoice"),
+                (new[] { "butyl tape" },
+                    "Central Paint Inventory — Butyl Tape", "3M 08610 — add to material invoice"),
+                (new[] { "nvh", "dampening material", "nvh dampening" },
+                    "Central Paint Inventory — NVH Material", "NVH dampening material — add to material invoice"),
+                (new[] { "chip guard" },
+                    "Central Paint Inventory — Chip Guard", "3M 08889 — add to material invoice"),
+                (new[] { "weld through primer", "weld-through primer", "weld thru primer" },
+                    "Weld Through Primer", "$10.00 flat — add to material invoice"),
+            };
+
+            var seenTitles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            bool hasMaterialOp = false;
+            bool hasRefinishOp = false;
+            bool hasRivetOp = false;
+
+            foreach (var op in structuredOps)
+            {
+                var partLower = (op.PartName ?? "").ToLowerInvariant();
+                var descLower = (op.Description ?? "").ToLowerInvariant();
+                var rawLower = (op.RawLine ?? "").ToLowerInvariant();
+                var combined = $"{partLower} {descLower} {rawLower}";
+
+                // Check each material mapping
+                foreach (var mapping in materialMappings)
+                {
+                    if (seenTitles.Contains(mapping.InventoryTitle)) continue;
+
+                    bool triggered = false;
+                    foreach (var trigger in mapping.Triggers)
+                    {
+                        if (combined.Contains(trigger))
+                        {
+                            triggered = true;
+                            break;
+                        }
+                    }
+                    if (!triggered) continue;
+
+                    hasMaterialOp = true;
+
+                    // Check if this inventory line is already on the estimate
+                    var alreadyOnEstimate = structuredOps.Any(e =>
+                    {
+                        var ePart = (e.PartName ?? "").ToLowerInvariant();
+                        var eDesc = (e.Description ?? "").ToLowerInvariant();
+                        var eRaw = (e.RawLine ?? "").ToLowerInvariant();
+                        var eCombined = $"{ePart} {eDesc} {eRaw}";
+                        return eCombined.Contains(mapping.InventoryTitle.ToLowerInvariant());
+                    });
+                    if (alreadyOnEstimate) continue;
+
+                    seenTitles.Add(mapping.InventoryTitle);
+                    suggestions.Add(new CoachingSuggestion
+                    {
+                        Title = mapping.InventoryTitle,
+                        Description = mapping.ProductDesc,
+                        WhyNeeded = "Material product inventory line should accompany the labor operation",
+                        Category = "Materials",
+                        Severity = CoachingSeverity.Medium,
+                        TriggeredBy = op.PartName ?? "",
+                        EstimatedCost = 0,
+                        LaborHours = 0,
+                        Source = "Material Inventory"
+                    });
+                }
+
+                // Track if any refinish operations exist
+                if (!hasRefinishOp)
+                {
+                    var opType = (op.OperationType ?? "").ToLowerInvariant();
+                    if (opType.Contains("refinish") || opType.Contains("paint") ||
+                        opType.Contains("blend") || opType.Contains("clear") ||
+                        combined.Contains("refinish") || combined.Contains("basecoat") ||
+                        combined.Contains("clearcoat"))
+                    {
+                        hasRefinishOp = true;
+                    }
+                }
+
+                // Track if any rivet R&I operations exist
+                if (!hasRivetOp && combined.Contains("rivet"))
+                {
+                    hasRivetOp = true;
+                }
+            }
+
+            // Rivet drill bit suggestion
+            if (hasRivetOp && !seenTitles.Contains("Wurth Inventory — Drill Bit for Rivets"))
+            {
+                var alreadyOnEstimate = structuredOps.Any(e =>
+                {
+                    var eCombined = $"{e.PartName} {e.Description} {e.RawLine}".ToLowerInvariant();
+                    return eCombined.Contains("wurth") && eCombined.Contains("drill");
+                });
+                if (!alreadyOnEstimate)
+                {
+                    suggestions.Add(new CoachingSuggestion
+                    {
+                        Title = "Wurth Inventory — Drill Bit for Rivets",
+                        Description = "Wurth drill bit for rivet removal — add to material invoice",
+                        WhyNeeded = "Rivet R&I operations require drill bits that should be invoiced",
+                        Category = "Materials",
+                        Severity = CoachingSeverity.Medium,
+                        TriggeredBy = "Rivet R&I",
+                        EstimatedCost = 0,
+                        LaborHours = 0,
+                        Source = "Material Inventory"
+                    });
+                }
+            }
+
+            // Refinish Material Invoice suggestion
+            if (hasRefinishOp && !seenTitles.Contains("Refinish Material Invoice"))
+            {
+                var alreadyOnEstimate = structuredOps.Any(e =>
+                {
+                    var eCombined = $"{e.PartName} {e.Description} {e.RawLine}".ToLowerInvariant();
+                    return eCombined.Contains("refinish material") || eCombined.Contains("rmc");
+                });
+                if (!alreadyOnEstimate)
+                {
+                    suggestions.Add(new CoachingSuggestion
+                    {
+                        Title = "Refinish Material Invoice",
+                        Description = "RMC refinish material charge — add to material invoice",
+                        WhyNeeded = "Refinish operations require material invoice for paint and supplies",
+                        Category = "Materials",
+                        Severity = CoachingSeverity.Medium,
+                        TriggeredBy = "Refinish operations",
+                        EstimatedCost = 0,
+                        LaborHours = 0,
+                        Source = "Material Inventory"
+                    });
+                }
+            }
+
+            // Blanket reminder: if any material ops exist but no Central Paint Inventory line at all
+            if (hasMaterialOp && suggestions.Count > 0)
+            {
+                var hasCentralPaint = structuredOps.Any(e =>
+                {
+                    var eCombined = $"{e.PartName} {e.Description} {e.RawLine}".ToLowerInvariant();
+                    return eCombined.Contains("central paint inventory") || eCombined.Contains("central paint inv");
+                });
+                if (!hasCentralPaint && !seenTitles.Contains("Central Paint Inventory"))
+                {
+                    seenTitles.Add("Central Paint Inventory");
+                    suggestions.Insert(0, new CoachingSuggestion
+                    {
+                        Title = "Central Paint Inventory",
+                        Description = "Material operations detected — ensure Central Paint Inventory line is added",
+                        WhyNeeded = "Material labor operations require corresponding inventory line items for proper billing",
+                        Category = "Materials",
+                        Severity = CoachingSeverity.High,
+                        TriggeredBy = "Material operations",
+                        EstimatedCost = 0,
+                        LaborHours = 0,
+                        Source = "Material Inventory"
+                    });
+                }
             }
 
             return suggestions;
@@ -1486,6 +1745,58 @@ namespace McstudDesktop.Services
             "Volkswagen", "Volvo", "VW"
         };
 
+        /// <summary>
+        /// Find an existing accumulated op key that fuzzy-matches a new operation.
+        /// Prevents duplicates when OCR reads "Hood Panel" on one capture and "Hood" on the next.
+        /// Returns the matching key, or null if no close match found.
+        /// </summary>
+        private string? FindFuzzyMatchingKey(string newKey, string? partName, string? opType)
+        {
+            if (string.IsNullOrWhiteSpace(partName) || _accumulatedOps.Count == 0)
+                return null;
+
+            var newPartLower = partName.ToLowerInvariant().Trim();
+            var newOpLower = (opType ?? "").ToLowerInvariant().Trim();
+
+            foreach (var kvp in _accumulatedOps)
+            {
+                var existing = kvp.Value;
+                var existPartLower = (existing.PartName ?? "").ToLowerInvariant().Trim();
+                var existOpLower = (existing.OperationType ?? "").ToLowerInvariant().Trim();
+
+                // Must have same operation type (Replace, Repair, Refinish, etc.)
+                if (existOpLower != newOpLower) continue;
+
+                // Check if parts are fuzzy-same:
+                // 1. One contains the other (e.g., "Hood" vs "Hood Panel", "Door Shell" vs "Door")
+                if (existPartLower.Contains(newPartLower) || newPartLower.Contains(existPartLower))
+                {
+                    // Extra guard: the shorter string must be at least 50% of the longer
+                    var shorter = Math.Min(existPartLower.Length, newPartLower.Length);
+                    var longer = Math.Max(existPartLower.Length, newPartLower.Length);
+                    if (shorter >= longer * 0.5)
+                        return kvp.Key;
+                }
+
+                // 2. High word overlap (e.g., "RT Front Door" vs "Right Front Door")
+                var existWords = existPartLower.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(w => w.Length >= 2).ToArray();
+                var newWords = newPartLower.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(w => w.Length >= 2).ToArray();
+
+                if (existWords.Length > 0 && newWords.Length > 0)
+                {
+                    var overlap = existWords.Count(ew => newWords.Any(nw =>
+                        ew == nw || ew.Contains(nw) || nw.Contains(ew)));
+                    var maxWords = Math.Max(existWords.Length, newWords.Length);
+                    if (overlap >= maxWords * 0.7 && overlap >= 2)
+                        return kvp.Key;
+                }
+            }
+
+            return null;
+        }
+
         private static string? ExtractVehicleInfo(string rawText)
         {
             // Match patterns like "2024 Toyota Camry" or "2023 Honda Civic"
@@ -1522,6 +1833,38 @@ namespace McstudDesktop.Services
             return null;
         }
 
+
+        private static string? ExtractRONumber(string rawText)
+        {
+            // Match patterns: "RO: 12345", "RO #12345", "R.O. 12345", "Repair Order: 12345", "Work Order: WO-123"
+            var match = Regex.Match(rawText,
+                @"(?:R\.?O\.?|Repair\s*Order|Work\s*Order)\s*[:#\-]?\s*([\w\-]{3,15})",
+                RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value.Trim() : null;
+        }
+
+        private static string? ExtractInsuranceCompany(string rawText)
+        {
+            // Match: "Insurance: State Farm", "Ins. Co.: GEICO", "Carrier: Progressive"
+            var patterns = new[]
+            {
+                @"(?:Insurance|Ins\.?\s*Co\.?|Carrier|Insurer)\s*[:\-]\s*(.+?)(?:\r|\n|$)",
+                @"(?:INSURANCE|INS\.?\s*CO\.?|CARRIER|INSURER)\s*[:\-]\s*(.+?)(?:\r|\n|$)"
+            };
+
+            foreach (var pattern in patterns)
+            {
+                var match = Regex.Match(rawText, pattern);
+                if (match.Success)
+                {
+                    var name = match.Groups[1].Value.Trim();
+                    // Validate: must be 3-60 chars, start with a letter
+                    if (name.Length >= 3 && name.Length <= 60 && char.IsLetter(name[0]))
+                        return name;
+                }
+            }
+            return null;
+        }
 
         /// <summary>
         /// Extracts the core application name from a window title so we only reset

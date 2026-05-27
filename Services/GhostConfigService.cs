@@ -589,41 +589,53 @@ namespace McStudDesktop.Services
         /// <summary>
         /// Unified must-have matching: checks if a detected text matches a must-have operation.
         /// Shared across Screen OCR, Import Scrubber, and Ghost Estimate for consistent behavior.
+        /// When strictMode is true (for raw OCR text blobs), skips loose substring checks and
+        /// requires ALL significant words to match to avoid false positives from CCC section headers.
         /// </summary>
-        public static bool MatchesMustHave(string detectedNorm, string mustHaveNorm, string[] mustHaveWords)
+        public static bool MatchesMustHave(string detectedNorm, string mustHaveNorm, string[] mustHaveWords, bool strictMode = false)
         {
             // Check 1: Exact match
             if (detectedNorm == mustHaveNorm) return true;
 
-            // Check 2: Detected text contains full must-have
-            if (detectedNorm.Contains(mustHaveNorm)) return true;
+            if (!strictMode)
+            {
+                // Check 2: Detected text contains full must-have
+                if (detectedNorm.Contains(mustHaveNorm)) return true;
 
-            // Check 3: Must-have contains detected text (if detected is >= 45% length)
-            if (mustHaveNorm.Contains(detectedNorm) && detectedNorm.Length >= mustHaveNorm.Length * 0.45)
-                return true;
+                // Check 3: Must-have contains detected text (if detected is >= 45% length)
+                if (mustHaveNorm.Contains(detectedNorm) && detectedNorm.Length >= mustHaveNorm.Length * 0.45)
+                    return true;
+            }
 
             // Check 4: Proportional word overlap with fuzzy matching for OCR errors
             if (mustHaveWords.Length > 0)
             {
                 var matchCount = mustHaveWords.Count(w => FuzzyContainsWord(detectedNorm, w));
-                int threshold = mustHaveWords.Length <= 2
-                    ? mustHaveWords.Length  // Short must-haves: ALL words must match
-                    : (int)Math.Ceiling(mustHaveWords.Length * 0.6); // 60% for longer
+                // Strict mode: ALL significant words must match (for raw OCR blobs)
+                // Normal mode: short must-haves require all, longer require 60%
+                int threshold = strictMode
+                    ? mustHaveWords.Length
+                    : mustHaveWords.Length <= 2
+                        ? mustHaveWords.Length
+                        : (int)Math.Ceiling(mustHaveWords.Length * 0.6);
 
                 if (matchCount >= threshold)
                     return true;
             }
 
-            // Check 5: PDF truncation — if detected is a single significant word (4+ chars)
-            // and it matches the first significant word of the must-have, treat as truncated match.
-            // PDF parsing often keeps only the first word (e.g., "Clean" from "Clean for Delivery").
-            if (mustHaveWords.Length >= 2)
+            if (!strictMode)
             {
-                var detectedWords = detectedNorm.Split(' ')
-                    .Where(w => w.Length >= 4).ToArray();
-                if (detectedWords.Length == 1 && mustHaveWords.Length > 0 &&
-                    FuzzyContainsWord(detectedWords[0], mustHaveWords[0]))
-                    return true;
+                // Check 5: PDF truncation — if detected is a single significant word (4+ chars)
+                // and it matches the first significant word of the must-have, treat as truncated match.
+                // PDF parsing often keeps only the first word (e.g., "Clean" from "Clean for Delivery").
+                if (mustHaveWords.Length >= 2)
+                {
+                    var detectedWords = detectedNorm.Split(' ')
+                        .Where(w => w.Length >= 4).ToArray();
+                    if (detectedWords.Length == 1 && mustHaveWords.Length > 0 &&
+                        FuzzyContainsWord(detectedWords[0], mustHaveWords[0]))
+                        return true;
+                }
             }
 
             return false;

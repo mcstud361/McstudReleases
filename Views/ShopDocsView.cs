@@ -65,6 +65,9 @@ namespace McStudDesktop.Views
         private ColorTintInvoiceView? _colorTintInvoiceView;
         private ShopStockInvoiceView? _shopStockInvoiceView;
 
+        // Shop Stock Parts
+        private ShopStockPartsView? _shopStockPartsView;
+
         // Vehicle Protection (PPF) customization
         private PPFPricingView? _ppfPricingView;
         private Grid? _ppfMainContainer;
@@ -212,6 +215,8 @@ namespace McStudDesktop.Views
                     return BuildVehicleIntakeFormContent(widget, index);
                 case WidgetType.PartsRequest:
                     return BuildPartsRequestContent(widget, index);
+                case WidgetType.ShopStockParts:
+                    return BuildShopStockPartsContent(widget, index);
                 default:
                     return null;
             }
@@ -1078,6 +1083,74 @@ namespace McStudDesktop.Views
 
             _viewCache[widget.Id] = container;
             return container;
+        }
+
+        private UIElement BuildShopStockPartsContent(WidgetEntry widget, int index)
+        {
+            if (_viewCache.TryGetValue(widget.Id, out var cached))
+                return cached;
+
+            var container = new Grid
+            {
+                Tag = widget.Id,
+                Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed
+            };
+
+            _shopStockPartsView = new ShopStockPartsView();
+            _shopStockPartsView.AddToInvoiceRequested += OnAddPartToInvoice;
+            container.Children.Add(_shopStockPartsView);
+
+            _viewCache[widget.Id] = container;
+            return container;
+        }
+
+        private void OnAddPartToInvoice(object? sender, StockPart part)
+        {
+            // Switch to the Invoices widget
+            SelectWidget("invoices");
+
+            // Select Shop Stock Invoice in the invoice type dropdown
+            if (_shopStockInvoiceView != null)
+            {
+                // Make ShopStockInvoiceView visible, hide others
+                if (_shopStockInvoiceView.Parent is Grid invoiceSubContent)
+                {
+                    foreach (UIElement child in invoiceSubContent.Children)
+                    {
+                        child.Visibility = Visibility.Collapsed;
+                    }
+                    _shopStockInvoiceView.Visibility = Visibility.Visible;
+                }
+
+                // Find and set the invoice type combo to Shop Stock
+                if (_viewCache.TryGetValue("invoices", out var invoiceContainer) && invoiceContainer is Grid invoiceGrid)
+                {
+                    var combo = FindComboBoxInGrid(invoiceGrid);
+                    if (combo != null)
+                    {
+                        for (int i = 0; i < combo.Items.Count; i++)
+                        {
+                            if (combo.Items[i] is ComboBoxItem item && item.Tag as string == "shopStock")
+                            {
+                                combo.SelectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                _shopStockInvoiceView.AddPartToInvoice(part);
+            }
+        }
+
+        private static ComboBox? FindComboBoxInGrid(Grid grid)
+        {
+            foreach (UIElement child in grid.Children)
+            {
+                if (child is ComboBox combo)
+                    return combo;
+            }
+            return null;
         }
 
         private UIElement BuildMyDocsContentInner(string widgetId, int index)

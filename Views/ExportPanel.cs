@@ -113,8 +113,8 @@ public class ExportPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center
         };
         _targetDropdown.Items.Add("CCC Desktop");
-        _targetDropdown.Items.Add("CCC Web");
-        _targetDropdown.Items.Add("Mitchell");
+        _targetDropdown.Items.Add(CreateDropdownItemWithBadge("CCC Web", "SOON"));
+        _targetDropdown.Items.Add(CreateDropdownItemWithBadge("Mitchell", "SOON"));
         _targetDropdown.SelectedIndex = 0;
         Grid.SetColumn(_targetDropdown, 1);
         contentGrid.Children.Add(_targetDropdown);
@@ -194,20 +194,21 @@ public class ExportPanel : UserControl
         Grid.SetColumn(_typeItButton, 4);
         contentGrid.Children.Add(_typeItButton);
 
-        // Enable/disable buttons based on target - only CCC Desktop is functional for now
+        // Enable/disable buttons based on target
         _targetDropdown.SelectionChanged += (s, e) =>
         {
             bool isCCCDesktop = _targetDropdown.SelectedIndex == 0;
+            bool isSupported = isCCCDesktop;
 
-            // Type It - only CCC Desktop
-            _typeItButton.IsEnabled = isCCCDesktop;
-            _typeItButton.Background = new SolidColorBrush(isCCCDesktop
+            // Type It - CCC Desktop only for now
+            _typeItButton.IsEnabled = isSupported;
+            _typeItButton.Background = new SolidColorBrush(isSupported
                 ? Color.FromArgb(255, 0, 80, 160)
                 : Color.FromArgb(255, 50, 50, 50));
 
-            // Clip It - only CCC Desktop (CCC Web and Mitchell not yet implemented)
-            _clipItButton.IsEnabled = isCCCDesktop;
-            _clipItButton.Background = new SolidColorBrush(isCCCDesktop
+            // Clip It - CCC Desktop only for now
+            _clipItButton.IsEnabled = isSupported;
+            _clipItButton.Background = new SolidColorBrush(isSupported
                 ? Color.FromArgb(255, 60, 60, 60)
                 : Color.FromArgb(255, 50, 50, 50));
 
@@ -420,6 +421,33 @@ public class ExportPanel : UserControl
         _statusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255));
         _clipItButton.IsEnabled = false;
         _typeItButton.IsEnabled = false;
+    }
+
+    private static StackPanel CreateDropdownItemWithBadge(string text, string badge)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        panel.Children.Add(new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        var badgeBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 180, 50, 50)),
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(5, 1, 5, 1),
+            Margin = new Thickness(6, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        badgeBorder.Child = new TextBlock
+        {
+            Text = badge,
+            FontSize = 9,
+            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+            Foreground = new SolidColorBrush(Colors.White)
+        };
+        panel.Children.Add(badgeBorder);
+        return panel;
     }
 }
 

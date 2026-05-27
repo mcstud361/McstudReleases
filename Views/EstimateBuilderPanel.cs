@@ -71,12 +71,25 @@ namespace McStudDesktop.Views
         private TextBlock? _personalToggleIcon;
         private LearnedPatternDatabase? _personalViewDb;
 
-        // Learned tab view mode (Operations vs Estimates vs Components)
-        private enum LearnedViewMode { Operations, Estimates, Components }
+        // Learned tab view mode (Operations vs Estimates vs Components vs Insurance)
+        private enum LearnedViewMode { Operations, Estimates, Components, Insurance }
         private LearnedViewMode _viewMode = LearnedViewMode.Operations;
         private Button? _modeOperationsButton;
         private Button? _modeEstimatesButton;
         private Button? _modeComponentsButton;
+        private Button? _modeInsuranceButton;
+
+        // Insurance lookup state
+        private Grid? _insuranceContentGrid;
+        private ComboBox? _insuranceCombo;
+        private TextBox? _insuranceOperationSearchBox;
+        private Button? _insuranceSearchButton;
+        private Border? _insuranceSummaryCard;
+        private TextBlock? _insuranceStatTimesPaid;
+        private TextBlock? _insuranceStatTotalPaid;
+        private TextBlock? _insuranceStatAvgHours;
+        private StackPanel? _insuranceResultsPanel;
+        private TextBlock? _insuranceResultsCount;
         private Grid? _opsContentGrid;
         private Border? _actionsBar;
         private Grid? _estimatesContentGrid;
@@ -327,10 +340,14 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(2),
                 VerticalAlignment = VerticalAlignment.Center
             };
+            _modeInsuranceButton = BuildModePill("Insurance", false);
+            _modeInsuranceButton.Click += (s, e) => SetViewMode(LearnedViewMode.Insurance);
+
             var modeStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 0 };
             modeStack.Children.Add(_modeOperationsButton);
             modeStack.Children.Add(_modeEstimatesButton);
             modeStack.Children.Add(_modeComponentsButton);
+            modeStack.Children.Add(_modeInsuranceButton);
             modePillGroup.Child = modeStack;
             rightControls.Children.Add(modePillGroup);
 
@@ -435,6 +452,7 @@ namespace McStudDesktop.Views
             UpdatePill(_modeOperationsButton, mode == LearnedViewMode.Operations);
             UpdatePill(_modeEstimatesButton, mode == LearnedViewMode.Estimates);
             UpdatePill(_modeComponentsButton, mode == LearnedViewMode.Components);
+            UpdatePill(_modeInsuranceButton, mode == LearnedViewMode.Insurance);
 
             // Swap content visibility
             if (_opsContentGrid != null) _opsContentGrid.Visibility = mode == LearnedViewMode.Operations ? Visibility.Visible : Visibility.Collapsed;
@@ -463,6 +481,15 @@ namespace McStudDesktop.Views
             else if (mode == LearnedViewMode.Components)
             {
                 BuildComponentSearchView();
+            }
+
+            if (_insuranceContentGrid != null)
+            {
+                _insuranceContentGrid.Visibility = mode == LearnedViewMode.Insurance ? Visibility.Visible : Visibility.Collapsed;
+            }
+            else if (mode == LearnedViewMode.Insurance)
+            {
+                BuildInsuranceLookupView();
             }
 
             UpdateDescriptionBar();
@@ -514,6 +541,11 @@ namespace McStudDesktop.Views
             {
                 icon = "\uE71E"; // Component/search icon
                 text = "Search for specific parts, services, or supplies across all imported estimates. Filter by category to find OEM parts by number, service calibrations, or material costs.";
+            }
+            else if (_viewMode == LearnedViewMode.Insurance)
+            {
+                icon = "\uE8C7"; // Shield icon
+                text = "Look up how insurers have paid for specific operations across your imported estimates. Select an insurer, type an operation, and see dates, amounts, and claim details — all stored locally on your machine.";
             }
             else
             {
@@ -725,8 +757,64 @@ namespace McStudDesktop.Views
             }
             else
             {
-                foreach (var est in list)
-                    _estimatesListPanel.Children.Add(BuildEstimateRow(est));
+                // Group by EstimateGroupId so supplements appear together.
+                // Each group is keyed by the group ID (falling back to the estimate's own Id
+                // when EstimateGroupId is empty). Within a group the latest version comes first.
+                var groups = list
+                    .GroupBy(e => string.IsNullOrEmpty(e.EstimateGroupId) ? e.Id : e.EstimateGroupId)
+                    .Select(g => g.OrderByDescending(e => e.Version).ThenByDescending(e => e.ImportedDate).ToList())
+                    .ToList();
+
+                foreach (var group in groups)
+                {
+                    // Always show the latest (first) entry as the primary row
+                    _estimatesListPanel.Children.Add(BuildEstimateRow(group[0]));
+
+                    if (group.Count > 1)
+                    {
+                        // Build a collapsible container for older versions
+                        var olderPanel = new StackPanel { Visibility = Visibility.Collapsed };
+                        for (int i = 1; i < group.Count; i++)
+                        {
+                            var olderRow = BuildEstimateRow(group[i]);
+                            olderRow.Opacity = 0.6;
+                            olderRow.Padding = new Thickness(28, 8, 14, 8);
+                            olderPanel.Children.Add(olderRow);
+                        }
+
+                        var count = group.Count - 1;
+                        var toggleText = new TextBlock
+                        {
+                            Text = $"   +{count} earlier version{(count == 1 ? "" : "s")}",
+                            FontSize = 11,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 150, 220)),
+                            Margin = new Thickness(14, 2, 0, 2)
+                        };
+                        var toggleBorder = new Border
+                        {
+                            Background = TransparentBrush,
+                            Padding = new Thickness(0, 2, 0, 2)
+                        };
+                        toggleBorder.Child = toggleText;
+                        toggleBorder.PointerEntered += (s, e) => toggleText.TextDecorations = Windows.UI.Text.TextDecorations.Underline;
+                        toggleBorder.PointerExited += (s, e) => toggleText.TextDecorations = Windows.UI.Text.TextDecorations.None;
+                        toggleBorder.Tapped += (s, e) =>
+                        {
+                            if (olderPanel.Visibility == Visibility.Collapsed)
+                            {
+                                olderPanel.Visibility = Visibility.Visible;
+                                toggleText.Text = $"   \u25B4 hide earlier versions";
+                            }
+                            else
+                            {
+                                olderPanel.Visibility = Visibility.Collapsed;
+                                toggleText.Text = $"   +{count} earlier version{(count == 1 ? "" : "s")}";
+                            }
+                        };
+                        _estimatesListPanel.Children.Add(toggleBorder);
+                        _estimatesListPanel.Children.Add(olderPanel);
+                    }
+                }
             }
 
             if (_estimatesCountText != null)
@@ -831,7 +919,7 @@ namespace McStudDesktop.Views
 
             Cell(est.ImportedDate.ToString("M/d/yy"), 0, TextSecondaryBrush);
             var vehicleLabel = est.VehicleInfo ?? "";
-            if (est.Version > 1) vehicleLabel = $"{vehicleLabel} (v{est.Version})".TrimStart();
+            if (est.Version > 1) vehicleLabel = $"{vehicleLabel} (Supp {est.Version - 1})".TrimStart();
             Cell(vehicleLabel, 1, TextPrimaryBrush);
             Cell(est.CustomerName, 2, TextPrimaryBrush);
             Cell(est.InsuranceCompany, 3, TextSecondaryBrush);
@@ -846,6 +934,20 @@ namespace McStudDesktop.Views
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
+
+            // Notes indicator
+            if (!string.IsNullOrEmpty(est.Notes))
+            {
+                var noteIcon = new FontIcon
+                {
+                    Glyph = "\uE70B",
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 100)),
+                    Opacity = 0.7
+                };
+                ToolTipService.SetToolTip(noteIcon, est.Notes.Length > 100 ? est.Notes[..100] + "..." : est.Notes);
+                actionsPanel.Children.Add(noteIcon);
+            }
 
             // Open PDF button — shown only when we have a path on disk
             bool hasPdfPath = !string.IsNullOrEmpty(est.SourcePdfPath) && System.IO.File.Exists(est.SourcePdfPath);
@@ -1019,7 +1121,7 @@ namespace McStudDesktop.Views
             topBar.Children.Add(backBtn);
 
             var titleText = string.IsNullOrEmpty(est.VehicleInfo) ? "(Unknown vehicle)" : est.VehicleInfo;
-            if (est.Version > 1) titleText = $"{titleText}  v{est.Version}";
+            if (est.Version > 1) titleText = $"{titleText}  (Supp {est.Version - 1})";
             var titleBlock = new TextBlock
             {
                 Text = titleText,
@@ -1151,132 +1253,244 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(BuildSectionDivider());
 
-            // ── Categorized Line Items ──
+            // ── Line Items with All/Categorized toggle ──
             if (est.LineItems.Count > 0)
             {
                 var cats = CategorizeLineItems(est.LineItems);
 
-                if (cats.OemParts.Count > 0)
-                {
-                    var oemTotal = cats.OemParts.Sum(li => li.Price);
-                    stack.Children.Add(BuildCategoryExpander(
-                        $"OEM PARTS ({cats.OemParts.Count} items)",
-                        oemTotal > 0 ? $"${oemTotal:N0}" : null,
-                        cats.OemParts, showPartNumber: true));
-                }
-                if (cats.Services.Count > 0)
-                {
-                    var svcTotal = cats.Services.Sum(li => li.Price);
-                    stack.Children.Add(BuildCategoryExpander(
-                        $"SERVICES & CALIBRATIONS ({cats.Services.Count} items)",
-                        svcTotal > 0 ? $"${svcTotal:N0}" : null,
-                        cats.Services, showPartNumber: false));
-                }
-                if (cats.Supplies.Count > 0)
-                {
-                    var supTotal = cats.Supplies.Sum(li => li.Price);
-                    stack.Children.Add(BuildCategoryExpander(
-                        $"SUPPLIES & MATERIALS ({cats.Supplies.Count} items)",
-                        supTotal > 0 ? $"${supTotal:N0}" : null,
-                        cats.Supplies, showPartNumber: false));
-                }
-                if (cats.LaborOps.Count > 0)
-                {
-                    // Group labor by category (Body, Refinish, Mechanical, Structural, Frame)
-                    var laborByCategory = cats.LaborOps
-                        .GroupBy(li => ClassifyLaborCategory(li))
-                        .OrderBy(g => LaborCategoryOrder(g.Key))
-                        .ToList();
+                // Container that holds either the "All" flat table or the categorized expanders
+                var lineItemsContainer = new StackPanel { Spacing = 2 };
 
-                    // Container for the labor expanders (rebuilt when filter changes)
-                    var laborContainer = new StackPanel { Spacing = 2 };
+                // Track active view mode
+                string activeViewMode = "Categorized";
+                var viewToggleButtons = new List<Button>();
 
-                    // Populate all categories initially
-                    void PopulateLaborExpanders(string? filter)
+                // ── Build the categorized view into the container ──
+                void PopulateCategorizedView()
+                {
+                    lineItemsContainer.Children.Clear();
+
+                    if (cats.OemParts.Count > 0)
                     {
-                        laborContainer.Children.Clear();
-                        foreach (var group in laborByCategory)
-                        {
-                            if (filter != null && group.Key != filter)
-                                continue;
-                            var groupItems = group.ToList();
-                            var groupHrs = groupItems.Sum(li => li.LaborHours + li.RefinishHours);
-                            var categoryLabel = group.Key.ToUpper();
-                            var exp = BuildCategoryExpander(
-                                $"{categoryLabel} ({groupItems.Count} items)",
-                                groupHrs > 0 ? $"{groupHrs:N1} hrs" : null,
-                                groupItems, showPartNumber: false);
-                            if (filter != null) exp.IsExpanded = true;
-                            laborContainer.Children.Add(exp);
-                        }
+                        var oemTotal = cats.OemParts.Sum(li => li.Price);
+                        lineItemsContainer.Children.Add(BuildCategoryExpander(
+                            $"OEM PARTS ({cats.OemParts.Count} items)",
+                            oemTotal > 0 ? $"${oemTotal:N0}" : null,
+                            cats.OemParts, showPartNumber: true));
                     }
-
-                    // Build filter buttons if there are 2+ categories
-                    if (laborByCategory.Count >= 2)
+                    if (cats.Services.Count > 0)
                     {
-                        var filterBar = new StackPanel
-                        {
-                            Orientation = Orientation.Horizontal,
-                            Spacing = 4,
-                            Margin = new Thickness(0, 0, 0, 6)
-                        };
+                        var svcTotal = cats.Services.Sum(li => li.Price);
+                        lineItemsContainer.Children.Add(BuildCategoryExpander(
+                            $"SERVICES & CALIBRATIONS ({cats.Services.Count} items)",
+                            svcTotal > 0 ? $"${svcTotal:N0}" : null,
+                            cats.Services, showPartNumber: false));
+                    }
+                    if (cats.Supplies.Count > 0)
+                    {
+                        var supTotal = cats.Supplies.Sum(li => li.Price);
+                        lineItemsContainer.Children.Add(BuildCategoryExpander(
+                            $"SUPPLIES & MATERIALS ({cats.Supplies.Count} items)",
+                            supTotal > 0 ? $"${supTotal:N0}" : null,
+                            cats.Supplies, showPartNumber: false));
+                    }
+                    if (cats.LaborOps.Count > 0)
+                    {
+                        var laborByCategory = cats.LaborOps
+                            .GroupBy(li => ClassifyLaborCategory(li))
+                            .OrderBy(g => LaborCategoryOrder(g.Key))
+                            .ToList();
 
-                        string? activeFilter = null; // null = "All"
-                        var filterButtons = new List<Button>();
+                        var laborContainer = new StackPanel { Spacing = 2 };
 
-                        void UpdateFilterButtonStyles()
+                        void PopulateLaborExpanders(string? filter)
                         {
-                            foreach (var btn in filterButtons)
+                            laborContainer.Children.Clear();
+                            foreach (var group in laborByCategory)
                             {
-                                var tag = btn.Tag as string;
-                                bool isActive = tag == activeFilter;
-                                btn.Background = new SolidColorBrush(isActive ? AccentBlue : Color.FromArgb(255, 45, 45, 50));
-                                btn.Foreground = new SolidColorBrush(isActive ? Colors.White : TextSecondary);
+                                if (filter != null && group.Key != filter)
+                                    continue;
+                                var groupItems = group.ToList();
+                                var groupHrs = groupItems.Sum(li => li.LaborHours + li.RefinishHours);
+                                var categoryLabel = group.Key.ToUpper();
+                                var exp = BuildCategoryExpander(
+                                    $"{categoryLabel} ({groupItems.Count} items)",
+                                    groupHrs > 0 ? $"{groupHrs:N1} hrs" : null,
+                                    groupItems, showPartNumber: false);
+                                if (filter != null) exp.IsExpanded = true;
+                                laborContainer.Children.Add(exp);
                             }
                         }
 
-                        // "All" button
-                        var allBtn = new Button
+                        if (laborByCategory.Count >= 2)
                         {
-                            Content = new TextBlock { Text = "All", FontSize = 11 },
-                            Padding = new Thickness(10, 4, 10, 4),
-                            CornerRadius = new CornerRadius(4),
-                            Tag = (string?)null
-                        };
-                        allBtn.Click += (s, e) => { activeFilter = null; UpdateFilterButtonStyles(); PopulateLaborExpanders(null); };
-                        filterButtons.Add(allBtn);
-                        filterBar.Children.Add(allBtn);
-
-                        // Category buttons
-                        foreach (var group in laborByCategory)
-                        {
-                            var catName = group.Key;
-                            var shortLabel = catName.Replace(" Labor", "");
-                            var catBtn = new Button
+                            var filterBar = new StackPanel
                             {
-                                Content = new TextBlock { Text = shortLabel, FontSize = 11 },
+                                Orientation = Orientation.Horizontal,
+                                Spacing = 4,
+                                Margin = new Thickness(0, 0, 0, 6)
+                            };
+
+                            string? activeFilter = null;
+                            var filterButtons = new List<Button>();
+
+                            void UpdateFilterButtonStyles()
+                            {
+                                foreach (var btn in filterButtons)
+                                {
+                                    var tag = btn.Tag as string;
+                                    bool isActive = tag == activeFilter;
+                                    btn.Background = new SolidColorBrush(isActive ? AccentBlue : Color.FromArgb(255, 45, 45, 50));
+                                    btn.Foreground = new SolidColorBrush(isActive ? Colors.White : TextSecondary);
+                                }
+                            }
+
+                            var allBtn = new Button
+                            {
+                                Content = new TextBlock { Text = "All", FontSize = 11 },
                                 Padding = new Thickness(10, 4, 10, 4),
                                 CornerRadius = new CornerRadius(4),
-                                Tag = catName
+                                Tag = (string?)null
                             };
-                            catBtn.Click += (s, e) =>
+                            allBtn.Click += (s, e) => { activeFilter = null; UpdateFilterButtonStyles(); PopulateLaborExpanders(null); };
+                            filterButtons.Add(allBtn);
+                            filterBar.Children.Add(allBtn);
+
+                            foreach (var group in laborByCategory)
                             {
-                                activeFilter = activeFilter == catName ? null : catName;
-                                UpdateFilterButtonStyles();
-                                PopulateLaborExpanders(activeFilter);
-                            };
-                            filterButtons.Add(catBtn);
-                            filterBar.Children.Add(catBtn);
+                                var catName = group.Key;
+                                var shortLabel = catName.Replace(" Labor", "");
+                                var catBtn = new Button
+                                {
+                                    Content = new TextBlock { Text = shortLabel, FontSize = 11 },
+                                    Padding = new Thickness(10, 4, 10, 4),
+                                    CornerRadius = new CornerRadius(4),
+                                    Tag = catName
+                                };
+                                catBtn.Click += (s, e) =>
+                                {
+                                    activeFilter = activeFilter == catName ? null : catName;
+                                    UpdateFilterButtonStyles();
+                                    PopulateLaborExpanders(activeFilter);
+                                };
+                                filterButtons.Add(catBtn);
+                                filterBar.Children.Add(catBtn);
+                            }
+
+                            UpdateFilterButtonStyles();
+                            lineItemsContainer.Children.Add(filterBar);
                         }
 
-                        UpdateFilterButtonStyles();
-                        stack.Children.Add(filterBar);
+                        PopulateLaborExpanders(null);
+                        lineItemsContainer.Children.Add(laborContainer);
                     }
-
-                    PopulateLaborExpanders(null);
-                    stack.Children.Add(laborContainer);
                 }
+
+                // ── Build the "All" flat view into the container ──
+                void PopulateAllView()
+                {
+                    lineItemsContainer.Children.Clear();
+                    lineItemsContainer.Children.Add(BuildAllLineItemsTable(est.LineItems.ToList(), cats));
+                }
+
+                // ── View toggle bar ──
+                void UpdateViewToggleStyles()
+                {
+                    foreach (var btn in viewToggleButtons)
+                    {
+                        bool isActive = (btn.Tag as string) == activeViewMode;
+                        btn.Background = new SolidColorBrush(isActive ? AccentBlue : Color.FromArgb(255, 45, 45, 50));
+                        btn.Foreground = new SolidColorBrush(isActive ? Colors.White : TextSecondary);
+                    }
+                }
+
+                var toggleBar = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 4,
+                    Margin = new Thickness(0, 0, 0, 8)
+                };
+
+                var allViewBtn = new Button
+                {
+                    Content = new TextBlock { Text = $"All ({est.LineItems.Count})", FontSize = 11 },
+                    Padding = new Thickness(10, 4, 10, 4),
+                    CornerRadius = new CornerRadius(4),
+                    Tag = "All"
+                };
+                allViewBtn.Click += (s, e) =>
+                {
+                    if (activeViewMode == "All") return;
+                    activeViewMode = "All";
+                    UpdateViewToggleStyles();
+                    PopulateAllView();
+                };
+                viewToggleButtons.Add(allViewBtn);
+                toggleBar.Children.Add(allViewBtn);
+
+                var catViewBtn = new Button
+                {
+                    Content = new TextBlock { Text = "Categorized", FontSize = 11 },
+                    Padding = new Thickness(10, 4, 10, 4),
+                    CornerRadius = new CornerRadius(4),
+                    Tag = "Categorized"
+                };
+                catViewBtn.Click += (s, e) =>
+                {
+                    if (activeViewMode == "Categorized") return;
+                    activeViewMode = "Categorized";
+                    UpdateViewToggleStyles();
+                    PopulateCategorizedView();
+                };
+                viewToggleButtons.Add(catViewBtn);
+                toggleBar.Children.Add(catViewBtn);
+
+                UpdateViewToggleStyles();
+                stack.Children.Add(toggleBar);
+
+                // Default to Categorized view
+                PopulateCategorizedView();
+                stack.Children.Add(lineItemsContainer);
             }
+
+            stack.Children.Add(BuildSectionDivider());
+
+            // ── Notes ──
+            stack.Children.Add(new TextBlock
+            {
+                Text = "NOTES",
+                FontSize = 10,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextMuted),
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+            var notesBox = new TextBox
+            {
+                Text = est.Notes ?? "",
+                PlaceholderText = "Add notes about this estimate...",
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                MinHeight = 60,
+                MaxHeight = 140,
+                FontSize = 12,
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 28, 32)),
+                Foreground = new SolidColorBrush(TextPrimary),
+                BorderBrush = new SolidColorBrush(BorderSubtle),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 8, 10, 8)
+            };
+            notesBox.LostFocus += (s, e) =>
+            {
+                var newNotes = notesBox.Text;
+                if (newNotes != (est.Notes ?? ""))
+                {
+                    EstimateHistoryDatabase.Instance.UpdateEstimateNotes(est.Id, newNotes);
+                    est.Notes = string.IsNullOrWhiteSpace(newNotes) ? null : newNotes.Trim();
+                    // Refresh list to update note indicator
+                    RenderEstimatesList();
+                }
+            };
+            stack.Children.Add(notesBox);
 
             stack.Children.Add(BuildSectionDivider());
 
@@ -1505,6 +1719,110 @@ namespace McStudDesktop.Views
                 RowCell(opAbbr, c++, TextSecondaryBrush);
                 RowCell(li.Description ?? li.PartName ?? "", c++, TextPrimaryBrush);
                 if (showPartNumber)
+                    RowCell(li.PartNumber ?? "", c++, TextMutedBrush);
+                RowCell(li.Quantity > 1 ? li.Quantity.ToString() : "", c++, TextSecondaryBrush);
+                RowCell(li.Price > 0 ? $"${li.Price:N0}" : "", c++, AccentGreenBrush);
+                var hours = li.LaborHours + li.RefinishHours;
+                RowCell(hours > 0 ? $"{hours:N1}" : (li.Price > 0 ? "Incl." : ""), c++, TextSecondaryBrush);
+
+                panel.Children.Add(row);
+                alt = !alt;
+            }
+
+            return panel;
+        }
+
+        /// <summary>Build a flat table of ALL line items with a CATEGORY column</summary>
+        private StackPanel BuildAllLineItemsTable(List<StoredLineItem> items, CategorizedLineItems cats)
+        {
+            var panel = new StackPanel { Spacing = 2 };
+
+            // Summary header
+            panel.Children.Add(new TextBlock
+            {
+                Text = $"ALL ITEMS ({items.Count} lines)",
+                FontSize = 11,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = TextMutedBrush,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            // Precompute category label for each item
+            var categoryMap = new Dictionary<StoredLineItem, string>();
+            foreach (var li in cats.OemParts) categoryMap[li] = "PART";
+            foreach (var li in cats.Services) categoryMap[li] = "SVC";
+            foreach (var li in cats.Supplies) categoryMap[li] = "SUPPLY";
+            foreach (var li in cats.LaborOps)
+            {
+                var laborCat = ClassifyLaborCategory(li);
+                categoryMap[li] = laborCat switch
+                {
+                    "Body Labor" => "BODY",
+                    "Refinish Labor" => "REFN",
+                    "Mechanical Labor" => "MECH",
+                    "Frame Labor" => "FRAME",
+                    "Structural Labor" => "STRUCT",
+                    _ => "LABOR"
+                };
+            }
+
+            // Check if any item has a part number (to show PART# column conditionally)
+            bool anyPartNumber = items.Any(li => !string.IsNullOrEmpty(li.PartNumber));
+
+            // Header row
+            var hdr = new Grid { Padding = new Thickness(4, 4, 4, 4) };
+            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });  // CAT
+            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });  // OP
+            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // DESC
+            if (anyPartNumber)
+                hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) }); // PART#
+            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(35) });  // QTY
+            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });  // PRICE
+            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });  // HOURS
+
+            int c = 0;
+            void HdrCell(string text, int col) { var t = new TextBlock { Text = text, FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = TextMutedBrush }; Grid.SetColumn(t, col); hdr.Children.Add(t); }
+            HdrCell("CAT", c++);
+            HdrCell("OP", c++);
+            HdrCell("DESCRIPTION", c++);
+            if (anyPartNumber) HdrCell("PART #", c++);
+            HdrCell("QTY", c++);
+            HdrCell("PRICE", c++);
+            HdrCell("HOURS", c++);
+            panel.Children.Add(hdr);
+
+            bool alt = false;
+            foreach (var li in items)
+            {
+                var row = new Grid
+                {
+                    Padding = new Thickness(4, 3, 4, 3),
+                    Background = new SolidColorBrush(alt ? Color.FromArgb(255, 30, 30, 34) : Colors.Transparent)
+                };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                if (anyPartNumber)
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(35) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
+
+                c = 0;
+                void RowCell(string text, int col, SolidColorBrush fg)
+                {
+                    var t = new TextBlock { Text = text, FontSize = 11, Foreground = fg, TextTrimming = TextTrimming.CharacterEllipsis };
+                    Grid.SetColumn(t, col);
+                    row.Children.Add(t);
+                }
+
+                var catLabel = categoryMap.TryGetValue(li, out var cl) ? cl : "";
+                RowCell(catLabel, c++, TextMutedBrush);
+
+                var opAbbr = (li.OperationType ?? "").Length > 5 ? li.OperationType.Substring(0, 5) : (li.OperationType ?? "");
+                RowCell(opAbbr, c++, TextSecondaryBrush);
+                RowCell(li.Description ?? li.PartName ?? "", c++, TextPrimaryBrush);
+                if (anyPartNumber)
                     RowCell(li.PartNumber ?? "", c++, TextMutedBrush);
                 RowCell(li.Quantity > 1 ? li.Quantity.ToString() : "", c++, TextSecondaryBrush);
                 RowCell(li.Price > 0 ? $"${li.Price:N0}" : "", c++, AccentGreenBrush);
@@ -2110,7 +2428,8 @@ namespace McStudDesktop.Views
                         var best = group.OrderByDescending(r => r.Line.TimesUsed).First();
                         var parentParts = group.Select(r => r.SourcePattern.ParentPartName ?? "").Distinct().Take(3);
                         var parentInfo = string.Join(", ", parentParts);
-                        _resultsPanel.Children.Add(CreateOpSearchResultRow(best.Line, best.SourcePattern, parentInfo, alt));
+                        var allPatterns2 = group.Select(r => r.SourcePattern).DistinctBy(p => p.ParentPartName + "|" + p.ParentOperationType).ToList();
+                        _resultsPanel.Children.Add(CreateOpSearchResultRow(best.Line, allPatterns2, parentInfo, alt));
                         alt = !alt;
                     }
                     foundDirectResults = true;
@@ -2371,7 +2690,7 @@ namespace McStudDesktop.Views
         /// <summary>
         /// Create a UI row for an operation search result (reverse search by description).
         /// </summary>
-        private Grid CreateOpSearchResultRow(ManualLineEntry line, ManualLinePattern sourcePattern, string parentPartsInfo, bool alternate)
+        private Grid CreateOpSearchResultRow(ManualLineEntry line, List<ManualLinePattern> allSourcePatterns, string parentPartsInfo, bool alternate)
         {
             var row = new Grid
             {
@@ -2433,13 +2752,28 @@ namespace McStudDesktop.Views
             Grid.SetColumn(usedPill, 3);
             row.Children.Add(usedPill);
 
-            // Click to navigate to the parent pattern
+            // Click to navigate to the parent pattern(s)
             row.PointerPressed += (s, e) =>
             {
-                if (_partNameInput != null)
-                    _partNameInput.Text = sourcePattern.ParentPartName ?? "";
-                _currentPattern = sourcePattern;
-                ShowLookupResults(sourcePattern);
+                if (allSourcePatterns.Count == 1)
+                {
+                    // Single parent — go directly to that pattern
+                    var pat = allSourcePatterns[0];
+                    if (_partNameInput != null)
+                        _partNameInput.Text = pat.ParentPartName ?? "";
+                    _currentPattern = pat;
+                    ShowLookupResults(pat);
+                }
+                else
+                {
+                    // Multiple parents — show pattern selection so user picks the right one
+                    _resultsPanel!.Children.Clear();
+                    _statusText!.Text = $"Select which pattern for \"{(line.ManualLineType.Length > 0 ? line.ManualLineType : line.Description)}\"";
+                    _statusText.Foreground = new SolidColorBrush(AccentBlue);
+                    AddSectionHeader("SELECT A PATTERN");
+                    foreach (var pat in allSourcePatterns.OrderByDescending(p => p.ExampleCount))
+                        _resultsPanel.Children.Add(CreatePatternCard(pat));
+                }
             };
             row.PointerEntered += (s, e) => row.Background = new SolidColorBrush(CardHover);
             row.PointerExited += (s, e) => row.Background = new SolidColorBrush(alternate ? SurfaceBg : CardBg);
@@ -3774,25 +4108,38 @@ namespace McStudDesktop.Views
         /// </summary>
         private static decimal ComputeGrandTotal(StoredEstimate est)
         {
-            // If GrandTotal is set, non-zero, and different from PartsTotal, trust it
+            // 1. Trust the stored GrandTotal when it looks real — it's either the PDF's
+            //    labeled "Grand Total" or a corrected value from import-time fallback.
+            //    Only skip it when it's zero or suspiciously equals just the parts portion.
             if (est.GrandTotal > 0 && est.GrandTotal != est.PartsTotal)
                 return est.GrandTotal;
 
-            // Compute from components
+            // 2. Best fallback: add the parsed category totals (LaborTotal, PaintTotal)
+            //    directly. These come from labeled summary lines in the PDF and are more
+            //    reliable than reconstructing from hours × rates.
+            if (est.PartsTotal > 0 && (est.LaborTotal > 0 || est.PaintTotal > 0))
+            {
+                decimal fromTotals = est.PartsTotal + est.LaborTotal + est.PaintTotal;
+                // Include manual/service lines not captured by the three category totals
+                fromTotals += est.LineItems
+                    .Where(li => li.IsManualLine && li.Price > 0)
+                    .Sum(li => li.Price);
+                if (fromTotals > est.GrandTotal)
+                    return fromTotals;
+            }
+
+            // 3. Last resort: reconstruct labor dollars from hours × rates
             decimal total = est.PartsTotal;
 
-            // Sum labor from rates × hours if we have them
             decimal bodyHrs = 0, refinishHrs = 0, mechHrs = 0;
             foreach (var li in est.LineItems)
             {
                 bodyHrs += li.LaborHours;
                 refinishHrs += li.RefinishHours;
             }
-            // Mechanical hours are lines with LaborType containing "mech"
             mechHrs = est.LineItems
                 .Where(li => li.LaborType.IndexOf("mech", StringComparison.OrdinalIgnoreCase) >= 0)
                 .Sum(li => li.LaborHours);
-            // Body hours = total labor hours minus mechanical
             bodyHrs -= mechHrs;
             if (bodyHrs < 0) bodyHrs = 0;
 
@@ -3807,7 +4154,6 @@ namespace McStudDesktop.Views
             if (est.MechanicalHourlyRate > 0)
                 total += mechHrs * est.MechanicalHourlyRate;
 
-            // Add manual line prices (services, supplies) that aren't already in PartsTotal
             decimal manualPrices = est.LineItems
                 .Where(li => li.IsManualLine && li.Price > 0)
                 .Sum(li => li.Price);
@@ -3929,6 +4275,353 @@ namespace McStudDesktop.Views
                 _estimateLines.Add(new EstimateLine { PartName = op.PartName, OperationType = op.OperationType, LaborHours = op.LaborHours, RefinishHours = op.RefinishHours, Price = op.Price });
             }
             UpdateEstimateDisplay();
+        }
+
+        // ═══════════════════════════════════════════
+        //  INSURANCE LOOKUP VIEW
+        // ═══════════════════════════════════════════
+
+        private void BuildInsuranceLookupView()
+        {
+            _insuranceContentGrid = new Grid { Visibility = Visibility.Visible, Margin = new Thickness(16, 0, 16, 14) };
+            _insuranceContentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // toolbar
+            _insuranceContentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // summary stats
+            _insuranceContentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // results
+
+            // ── Row 0: Toolbar ──
+            var toolbar = new Grid { ColumnSpacing = 10, Margin = new Thickness(0, 0, 0, 8) };
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var insurers = EstimateHistoryDatabase.Instance.KnownInsurers;
+            var comboItems = new List<string> { "All Insurers" };
+            comboItems.AddRange(insurers);
+            _insuranceCombo = new ComboBox
+            {
+                FontSize = 13,
+                Background = new SolidColorBrush(CardBg),
+                Foreground = new SolidColorBrush(TextPrimary),
+                BorderBrush = new SolidColorBrush(BorderSubtle),
+                CornerRadius = new CornerRadius(8),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                ItemsSource = comboItems,
+                SelectedIndex = 0
+            };
+            Grid.SetColumn(_insuranceCombo, 0);
+            toolbar.Children.Add(_insuranceCombo);
+
+            _insuranceOperationSearchBox = new TextBox
+            {
+                PlaceholderText = "Type an operation (e.g. Feather Edge and Block Sand)...",
+                FontSize = 13,
+                Background = new SolidColorBrush(CardBg),
+                Foreground = new SolidColorBrush(TextPrimary),
+                BorderBrush = new SolidColorBrush(BorderSubtle),
+                CornerRadius = new CornerRadius(8)
+            };
+            _insuranceOperationSearchBox.KeyDown += (s, e) =>
+            {
+                if (e.Key == Windows.System.VirtualKey.Enter) RunInsuranceLookup();
+            };
+            Grid.SetColumn(_insuranceOperationSearchBox, 1);
+            toolbar.Children.Add(_insuranceOperationSearchBox);
+
+            _insuranceSearchButton = new Button
+            {
+                Padding = new Thickness(14, 7, 14, 7),
+                Background = new SolidColorBrush(AccentBlue),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(8),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var searchContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            searchContent.Children.Add(new FontIcon { Glyph = "\uE721", FontSize = 13 });
+            searchContent.Children.Add(new TextBlock { Text = "Search", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
+            _insuranceSearchButton.Content = searchContent;
+            _insuranceSearchButton.Click += (s, e) => RunInsuranceLookup();
+            Grid.SetColumn(_insuranceSearchButton, 2);
+            toolbar.Children.Add(_insuranceSearchButton);
+
+            _insuranceResultsCount = new TextBlock
+            {
+                Text = "",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(TextSecondary),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 0, 0)
+            };
+            Grid.SetColumn(_insuranceResultsCount, 3);
+            toolbar.Children.Add(_insuranceResultsCount);
+
+            Grid.SetRow(toolbar, 0);
+            _insuranceContentGrid.Children.Add(toolbar);
+
+            // ── Row 1: Summary stats card (hidden until first search) ──
+            _insuranceSummaryCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 38, 32)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 40, 70, 50)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16, 10, 16, 10),
+                Margin = new Thickness(0, 0, 0, 8),
+                Visibility = Visibility.Collapsed
+            };
+            var statsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 32 };
+
+            _insuranceStatTimesPaid = new TextBlock { FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(AccentGreen) };
+            _insuranceStatTotalPaid = new TextBlock { FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(AccentBlue) };
+            _insuranceStatAvgHours = new TextBlock { FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.Bold, Foreground = new SolidColorBrush(AccentOrange) };
+
+            foreach (var (label, block) in new[] { ("Times Paid", _insuranceStatTimesPaid), ("Total Paid", _insuranceStatTotalPaid), ("Avg Hours", _insuranceStatAvgHours) })
+            {
+                var sp = new StackPanel { Spacing = 2 };
+                sp.Children.Add(new TextBlock { Text = label, FontSize = 10, Foreground = TextMutedBrush });
+                sp.Children.Add(block);
+                statsRow.Children.Add(sp);
+            }
+            _insuranceSummaryCard.Child = statsRow;
+            Grid.SetRow(_insuranceSummaryCard, 1);
+            _insuranceContentGrid.Children.Add(_insuranceSummaryCard);
+
+            // ── Row 2: Results list ──
+            var resultsCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 28, 32)),
+                CornerRadius = new CornerRadius(10),
+                BorderBrush = new SolidColorBrush(BorderSubtle),
+                BorderThickness = new Thickness(1)
+            };
+            var resultsScroller = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            };
+            _insuranceResultsPanel = new StackPanel { Spacing = 0, Padding = new Thickness(4) };
+            _insuranceResultsPanel.Children.Add(new TextBlock
+            {
+                Text = "Select an insurer and type an operation to search across all imported estimates.",
+                FontSize = 12,
+                Foreground = TextMutedBrush,
+                Margin = new Thickness(16, 24, 16, 24),
+                HorizontalAlignment = HorizontalAlignment.Center
+            });
+
+            resultsScroller.Content = _insuranceResultsPanel;
+            resultsCard.Child = resultsScroller;
+            Grid.SetRow(resultsCard, 2);
+            _insuranceContentGrid.Children.Add(resultsCard);
+
+            // Add to parent grid
+            var mainGrid = (Grid)Content;
+            Grid.SetRow(_insuranceContentGrid, 2);
+            Grid.SetRowSpan(_insuranceContentGrid, 2);
+            mainGrid.Children.Add(_insuranceContentGrid);
+        }
+
+        private void RunInsuranceLookup()
+        {
+            if (_insuranceResultsPanel == null || _insuranceCombo == null || _insuranceOperationSearchBox == null) return;
+
+            var operationQuery = _insuranceOperationSearchBox.Text?.Trim() ?? "";
+            if (operationQuery.Length < 2)
+            {
+                _insuranceResultsPanel.Children.Clear();
+                _insuranceResultsPanel.Children.Add(new TextBlock
+                {
+                    Text = "Please enter at least 2 characters for the operation search.",
+                    FontSize = 12, Foreground = TextMutedBrush,
+                    Margin = new Thickness(16, 24, 16, 24),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                _insuranceSummaryCard!.Visibility = Visibility.Collapsed;
+                _insuranceResultsCount!.Text = "";
+                return;
+            }
+
+            var selectedInsurer = _insuranceCombo.SelectedItem?.ToString() ?? "All Insurers";
+            var insurerFilter = selectedInsurer == "All Insurers" ? "" : selectedInsurer;
+            var showInsurerColumn = string.IsNullOrEmpty(insurerFilter);
+
+            var db = EstimateHistoryDatabase.Instance;
+            var results = db.FindEstimatesWithOperation(insurerFilter, operationQuery);
+
+            // Compute aggregate stats across all matching line items
+            int timesPaid = 0;
+            decimal totalPaid = 0m;
+            decimal totalHours = 0m;
+            foreach (var r in results)
+            {
+                foreach (var li in r.MatchingLineItems)
+                {
+                    if (li.WasPaid)
+                    {
+                        timesPaid++;
+                        totalPaid += li.Price;
+                        totalHours += li.LaborHours + li.RefinishHours;
+                    }
+                }
+            }
+
+            // Update summary card
+            _insuranceStatTimesPaid!.Text = timesPaid.ToString();
+            _insuranceStatTotalPaid!.Text = totalPaid.ToString("C2");
+            _insuranceStatAvgHours!.Text = timesPaid > 0 ? (totalHours / timesPaid).ToString("F2") : "0";
+            _insuranceSummaryCard!.Visibility = Visibility.Visible;
+
+            // Flatten results into line-item rows
+            var rows = new List<(StoredEstimate est, StoredLineItem item)>();
+            foreach (var r in results)
+                foreach (var li in r.MatchingLineItems)
+                    rows.Add((r.Estimate, li));
+
+            _insuranceResultsCount!.Text = $"{rows.Count} result{(rows.Count != 1 ? "s" : "")}";
+            _insuranceResultsPanel.Children.Clear();
+
+            if (rows.Count == 0)
+            {
+                _insuranceResultsPanel.Children.Add(new TextBlock
+                {
+                    Text = "No matching operations found.",
+                    FontSize = 12, Foreground = TextMutedBrush,
+                    Margin = new Thickness(16, 24, 16, 24),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                return;
+            }
+
+            // Header row
+            _insuranceResultsPanel.Children.Add(BuildInsuranceHeaderRow(showInsurerColumn));
+
+            // Data rows
+            bool alt = false;
+            foreach (var (est, item) in rows)
+            {
+                _insuranceResultsPanel.Children.Add(BuildInsuranceResultRow(est, item, showInsurerColumn, alt));
+                alt = !alt;
+            }
+        }
+
+        private Grid BuildInsuranceHeaderRow(bool showInsurer)
+        {
+            var grid = new Grid
+            {
+                Padding = new Thickness(12, 8, 12, 8),
+                Background = new SolidColorBrush(Color.FromArgb(255, 36, 36, 42)),
+                BorderBrush = new SolidColorBrush(BorderSubtle),
+                BorderThickness = new Thickness(0, 0, 0, 1)
+            };
+            var cols = new List<(string header, double width)>
+            {
+                ("Date", 85),
+            };
+            if (showInsurer) cols.Add(("Insurer", 120));
+            cols.Add(("Vehicle", 160));
+            cols.Add(("Claim #", 100));
+            cols.Add(("RO #", 80));
+            cols.Add(("Operation", 0)); // star
+            cols.Add(("Amount", 80));
+            cols.Add(("Hours", 60));
+            cols.Add(("Status", 65));
+
+            foreach (var (header, width) in cols)
+            {
+                grid.ColumnDefinitions.Add(width > 0
+                    ? new ColumnDefinition { Width = new GridLength(width) }
+                    : new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var tb = new TextBlock
+                {
+                    Text = header,
+                    FontSize = 11,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = TextMutedBrush,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Grid.SetColumn(tb, grid.ColumnDefinitions.Count - 1);
+                grid.Children.Add(tb);
+            }
+            return grid;
+        }
+
+        private Border BuildInsuranceResultRow(StoredEstimate est, StoredLineItem item, bool showInsurer, bool alt)
+        {
+            var rowBg = alt ? Color.FromArgb(255, 30, 30, 34) : Color.FromArgb(255, 26, 26, 30);
+            var border = new Border
+            {
+                Background = new SolidColorBrush(rowBg),
+                Padding = new Thickness(12, 7, 12, 7),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 44, 44, 50)),
+                BorderThickness = new Thickness(0, 0, 0, 1)
+            };
+
+            var grid = new Grid();
+            // Same column layout as header
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) }); // Date
+            if (showInsurer) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) }); // Insurer
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) }); // Vehicle
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) }); // Claim
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) }); // RO
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Operation
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) }); // Amount
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) }); // Hours
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(65) }); // Status
+
+            int col = 0;
+            void AddCell(string text, SolidColorBrush fg)
+            {
+                var tb = new TextBlock
+                {
+                    Text = text,
+                    FontSize = 12,
+                    Foreground = fg,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                Grid.SetColumn(tb, col++);
+                grid.Children.Add(tb);
+            }
+
+            AddCell(est.ImportedDate.ToString("MM/dd/yy"), TextSecondaryBrush);
+            if (showInsurer) AddCell(est.InsuranceCompany, TextSecondaryBrush);
+            AddCell(string.IsNullOrEmpty(est.VehicleInfo) ? "—" : est.VehicleInfo, TextPrimaryBrush);
+            AddCell(string.IsNullOrEmpty(est.ClaimNumber) ? "—" : est.ClaimNumber, TextSecondaryBrush);
+            AddCell(string.IsNullOrEmpty(est.RONumber) ? "—" : est.RONumber, TextSecondaryBrush);
+            AddCell(item.Description ?? item.PartName, TextPrimaryBrush);
+            AddCell(item.Price.ToString("C2"), TextPrimaryBrush);
+            var hours = item.LaborHours + item.RefinishHours;
+            AddCell(hours > 0 ? hours.ToString("F2") : "—", TextSecondaryBrush);
+
+            // Status: Paid (green) vs Denied (red)
+            var statusText = item.WasDenied ? "Denied" : item.WasPaid ? "Paid" : "—";
+            var statusColor = item.WasDenied
+                ? new SolidColorBrush(Color.FromArgb(255, 220, 70, 70))
+                : item.WasPaid
+                    ? AccentGreenBrush
+                    : TextMutedBrush;
+            AddCell(statusText, statusColor);
+
+            border.Child = grid;
+
+            // Hover effect
+            border.PointerEntered += (s, e) => border.Background = CardHoverBrush;
+            border.PointerExited += (s, e) => border.Background = new SolidColorBrush(rowBg);
+
+            // Click to navigate to estimate detail
+            border.Tapped += (s, e) =>
+            {
+                if (_estimateListCard != null || _estimateDetailPanel != null)
+                {
+                    // Switch to Estimates view and show detail
+                    SetViewMode(LearnedViewMode.Estimates);
+                    ShowEstimateDetails(est, _estimateListCard ?? (FrameworkElement)this);
+                }
+            };
+
+            return border;
         }
 
         // ═══════════════════════════════════════════

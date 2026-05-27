@@ -344,17 +344,19 @@ namespace McStudDesktop.Services
                         labor = lastNum.ToString("0.0");
                 }
 
-                // If there are numbers in between, look for Price (large number)
+                // If there are numbers in between, assign first middle number as Price,
+                // subsequent decimals as Paint. No minimum threshold — prices can be any value ($3, $5, etc.)
                 for (int i = 1; i < numbersAfterDesc.Count - 1; i++)
                 {
                     var num = numbersAfterDesc[i];
-                    if (num > 20 && string.IsNullOrEmpty(price))
+                    if (string.IsNullOrEmpty(price))
                     {
+                        // First middle number is Price (regardless of value)
                         price = num.ToString("0.00");
                     }
-                    // Second decimal could be Paint
                     else if (num <= 50 && num != Math.Floor(num) && string.IsNullOrEmpty(paint))
                     {
+                        // Decimal middle number after Price is Paint/Refinish
                         paint = num.ToString("0.0");
                     }
                 }
@@ -403,6 +405,119 @@ namespace McStudDesktop.Services
                 Labor = labor,
                 Paint = paint
             };
+        }
+
+        /// <summary>
+        /// Fixed-column parser for CCC Web. Uses exact column positions from Excel layout:
+        /// Col 6=Operation, Col 8=Description, Col 10=Quantity, Col 11=Price,
+        /// Col 15=BodyLabor, Col 17=Refinish
+        /// No guessing — each value comes from its known column.
+        /// </summary>
+        private ParsedOperation? ParseExcelRowFixedColumns(string rawLine)
+        {
+            if (string.IsNullOrWhiteSpace(rawLine)) return null;
+
+            var parts = rawLine.Split('\t');
+            if (parts.Length < 12) // Need at least through Price column
+            {
+                System.Diagnostics.Debug.WriteLine($"[ParseFixed] Too few columns ({parts.Length}), falling back to heuristic");
+                return ParseExcelRow(rawLine); // Fallback
+            }
+
+            // Find the Operation column first (it's at a known position but may shift slightly)
+            int opIndex = -1;
+            string operation = "";
+            var opTypes = new[] { "Replace", "Rpr", "Repair", "R&I", "R+I", "Blend", "Mat", "Refinish", "Sublet", "PDR", "Align", "Section" };
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var val = parts[i].Trim();
+                foreach (var op in opTypes)
+                {
+                    if (val.Equals(op, StringComparison.OrdinalIgnoreCase))
+                    {
+                        opIndex = i;
+                        operation = val;
+                        break;
+                    }
+                }
+                if (opIndex >= 0) break;
+            }
+
+            if (opIndex < 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ParseFixed] No operation type found");
+                return null;
+            }
+
+            // Fixed offsets from Operation column:
+            // Op+2 = Description, Op+4 = Quantity, Op+5 = Price, Op+9 = Labor, Op+11 = Refinish
+            int descIdx = opIndex + 2;
+            int qtyIdx = opIndex + 4;
+            int priceIdx = opIndex + 5;
+            int laborIdx = opIndex + 9;
+            int refinishIdx = opIndex + 11;
+
+            string description = descIdx < parts.Length ? parts[descIdx].Trim() : "";
+            if (string.IsNullOrEmpty(description) || description == "0")
+            {
+                System.Diagnostics.Debug.WriteLine($"[ParseFixed] No description at col {descIdx}");
+                return null;
+            }
+
+            string qty = "1";
+            string price = "";
+            string labor = "";
+            string paint = "";
+
+            // Quantity
+            if (qtyIdx < parts.Length && decimal.TryParse(parts[qtyIdx].Trim(), out decimal qtyVal) && qtyVal > 0)
+                qty = qtyVal.ToString("0");
+
+            // Price
+            if (priceIdx < parts.Length && decimal.TryParse(parts[priceIdx].Trim(), out decimal priceVal) && priceVal > 0)
+                price = priceVal.ToString("0.00");
+
+            // Body Labor
+            if (laborIdx < parts.Length && decimal.TryParse(parts[laborIdx].Trim(), out decimal laborVal) && laborVal > 0)
+            {
+                labor = laborVal == Math.Floor(laborVal) ? laborVal.ToString("0") : laborVal.ToString("0.##");
+            }
+
+            // Refinish
+            if (refinishIdx < parts.Length && decimal.TryParse(parts[refinishIdx].Trim(), out decimal refinishVal) && refinishVal > 0)
+            {
+                paint = refinishVal == Math.Floor(refinishVal) ? refinishVal.ToString("0") : refinishVal.ToString("0.##");
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[ParseFixed] Op={operation}, Desc={description}, Qty={qty}, Price={price}, Labor={labor}, Refinish={paint}");
+
+            return new ParsedOperation
+            {
+                Operation = operation,
+                Description = description,
+                Qty = qty,
+                Price = price,
+                Labor = labor,
+                Paint = paint
+            };
+        }
+
+        /// <summary>
+        /// Get parsed operations using fixed-column parser (for CCC Web).
+        /// No heuristic guessing — reads exact Excel column positions.
+        /// </summary>
+        public List<ParsedOperation> GetParsedOperationsFixedColumns()
+        {
+            var parsed = new List<ParsedOperation>();
+            foreach (var raw in Operations)
+            {
+                var op = ParseExcelRowFixedColumns(raw);
+                if (op != null)
+                {
+                    parsed.Add(op);
+                }
+            }
+            return parsed;
         }
 
         /// <summary>
@@ -823,6 +938,86 @@ namespace McStudDesktop.Services
             if (string.IsNullOrEmpty(formatted)) return;
 
             CopyTextToClipboard(formatted);
+        }
+
+        /// <summary>
+        /// Format scoring issues as CCC AutoHotKey tab-delimited lines.
+        /// First line: 18 fields (6 leading zeros — extra tab for initial Insert Line dialog)
+        /// Subsequent: 17 fields (5 leading zeros)
+        /// Layout: {zeros}  OpType  0  Description  0  Qty  Price  0  0  0  0  0  Hours
+        /// </summary>
+        public static string FormatScoringForCCCAHK(List<McStudDesktop.Services.ScoringIssue> issues)
+        {
+            if (issues == null || issues.Count == 0) return "";
+
+            var lines = new List<string>();
+            bool isFirst = true;
+
+            foreach (var issue in issues)
+            {
+                if (issue.SuggestedFix == null) continue;
+                var fix = issue.SuggestedFix;
+
+                string desc = !string.IsNullOrEmpty(fix.Description) ? fix.Description : issue.Title ?? "";
+                if (string.IsNullOrEmpty(desc)) continue;
+
+                string opType = fix.OperationType;
+                if (string.IsNullOrEmpty(opType)) opType = "Add";
+                // Normalize abbreviations for CCC
+                if (opType == "Refn") opType = "Refinish";
+
+                string qty = "1";
+                // Parts/sublet → price field; labor ops → hours field
+                bool isPriceBased = opType.Equals("Sublet", StringComparison.OrdinalIgnoreCase) ||
+                                    opType.Equals("Replace", StringComparison.OrdinalIgnoreCase);
+                string price = isPriceBased && fix.EstimatedCost > 0 ? fix.EstimatedCost.ToString("F2") : "0";
+                string hours = fix.LaborHours > 0 ? fix.LaborHours.ToString("F1") : "0";
+
+                // First line: 6 leading zeros (18 fields), rest: 5 leading zeros (17 fields)
+                string prefix = isFirst ? "0\t0\t0\t0\t0\t0" : "0\t0\t0\t0\t0";
+                var line = $"{prefix}\t{opType}\t0\t{desc}\t0\t{qty}\t{price}\t0\t0\t0\t0\t0\t{hours}";
+                lines.Add(line);
+                isFirst = false;
+            }
+
+            return string.Join("\r\n", lines);
+        }
+
+        /// <summary>
+        /// Format parsed estimate lines as CCC AutoHotKey tab-delimited lines.
+        /// First line: 18 fields (6 leading zeros), subsequent: 17 fields (5 leading zeros).
+        /// </summary>
+        public static string FormatParsedLinesForCCCAHK(List<McStudDesktop.Services.ParsedEstimateLine> parsedLines)
+        {
+            if (parsedLines == null || parsedLines.Count == 0) return "";
+
+            var lines = new List<string>();
+            bool isFirst = true;
+
+            foreach (var pl in parsedLines)
+            {
+                if (string.IsNullOrEmpty(pl.Description)) continue;
+
+                string opType = pl.OperationType;
+                if (string.IsNullOrEmpty(opType)) opType = "Add";
+                // Map full names to CCC abbreviations
+                if (opType.Equals("Repair", StringComparison.OrdinalIgnoreCase)) opType = "Rpr";
+                if (opType.Equals("Remove & Install", StringComparison.OrdinalIgnoreCase) ||
+                    opType.Equals("Remove and Install", StringComparison.OrdinalIgnoreCase)) opType = "R&I";
+
+                string qty = pl.Quantity > 0 ? pl.Quantity.ToString() : "1";
+                string price = pl.Price > 0 ? pl.Price.ToString("F2") : "0";
+                // Use refinish hours for refinish ops, otherwise body/labor hours
+                decimal hours = pl.RefinishHours > 0 ? pl.RefinishHours : pl.LaborHours;
+                string hoursStr = hours > 0 ? hours.ToString("F1") : "0";
+
+                string prefix = isFirst ? "0\t0\t0\t0\t0\t0" : "0\t0\t0\t0\t0";
+                var line = $"{prefix}\t{opType}\t0\t{pl.Description}\t0\t{qty}\t{price}\t0\t0\t0\t0\t0\t{hoursStr}";
+                lines.Add(line);
+                isFirst = false;
+            }
+
+            return string.Join("\r\n", lines);
         }
 
         /// <summary>

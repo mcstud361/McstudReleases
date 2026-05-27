@@ -445,13 +445,13 @@ namespace McStudDesktop.Services
             {
                 var partLower = _idxPartsLower[li];
 
+                // --- Missing blend on adjacent panels ---
                 foreach (var rule in _blendRules)
                 {
                     if (partLower.Contains(rule.Key))
                     {
                         foreach (var blendRule in rule.Value)
                         {
-                            // Check if blend panel is already in estimate using index
                             var adjLower = blendRule.AdjacentPanel.ToLowerInvariant();
                             bool hasBlend = false;
                             for (int j = 0; j < lines.Count; j++)
@@ -464,33 +464,168 @@ namespace McStudDesktop.Services
 
                             if (!hasBlend)
                             {
+                                // Try to get average blend hours from learned estimates
+                                decimal learnedHours = 0m;
+                                int learnedCount = 0;
+                                string learnedSource = "";
+                                try
+                                {
+                                    var learnedPattern = EstimateLearningService.Instance
+                                        .GetManualLinesForPart(blendRule.AdjacentPanel, "Blend");
+                                    if (learnedPattern != null)
+                                    {
+                                        var blendEntries = learnedPattern.ManualLines
+                                            .Where(m => m.RefinishUnits > 0 || m.LaborUnits > 0)
+                                            .ToList();
+                                        if (blendEntries.Count > 0)
+                                        {
+                                            learnedHours = blendEntries.Average(m => m.RefinishUnits > 0 ? m.RefinishUnits : m.LaborUnits);
+                                            learnedCount = blendEntries.Sum(m => m.TimesUsed);
+                                            learnedSource = $"avg from {learnedCount} learned estimate(s)";
+                                        }
+                                    }
+                                }
+                                catch { /* learning service may not have data — that's fine */ }
+
+                                var desc = learnedHours > 0
+                                    ? $"Adjacent panel blend for color match — {learnedSource}"
+                                    : "Adjacent panel blend for color match";
+
                                 var issue = new ScoringIssue
                                 {
                                     Category = IssueCategoryType.Blend,
-                                    Severity = IssueSeverity.Low, // Blends are considerations, not misses
+                                    Severity = IssueSeverity.Low,
                                     Title = $"Blend {blendRule.AdjacentPanel}",
-                                    Description = $"Adjacent panel blend for color match",
+                                    Description = desc,
                                     WhyNeeded = $"New paint on {lines[li].PartName} won't match aged paint on {blendRule.AdjacentPanel}",
                                     TriggeredBy = lines[li].PartName ?? "",
                                     SuggestedFix = new SuggestedFix
                                     {
                                         OperationType = "Blend",
                                         Description = $"Blend {blendRule.AdjacentPanel}",
-                                        LaborHours = 0m, // Actual time comes from estimating system
+                                        LaborHours = learnedHours,
                                         LaborCategory = "Paint"
                                     },
-                                    PointDeduction = 0 // Don't penalize — blend is a consideration
+                                    Source = learnedHours > 0 ? "Learned" : null,
+                                    SourceDetail = learnedHours > 0 ? $"{learnedHours:F1} hrs avg" : null,
+                                    PointDeduction = 0
                                 };
 
                                 if (!result.Issues.Any(i => i.Title == issue.Title))
-                                {
                                     result.Issues.Add(issue);
-                                }
                             }
                         }
                     }
                 }
+
+                // --- Missing refinish-related operations from learned data ---
+                // Check what refinish ops (buff, de-nib, wet/dry sand, edging, backtape, etc.)
+                // your prior estimates had for this panel and flag any that are missing here.
+                CheckLearnedRefinishOps(lines, li, result);
             }
+        }
+
+        /// <summary>
+        /// For a refinished panel, check learned estimates for commonly-seen refinish operations
+        /// (buff, de-nib, wet/dry sand, edging, backtape, etc.) and flag any missing from this estimate.
+        /// </summary>
+        private void CheckLearnedRefinishOps(List<ParsedEstimateLine> lines, int panelIndex, EstimateScoringResult result)
+        {
+            var partName = lines[panelIndex].PartName ?? "";
+            if (string.IsNullOrWhiteSpace(partName)) return;
+
+            // Refinish-related keywords to look for in learned manual lines
+            var refinishKeywords = new[]
+            {
+                "buff", "de-nib", "denib", "wet/dry", "wet dry", "rub-out", "rub out",
+                "sand", "edging", "backtape", "back tape", "jamb", "clear coat",
+                "blend edge", "color sand", "cut and buff", "cut & buff",
+                "stage and secure", "stage & secure", "mask", "cover for",
+                "spray card", "tint", "let down panel"
+            };
+
+            try
+            {
+                // Query learned data for this panel + Refinish/Replace operations
+                ManualLinePattern? learnedPattern = null;
+                foreach (var opType in new[] { "Refinish", "Replace", null })
+                {
+                    learnedPattern = EstimateLearningService.Instance.GetManualLinesForPart(partName, opType);
+                    if (learnedPattern != null && learnedPattern.ManualLines.Count > 0)
+                        break;
+                }
+
+                if (learnedPattern == null || learnedPattern.ManualLines.Count == 0)
+                    return;
+
+                // Filter to refinish-related manual lines seen in 2+ estimates
+                var refinishOps = learnedPattern.ManualLines
+                    .Where(m => m.TimesUsed >= 2)
+                    .Where(m =>
+                    {
+                        var descLower = (m.Description ?? m.ManualLineType ?? "").ToLowerInvariant();
+                        return refinishKeywords.Any(kw => descLower.Contains(kw))
+                            || m.LaborType.Equals("Refinish", StringComparison.OrdinalIgnoreCase)
+                            || m.RefinishUnits > 0;
+                    })
+                    .OrderByDescending(m => m.TimesUsed)
+                    .Take(8) // Cap to avoid flooding
+                    .ToList();
+
+                foreach (var learnedOp in refinishOps)
+                {
+                    var opDesc = !string.IsNullOrEmpty(learnedOp.ManualLineType)
+                        ? learnedOp.ManualLineType : learnedOp.Description;
+                    if (string.IsNullOrWhiteSpace(opDesc) || opDesc.Length < 4) continue;
+
+                    var opDescLower = opDesc.ToLowerInvariant();
+
+                    // Check if this operation already exists on the estimate for this panel
+                    bool alreadyExists = false;
+                    for (int j = 0; j < lines.Count; j++)
+                    {
+                        var lineDesc = _idxDescsLower[j] + " " + _idxPartsLower[j];
+                        if (lineDesc.Contains(opDescLower) ||
+                            opDescLower.Split(' ').Where(w => w.Length >= 4).All(w => lineDesc.Contains(w)))
+                        {
+                            alreadyExists = true;
+                            break;
+                        }
+                    }
+
+                    if (alreadyExists) continue;
+
+                    var hours = learnedOp.RefinishUnits > 0 ? learnedOp.RefinishUnits : learnedOp.LaborUnits;
+                    var frequency = learnedPattern.ExampleCount > 0
+                        ? (double)learnedOp.TimesUsed / learnedPattern.ExampleCount : 0;
+                    var pctText = frequency > 0 ? $"{frequency:P0}" : $"{learnedOp.TimesUsed}x";
+
+                    var title = $"{opDesc} — {partName}";
+                    if (result.Issues.Any(i => i.Title == title)) continue;
+
+                    result.Issues.Add(new ScoringIssue
+                    {
+                        Category = IssueCategoryType.Refinish,
+                        Severity = frequency >= 0.7 ? IssueSeverity.Medium : IssueSeverity.Low,
+                        ActionType = frequency >= 0.5 ? IssueActionType.AddToEstimate : IssueActionType.VerifyOptional,
+                        Title = title,
+                        Description = $"Seen in {pctText} of your estimates with {partName}",
+                        WhyNeeded = $"Your learned estimates commonly include this refinish operation",
+                        TriggeredBy = partName,
+                        SuggestedFix = new SuggestedFix
+                        {
+                            OperationType = "Refinish",
+                            Description = opDesc,
+                            LaborHours = hours,
+                            LaborCategory = "Paint"
+                        },
+                        Source = "Learned",
+                        SourceDetail = $"{hours:F1} hrs avg, {pctText} frequency",
+                        PointDeduction = 0 // Don't penalize — learned suggestions are advisory
+                    });
+                }
+            }
+            catch { /* learning service unavailable — skip gracefully */ }
         }
 
         #endregion
@@ -999,6 +1134,177 @@ namespace McStudDesktop.Services
                             PointDeduction = 4
                         });
                     }
+                }
+            }
+
+            // --- Spray-Out / Let-Down Panel ---
+            // Any refinish job should have spray-out cards for color matching verification.
+            if (hasRefinish)
+            {
+                bool hasSprayOut = AnyLineContains("spray out") || AnyLineContains("spray card") ||
+                                   AnyLineContains("sprayout") || AnyLineContains("let down") ||
+                                   AnyLineContains("letdown") || AnyLineContains("let-down");
+                if (!hasSprayOut)
+                {
+                    result.Issues.Add(new ScoringIssue
+                    {
+                        Category = IssueCategoryType.Refinish,
+                        Severity = IssueSeverity.Medium,
+                        Title = "Spray-Out / Let-Down Panel",
+                        Description = "Spray-out cards verify color match before painting the vehicle",
+                        WhyNeeded = "Required to confirm color accuracy and avoid costly re-sprays",
+                        TriggeredBy = "Refinish operations present",
+                        SuggestedFix = new SuggestedFix
+                        {
+                            OperationType = "Refn",
+                            Description = "Spray Out Cards (2-Stage)",
+                            LaborHours = 0.5m,
+                            LaborCategory = "Paint"
+                        },
+                        PointDeduction = 2
+                    });
+                }
+            }
+
+            // --- Color Sand & Buff on Metallic/Pearl ---
+            // Metallic and pearl paints require color sanding and buffing for proper finish.
+            if (hasRefinish)
+            {
+                bool hasMetallicOrPearl = _idxDescsLower.Any(d =>
+                    d.Contains("metallic") || d.Contains("pearl") || d.Contains("mica") ||
+                    d.Contains("tri-coat") || d.Contains("3-stage") || d.Contains("three stage"));
+
+                // Also check raw text / part names for paint type indicators
+                if (!hasMetallicOrPearl)
+                    hasMetallicOrPearl = _idxAllText.Contains("metallic") || _idxAllText.Contains("pearl") ||
+                                         _idxAllText.Contains("mica");
+
+                if (hasMetallicOrPearl)
+                {
+                    bool hasColorSand = AnyLineContains("color sand") || AnyLineContains("colorsand") ||
+                                        AnyLineContains("colour sand");
+                    if (!hasColorSand)
+                    {
+                        result.Issues.Add(new ScoringIssue
+                        {
+                            Category = IssueCategoryType.Refinish,
+                            Severity = IssueSeverity.Medium,
+                            Title = "Color Sand — Metallic/Pearl",
+                            Description = "Color sanding required for metallic and pearl finishes",
+                            WhyNeeded = "Metallic/pearl paints need color sanding to eliminate orange peel and achieve OEM-quality finish",
+                            TriggeredBy = "Metallic/Pearl/Mica paint detected",
+                            SuggestedFix = new SuggestedFix
+                            {
+                                OperationType = "Refn",
+                                Description = "Color Sand",
+                                LaborHours = 0.5m,
+                                LaborCategory = "Paint"
+                            },
+                            PointDeduction = 2
+                        });
+                    }
+                }
+            }
+
+            // --- Wet/Dry Sand (De-Nib) on Repair Panels ---
+            // Panels being repaired (not replaced) need sanding for proper adhesion & finish.
+            {
+                bool hasRepairWithRefinish = false;
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    if (_idxOpsLower[i].Contains("rep") && !_idxOpsLower[i].Contains("repl") && lines[i].RefinishHours > 0)
+                    { hasRepairWithRefinish = true; break; }
+                }
+
+                if (hasRepairWithRefinish)
+                {
+                    bool hasWetDrySand = AnyLineContains("wet") || AnyLineContains("de-nib") ||
+                                         AnyLineContains("denib") || AnyLineContains("de nib");
+                    if (!hasWetDrySand)
+                    {
+                        result.Issues.Add(new ScoringIssue
+                        {
+                            Category = IssueCategoryType.Refinish,
+                            Severity = IssueSeverity.Medium,
+                            Title = "Wet/Dry Sand (De-Nib)",
+                            Description = "Wet/dry sanding needed on repaired panels for smooth finish",
+                            WhyNeeded = "Repair panels require sanding between primer and paint coats to achieve proper finish",
+                            TriggeredBy = "Panel repair with refinish",
+                            SuggestedFix = new SuggestedFix
+                            {
+                                OperationType = "Refn",
+                                Description = "Wet/Dry Sand & De-Nib",
+                                LaborHours = 0.3m,
+                                LaborCategory = "Paint"
+                            },
+                            PointDeduction = 2
+                        });
+                    }
+                }
+            }
+
+            // --- Color Tint on Multi-Stage / Tri-Coat ---
+            // Multi-stage paints often require tinting the intermediate coat for proper color depth.
+            if (hasRefinish)
+            {
+                bool hasMultiStage = _idxDescsLower.Any(d =>
+                    d.Contains("tri-coat") || d.Contains("3-stage") || d.Contains("three stage") ||
+                    d.Contains("pearl") || d.Contains("mica") || d.Contains("multi-stage") ||
+                    d.Contains("2-tone") || d.Contains("two-tone") || d.Contains("two tone"));
+
+                if (hasMultiStage)
+                {
+                    bool hasTint = AnyLineContains("tint") || AnyLineContains("color tint") ||
+                                   AnyLineContains("colour tint") || AnyLineContains("intermediate");
+                    if (!hasTint)
+                    {
+                        result.Issues.Add(new ScoringIssue
+                        {
+                            Category = IssueCategoryType.Refinish,
+                            Severity = IssueSeverity.Medium,
+                            Title = "Color Tint — Multi-Stage Paint",
+                            Description = "Color tint for intermediate coat on multi-stage / tri-coat paint",
+                            WhyNeeded = "Multi-stage paints need tinted midcoats for proper color depth and match",
+                            TriggeredBy = "Multi-stage/Tri-coat paint detected",
+                            SuggestedFix = new SuggestedFix
+                            {
+                                OperationType = "Refn",
+                                Description = "Color Tint (2-Stage)",
+                                LaborHours = 0.5m,
+                                LaborCategory = "Paint"
+                            },
+                            PointDeduction = 3
+                        });
+                    }
+                }
+            }
+
+            // --- Buff / Cut & Buff when refinishing ---
+            // Refinished panels need buffing for final finish quality.
+            if (hasRefinish)
+            {
+                bool hasBuff = AnyLineContains("buff") || AnyLineContains("polish") ||
+                               AnyLineContains("cut and buff") || AnyLineContains("cut & buff") ||
+                               AnyLineContains("rub out") || AnyLineContains("rub-out");
+                if (!hasBuff)
+                {
+                    result.Issues.Add(new ScoringIssue
+                    {
+                        Category = IssueCategoryType.Refinish,
+                        Severity = IssueSeverity.Medium,
+                        Title = "Buff / Cut & Buff",
+                        Description = "Final buffing/polishing needed after refinish for OEM-quality finish",
+                        WhyNeeded = "All refinished panels require buffing to remove imperfections and match factory finish",
+                        TriggeredBy = "Refinish operations present",
+                        SuggestedFix = new SuggestedFix
+                        {
+                            OperationType = "Refn",
+                            Description = "Buff & Polish",
+                            LaborHours = 0.3m,
+                            LaborCategory = "Paint"
+                        },
+                        PointDeduction = 2
+                    });
                 }
             }
 

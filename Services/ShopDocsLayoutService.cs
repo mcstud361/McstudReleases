@@ -19,7 +19,8 @@ public enum WidgetType
     MyDocs,
     TemplateForm,
     VehicleIntakeForm,
-    PartsRequest
+    PartsRequest,
+    ShopStockParts
 }
 
 public class WidgetEntry
@@ -73,12 +74,12 @@ public class ShopDocsLayoutService
                 {
                     bool needsSave = false;
 
-                    // Migrate old "Labor Rates" title to "Dealer Information"
+                    // Migrate old titles to "Vendor Information"
                     var laborWidget = config.Widgets.FirstOrDefault(w => w.Id == "labor-rates");
-                    if (laborWidget != null && laborWidget.Title == "Labor Rates")
+                    if (laborWidget != null && (laborWidget.Title == "Labor Rates" || laborWidget.Title == "Dealer Information"))
                     {
-                        laborWidget.Title = "Dealer Information";
-                        laborWidget.Description = "Dealer contacts, labor rates & parts info";
+                        laborWidget.Title = "Vendor Information";
+                        laborWidget.Description = "Vendor contacts, labor rates & parts info";
                         needsSave = true;
                     }
 
@@ -104,6 +105,29 @@ public class ShopDocsLayoutService
                             IsBuiltIn = true,
                             IsVisible = true,
                             Order = maxOrder0 + 1
+                        });
+                        needsSave = true;
+                    }
+
+                    // Add Shop Stock Parts if missing (migration for existing users)
+                    if (!config.Widgets.Any(w => w.Id == "shop-stock-parts"))
+                    {
+                        // Insert after invoices widget
+                        var invoicesWidget = config.Widgets.FirstOrDefault(w => w.Id == "invoices");
+                        var insertOrder = invoicesWidget != null ? invoicesWidget.Order + 1 : (config.Widgets.Any() ? config.Widgets.Max(w => w.Order) + 1 : 0);
+                        // Bump any widgets at or above the insert order
+                        foreach (var w in config.Widgets.Where(w => w.Order >= insertOrder))
+                            w.Order++;
+                        config.Widgets.Add(new WidgetEntry
+                        {
+                            Id = "shop-stock-parts",
+                            Title = "Shop Stock Parts",
+                            Icon = "\uE773",
+                            Description = "Manage shop parts inventory with pricing & vehicle info",
+                            WidgetType = WidgetType.ShopStockParts,
+                            IsBuiltIn = true,
+                            IsVisible = true,
+                            Order = insertOrder
                         });
                         needsSave = true;
                     }
@@ -169,9 +193,9 @@ public class ShopDocsLayoutService
                 new WidgetEntry
                 {
                     Id = "labor-rates",
-                    Title = "Dealer Information",
+                    Title = "Vendor Information",
                     Icon = "\uE8D4",
-                    Description = "Dealer contacts, labor rates & parts info",
+                    Description = "Vendor contacts, labor rates & parts info",
                     WidgetType = WidgetType.LaborRates,
                     IsBuiltIn = true,
                     IsVisible = true,
@@ -201,6 +225,17 @@ public class ShopDocsLayoutService
                 },
                 new WidgetEntry
                 {
+                    Id = "shop-stock-parts",
+                    Title = "Shop Stock Parts",
+                    Icon = "\uE773",
+                    Description = "Manage shop parts inventory with pricing & vehicle info",
+                    WidgetType = WidgetType.ShopStockParts,
+                    IsBuiltIn = true,
+                    IsVisible = true,
+                    Order = 4
+                },
+                new WidgetEntry
+                {
                     Id = "ppf-pricing",
                     Title = "Vehicle Protection",
                     Icon = "\uE8B9",
@@ -208,7 +243,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.PPFPricing,
                     IsBuiltIn = true,
                     IsVisible = true,
-                    Order = 4
+                    Order = 5
                 },
                 new WidgetEntry
                 {
@@ -219,7 +254,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.PriceCatalogs,
                     IsBuiltIn = true,
                     IsVisible = false, // Merged into Invoices tab
-                    Order = 5
+                    Order = 6
                 },
                 new WidgetEntry
                 {
@@ -230,7 +265,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.PartsRequest,
                     IsBuiltIn = true,
                     IsVisible = true,
-                    Order = 6
+                    Order = 7
                 },
                 new WidgetEntry
                 {
@@ -241,7 +276,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.VehicleIntakeForm,
                     IsBuiltIn = true,
                     IsVisible = true,
-                    Order = 7
+                    Order = 8
                 },
                 new WidgetEntry
                 {
@@ -252,7 +287,7 @@ public class ShopDocsLayoutService
                     WidgetType = WidgetType.MyDocs,
                     IsBuiltIn = true,
                     IsVisible = true,
-                    Order = 8
+                    Order = 9
                 }
             }
         };

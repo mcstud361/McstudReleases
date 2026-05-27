@@ -14,6 +14,14 @@ namespace McStudDesktop.Services
         public string FooterText { get; set; } = "MET Reference Guide";
         public bool ShowTableOfContents { get; set; } = true;
         public bool ShowPageNumbers { get; set; } = true;
+
+        // Shop branding & vehicle context
+        public string ShopName { get; set; } = "";
+        public string VehicleInfo { get; set; } = "";
+        public string VIN { get; set; } = "";
+        public string RONumber { get; set; } = "";
+        public bool ShowGlossary { get; set; } = true;
+        public bool ShowVehicleInfo { get; set; } = true;
     }
 
     public class ReferenceExportConfigService

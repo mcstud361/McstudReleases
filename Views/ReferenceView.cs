@@ -770,6 +770,27 @@ public sealed class ReferenceView : UserControl
         RefreshStagingPanel();
     }
 
+    /// <summary>
+    /// Update vehicle context fields for PDF export. Non-destructive — only overwrites if value is non-empty.
+    /// </summary>
+    public void SetEstimateContext(string? vehicleInfo, string? vin, string? roNumber, string? shopName)
+    {
+        var config = ReferenceExportConfigService.Instance.Config;
+        bool changed = false;
+
+        if (!string.IsNullOrWhiteSpace(vehicleInfo) && vehicleInfo != config.VehicleInfo)
+        { config.VehicleInfo = vehicleInfo; changed = true; }
+        if (!string.IsNullOrWhiteSpace(vin) && vin != config.VIN)
+        { config.VIN = vin; changed = true; }
+        if (!string.IsNullOrWhiteSpace(roNumber) && roNumber != config.RONumber)
+        { config.RONumber = roNumber; changed = true; }
+        if (!string.IsNullOrWhiteSpace(shopName) && shopName != config.ShopName)
+        { config.ShopName = shopName; changed = true; }
+
+        if (changed)
+            ReferenceExportConfigService.Instance.SaveConfig();
+    }
+
     private static Color GetSourceColor(string source) => source switch
     {
         "Included/Not Included" => Color.FromArgb(255, 60, 130, 80),
@@ -1133,10 +1154,18 @@ public sealed class ReferenceView : UserControl
         return chip;
     }
 
-    private void GeneratePdf_Click(object sender, RoutedEventArgs e)
+    private async void GeneratePdf_Click(object sender, RoutedEventArgs e)
     {
         if (PdfQueue.Count == 0)
         {
+            var emptyDialog = new ContentDialog
+            {
+                Title = "No Items Queued",
+                Content = "Add items to the PDF queue first by clicking 'Add to PDF' on any reference item.",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await emptyDialog.ShowAsync();
             return;
         }
 
@@ -1171,6 +1200,14 @@ public sealed class ReferenceView : UserControl
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[ReferenceView] PDF generation error: {ex.Message}");
+            var errorDialog = new ContentDialog
+            {
+                Title = "PDF Generation Failed",
+                Content = $"Could not generate PDF: {ex.Message}",
+                CloseButtonText = "OK",
+                XamlRoot = this.XamlRoot
+            };
+            await errorDialog.ShowAsync();
         }
     }
 
@@ -1179,7 +1216,79 @@ public sealed class ReferenceView : UserControl
         var configService = ReferenceExportConfigService.Instance;
         var config = configService.Config;
 
-        // Clone current values so we can discard on cancel
+        // --- Shop branding ---
+        var shopNameBox = new TextBox
+        {
+            Text = config.ShopName,
+            Header = "Shop Name",
+            PlaceholderText = "Your Body Shop Name",
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        // --- Vehicle context ---
+        var vehicleInfoBox = new TextBox
+        {
+            Text = config.VehicleInfo,
+            Header = "Vehicle Info",
+            PlaceholderText = "2024 Toyota Camry SE",
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var vinBox = new TextBox
+        {
+            Text = config.VIN,
+            Header = "VIN",
+            PlaceholderText = "1HGBH41JXMN109186",
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        var roBox = new TextBox
+        {
+            Text = config.RONumber,
+            Header = "RO Number",
+            PlaceholderText = "RO-12345",
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+
+        // Auto-fill from last estimate button
+        var autoFillButton = new HyperlinkButton
+        {
+            Content = "Auto-fill from last estimate",
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        autoFillButton.Click += (s, args) =>
+        {
+            try
+            {
+                var lastEstimate = EstimateHistoryDatabase.Instance.GetAllEstimates()
+                    .OrderByDescending(est => est.ImportedDate)
+                    .FirstOrDefault();
+                if (lastEstimate != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(lastEstimate.VehicleInfo))
+                        vehicleInfoBox.Text = lastEstimate.VehicleInfo;
+                    if (!string.IsNullOrWhiteSpace(lastEstimate.VIN))
+                        vinBox.Text = lastEstimate.VIN;
+                    if (!string.IsNullOrWhiteSpace(lastEstimate.RONumber))
+                        roBox.Text = lastEstimate.RONumber;
+                    if (!string.IsNullOrWhiteSpace(lastEstimate.ShopName))
+                        shopNameBox.Text = lastEstimate.ShopName;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ReferenceView] Auto-fill error: {ex.Message}");
+            }
+        };
+
+        // --- Separator ---
+        var separator = new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Gray),
+            Opacity = 0.3,
+            Margin = new Thickness(0, 4, 0, 10)
+        };
+
+        // --- Layout settings ---
         var titleBox = new TextBox
         {
             Text = config.HeaderTitle,
@@ -1232,6 +1341,20 @@ public sealed class ReferenceView : UserControl
             Margin = new Thickness(0, 0, 0, 6)
         };
 
+        var showGlossaryToggle = new ToggleSwitch
+        {
+            Header = "Show Glossary",
+            IsOn = config.ShowGlossary,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var showVehicleInfoToggle = new ToggleSwitch
+        {
+            Header = "Show Vehicle Info",
+            IsOn = config.ShowVehicleInfo,
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
         var showPageNumbersToggle = new ToggleSwitch
         {
             Header = "Show Page Numbers",
@@ -1248,12 +1371,18 @@ public sealed class ReferenceView : UserControl
         resetButton.Click += (s, args) =>
         {
             var defaults = new Services.ReferenceExportConfig();
+            shopNameBox.Text = defaults.ShopName;
+            vehicleInfoBox.Text = defaults.VehicleInfo;
+            vinBox.Text = defaults.VIN;
+            roBox.Text = defaults.RONumber;
             titleBox.Text = defaults.HeaderTitle;
             subtitleBox.Text = defaults.HeaderSubtitle;
             showDateToggle.IsOn = defaults.ShowDate;
             dateFormatBox.Text = defaults.DateFormat;
             footerBox.Text = defaults.FooterText;
             showTocToggle.IsOn = defaults.ShowTableOfContents;
+            showGlossaryToggle.IsOn = defaults.ShowGlossary;
+            showVehicleInfoToggle.IsOn = defaults.ShowVehicleInfo;
             showPageNumbersToggle.IsOn = defaults.ShowPageNumbers;
         };
 
@@ -1262,21 +1391,36 @@ public sealed class ReferenceView : UserControl
             Width = 380,
             Children =
             {
+                shopNameBox,
+                vehicleInfoBox,
+                vinBox,
+                roBox,
+                autoFillButton,
+                separator,
                 titleBox,
                 subtitleBox,
                 showDateToggle,
                 dateFormatBox,
                 footerBox,
                 showTocToggle,
+                showGlossaryToggle,
+                showVehicleInfoToggle,
                 showPageNumbersToggle,
                 resetButton
             }
         };
 
+        var scrollViewer = new ScrollViewer
+        {
+            Content = contentPanel,
+            MaxHeight = 500,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+
         var dialog = new ContentDialog
         {
             Title = "PDF Export Settings",
-            Content = contentPanel,
+            Content = scrollViewer,
             PrimaryButtonText = "Save",
             SecondaryButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary,
@@ -1287,12 +1431,18 @@ public sealed class ReferenceView : UserControl
 
         if (result == ContentDialogResult.Primary)
         {
+            config.ShopName = shopNameBox.Text;
+            config.VehicleInfo = vehicleInfoBox.Text;
+            config.VIN = vinBox.Text;
+            config.RONumber = roBox.Text;
             config.HeaderTitle = titleBox.Text;
             config.HeaderSubtitle = subtitleBox.Text;
             config.ShowDate = showDateToggle.IsOn;
             config.DateFormat = dateFormatBox.Text;
             config.FooterText = footerBox.Text;
             config.ShowTableOfContents = showTocToggle.IsOn;
+            config.ShowGlossary = showGlossaryToggle.IsOn;
+            config.ShowVehicleInfo = showVehicleInfoToggle.IsOn;
             config.ShowPageNumbers = showPageNumbersToggle.IsOn;
             configService.SaveConfig();
         }

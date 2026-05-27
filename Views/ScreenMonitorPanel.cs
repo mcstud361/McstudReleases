@@ -70,6 +70,7 @@ namespace McStudDesktop.Views
         private TextBlock? _coachingPotentialText;
         private bool _sectionsCollapsed = false;
         private readonly List<(Border header, StackPanel content)> _collapsibleSections = new();
+        private StackPanel? _activeSuggestionPanel; // currently expanded per-op suggestion panel
 
         // Diagnostics
         private StackPanel? _diagnosticStack;
@@ -1473,18 +1474,28 @@ namespace McStudDesktop.Views
             // --- Vehicle Banner ---
             if (_vehicleBanner != null)
             {
-                var hasVehicle = snapshot != null && (!string.IsNullOrEmpty(snapshot.VehicleInfo) || !string.IsNullOrEmpty(snapshot.VIN));
-                _vehicleBanner.Visibility = hasVehicle ? Visibility.Visible : Visibility.Collapsed;
-                if (hasVehicle)
+                var hasIdentity = snapshot != null && (!string.IsNullOrEmpty(snapshot.VehicleInfo) ||
+                    !string.IsNullOrEmpty(snapshot.VIN) || !string.IsNullOrEmpty(snapshot.RONumber));
+                _vehicleBanner.Visibility = hasIdentity ? Visibility.Visible : Visibility.Collapsed;
+                if (hasIdentity)
                 {
                     var infoText = snapshot!.VehicleInfo ?? "";
                     if (!string.IsNullOrEmpty(snapshot.CustomerName))
                         infoText += (infoText.Length > 0 ? "  |  " : "") + snapshot.CustomerName;
                     _vehicleInfoText!.Text = infoText;
 
+                    // Build detail line: VIN + RO + Insurer
+                    var detailParts = new List<string>();
                     if (!string.IsNullOrEmpty(snapshot.VIN))
+                        detailParts.Add($"VIN: {snapshot.VIN}");
+                    if (!string.IsNullOrEmpty(snapshot.RONumber))
+                        detailParts.Add($"RO: {snapshot.RONumber}");
+                    if (!string.IsNullOrEmpty(snapshot.InsuranceCompany))
+                        detailParts.Add(snapshot.InsuranceCompany);
+
+                    if (detailParts.Count > 0)
                     {
-                        _vinText!.Text = $"VIN: {snapshot.VIN}";
+                        _vinText!.Text = string.Join("   |   ", detailParts);
                         _vinText.Visibility = Visibility.Visible;
                     }
                     else
@@ -2108,13 +2119,35 @@ namespace McStudDesktop.Views
                         contentPanel.Children.Add(BuildCoachingSuggestionCard(suggestion));
                 }
 
-                // Estimate operations for this section
+                // Estimate operations for this section (clickable to show suggestions from prior estimates)
                 if (hasEstOps)
                 {
+                    var vehicleInfo = snapshot?.VehicleInfo;
                     foreach (var op in sectionOps!)
                     {
+                        var opContainer = new StackPanel { Spacing = 0 };
                         var row = CreateAccumulatedOperationRow(op, confirmedTitles);
-                        contentPanel.Children.Add(row);
+                        opContainer.Children.Add(row);
+
+                        // Collapsible suggestion panel (hidden by default)
+                        var suggPanel = new StackPanel
+                        {
+                            Visibility = Visibility.Collapsed,
+                            Spacing = 2,
+                            Margin = new Thickness(8, 0, 0, 4),
+                            Padding = new Thickness(8, 6, 8, 6),
+                            Background = new SolidColorBrush(Color.FromArgb(255, 25, 35, 42))
+                        };
+                        opContainer.Children.Add(suggPanel);
+
+                        var capturedOp = op;
+                        var capturedPanel = suggPanel;
+                        row.PointerPressed += (s, e) =>
+                        {
+                            ToggleOpSuggestionPanel(capturedOp, capturedPanel, vehicleInfo);
+                        };
+
+                        contentPanel.Children.Add(opContainer);
                     }
                 }
 
@@ -2349,9 +2382,12 @@ namespace McStudDesktop.Views
                 if (!isPresent)
                     isPresent = allTexts.Any(d => MatchesMustHave(d, opNorm, opWords));
 
-                // If still not found in structured ops, try the accumulated raw OCR text
+                // If still not found in structured ops, try the accumulated raw OCR text.
+                // Use strict mode: the raw blob contains CCC section headers and UI text,
+                // so require ALL significant words to match to avoid false positives
+                // (e.g., "Steering Wheel Lock" matching "STEERING WHEEL 2021-25 W/LANE KEEP").
                 if (!isPresent && rawOcrNormalized.Length > 0)
-                    isPresent = MatchesMustHave(rawOcrNormalized, opNorm, opWords);
+                    isPresent = MatchesMustHave(rawOcrNormalized, opNorm, opWords, strictMode: true);
 
                 // Once detected, lock it for the rest of this session (until VIN/app changes)
                 if (isPresent)
@@ -2379,8 +2415,8 @@ namespace McStudDesktop.Views
         /// <summary>
         /// Matching logic — delegates to shared GhostConfigService utility.
         /// </summary>
-        private static bool MatchesMustHave(string detectedNorm, string mustHaveNorm, string[] mustHaveWords)
-            => GhostConfigService.MatchesMustHave(detectedNorm, mustHaveNorm, mustHaveWords);
+        private static bool MatchesMustHave(string detectedNorm, string mustHaveNorm, string[] mustHaveWords, bool strictMode = false)
+            => GhostConfigService.MatchesMustHave(detectedNorm, mustHaveNorm, mustHaveWords, strictMode);
 
         private Border CreateAccumulatedOperationRow(ParsedEstimateLine op, HashSet<string> confirmedTitles)
         {
@@ -2489,6 +2525,293 @@ namespace McStudDesktop.Views
 
             border.Child = grid;
             return border;
+        }
+
+        /// <summary>
+        /// Toggle the inline suggestion panel for a clicked accumulated operation.
+        /// Queries SmartSuggestionService + co-occurrence data from prior estimates.
+        /// </summary>
+        private void ToggleOpSuggestionPanel(ParsedEstimateLine op, StackPanel panel, string? vehicleInfo)
+        {
+            // If this panel is already open, just collapse it
+            if (panel.Visibility == Visibility.Visible)
+            {
+                panel.Visibility = Visibility.Collapsed;
+                if (_activeSuggestionPanel == panel) _activeSuggestionPanel = null;
+                return;
+            }
+
+            // Collapse any previously open panel
+            if (_activeSuggestionPanel != null && _activeSuggestionPanel != panel)
+                _activeSuggestionPanel.Visibility = Visibility.Collapsed;
+
+            _activeSuggestionPanel = panel;
+            panel.Children.Clear();
+
+            try
+            {
+                var partName = op.PartName ?? op.Description ?? "";
+                var opType = op.OperationType ?? "";
+
+                // Query learned suggestions
+                var suggestions = SmartSuggestionService.Instance.GetSuggestionsForPart(partName, opType, vehicleInfo);
+
+                // Also query co-occurring operations
+                var coOccurrences = EstimateLearningService.Instance.GetRelatedOperations(partName, opType, maxResults: 8);
+
+                var hasAnything = suggestions.HasData || coOccurrences.Count > 0;
+
+                if (!hasAnything)
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = "No prior estimate data for this operation yet.",
+                        FontSize = 10,
+                        FontStyle = Windows.UI.Text.FontStyle.Italic,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 140))
+                    });
+                    panel.Visibility = Visibility.Visible;
+                    return;
+                }
+
+                // Header
+                var headerRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var headerText = new TextBlock
+                {
+                    Text = "SUGGESTED FROM PRIOR ESTIMATES",
+                    FontSize = 10,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 180)),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(headerText, 0);
+                headerRow.Children.Add(headerText);
+
+                if (suggestions.MatchCount > 0)
+                {
+                    var matchInfo = new TextBlock
+                    {
+                        Text = $"based on {suggestions.MatchCount} estimates",
+                        FontSize = 9,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 120)),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    Grid.SetColumn(matchInfo, 1);
+                    headerRow.Children.Add(matchInfo);
+                }
+                panel.Children.Add(headerRow);
+
+                // Manual operations (additional ops commonly seen with this part)
+                if (suggestions.ManualOperations.Count > 0)
+                {
+                    foreach (var sugOp in suggestions.ManualOperations.Take(8))
+                    {
+                        panel.Children.Add(BuildSuggestionRow(sugOp, suggestions.MatchCount));
+                    }
+                }
+
+                // Category-pooled suggestions (from similar parts)
+                if (suggestions.CategoryOperations.Count > 0)
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = suggestions.CategoryDescription,
+                        FontSize = 9,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 120)),
+                        Margin = new Thickness(0, 4, 0, 1)
+                    });
+                    foreach (var catOp in suggestions.CategoryOperations.Take(5))
+                    {
+                        panel.Children.Add(BuildSuggestionRow(catOp, suggestions.MatchCount));
+                    }
+                }
+
+                // Co-occurring operations (other parts/ops commonly on the same estimate)
+                var filteredCoOcc = coOccurrences
+                    .Where(c => c.CoOccurrenceRate >= 0.3) // only show if seen ≥30% of the time
+                    .ToList();
+                if (filteredCoOcc.Count > 0)
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = "COMMONLY PAIRED OPERATIONS",
+                        FontSize = 9,
+                        FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 160, 100)),
+                        Margin = new Thickness(0, 6, 0, 2)
+                    });
+
+                    foreach (var coOp in filteredCoOcc)
+                    {
+                        var coRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(4, 1, 0, 1) };
+                        coRow.Children.Add(new TextBlock
+                        {
+                            Text = "\u2022",
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 160, 100)),
+                            VerticalAlignment = VerticalAlignment.Center
+                        });
+
+                        var coDesc = $"{coOp.OperationType} {coOp.PartName}";
+                        coRow.Children.Add(new TextBlock
+                        {
+                            Text = coDesc,
+                            FontSize = 10,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 195, 170)),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            TextTrimming = TextTrimming.CharacterEllipsis
+                        });
+
+                        coRow.Children.Add(new TextBlock
+                        {
+                            Text = $"{coOp.CoOccurrenceRate:P0}",
+                            FontSize = 9,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 130, 90)),
+                            VerticalAlignment = VerticalAlignment.Center
+                        });
+
+                        if (coOp.AvgLaborHours > 0)
+                        {
+                            coRow.Children.Add(new TextBlock
+                            {
+                                Text = $"{coOp.AvgLaborHours:N1}h",
+                                FontSize = 9,
+                                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 130)),
+                                VerticalAlignment = VerticalAlignment.Center
+                            });
+                        }
+
+                        panel.Children.Add(coRow);
+                    }
+                }
+
+                // Summary: potential value
+                if (suggestions.HasData)
+                {
+                    suggestions.CalculateTotals();
+                    var parts = new List<string>();
+                    if (suggestions.TotalLaborHours > 0) parts.Add($"{suggestions.TotalLaborHours:N1}h labor");
+                    if (suggestions.TotalRefinishHours > 0) parts.Add($"{suggestions.TotalRefinishHours:N1}h refinish");
+                    if (suggestions.EstimatedValue > 0) parts.Add($"${suggestions.EstimatedValue:N2}");
+
+                    if (parts.Count > 0)
+                    {
+                        panel.Children.Add(new TextBlock
+                        {
+                            Text = $"Potential: {string.Join(" + ", parts)}",
+                            FontSize = 9,
+                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 180)),
+                            Margin = new Thickness(0, 4, 0, 0)
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ScreenMonitor] Suggestion panel error: {ex.Message}");
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "Error loading suggestions.",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 100, 100))
+                });
+            }
+
+            panel.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>
+        /// Build a single row for a suggested operation (manual line / additional op).
+        /// </summary>
+        private static Border BuildSuggestionRow(SmartSuggestionOp sugOp, int matchCount)
+        {
+            var row = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 40, 48)),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(8, 3, 8, 3),
+                Margin = new Thickness(0, 1, 0, 1)
+            };
+
+            var rowGrid = new Grid();
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var leftStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            leftStack.Children.Add(new TextBlock
+            {
+                Text = "\u2022",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 180)),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            leftStack.Children.Add(new TextBlock
+            {
+                Text = sugOp.Description,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+
+            // Frequency badge
+            if (sugOp.TimesUsed > 0 && matchCount > 0)
+            {
+                leftStack.Children.Add(new TextBlock
+                {
+                    Text = $"{sugOp.TimesUsed}/{matchCount}",
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 160, 220)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            Grid.SetColumn(leftStack, 0);
+            rowGrid.Children.Add(leftStack);
+
+            // Right: hours / price
+            var rightStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            if (sugOp.LaborHours > 0)
+            {
+                rightStack.Children.Add(new TextBlock
+                {
+                    Text = $"{sugOp.LaborHours:N1}h",
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 130)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+            if (sugOp.RefinishHours > 0)
+            {
+                rightStack.Children.Add(new TextBlock
+                {
+                    Text = $"{sugOp.RefinishHours:N1}r",
+                    FontSize = 9,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 170, 140, 240)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+            if (sugOp.Price > 0)
+            {
+                rightStack.Children.Add(new TextBlock
+                {
+                    Text = $"${sugOp.Price:N2}",
+                    FontSize = 9,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 230, 190, 90)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            Grid.SetColumn(rightStack, 1);
+            rowGrid.Children.Add(rightStack);
+
+            row.Child = rowGrid;
+            return row;
         }
 
         private string NormalizePartName(string partName)

@@ -165,6 +165,18 @@ public class ShopStockInvoiceView : UserControl
         return "";
     }
 
+    public void AddPartToInvoice(StockPart part)
+    {
+        _formBuilder?.AddStockPartAsCharge(
+            part.Description ?? part.PartNumber ?? "Stock Part",
+            part.SellPrice,
+            part.CostPrice,
+            part.ListPrice,
+            part.PartNumber);
+
+        ShowNotification($"Added \"{part.Description}\" to invoice", InfoBarSeverity.Success);
+    }
+
     private void ShowNotification(string message, InfoBarSeverity severity)
     {
         if (_infoBar == null) return;

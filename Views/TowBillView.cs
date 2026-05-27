@@ -15,10 +15,7 @@ namespace McStudDesktop.Views;
 
 /// <summary>
 /// Tow Bill view with template-based customization.
-/// - Original templates are read-only
-/// - Users can "Make a Copy" to create editable versions
-/// - Edit mode allows changing labels, adding/removing fields
-/// - All templates can be filled out and exported to PDF
+/// Includes a mileage/rate/tax calculation panel below the template form.
 /// </summary>
 public class TowBillView : UserControl
 {
@@ -28,6 +25,15 @@ public class TowBillView : UserControl
     private TemplateFormBuilder? _formBuilder;
     private InfoBar? _infoBar;
 
+    // Calculation fields
+    private NumberBox? _milesBox;
+    private NumberBox? _ratePerMileBox;
+    private NumberBox? _taxPercentBox;
+    private TextBlock? _mileageTotalText;
+    private TextBlock? _subtotalText;
+    private TextBlock? _taxText;
+    private TextBlock? _totalText;
+
     public TowBillView()
     {
         BuildUI();
@@ -35,13 +41,16 @@ public class TowBillView : UserControl
 
     private void BuildUI()
     {
+        var settings = _towBillService.GetSettings();
+
         var mainGrid = new Grid
         {
             Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
             RowDefinitions =
             {
                 new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }, // Form
-                new RowDefinition { Height = GridLength.Auto } // Footer buttons
+                new RowDefinition { Height = GridLength.Auto }, // Calculation panel
+                new RowDefinition { Height = GridLength.Auto }  // Footer totals
             }
         };
 
@@ -51,7 +60,136 @@ public class TowBillView : UserControl
         Grid.SetRow(_formBuilder, 0);
         mainGrid.Children.Add(_formBuilder);
 
-        // Footer — totals only (action buttons are in TemplateFormBuilder header)
+        // Calculation panel — Miles, $/mile, Tax %
+        var calcBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+            Padding = new Thickness(16, 12, 16, 12),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+            BorderThickness = new Thickness(0, 1, 0, 0)
+        };
+
+        var calcGrid = new Grid
+        {
+            ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = GridLength.Auto },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+            }
+        };
+
+        // Left side: input fields
+        var inputPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 16,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        // Miles
+        inputPanel.Children.Add(new TextBlock
+        {
+            Text = "Miles",
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _milesBox = new NumberBox
+        {
+            Value = 0,
+            Minimum = 0,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            Width = 100,
+            SmallChange = 1,
+            LargeChange = 10
+        };
+        _milesBox.ValueChanged += (s, e) => RecalculateTotals();
+        inputPanel.Children.Add(_milesBox);
+
+        // $/mile
+        inputPanel.Children.Add(new TextBlock
+        {
+            Text = "$ / mile",
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _ratePerMileBox = new NumberBox
+        {
+            Value = (double)settings.DefaultMileageRate,
+            Minimum = 0,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            Width = 100,
+            SmallChange = 0.25,
+            LargeChange = 1
+        };
+        _ratePerMileBox.ValueChanged += (s, e) =>
+        {
+            RecalculateTotals();
+            SaveRateSettings();
+        };
+        inputPanel.Children.Add(_ratePerMileBox);
+
+        // = mileage total
+        inputPanel.Children.Add(new TextBlock
+        {
+            Text = "=",
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _mileageTotalText = new TextBlock
+        {
+            Text = "$0.00",
+            FontSize = 14,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Colors.White),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        inputPanel.Children.Add(_mileageTotalText);
+
+        // Separator
+        inputPanel.Children.Add(new Border
+        {
+            Width = 1,
+            Height = 20,
+            Background = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
+            Margin = new Thickness(4, 0, 4, 0)
+        });
+
+        // Tax %
+        inputPanel.Children.Add(new TextBlock
+        {
+            Text = "Tax %",
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        _taxPercentBox = new NumberBox
+        {
+            Value = (double)settings.TaxRate,
+            Minimum = 0,
+            Maximum = 100,
+            SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact,
+            Width = 90,
+            SmallChange = 0.25,
+            LargeChange = 1
+        };
+        _taxPercentBox.ValueChanged += (s, e) =>
+        {
+            RecalculateTotals();
+            SaveRateSettings();
+        };
+        inputPanel.Children.Add(_taxPercentBox);
+
+        Grid.SetColumn(inputPanel, 0);
+        calcGrid.Children.Add(inputPanel);
+
+        calcBorder.Child = calcGrid;
+        Grid.SetRow(calcBorder, 1);
+        mainGrid.Children.Add(calcBorder);
+
+        // Footer — totals
         var footer = new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
@@ -67,16 +205,25 @@ public class TowBillView : UserControl
             VerticalAlignment = VerticalAlignment.Center
         };
 
-        var subtotalText = new TextBlock
+        _subtotalText = new TextBlock
         {
             Text = "Subtotal: $0.00",
             FontSize = 14,
             Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
             VerticalAlignment = VerticalAlignment.Center
         };
-        totalsPanel.Children.Add(subtotalText);
+        totalsPanel.Children.Add(_subtotalText);
 
-        var totalText = new TextBlock
+        _taxText = new TextBlock
+        {
+            Text = "",
+            FontSize = 14,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        totalsPanel.Children.Add(_taxText);
+
+        _totalText = new TextBlock
         {
             Text = "Total: $0.00",
             FontSize = 18,
@@ -84,20 +231,13 @@ public class TowBillView : UserControl
             Foreground = new SolidColorBrush(Colors.White),
             VerticalAlignment = VerticalAlignment.Center
         };
-        totalsPanel.Children.Add(totalText);
+        totalsPanel.Children.Add(_totalText);
 
         // Live totals: update footer whenever charges change
-        _formBuilder.ChargeTotalsChanged += (s, e) =>
-        {
-            var (subtotal, tax, total) = _formBuilder.GetLiveTotals();
-            subtotalText.Text = $"Subtotal: {subtotal:C2}";
-            totalText.Text = tax > 0
-                ? $"Total: {(subtotal + tax):C2}  (tax: {tax:C2})"
-                : $"Total: {total:C2}";
-        };
+        _formBuilder.ChargeTotalsChanged += (s, e) => RecalculateTotals();
 
         footer.Child = totalsPanel;
-        Grid.SetRow(footer, 1);
+        Grid.SetRow(footer, 2);
         mainGrid.Children.Add(footer);
 
         // InfoBar for notifications
@@ -113,6 +253,42 @@ public class TowBillView : UserControl
         Content = mainGrid;
     }
 
+    private void RecalculateTotals()
+    {
+        if (_formBuilder == null || _milesBox == null || _ratePerMileBox == null ||
+            _taxPercentBox == null || _mileageTotalText == null ||
+            _subtotalText == null || _taxText == null || _totalText == null)
+            return;
+
+        var miles = double.IsNaN(_milesBox.Value) ? 0 : (decimal)_milesBox.Value;
+        var ratePerMile = double.IsNaN(_ratePerMileBox.Value) ? 0 : (decimal)_ratePerMileBox.Value;
+        var taxPercent = double.IsNaN(_taxPercentBox.Value) ? 0 : (decimal)_taxPercentBox.Value;
+
+        var mileageTotal = miles * ratePerMile;
+        _mileageTotalText.Text = $"{mileageTotal:C2}";
+
+        // Equipment subtotal from template charges (subtotal only, ignore template tax)
+        var (equipmentSubtotal, _, _) = _formBuilder.GetLiveTotals();
+
+        var subtotal = equipmentSubtotal + mileageTotal;
+        var tax = taxPercent > 0 ? subtotal * (taxPercent / 100) : 0;
+        var total = subtotal + tax;
+
+        _subtotalText.Text = $"Subtotal: {subtotal:C2}";
+        _taxText.Text = tax > 0 ? $"Tax: {tax:C2}" : "";
+        _totalText.Text = $"Total: {total:C2}";
+    }
+
+    private void SaveRateSettings()
+    {
+        if (_ratePerMileBox == null || _taxPercentBox == null) return;
+
+        var settings = _towBillService.GetSettings();
+        settings.DefaultMileageRate = double.IsNaN(_ratePerMileBox.Value) ? 0 : (decimal)_ratePerMileBox.Value;
+        settings.TaxRate = double.IsNaN(_taxPercentBox.Value) ? 0 : (decimal)_taxPercentBox.Value;
+        _towBillService.SaveSettings(settings);
+    }
+
     private void OnExportRequested(object? sender, Dictionary<string, object> data)
     {
         if (_formBuilder?.CurrentTemplate == null)
@@ -123,30 +299,23 @@ public class TowBillView : UserControl
 
         try
         {
+            var miles = _milesBox != null && !double.IsNaN(_milesBox.Value) ? (decimal)_milesBox.Value : 0;
+            var ratePerMile = _ratePerMileBox != null && !double.IsNaN(_ratePerMileBox.Value) ? (decimal)_ratePerMileBox.Value : 0;
+            var taxPercent = _taxPercentBox != null && !double.IsNaN(_taxPercentBox.Value) ? (decimal)_taxPercentBox.Value : 0;
 
-            // Build TowBillData from form data
             var billData = new TowBillData
             {
-                InvoiceNumber = GetStringValue(data, "invoiceNumber"),
-                TowDate = data.ContainsKey("towDate") && data["towDate"] is DateTime dt ? dt : DateTime.Today,
-                VehicleYMM = GetStringValue(data, "vehicleYMM"),
-                VehicleColor = GetStringValue(data, "vehicleColor"),
-                VehicleVin = GetStringValue(data, "vehicleVin"),
-                LicensePlate = GetStringValue(data, "licensePlate"),
+                ShopName = GetStringValue(data, "shopName"),
                 RoNumber = GetStringValue(data, "roNumber"),
-                CustomerName = GetStringValue(data, "customerName"),
-                CustomerAddress = GetStringValue(data, "customerAddress"),
-                CustomerCityStateZip = GetStringValue(data, "customerCityStateZip"),
-                CustomerPhone = GetStringValue(data, "customerPhone"),
-                InsuranceCompany = GetStringValue(data, "insuranceCompany"),
-                ClaimNumber = GetStringValue(data, "claimNumber"),
-                PickupLocation = GetStringValue(data, "pickupLocation"),
-                DeliveryLocation = GetStringValue(data, "deliveryLocation"),
-                TowMileage = data.ContainsKey("mileage") ? Convert.ToInt32(data["mileage"]) : 0,
-                Notes = GetStringValue(data, "notes")
+                VehicleYMM = GetStringValue(data, "vehicleYMM"),
+                TowDate = data.ContainsKey("towDate") && data["towDate"] is DateTime dt ? dt : DateTime.Today,
+                Notes = GetStringValue(data, "notes"),
+                Miles = miles,
+                RatePerMile = ratePerMile,
+                TaxPercent = taxPercent
             };
 
-            // Add charges from template (supports new ChargeExportItem format)
+            // Add charges from template (only checked equipment)
             if (data.ContainsKey("charges") && data["charges"] is List<ChargeExportItem> charges)
             {
                 foreach (var charge in charges)
@@ -159,21 +328,15 @@ public class TowBillView : UserControl
                 }
             }
 
-            // Tax
-            if (data.ContainsKey("tax"))
-            {
-                billData.TaxAmount = Convert.ToDecimal(data["tax"]);
-            }
-
             // Generate PDF
             var pdfPath = _towBillService.GeneratePdf(billData);
 
             // Track usage
-            var total = data.ContainsKey("total") ? Convert.ToDecimal(data["total"]) : 0;
+            var total = billData.ComputedTotal;
             DocumentUsageTrackingService.Instance.RecordTowBill(
-                billData.InvoiceNumber,
+                billData.RoNumber,
                 total,
-                billData.CustomerName
+                billData.ShopName
             );
             DocumentUsageTrackingService.Instance.RecordPdfExport("TowBill", Path.GetFileName(pdfPath), 1);
 
@@ -188,7 +351,8 @@ public class TowBillView : UserControl
         }
         catch (Exception ex)
         {
-            ShowNotification($"Export failed: {ex.Message}", InfoBarSeverity.Error);
+            System.Diagnostics.Debug.WriteLine($"[TowBill] Export error: {ex}");
+            ShowNotification($"Export failed: {ex.GetType().Name}: {ex.Message}", InfoBarSeverity.Error);
         }
     }
 

@@ -41,6 +41,8 @@ namespace McstudDesktop.Models
         public string? VehicleInfo { get; set; }
         public string? CustomerName { get; set; }
         public string? VIN { get; set; }
+        public string? RONumber { get; set; }
+        public string? InsuranceCompany { get; set; }
         public FocusedPartContext? FocusedPart { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }

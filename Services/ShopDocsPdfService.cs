@@ -764,6 +764,172 @@ public class ShopDocsPdfService
 
     #endregion
 
+    #region Vendor List PDF
+
+    public string GenerateVendorListPdf(List<DealerLaborRate> vendors, string? outputPath = null)
+    {
+        outputPath ??= GetDefaultOutputPath("VendorList");
+
+        Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.Letter);
+                page.Margin(0.5f, Unit.Inch);
+                page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
+
+                page.Header().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                {
+                    row.RelativeItem().Text("VENDOR INFORMATION")
+                        .FontSize(16).Bold().FontColor(Colors.White);
+                    row.ConstantItem(200).AlignRight().Column(col =>
+                    {
+                        col.Item().Text($"Vendors: {vendors.Count}")
+                            .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                        col.Item().Text($"Date: {DateTime.Now:MM/dd/yyyy}")
+                            .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                    });
+                });
+
+                page.Content().PaddingTop(8).Column(column =>
+                {
+                    column.Spacing(12);
+
+                    foreach (var vendor in vendors)
+                    {
+                        column.Item().Element(c => ComposeVendorBlock(c, vendor));
+                    }
+                });
+
+                page.Footer().Element(c => ComposeFooter(c, "Vendor List"));
+            });
+        }).GeneratePdf(outputPath);
+
+        return outputPath;
+    }
+
+    private static string VendorTypeLabel(VendorType vt) => vt switch
+    {
+        VendorType.Dealer => "Dealer",
+        VendorType.TowCompany => "Tow Company",
+        VendorType.GlassShop => "Glass Shop",
+        VendorType.AlignmentShop => "Alignment Shop",
+        VendorType.MechanicalShop => "Mechanical Shop",
+        VendorType.SubletOther => "Sublet / Other",
+        _ => vt.ToString()
+    };
+
+    private void ComposeVendorBlock(IContainer container, DealerLaborRate vendor)
+    {
+        container.Border(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(column =>
+        {
+            column.Spacing(4);
+
+            // Name + type + manufacturer
+            column.Item().Row(row =>
+            {
+                row.AutoItem().Text(vendor.DealerName ?? "Unknown").Bold().FontSize(12);
+                row.AutoItem().PaddingLeft(8).Text($"[{VendorTypeLabel(vendor.VendorType)}]")
+                    .FontSize(9).FontColor(Colors.Blue.Darken2);
+                if (!string.IsNullOrEmpty(vendor.Manufacturer))
+                    row.AutoItem().PaddingLeft(8).Text(vendor.Manufacturer)
+                        .FontSize(9).FontColor(Colors.Grey.Darken1);
+            });
+
+            // Address
+            var addrParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(vendor.Address)) addrParts.Add(vendor.Address);
+            var csz = new List<string>();
+            if (!string.IsNullOrWhiteSpace(vendor.City)) csz.Add(vendor.City);
+            if (!string.IsNullOrWhiteSpace(vendor.State)) csz.Add(vendor.State);
+            if (csz.Count > 0) addrParts.Add(string.Join(", ", csz));
+            if (!string.IsNullOrWhiteSpace(vendor.Zip)) addrParts.Add(vendor.Zip);
+            if (addrParts.Count > 0)
+                column.Item().Text(string.Join(", ", addrParts)).FontSize(9).FontColor(Colors.Grey.Darken1);
+
+            // Phones + Emails
+            if (vendor.PhoneNumbers.Count > 0)
+                column.Item().Text($"Phone: {string.Join(", ", vendor.PhoneNumbers)}").FontSize(9);
+            if (vendor.Emails.Count > 0)
+                column.Item().Text($"Email: {string.Join(", ", vendor.Emails)}").FontSize(9);
+
+            // Contacts
+            foreach (var c in vendor.Contacts)
+            {
+                var contactLine = c.Name ?? "";
+                if (!string.IsNullOrEmpty(c.Role)) contactLine += $" ({c.Role})";
+                if (c.PhoneNumbers.Count > 0) contactLine += $" - {c.PhoneNumbers[0]}";
+                if (c.Emails.Count > 0) contactLine += $" - {c.Emails[0]}";
+                column.Item().Text(contactLine).FontSize(8).FontColor(Colors.Grey.Darken2);
+            }
+
+            // Rate templates table
+            if (vendor.RateTemplates.Count > 0)
+            {
+                column.Item().PaddingTop(4).Table(table =>
+                {
+                    table.ColumnsDefinition(cols =>
+                    {
+                        cols.RelativeColumn(2);   // Template name
+                        cols.ConstantColumn(55);   // Body
+                        cols.ConstantColumn(55);   // Mech
+                        cols.ConstantColumn(55);   // Paint
+                        cols.ConstantColumn(55);   // Frame
+                        cols.ConstantColumn(55);   // Glass
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Background(Colors.Grey.Darken2).Padding(3).Text("Rate Template").FontSize(8).Bold().FontColor(Colors.White);
+                        header.Cell().Background(Colors.Grey.Darken2).Padding(3).AlignRight().Text("Body").FontSize(8).Bold().FontColor(Colors.White);
+                        header.Cell().Background(Colors.Grey.Darken2).Padding(3).AlignRight().Text("Mech").FontSize(8).Bold().FontColor(Colors.White);
+                        header.Cell().Background(Colors.Grey.Darken2).Padding(3).AlignRight().Text("Paint").FontSize(8).Bold().FontColor(Colors.White);
+                        header.Cell().Background(Colors.Grey.Darken2).Padding(3).AlignRight().Text("Frame").FontSize(8).Bold().FontColor(Colors.White);
+                        header.Cell().Background(Colors.Grey.Darken2).Padding(3).AlignRight().Text("Glass").FontSize(8).Bold().FontColor(Colors.White);
+                    });
+
+                    var alt = false;
+                    foreach (var tmpl in vendor.RateTemplates)
+                    {
+                        var bg = alt ? Colors.Grey.Lighten4 : Colors.White;
+                        table.Cell().Background(bg).Padding(2).Text(tmpl.Name).FontSize(8);
+                        table.Cell().Background(bg).Padding(2).AlignRight().Text(tmpl.BodyLaborRate > 0 ? $"${tmpl.BodyLaborRate:N2}" : "-").FontSize(8);
+                        table.Cell().Background(bg).Padding(2).AlignRight().Text(tmpl.MechLaborRate > 0 ? $"${tmpl.MechLaborRate:N2}" : "-").FontSize(8);
+                        table.Cell().Background(bg).Padding(2).AlignRight().Text(tmpl.PaintLaborRate > 0 ? $"${tmpl.PaintLaborRate:N2}" : "-").FontSize(8);
+                        table.Cell().Background(bg).Padding(2).AlignRight().Text(tmpl.FrameLaborRate > 0 ? $"${tmpl.FrameLaborRate:N2}" : "-").FontSize(8);
+                        table.Cell().Background(bg).Padding(2).AlignRight().Text(tmpl.GlassLaborRate > 0 ? $"${tmpl.GlassLaborRate:N2}" : "-").FontSize(8);
+                        alt = !alt;
+                    }
+                });
+            }
+
+            // Parts / Delivery / Returns
+            var infoItems = new List<string>();
+            if (vendor.PartsDiscountPercent > 0) infoItems.Add($"Parts Discount: {vendor.PartsDiscountPercent}%");
+            if (vendor.Delivery.DeliversParts)
+            {
+                var delParts = new List<string> { "Delivers" };
+                if (!string.IsNullOrEmpty(vendor.Delivery.DeliveryTime)) delParts.Add(vendor.Delivery.DeliveryTime);
+                if (vendor.Delivery.RunsPerDay > 0) delParts.Add($"{vendor.Delivery.RunsPerDay}x/day");
+                infoItems.Add(string.Join(", ", delParts));
+            }
+            if (vendor.Returns.AcceptsReturns)
+            {
+                var retNote = "Accepts Returns";
+                if (!string.IsNullOrEmpty(vendor.Returns.ReturnsNote)) retNote += $" ({vendor.Returns.ReturnsNote})";
+                infoItems.Add(retNote);
+            }
+            if (infoItems.Count > 0)
+                column.Item().PaddingTop(2).Text(string.Join("  |  ", infoItems)).FontSize(8).FontColor(Colors.Grey.Darken2);
+
+            // Notes
+            if (!string.IsNullOrEmpty(vendor.Notes))
+                column.Item().Text($"Notes: {vendor.Notes}").FontSize(8).FontColor(Colors.Grey.Darken1).Italic();
+        });
+    }
+
+    #endregion
+
     private string GetDefaultOutputPath(string prefix)
     {
         var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);

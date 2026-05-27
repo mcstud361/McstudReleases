@@ -154,84 +154,30 @@ public class ShopDocTemplateService
 
     private void CreateDefaultTowBillTemplate()
     {
+        // Pre-fill shop name from settings if available
+        var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+
         var template = new ShopDocTemplate
         {
             Id = "tow-bill-standard",
             DocType = ShopDocType.TowBill,
             Name = "Standard Tow Bill",
-            Description = "Standard tow bill with vehicle info, customer details, and itemized charges",
-            Version = "1.0",
+            Description = "Simple tow bill with vehicle, notes, and equipment charges",
+            Version = "2.0",
             IsOriginal = true,
             IsReadOnly = true,
             Sections = new List<TemplateSection>
             {
                 new TemplateSection
                 {
-                    Id = "header",
-                    Title = "Invoice Details",
+                    Id = "info",
+                    Title = "Tow Bill Info",
                     Fields = new List<TemplateField>
                     {
-                        new TemplateField { Id = "invoiceNumber", Label = "Invoice #", FieldType = FieldType.Text, IsRequired = true },
-                        new TemplateField { Id = "towDate", Label = "Tow Date", FieldType = FieldType.Date, IsRequired = true, DefaultValue = "TODAY" }
-                    }
-                },
-                new TemplateSection
-                {
-                    Id = "vehicle",
-                    Title = "Vehicle Information",
-                    Icon = "\uE804",
-                    Fields = new List<TemplateField>
-                    {
-                        new TemplateField { Id = "vehicleYMM", Label = "Year / Make / Model", FieldType = FieldType.Text, IsRequired = true },
-                        new TemplateField { Id = "vehicleColor", Label = "Color", FieldType = FieldType.Text },
-                        new TemplateField { Id = "vehicleVin", Label = "VIN", FieldType = FieldType.Text },
-                        new TemplateField { Id = "licensePlate", Label = "License Plate", FieldType = FieldType.Text },
-                        new TemplateField { Id = "roNumber", Label = "RO Number", FieldType = FieldType.Text }
-                    }
-                },
-                new TemplateSection
-                {
-                    Id = "customer",
-                    Title = "Customer Information",
-                    Icon = "\uE77B",
-                    Fields = new List<TemplateField>
-                    {
-                        new TemplateField { Id = "customerName", Label = "Customer Name", FieldType = FieldType.Text, IsRequired = true },
-                        new TemplateField { Id = "customerAddress", Label = "Address", FieldType = FieldType.Text },
-                        new TemplateField { Id = "customerCityStateZip", Label = "City, State ZIP", FieldType = FieldType.Text },
-                        new TemplateField { Id = "customerPhone", Label = "Phone", FieldType = FieldType.Phone },
-                        new TemplateField { Id = "insuranceCompany", Label = "Insurance Company", FieldType = FieldType.Text },
-                        new TemplateField { Id = "claimNumber", Label = "Claim #", FieldType = FieldType.Text }
-                    }
-                },
-                new TemplateSection
-                {
-                    Id = "tow",
-                    Title = "Tow Information",
-                    Icon = "\uE7F4",
-                    Fields = new List<TemplateField>
-                    {
-                        new TemplateField { Id = "pickupLocation", Label = "Pickup Location", FieldType = FieldType.Text, IsRequired = true },
-                        new TemplateField { Id = "deliveryLocation", Label = "Delivery Location", FieldType = FieldType.Text, IsRequired = true },
-                        new TemplateField { Id = "mileage", Label = "Mileage", FieldType = FieldType.Number }
-                    }
-                },
-                new TemplateSection
-                {
-                    Id = "charges",
-                    Title = "Charges",
-                    Icon = "\uE8C7",
-                    IsChargeSection = true,
-                    ChargeItems = new List<TemplateChargeItem>
-                    {
-                        new TemplateChargeItem { Id = "towCharge", Name = "Tow Charge", DefaultAmount = 150.00m, IsEnabled = true },
-                        new TemplateChargeItem { Id = "hookup", Name = "Hookup Fee", DefaultAmount = 75.00m, IsEnabled = true },
-                        new TemplateChargeItem { Id = "mileage", Name = "Mileage", DefaultAmount = 4.50m, IsPerMile = true, IsEnabled = true },
-                        new TemplateChargeItem { Id = "storage", Name = "Storage (per day)", DefaultAmount = 45.00m, IsPerDay = true, IsEnabled = true },
-                        new TemplateChargeItem { Id = "afterHours", Name = "After Hours Fee", DefaultAmount = 100.00m, IsEnabled = false },
-                        new TemplateChargeItem { Id = "adminFee", Name = "Administrative Fee", DefaultAmount = 50.00m, IsEnabled = true },
-                        new TemplateChargeItem { Id = "winch", Name = "Winch Service", DefaultAmount = 75.00m, IsEnabled = false },
-                        new TemplateChargeItem { Id = "cleanup", Name = "Debris Cleanup", DefaultAmount = 50.00m, IsEnabled = false }
+                        new TemplateField { Id = "shopName", Label = "Shop Name", FieldType = FieldType.Text, DefaultValue = string.IsNullOrEmpty(shopName) ? "" : shopName },
+                        new TemplateField { Id = "roNumber", Label = "RO #", FieldType = FieldType.Text },
+                        new TemplateField { Id = "vehicleYMM", Label = "Vehicle", FieldType = FieldType.Text, Placeholder = "Year Make Model" },
+                        new TemplateField { Id = "towDate", Label = "Date", FieldType = FieldType.Date, IsRequired = true, DefaultValue = "TODAY" }
                     }
                 },
                 new TemplateSection
@@ -241,15 +187,32 @@ public class ShopDocTemplateService
                     Icon = "\uE70B",
                     Fields = new List<TemplateField>
                     {
-                        new TemplateField { Id = "notes", Label = "Additional Notes", FieldType = FieldType.MultilineText }
+                        new TemplateField { Id = "notes", Label = "Notes", FieldType = FieldType.MultilineText, Placeholder = "Tow from shop to dealer, tow to shop, etc." }
+                    }
+                },
+                new TemplateSection
+                {
+                    Id = "charges",
+                    Title = "Additional Equipment",
+                    Icon = "\uE8C7",
+                    IsChargeSection = true,
+                    ChargeItems = new List<TemplateChargeItem>
+                    {
+                        new TemplateChargeItem { Id = "dollies", Name = "Dollies", DefaultAmount = 75.00m, IsEnabled = false },
+                        new TemplateChargeItem { Id = "winch", Name = "Winch", DefaultAmount = 100.00m, IsEnabled = false },
+                        new TemplateChargeItem { Id = "strapsChains", Name = "Straps / Chains", DefaultAmount = 25.00m, IsEnabled = false },
+                        new TemplateChargeItem { Id = "flatbed", Name = "Flatbed", DefaultAmount = 200.00m, IsEnabled = false },
+                        new TemplateChargeItem { Id = "goJack", Name = "Go-Jack", DefaultAmount = 50.00m, IsEnabled = false },
+                        new TemplateChargeItem { Id = "afterHours", Name = "After Hours", DefaultAmount = 100.00m, IsEnabled = false },
+                        new TemplateChargeItem { Id = "fuelSurcharge", Name = "Fuel Surcharge", DefaultAmount = 25.00m, IsEnabled = false },
+                        new TemplateChargeItem { Id = "lockout", Name = "Lock-out Service", DefaultAmount = 75.00m, IsEnabled = false }
                     }
                 }
             },
             Settings = new TemplateSettings
             {
                 IncludeTax = true,
-                TaxRate = 6.0m,
-                PaymentTerms = "Due upon receipt"
+                TaxRate = 0
             }
         };
 

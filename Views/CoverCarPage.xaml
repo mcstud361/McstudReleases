@@ -32,6 +32,57 @@
                         <TextBlock Text="Cover Car Operations" FontSize="16" FontWeight="Bold" Foreground="White"/>
                     </Border>
 
+                    <!-- Document Header Fields -->
+                    <Border Background="#2d2d2d" CornerRadius="4" Padding="12,8">
+                        <Grid RowSpacing="8" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header Title -->
+                            <StackPanel Grid.Column="0" Grid.Row="0" Spacing="4">
+                                <TextBlock Text="Header" Foreground="#8c8c8c" FontSize="11"/>
+                                <TextBox x:Name="HeaderTitleBox" PlaceholderText="Shop or document title" TextChanged="OnHeaderFieldChanged"/>
+                            </StackPanel>
+
+                            <!-- Sub Header -->
+                            <StackPanel Grid.Column="1" Grid.Row="0" Spacing="4">
+                                <TextBlock Text="Sub Header" Foreground="#8c8c8c" FontSize="11"/>
+                                <TextBox x:Name="SubHeaderBox" PlaceholderText="Subtitle or description" TextChanged="OnHeaderFieldChanged"/>
+                            </StackPanel>
+
+                            <!-- Date -->
+                            <StackPanel Grid.Column="0" Grid.Row="1" Spacing="4">
+                                <TextBlock Text="Date" Foreground="#8c8c8c" FontSize="11"/>
+                                <CalendarDatePicker x:Name="DocDatePicker" Date="{x:Null}" PlaceholderText="Select date" MinWidth="150" DateChanged="OnDateChanged"/>
+                            </StackPanel>
+
+                            <!-- RO # -->
+                            <StackPanel Grid.Column="1" Grid.Row="1" Spacing="4">
+                                <TextBlock Text="RO #" Foreground="#8c8c8c" FontSize="11"/>
+                                <TextBox x:Name="RoNumberBox" PlaceholderText="Repair order number" TextChanged="OnHeaderFieldChanged"/>
+                            </StackPanel>
+
+                            <!-- Vehicle -->
+                            <StackPanel Grid.Column="0" Grid.Row="2" Spacing="4">
+                                <TextBlock Text="Vehicle" Foreground="#8c8c8c" FontSize="11"/>
+                                <TextBox x:Name="VehicleBox" PlaceholderText="Year / Make / Model" TextChanged="OnHeaderFieldChanged"/>
+                            </StackPanel>
+
+                            <!-- Customer Name -->
+                            <StackPanel Grid.Column="1" Grid.Row="2" Spacing="4">
+                                <TextBlock Text="Customer" Foreground="#8c8c8c" FontSize="11"/>
+                                <TextBox x:Name="CustomerNameBox" PlaceholderText="Customer name" TextChanged="OnHeaderFieldChanged"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
                     <!-- Input Grid matching Excel layout -->
                     <Border Background="#2d2d2d" CornerRadius="4" Padding="8">
                         <Grid>

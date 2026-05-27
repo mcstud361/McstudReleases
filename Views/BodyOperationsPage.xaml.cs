@@ -117,6 +117,13 @@ namespace McStudDesktop.Views
                 return;
             }
 
+            // CCC Web: use CccWebInsertService
+            if (e.Target == ExportPanel.ExportTarget.CCCWeb)
+            {
+                await TypeItCccWebAsync(_operations);
+                return;
+            }
+
             // Simple AutoHotkey-style paste
             using var pasteService = new AutoHotkeyPasteService();
             pasteService.StatusChanged += (s, status) =>
@@ -592,6 +599,53 @@ namespace McStudDesktop.Views
         {
             ExportPanel.LineCount = _operations.Count;
             ExportPanel.ResetStatus();
+        }
+
+        private async System.Threading.Tasks.Task TypeItCccWebAsync(List<Operation> operations)
+        {
+            var webOps = new List<VirtualClipboardOp>();
+            foreach (var op in operations)
+            {
+                string opType = op.OperationType switch
+                {
+                    OperationType.Replace => "Replace",
+                    OperationType.Repair => "Rpr",
+                    OperationType.Refinish => "Mat",
+                    _ => "Rpr"
+                };
+                if (op.Description.Contains("R&I") || op.Description.Contains("Weld Blankets") || op.Description.Contains("Electronics"))
+                    opType = "R&I";
+
+                webOps.Add(new VirtualClipboardOp
+                {
+                    OperationType = opType,
+                    Description = op.Description,
+                    Quantity = op.Quantity,
+                    Price = op.Price,
+                    LaborHours = op.LaborHours,
+                    RefinishHours = op.RefinishHours,
+                    Category = op.Category ?? ""
+                });
+            }
+
+            int count = webOps.Count;
+            var webService = CccWebInsertService.Instance;
+            webService.StatusChanged += (s, status) =>
+                ExportPanel.DispatcherQueue.TryEnqueue(() => ExportPanel.Status = status);
+            webService.ProgressChanged += (s, p) =>
+                ExportPanel.DispatcherQueue.TryEnqueue(() => ExportPanel.SetTyping(p.Current, p.Total));
+            webService.InsertCompleted += (s, success) =>
+                ExportPanel.DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (success) ExportPanel.SetComplete(count);
+                    else ExportPanel.SetError("CCC Web insert failed");
+                });
+
+            webService.SetSpeedLevel(ExportPanel.SelectedSpeedLevel);
+            ExportPanel.SetTyping(0, count);
+            var cccSvc = McstudDesktop.Services.CCCInsertService.Instance;
+            var (cx, cy, hp) = cccSvc.GetClickPosition();
+            await webService.InsertOperationsAsync(webOps, cccSvc.TargetWindow, cx, cy);
         }
     }
 }

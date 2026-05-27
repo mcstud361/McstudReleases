@@ -163,6 +163,17 @@ public class EstimateHistoryDatabase
     public string AddEstimate(ParsedEstimate parsed, string? insuranceCompany = null, string? roNumber = null, StoredEstimate? previousVersion = null)
     {
         var newId = Guid.NewGuid().ToString();
+
+        // Auto-version by RO number: if no previousVersion was explicitly passed
+        // (e.g. from a duplicate dialog), check if we already have an estimate with the same RO.
+        var effectiveRo = roNumber ?? ExtractRONumber(parsed.RawText);
+        if (previousVersion == null && !string.IsNullOrWhiteSpace(effectiveRo))
+        {
+            var existing = FindByRoNumber(effectiveRo);
+            if (existing != null)
+                previousVersion = existing;
+        }
+
         var groupId = previousVersion?.EstimateGroupId;
         if (string.IsNullOrEmpty(groupId)) groupId = previousVersion?.Id ?? newId;
         var version = previousVersion == null
@@ -236,22 +247,33 @@ public class EstimateHistoryDatabase
         // recompute from components so the display shows the real claim value.
         if (estimate.GrandTotal <= 0 || estimate.GrandTotal == estimate.PartsTotal)
         {
+            // Best path: use the parsed category totals (LaborTotal, PaintTotal) directly
+            // rather than reconstructing from hours × rates (which fails when rates aren't parsed).
             decimal computed = estimate.PartsTotal;
-            decimal bodyHrs = 0, refinishHrs = 0, mechHrs = 0;
-            foreach (var li in estimate.LineItems)
+            if (estimate.LaborTotal > 0 || estimate.PaintTotal > 0)
             {
-                bodyHrs += li.LaborHours;
-                refinishHrs += li.RefinishHours;
-                if (li.LaborType.IndexOf("mech", StringComparison.OrdinalIgnoreCase) >= 0)
-                    mechHrs += li.LaborHours;
+                computed += estimate.LaborTotal + estimate.PaintTotal;
+                computed += estimate.LineItems.Where(li => li.IsManualLine && li.Price > 0).Sum(li => li.Price);
             }
-            bodyHrs -= mechHrs;
-            if (bodyHrs < 0) bodyHrs = 0;
-            if (estimate.BodyHourlyRate > 0) computed += bodyHrs * estimate.BodyHourlyRate;
-            else if (estimate.LaborHourlyRate > 0) computed += bodyHrs * estimate.LaborHourlyRate;
-            if (estimate.RefinishHourlyRate > 0) computed += refinishHrs * estimate.RefinishHourlyRate;
-            if (estimate.MechanicalHourlyRate > 0) computed += mechHrs * estimate.MechanicalHourlyRate;
-            computed += estimate.LineItems.Where(li => li.IsManualLine && li.Price > 0).Sum(li => li.Price);
+            else
+            {
+                // Last resort: reconstruct from hours × rates
+                decimal bodyHrs = 0, refinishHrs = 0, mechHrs = 0;
+                foreach (var li in estimate.LineItems)
+                {
+                    bodyHrs += li.LaborHours;
+                    refinishHrs += li.RefinishHours;
+                    if (li.LaborType.IndexOf("mech", StringComparison.OrdinalIgnoreCase) >= 0)
+                        mechHrs += li.LaborHours;
+                }
+                bodyHrs -= mechHrs;
+                if (bodyHrs < 0) bodyHrs = 0;
+                if (estimate.BodyHourlyRate > 0) computed += bodyHrs * estimate.BodyHourlyRate;
+                else if (estimate.LaborHourlyRate > 0) computed += bodyHrs * estimate.LaborHourlyRate;
+                if (estimate.RefinishHourlyRate > 0) computed += refinishHrs * estimate.RefinishHourlyRate;
+                if (estimate.MechanicalHourlyRate > 0) computed += mechHrs * estimate.MechanicalHourlyRate;
+                computed += estimate.LineItems.Where(li => li.IsManualLine && li.Price > 0).Sum(li => li.Price);
+            }
             if (computed > estimate.GrandTotal)
             {
                 System.Diagnostics.Debug.WriteLine($"[EstimateHistory] GrandTotal corrected: ${estimate.GrandTotal:N2} → ${computed:N2}");
@@ -1207,6 +1229,35 @@ public class EstimateHistoryDatabase
             .Where(e => string.IsNullOrEmpty(e.OwnedBy) || e.OwnedBy == userId)
             .OrderByDescending(e => e.ImportedDate)
             .ToList();
+    }
+
+    /// <summary>
+    /// Update the notes field on an estimate.
+    /// </summary>
+    public bool UpdateEstimateNotes(string id, string? notes)
+    {
+        var est = _data.Estimates.FirstOrDefault(e => e.Id == id);
+        if (est == null) return false;
+        est.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        SaveDatabase();
+        return true;
+    }
+
+    /// <summary>
+    /// Find the latest estimate matching a given RO number for the current user.
+    /// Returns null if no match found.
+    /// </summary>
+    public StoredEstimate? FindByRoNumber(string roNumber)
+    {
+        if (string.IsNullOrWhiteSpace(roNumber)) return null;
+        var userId = GetCurrentUserId();
+        return _data.Estimates
+            .Where(e => (string.IsNullOrEmpty(e.OwnedBy) || e.OwnedBy == userId)
+                && !string.IsNullOrEmpty(e.RONumber)
+                && e.RONumber.Equals(roNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(e => e.Version)
+            .ThenByDescending(e => e.ImportedDate)
+            .FirstOrDefault();
     }
 
     /// <summary>

@@ -251,13 +251,13 @@ namespace McStudDesktop.Views
             var steps = new System.Collections.Generic.List<TourStep>
             {
                 new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Paste from MET, types into CCC hands-free. Hit \u2753 on any tab for tips.", TabIndex = 0 },
-                new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Your estimating assistant with four tools. Let's walk through each.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0) },
+                new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Your estimating assistant with three tools. Let's walk through each.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0) },
                 new TourStep { Target = _chatbotView?.ChatSubTabButton!, Icon = "\uE9CE", Title = "Chat \u2014 Ask", Description = "Ask questions in plain English, get answers from your knowledge base.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0), TryItPrompt = "Type a question and hit Send!", AchievementId = "first_question", AchievementTitle = "First Question" },
-                new TourStep { Target = _chatbotView?.LearnedSubTabButton!, Icon = "\uE7BE", Title = "Chat \u2014 Learned", Description = "What McStud has learned from your uploads. More uploads = smarter.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(1) },
-                new TourStep { Target = _chatbotView?.GhostSubTabButton!, Icon = "\uE8B7", Title = "Chat \u2014 Ghost", Description = "Shadow estimate from learned data. Scores against your history.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(2) },
-                new TourStep { Target = _chatbotView?.ScreenOcrSubTabButton!, Icon = "\uE7B3", Title = "Chat \u2014 Screen OCR", Description = "Reads CCC/Mitchell in real time via OCR \u2014 no copy-paste needed.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(3) },
+                new TourStep { Target = _chatbotView?.GhostSubTabButton!, Icon = "\uE8B7", Title = "Chat \u2014 Ghost", Description = "Shadow estimate from learned data. Scores against your history.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(1) },
+                new TourStep { Target = _chatbotView?.ScreenOcrSubTabButton!, Icon = "\uE7B3", Title = "Chat \u2014 Screen OCR", Description = "Reads CCC/Mitchell in real time via OCR \u2014 no copy-paste needed.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(2) },
                 new TourStep { Target = _guideTabButton!, Icon = "\uE7BC", Title = "Guide", Description = "Searchable MET guides, workflow tips, and tech efficiency tracking.", TabIndex = 2, TryItPrompt = "Try searching for a topic!", AchievementId = "quick_learner", AchievementTitle = "Quick Learner" },
-                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDFs for scoring, or teach McStud patterns from completed repairs.", TabIndex = 3, TryItPrompt = "Click between Scrubber and Learning!", AchievementId = "data_detective", AchievementTitle = "Data Detective" },
+                new TourStep { Target = _importTabButton!, Icon = "\uE8E5", Title = "Import", Description = "Upload PDFs for scoring, teach McStud patterns, and browse learned data.", TabIndex = 3, TryItPrompt = "Click between Scrubber, Learning, and Learned Data!", AchievementId = "data_detective", AchievementTitle = "Data Detective" },
+                new TourStep { Target = _estimateUploadView?.LearnedDataTabButton!, Icon = "\uE8F1", Title = "Import \u2014 Learned Data", Description = "What McStud has learned from your uploads. More uploads = smarter.", TabIndex = 3, OnShow = () => _estimateUploadView?.SelectLearnedDataAndLoadOperations(null) },
                 new TourStep { Target = _referenceTabButton!, Icon = "\uE8F1", Title = "Reference", Description = "Definitions, P-Pages, DEG, procedures, OEM statements \u2014 all searchable.", TabIndex = 4, TryItPrompt = "Click through the section tabs!", AchievementId = "reference_explorer", AchievementTitle = "Reference Explorer" },
                 new TourStep { Target = _settingsTabButton!, Icon = "\uE713", Title = "Settings", Description = "Shop name, learning mode, voice, and updates.", TabIndex = 5, TryItPrompt = "Enter your shop name!", AchievementId = "made_it_yours", AchievementTitle = "Made It Yours" },
                 new TourStep { Target = _shopDocsTabButton!, Icon = "\uE8A5", Title = "Shop Docs", Description = "Checklists, invoices, tow bills, PPF, and custom forms.", TabIndex = 6, TryItPrompt = "Open the document type dropdown!", AchievementId = "paperwork_pro", AchievementTitle = "Paperwork Pro" },
@@ -1350,6 +1350,12 @@ namespace McStudDesktop.Views
             _chatbotView = new ChatbotView();
             _chatbotView.OnNavigateToExport += (s, e) => SelectTab(0); // Navigate to Export tab
             _chatbotView.OnNavigateToReference += (s, e) => SelectTab(4); // Navigate to Reference tab
+            _chatbotView.OnNavigateToLearnedData += (s, ocrResult) =>
+            {
+                // Navigate to Import tab → Learned Data sub-tab with the OCR operations
+                SelectTab(3);
+                _estimateUploadView?.SelectLearnedDataAndLoadOperations(ocrResult.DetectedOperations);
+            };
             Grid.SetRow(_chatbotView, 1);
             chatContent.Children.Add(_chatbotView);
 
@@ -1437,6 +1443,13 @@ namespace McStudDesktop.Views
             // Estimate upload view takes remaining space
             _estimateUploadView = new EstimateUploadView();
             _estimateUploadView.OnNavigateToReference += (s, e) => SelectTab(4);
+            _estimateUploadView.OnNavigateToExport += (s, e) => SelectTab(0);
+            _estimateUploadView.OnOperationsGenerated += (s, ops) =>
+            {
+                // Navigate to Chat and show generated operations
+                SelectTab(1);
+                _chatbotView?.ShowGeneratedOperations(ops);
+            };
             Grid.SetRow(_estimateUploadView, 1);
             importContent.Children.Add(_estimateUploadView);
 
@@ -3192,7 +3205,102 @@ namespace McStudDesktop.Views
 
         private async void CCCWebButton_Click(object sender, RoutedEventArgs e)
         {
-            await StartAutoType("CCC Web");
+            if (_isTyping) return;
+            _isTyping = true;
+
+            try
+            {
+                // Disable buttons during insert
+                if (_cccButton != null) _cccButton.IsEnabled = false;
+                if (_cccWebButton != null) _cccWebButton.IsEnabled = false;
+                if (_mitchellButton != null) _mitchellButton.IsEnabled = false;
+
+                // Use fixed-column parser for CCC Web — reads exact Excel column positions
+                // (no heuristic guessing, each value comes from its known column)
+                var parsedOps = _exportService.GetParsedOperationsFixedColumns();
+                if (parsedOps.Count == 0)
+                {
+                    UpdateStatusError("No operations. Copy from Excel first.");
+                    return;
+                }
+
+                // Convert to VirtualClipboardOp — no swap hacks needed with fixed-column parser
+                var webOps = new System.Collections.Generic.List<McStudDesktop.Services.VirtualClipboardOp>();
+                foreach (var op in parsedOps)
+                {
+                    decimal.TryParse(op.Price, out var price);
+                    decimal.TryParse(op.Labor, out var labor);
+                    decimal.TryParse(op.Paint, out var refinish);
+                    int.TryParse(op.Qty, out var qty);
+                    if (qty == 0) qty = 1;
+
+                    webOps.Add(new McStudDesktop.Services.VirtualClipboardOp
+                    {
+                        OperationType = op.Operation,
+                        Description = op.Description,
+                        Quantity = qty,
+                        Price = price,
+                        LaborHours = labor,
+                        RefinishHours = refinish
+                    });
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[CCC-Web] Parsed {webOps.Count} operations from clipboard");
+
+                // Get target window and cursor position from the window tracker
+                if (_previousActiveWindow == IntPtr.Zero)
+                {
+                    UpdateStatusError("No target window. Click a line in CCC Web first, then switch to McStud.");
+                    return;
+                }
+
+                var (curX, curY, hasPos) = _cccInsertService.GetClickPosition();
+                if (!hasPos)
+                {
+                    UpdateStatusError("No click position saved. Click a line in CCC Web first.");
+                    return;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[CCC-Web] Target: {_previousActiveWindow}, Click: ({curX}, {curY})");
+                UpdateStatusTyping("CCC Web");
+
+                // Use CccWebInsertService with tracked window + position
+                var webService = McStudDesktop.Services.CccWebInsertService.Instance;
+                webService.StatusChanged += (s, status) =>
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        if (_statusText != null) _statusText.Text = status;
+                    });
+                webService.ProgressChanged += (s, p) =>
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        if (_countText != null) _countText.Text = $"{p.Current}/{p.Total}";
+                    });
+                webService.InsertCompleted += (s, success) =>
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        _isTyping = false;
+                        if (_cccButton != null) _cccButton.IsEnabled = true;
+                        if (_cccWebButton != null) _cccWebButton.IsEnabled = true;
+                        if (_mitchellButton != null) _mitchellButton.IsEnabled = true;
+                        if (success)
+                            UpdateStatusDone(webOps.Count, "CCC Web");
+                    });
+
+                await webService.InsertOperationsAsync(webOps, _previousActiveWindow, curX, curY);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CCC Web export error: {ex.Message}");
+                UpdateStatusError(ex.Message);
+            }
+            finally
+            {
+                _isTyping = false;
+                if (_cccButton != null) _cccButton.IsEnabled = true;
+                if (_cccWebButton != null) _cccWebButton.IsEnabled = true;
+                if (_mitchellButton != null) _mitchellButton.IsEnabled = true;
+            }
         }
 
         private async void MitchellButton_Click(object sender, RoutedEventArgs e)

@@ -7,6 +7,7 @@ using System.Text.Json;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using McStudDesktop.Views;
 
 namespace McStudDesktop.Services
 {
@@ -141,7 +142,13 @@ namespace McStudDesktop.Services
                     {
                         content.PaddingVertical(10).Column(column =>
                         {
-                            column.Spacing(15);
+                            column.Spacing(12);
+
+                            // Glossary (after header, before TOC)
+                            if (ReferenceExportConfigService.Instance.Config.ShowGlossary)
+                            {
+                                column.Item().Element(e => ComposeGlossary(e, groupedItems));
+                            }
 
                             // Table of Contents (conditionally shown)
                             if (ReferenceExportConfigService.Instance.Config.ShowTableOfContents)
@@ -210,65 +217,110 @@ namespace McStudDesktop.Services
         private void ComposeHeader(IContainer container)
         {
             var config = ReferenceExportConfigService.Instance.Config;
-            container.Row(row =>
+            container.Column(col =>
             {
-                row.RelativeItem().Column(col =>
+                // Shop name large at top (if set)
+                if (!string.IsNullOrWhiteSpace(config.ShopName))
                 {
-                    col.Item().Text(config.HeaderTitle)
-                        .FontSize(18)
+                    col.Item().Text(config.ShopName)
+                        .FontSize(22)
                         .Bold()
-                        .FontColor(Colors.Blue.Darken2);
+                        .FontColor(Colors.Blue.Darken3);
+                    col.Item().PaddingBottom(4);
+                }
 
-                    col.Item().Text(config.HeaderSubtitle)
-                        .FontSize(11)
-                        .FontColor(Colors.Blue.Darken1);
+                // Title + subtitle
+                col.Item().Text(config.HeaderTitle)
+                    .FontSize(16)
+                    .Bold()
+                    .FontColor(Colors.Blue.Darken2);
 
-                    if (config.ShowDate)
+                col.Item().Text(config.HeaderSubtitle)
+                    .FontSize(10)
+                    .FontColor(Colors.Blue.Darken1);
+
+                // Vehicle info block
+                if (config.ShowVehicleInfo && HasVehicleInfo(config))
+                {
+                    col.Item().PaddingTop(6).Background(Colors.Grey.Lighten4).Padding(8).Row(row =>
                     {
-                        string dateStr;
-                        try { dateStr = DateTime.Now.ToString(config.DateFormat); }
-                        catch { dateStr = DateTime.Now.ToString("MMMM dd, yyyy 'at' h:mm tt"); }
+                        row.RelativeItem().Column(vCol =>
+                        {
+                            if (!string.IsNullOrWhiteSpace(config.VehicleInfo))
+                            {
+                                vCol.Item().Text(text =>
+                                {
+                                    text.Span("Vehicle: ").FontSize(10).Bold();
+                                    text.Span(config.VehicleInfo).FontSize(10);
+                                });
+                            }
+                            if (!string.IsNullOrWhiteSpace(config.VIN))
+                            {
+                                vCol.Item().Text(text =>
+                                {
+                                    text.Span("VIN: ").FontSize(10).Bold();
+                                    text.Span(config.VIN).FontSize(10);
+                                });
+                            }
+                            if (!string.IsNullOrWhiteSpace(config.RONumber))
+                            {
+                                vCol.Item().Text(text =>
+                                {
+                                    text.Span("RO#: ").FontSize(10).Bold();
+                                    text.Span(config.RONumber).FontSize(10);
+                                });
+                            }
+                        });
+                    });
+                }
 
-                        col.Item().PaddingTop(2).Text($"Generated: {dateStr}")
-                            .FontSize(9)
-                            .FontColor(Colors.Grey.Darken1);
-                    }
-                });
+                // Date line
+                if (config.ShowDate)
+                {
+                    string dateStr;
+                    try { dateStr = DateTime.Now.ToString(config.DateFormat); }
+                    catch { dateStr = DateTime.Now.ToString("MMMM dd, yyyy 'at' h:mm tt"); }
+
+                    col.Item().PaddingTop(4).Text($"Generated: {dateStr}")
+                        .FontSize(9)
+                        .FontColor(Colors.Grey.Darken1);
+                }
             });
+        }
+
+        private static bool HasVehicleInfo(ReferenceExportConfig config)
+        {
+            return !string.IsNullOrWhiteSpace(config.VehicleInfo)
+                || !string.IsNullOrWhiteSpace(config.VIN)
+                || !string.IsNullOrWhiteSpace(config.RONumber);
         }
 
         private void ComposeTableOfContents(IContainer container, List<IGrouping<string, PdfExportItem>> groupedItems)
         {
-            container.Background(Colors.Grey.Lighten3).Padding(15).Column(col =>
+            container.Background(Colors.Grey.Lighten3).Padding(12).Column(col =>
             {
                 col.Item().Text("TABLE OF CONTENTS")
                     .Bold()
-                    .FontSize(14)
+                    .FontSize(12)
                     .FontColor(Colors.Blue.Darken2);
 
-                col.Item().PaddingTop(10);
+                col.Item().PaddingTop(6);
 
                 foreach (var group in groupedItems)
                 {
-                    // Category header with count
-                    col.Item().PaddingTop(6).Text($"{group.Key} ({group.Count()})")
+                    col.Item().PaddingTop(4).Text($"{group.Key} ({group.Count()})")
                         .Bold()
-                        .FontSize(11)
+                        .FontSize(10)
                         .FontColor(Colors.Blue.Darken3);
 
-                    // Indented item list with clickable links
                     foreach (var item in group.OrderBy(i => i.Term ?? "", StringComparer.OrdinalIgnoreCase))
                     {
                         var anchor = item.Id ?? item.Term ?? "Unknown";
-                        col.Item().PaddingLeft(15).PaddingTop(2).Row(row =>
+                        col.Item().PaddingLeft(12).PaddingTop(1).Text(text =>
                         {
-                            row.RelativeItem().Text(text =>
-                            {
-                                text.Span("  ").FontSize(10);
-                                text.SectionLink(item.Term ?? "Unknown", anchor)
-                                    .FontSize(10)
-                                    .FontColor(Colors.Blue.Medium);
-                            });
+                            text.SectionLink(item.Term ?? "Unknown", anchor)
+                                .FontSize(9)
+                                .FontColor(Colors.Blue.Medium);
                         });
                     }
                 }
@@ -315,16 +367,15 @@ namespace McStudDesktop.Services
                 });
 
                 // Content area
-                col.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(12).Column(contentCol =>
+                col.Item().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(contentCol =>
                 {
-                    // Category
+                    // Category (smaller — TOC already groups by category)
                     if (!string.IsNullOrEmpty(item.Category))
                     {
-                        contentCol.Item().Text($"Category: {item.Category}")
-                            .FontSize(10)
-                            .FontColor(Colors.Grey.Darken1)
-                            .Bold();
-                        contentCol.Item().PaddingBottom(8);
+                        contentCol.Item().Text(item.Category)
+                            .FontSize(8)
+                            .FontColor(Colors.Grey.Darken1);
+                        contentCol.Item().PaddingBottom(6);
                     }
 
                     // Definition
@@ -372,7 +423,24 @@ namespace McStudDesktop.Services
                                     row.AutoItem().Text(item.PPageSystem).FontSize(10);
                                 });
                             }
+
+                            // Clickable CCC MOTOR Guide link
+                            var cccUrl = DefinitionsView.GetPPageUrl(item.PPageRef ?? "");
+                            if (cccUrl != null)
+                            {
+                                pPageCol.Item().PaddingTop(6).Text(text =>
+                                {
+                                    text.Hyperlink(cccUrl, "View in CCC MOTOR Guide \u2192")
+                                        .FontSize(9).Bold().FontColor(Colors.Blue.Medium);
+                                });
+                            }
                         });
+                        contentCol.Item().PaddingBottom(10);
+                    }
+                    else if (string.IsNullOrEmpty(item.PPageRef))
+                    {
+                        contentCol.Item().Background(Colors.Grey.Lighten3).Padding(8).Text("Shop/Industry Defined \u2014 No P-Page reference available")
+                            .FontSize(9).FontColor(Colors.Grey.Darken1);
                         contentCol.Item().PaddingBottom(10);
                     }
 
@@ -409,9 +477,11 @@ namespace McStudDesktop.Services
                         contentCol.Item().Text("REFERENCE LINKS").FontSize(9).Bold().FontColor(Colors.Blue.Darken3);
                         foreach (var link in item.Links)
                         {
-                            contentCol.Item().PaddingTop(2).Text($"{link.Key}: {link.Value}")
-                                .FontSize(9)
-                                .FontColor(Colors.Blue.Medium);
+                            contentCol.Item().PaddingTop(2).Text(text =>
+                            {
+                                text.Span($"{link.Key}: ").FontSize(9).Bold();
+                                text.Hyperlink(link.Value, link.Value).FontSize(9).FontColor(Colors.Blue.Medium);
+                            });
                         }
                     }
 
@@ -421,6 +491,88 @@ namespace McStudDesktop.Services
                         contentCol.Item().PaddingTop(10).Text("PHOTO").FontSize(9).Bold().FontColor(Colors.Blue.Darken3);
                         contentCol.Item().PaddingTop(4).Image(item.ImagePath).FitWidth();
                     }
+                });
+            });
+        }
+
+        private void ComposeGlossary(IContainer container, List<IGrouping<string, PdfExportItem>> groupedItems)
+        {
+            // Build glossary entries from common abbreviations used in the selected items
+            var glossaryEntries = new List<(string Term, string Description)>
+            {
+                ("NOT INCLUDED", "Operation is not included in the labor allowance and must be added separately"),
+                ("INCLUDED", "Operation is already covered within the base labor allowance"),
+                ("P-Page", "Procedure page in the estimating system's MOTOR guide — defines labor operations"),
+                ("DEG Inquiry", "Database Enhancement Gateway — formal inquiry to correct estimating system data"),
+                ("R&I", "Remove & Install — removing a part, then reinstalling the same part"),
+                ("R&R", "Remove & Replace — removing a part and replacing it with a new one"),
+                ("MET", "Mechanical Estimating Techniques — standard repair procedures reference"),
+                ("OEM", "Original Equipment Manufacturer — the vehicle's maker"),
+                ("LKQ", "Like Kind and Quality — used/recycled parts of comparable condition"),
+                ("A/M", "Aftermarket — non-OEM replacement parts"),
+                ("PDR", "Paintless Dent Repair"),
+                ("SOP", "Standard Operating Procedure")
+            };
+
+            // Filter to entries relevant to the selected items' content
+            var categories = groupedItems.Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hasNotIncluded = groupedItems.SelectMany(g => g).Any(i => i.Status == "NOT INCLUDED");
+            var hasIncluded = groupedItems.SelectMany(g => g).Any(i => i.Status == "INCLUDED");
+            var hasPPage = groupedItems.SelectMany(g => g).Any(i => !string.IsNullOrEmpty(i.PPageRef));
+            var hasDeg = groupedItems.SelectMany(g => g).Any(i => !string.IsNullOrEmpty(i.DegInquiry));
+
+            var filtered = glossaryEntries.Where(e =>
+            {
+                if (e.Term == "NOT INCLUDED") return hasNotIncluded;
+                if (e.Term == "INCLUDED") return hasIncluded;
+                if (e.Term == "P-Page") return hasPPage;
+                if (e.Term == "DEG Inquiry") return hasDeg;
+                return true; // always show general terms
+            }).ToList();
+
+            if (filtered.Count == 0) return;
+
+            container.Background(Colors.Blue.Lighten5).Padding(10).Column(col =>
+            {
+                col.Item().Text("QUICK REFERENCE GLOSSARY")
+                    .Bold()
+                    .FontSize(11)
+                    .FontColor(Colors.Blue.Darken3);
+
+                col.Item().PaddingTop(6);
+
+                // 2-column layout
+                var midpoint = (filtered.Count + 1) / 2;
+                var leftCol = filtered.Take(midpoint).ToList();
+                var rightCol = filtered.Skip(midpoint).ToList();
+
+                col.Item().Row(row =>
+                {
+                    row.RelativeItem().Column(left =>
+                    {
+                        foreach (var entry in leftCol)
+                        {
+                            left.Item().PaddingBottom(3).Text(text =>
+                            {
+                                text.Span($"{entry.Term}: ").FontSize(8).Bold();
+                                text.Span(entry.Description).FontSize(8).FontColor(Colors.Grey.Darken2);
+                            });
+                        }
+                    });
+
+                    row.ConstantItem(10); // gap
+
+                    row.RelativeItem().Column(right =>
+                    {
+                        foreach (var entry in rightCol)
+                        {
+                            right.Item().PaddingBottom(3).Text(text =>
+                            {
+                                text.Span($"{entry.Term}: ").FontSize(8).Bold();
+                                text.Span(entry.Description).FontSize(8).FontColor(Colors.Grey.Darken2);
+                            });
+                        }
+                    });
                 });
             });
         }
@@ -436,18 +588,34 @@ namespace McStudDesktop.Services
                     text.CurrentPageNumber();
                     text.Span(" of ");
                     text.TotalPages();
+
+                    var footerParts = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(config.ShopName))
+                        footerParts.Add(config.ShopName);
                     if (!string.IsNullOrEmpty(config.FooterText))
+                        footerParts.Add(config.FooterText);
+
+                    if (footerParts.Count > 0)
                     {
-                        text.Span($" | {config.FooterText}")
+                        text.Span($" | {string.Join(" | ", footerParts)}")
                             .FontSize(8)
                             .FontColor(Colors.Grey.Darken1);
                     }
                 }
-                else if (!string.IsNullOrEmpty(config.FooterText))
+                else
                 {
-                    text.Span(config.FooterText)
-                        .FontSize(8)
-                        .FontColor(Colors.Grey.Darken1);
+                    var footerParts = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(config.ShopName))
+                        footerParts.Add(config.ShopName);
+                    if (!string.IsNullOrEmpty(config.FooterText))
+                        footerParts.Add(config.FooterText);
+
+                    if (footerParts.Count > 0)
+                    {
+                        text.Span(string.Join(" | ", footerParts))
+                            .FontSize(8)
+                            .FontColor(Colors.Grey.Darken1);
+                    }
                 }
             });
         }
