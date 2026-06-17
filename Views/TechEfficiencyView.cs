@@ -122,7 +122,7 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(new TextBlock
             {
-                Text = "Assign techs a tier (A/B/C) with efficiency %, then use the Hours Calculator to predict job duration. Log jobs to track actual performance over time.",
+                Text = "Assign techs a tier (A/B/C) with efficiency %, then use the Hours Calculator to find what to bill on the estimate. Log jobs to track actual performance over time.",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
                 TextWrapping = TextWrapping.Wrap
@@ -130,7 +130,7 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(new TextBlock
             {
-                Text = "Expected Hours = Book Hours \u00f7 (Efficiency% / 100)   |   A Tech 150% beats book time, B Tech 100% matches it, C Tech 75% takes longer",
+                Text = "Adjusted Hours = Actual Repair Time \u00d7 (Efficiency% / 100)   |   A Tech 225% high output, B Tech 150% solid, C Tech 100% baseline",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
                 TextWrapping = TextWrapping.Wrap,
@@ -169,7 +169,7 @@ namespace McStudDesktop.Views
             });
             titleRow.Children.Add(new TextBlock
             {
-                Text = "How long will this job take?",
+                Text = "See how efficiency affects the numbers",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 160, 190)),
                 VerticalAlignment = VerticalAlignment.Center
@@ -215,7 +215,7 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 255, 255))
             };
             _calcBookHoursInput.TextChanged += OnCalcInputChanged;
-            var bookLabeled = CreateLabeledControl("Book Hours", _calcBookHoursInput);
+            var bookLabeled = CreateLabeledControl("Actual Repair Hours", _calcBookHoursInput);
             Grid.SetColumn(bookLabeled, 4);
             controlsRow.Children.Add(bookLabeled);
 
@@ -226,7 +226,7 @@ namespace McStudDesktop.Views
 
             resultRow.Children.Add(new TextBlock
             {
-                Text = "Expected Actual Hours:",
+                Text = "Efficiency-Adjusted Hours:",
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 220)),
                 VerticalAlignment = VerticalAlignment.Center
@@ -1039,26 +1039,26 @@ namespace McStudDesktop.Views
             if (_calcEfficiencyInput == null || _calcBookHoursInput == null || _calcExpectedResult == null || _calcDeltaText == null) return;
 
             if (decimal.TryParse(_calcEfficiencyInput.Text, out var eff) && eff > 0 &&
-                decimal.TryParse(_calcBookHoursInput.Text, out var bookHours) && bookHours > 0)
+                decimal.TryParse(_calcBookHoursInput.Text, out var actualHours) && actualHours > 0)
             {
-                var expected = TechEfficiencyService.CalculateExpectedHours(bookHours, eff);
-                _calcExpectedResult.Text = $"{expected:F1} hrs";
+                var billable = TechEfficiencyService.CalculateBillableHours(actualHours, eff);
+                _calcExpectedResult.Text = $"{billable:F1} hrs";
                 _calcExpectedResult.Foreground = new SolidColorBrush(GetCalcResultColor(eff));
 
-                var delta = expected - bookHours;
-                if (delta < 0)
+                var profit = billable - actualHours;
+                if (profit > 0)
                 {
-                    _calcDeltaText.Text = $"{Math.Abs(delta):F1} hrs faster than book";
+                    _calcDeltaText.Text = $"+{profit:F1} hrs profit margin";
                     _calcDeltaText.Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 220, 120));
                 }
-                else if (delta > 0)
+                else if (profit < 0)
                 {
-                    _calcDeltaText.Text = $"{delta:F1} hrs over book";
+                    _calcDeltaText.Text = $"{profit:F1} hrs — losing money";
                     _calcDeltaText.Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 120, 120));
                 }
                 else
                 {
-                    _calcDeltaText.Text = "matches book time";
+                    _calcDeltaText.Text = "break-even";
                     _calcDeltaText.Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180));
                 }
             }

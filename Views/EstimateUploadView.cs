@@ -32,6 +32,7 @@ namespace McStudDesktop.Views
         private readonly EstimateQualityService _qualityService;
         private readonly LearningFeedbackService _feedbackService;
         private readonly LearningHealthService _healthService;
+        private bool _importAllDuplicates;
 
         private static readonly HashSet<string> _broadSectionNames = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -137,6 +138,7 @@ namespace McStudDesktop.Views
         private decimal _estimateBodyRate;
         private decimal _estimatePaintRate;
         private decimal _estimateMechRate;
+        private decimal _parsedGrandTotal;
 
         // Current estimate context for Reference PDF auto-populate
         private string? _scrubVehicleInfo;
@@ -1501,6 +1503,8 @@ namespace McStudDesktop.Views
             ShowProgress(true, ctx);
             _parsedLines.Clear();
             targetList.Items.Clear();
+            _importAllDuplicates = false;
+            _parsedGrandTotal = 0;
 
             int totalLines = 0;
             int totalParts = 0;
@@ -1525,6 +1529,8 @@ namespace McStudDesktop.Views
                             vehicleInfo = estimate.VehicleInfo;
                             vin = estimate.VIN;
                             totals = estimate.Totals;
+                            if (estimate.Totals.GrandTotal > 0)
+                                _parsedGrandTotal = estimate.Totals.GrandTotal;
 
                             // Store hourly rates detected from the PDF
                             StoreEstimateRates(estimate.Totals);
@@ -1668,12 +1674,27 @@ namespace McStudDesktop.Views
                 return;
             }
 
+            // If user already chose "Import All", auto-import without prompting
+            if (_importAllDuplicates)
+            {
+                if (check.Kind == DuplicateMatchKind.Different)
+                    _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate, check.Match));
+                else
+                    _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
+                return;
+            }
+
             // There's a matching record. Ask the user what to do.
             var dialog = BuildDuplicateDialog(estimate, check);
             var result = await dialog.ShowAsync();
 
+            // Check if "Do this for all" was ticked
+            bool applyToAll = _importAllCheckBox?.IsChecked == true;
+
             if (result == ContentDialogResult.Primary)
             {
+                if (applyToAll) _importAllDuplicates = true;
+
                 // Primary action:
                 //   ExactMatch   → "Import Anyway"  (fresh entry, no version link)
                 //   Different    → "Save as new Version" (linked to the prior version)
@@ -1684,12 +1705,15 @@ namespace McStudDesktop.Views
             }
             else if (result == ContentDialogResult.Secondary)
             {
+                if (applyToAll) _importAllDuplicates = true;
+
                 // Secondary action for Different = "Import as Separate" (no version link)
-                // Secondary is hidden for ExactMatch.
                 _ = Task.Run(() => EstimatePersistenceHelper.PersistAndMine(estimate));
             }
             // CloseButton / Cancel → do nothing
         }
+
+        private CheckBox? _importAllCheckBox;
 
         private ContentDialog BuildDuplicateDialog(ParsedEstimate parsed, EstimateDuplicateResult check)
         {
@@ -1723,6 +1747,14 @@ namespace McStudDesktop.Views
                     TextWrapping = TextWrapping.Wrap,
                     Text = "Skipping avoids double-counting patterns and hours in your learned operations."
                 });
+
+                _importAllCheckBox = new CheckBox
+                {
+                    Content = "Do this for all remaining duplicates",
+                    IsChecked = false,
+                    Margin = new Thickness(0, 4, 0, 0)
+                };
+                content.Children.Add(_importAllCheckBox);
 
                 return new ContentDialog
                 {
@@ -1766,6 +1798,14 @@ namespace McStudDesktop.Views
                 });
             }
             content.Children.Add(diffPanel);
+
+            _importAllCheckBox = new CheckBox
+            {
+                Content = "Do this for all remaining duplicates",
+                IsChecked = false,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            content.Children.Add(_importAllCheckBox);
 
             return new ContentDialog
             {
@@ -2701,7 +2741,8 @@ namespace McStudDesktop.Views
 
             try
             {
-                var estimateTotal = _parsedLines.Sum(p => p.Price);
+                var lineItemSum = _parsedLines.Sum(p => p.Price);
+                var estimateTotal = _parsedGrandTotal > lineItemSum ? _parsedGrandTotal : lineItemSum;
                 var learningWeight = _currentQualityRecord.LearningWeight;
 
                 await Task.Run(() =>
@@ -2752,7 +2793,7 @@ namespace McStudDesktop.Views
                 var manual = _parsedLines.Count(p => p.IsManualLine);
 
                 var fingerprint = ComputeEstimateFingerprint(_parsedLines, estimateTotal);
-                var occurrence = new ExportStatisticsService().RecordLearn(parts, manual, estimateTotal, fingerprint);
+                var occurrence = ExportStatisticsService.Instance.RecordLearn(parts, manual, estimateTotal, fingerprint);
 
                 _healthService.OnTrainingCompleted(parts, 1);
 

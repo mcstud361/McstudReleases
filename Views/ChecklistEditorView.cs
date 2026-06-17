@@ -15,17 +15,23 @@ namespace McStudDesktop.Views;
 /// <summary>
 /// Editor view for customizing checklists.
 /// Allows adding/removing sections, items, and editing all properties.
+/// Auto-saves every change to disk so nothing is lost.
 /// </summary>
 public class ChecklistEditorView : UserControl
 {
     private readonly CustomChecklistService _customService;
     private Checklist? _checklist;
     private bool _isCustom;
+    private bool _isDirty;
+    private bool _suppressAutoSave; // suppress during LoadChecklist / RefreshUI
 
     // Header fields
     private TextBox? _titleBox;
     private TextBox? _shopNameBox;
     private TextBox? _descriptionBox;
+
+    // Status indicator
+    private TextBlock? _saveStatus;
 
     // Sections container
     private StackPanel? _sectionsPanel;
@@ -33,6 +39,9 @@ public class ChecklistEditorView : UserControl
     // Events
     public event EventHandler? SaveRequested;
     public event EventHandler? CloseRequested;
+
+    /// <summary>True if the editor has changes that haven't been persisted yet.</summary>
+    public bool IsDirty => _isDirty;
 
     public ChecklistEditorView()
     {
@@ -42,9 +51,39 @@ public class ChecklistEditorView : UserControl
 
     public void LoadChecklist(Checklist checklist, bool isCustom)
     {
+        _suppressAutoSave = true;
         _checklist = checklist;
         _isCustom = isCustom;
+        _isDirty = false;
         RefreshUI();
+        _suppressAutoSave = false;
+    }
+
+    /// <summary>
+    /// Auto-save the current checklist to disk. Only saves custom checklists.
+    /// </summary>
+    private void AutoSave()
+    {
+        if (_suppressAutoSave || _checklist == null) return;
+
+        _isDirty = true;
+        _customService.SaveChecklist(_checklist);
+        _isDirty = false;
+
+        // Flash save indicator
+        if (_saveStatus != null)
+        {
+            _saveStatus.Text = "Saved";
+            _saveStatus.Opacity = 1;
+            FadeSaveStatus();
+        }
+    }
+
+    private async void FadeSaveStatus()
+    {
+        if (_saveStatus == null) return;
+        await System.Threading.Tasks.Task.Delay(1500);
+        _saveStatus.Opacity = 0;
     }
 
     private void BuildUI()
@@ -202,30 +241,35 @@ public class ChecklistEditorView : UserControl
         addSectionBtn.Click += OnAddSection;
         row.Children.Add(addSectionBtn);
 
+        // Auto-save status indicator
+        _saveStatus = new TextBlock
+        {
+            Text = "Saved",
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 180, 80)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Opacity = 0,
+            Margin = new Thickness(10, 0, 0, 0)
+        };
+        row.Children.Add(_saveStatus);
+
         // Spacer
         row.Children.Add(new Border { Width = 30 });
 
-        // Cancel button
-        var cancelBtn = new Button
+        // Done button (replaces Cancel — changes are already saved)
+        var doneBtn = new Button
         {
-            Content = "Cancel",
-            Padding = new Thickness(15, 8, 15, 8),
-            Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
-            Foreground = new SolidColorBrush(Colors.White)
-        };
-        cancelBtn.Click += (s, e) => CloseRequested?.Invoke(this, EventArgs.Empty);
-        row.Children.Add(cancelBtn);
-
-        // Save button
-        var saveBtn = new Button
-        {
-            Content = "Save Changes",
+            Content = "Done",
             Padding = new Thickness(15, 8, 15, 8),
             Background = new SolidColorBrush(Color.FromArgb(255, 0, 140, 80)),
             Foreground = new SolidColorBrush(Colors.White)
         };
-        saveBtn.Click += OnSave;
-        row.Children.Add(saveBtn);
+        doneBtn.Click += (s, e) =>
+        {
+            // Auto-save is already handling persistence, just close
+            SaveRequested?.Invoke(this, EventArgs.Empty);
+        };
+        row.Children.Add(doneBtn);
 
         footer.Child = row;
         return footer;
@@ -294,7 +338,11 @@ public class ChecklistEditorView : UserControl
             Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
             Foreground = new SolidColorBrush(Colors.White)
         };
-        titleBox.TextChanged += (s, e) => section.Title = titleBox.Text;
+        titleBox.TextChanged += (s, e) =>
+        {
+            section.Title = titleBox.Text;
+            AutoSave();
+        };
         headerRow.Children.Add(titleBox);
 
         var removeBtn = new Button
@@ -343,6 +391,7 @@ public class ChecklistEditorView : UserControl
             };
             section.Items.Add(newItem);
             itemsPanel.Children.Add(BuildItemEditor(section, newItem, itemsPanel));
+            AutoSave();
         };
         stack.Children.Add(addItemBtn);
 
@@ -365,8 +414,8 @@ public class ChecklistEditorView : UserControl
             Margin = new Thickness(0, 0, 5, 0)
         };
         ToolTipService.SetToolTip(reqCheck, "Required item");
-        reqCheck.Checked += (s, e) => item.Required = true;
-        reqCheck.Unchecked += (s, e) => item.Required = false;
+        reqCheck.Checked += (s, e) => { item.Required = true; AutoSave(); };
+        reqCheck.Unchecked += (s, e) => { item.Required = false; AutoSave(); };
         row.Children.Add(reqCheck);
 
         // Text box
@@ -379,7 +428,7 @@ public class ChecklistEditorView : UserControl
             Foreground = new SolidColorBrush(Colors.White),
             Margin = new Thickness(0, 0, 5, 0)
         };
-        textBox.TextChanged += (s, e) => item.Text = textBox.Text;
+        textBox.TextChanged += (s, e) => { item.Text = textBox.Text; AutoSave(); };
         Grid.SetColumn(textBox, 1);
         row.Children.Add(textBox);
 
@@ -397,6 +446,7 @@ public class ChecklistEditorView : UserControl
         {
             section.Items?.Remove(item);
             parentPanel.Children.Remove(row);
+            AutoSave();
         };
         Grid.SetColumn(deleteBtn, 2);
         row.Children.Add(deleteBtn);
@@ -411,6 +461,7 @@ public class ChecklistEditorView : UserControl
         _checklist.Title = _titleBox?.Text ?? "";
         _checklist.ShopName = _shopNameBox?.Text ?? "";
         _checklist.Description = _descriptionBox?.Text ?? "";
+        AutoSave();
     }
 
     private async void OnAddSection(object sender, RoutedEventArgs e)
@@ -445,6 +496,7 @@ public class ChecklistEditorView : UserControl
                 Items = new List<ChecklistItem>()
             });
             RefreshSections();
+            AutoSave();
         }
     }
 
@@ -452,24 +504,7 @@ public class ChecklistEditorView : UserControl
     {
         _checklist?.Sections?.Remove(section);
         RefreshSections();
-    }
-
-    private void OnSave(object sender, RoutedEventArgs e)
-    {
-        if (_checklist == null) return;
-
-        // Ensure it's saved as a custom checklist
-        if (!_isCustom)
-        {
-            // This was a built-in checklist that was duplicated - save as custom
-            _customService.SaveChecklist(_checklist);
-        }
-        else
-        {
-            _customService.SaveChecklist(_checklist);
-        }
-
-        SaveRequested?.Invoke(this, EventArgs.Empty);
+        AutoSave();
     }
 
     public Checklist? GetChecklist() => _checklist;

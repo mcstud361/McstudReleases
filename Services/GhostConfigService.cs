@@ -571,7 +571,14 @@ namespace McStudDesktop.Services
                 desc.ToLowerInvariant()
                     .Replace("&", " and ")
                     .Replace("/", " ")
-                    .Replace("-", " "),
+                    .Replace("-", " ")
+                    // Strip common OCR punctuation artifacts (commas, apostrophes, periods, colons, semicolons)
+                    .Replace(",", "")
+                    .Replace("'", "")
+                    .Replace("'", "")
+                    .Replace(".", "")
+                    .Replace(":", "")
+                    .Replace(";", ""),
                 @"\s+", " ").Trim();
         }
 
@@ -611,10 +618,14 @@ namespace McStudDesktop.Services
             if (mustHaveWords.Length > 0)
             {
                 var matchCount = mustHaveWords.Count(w => FuzzyContainsWord(detectedNorm, w));
-                // Strict mode: ALL significant words must match (for raw OCR blobs)
+                // Strict mode: 80% of words must match (allows 1 OCR misread per 5 words,
+                //   but still prevents false positives from section headers like "ELECTRICAL").
+                //   Short must-haves (1-2 words) require all words even in strict mode.
                 // Normal mode: short must-haves require all, longer require 60%
                 int threshold = strictMode
-                    ? mustHaveWords.Length
+                    ? (mustHaveWords.Length <= 2
+                        ? mustHaveWords.Length
+                        : (int)Math.Ceiling(mustHaveWords.Length * 0.8))
                     : mustHaveWords.Length <= 2
                         ? mustHaveWords.Length
                         : (int)Math.Ceiling(mustHaveWords.Length * 0.6);

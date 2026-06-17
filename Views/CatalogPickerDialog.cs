@@ -33,6 +33,7 @@ public class CatalogPickerDialog
     private string? _selectedCatalogId;
     private string? _selectedCategory;
     private PriceCatalogItem? _selectedItem;
+    private ContentDialog? _dialog;
 
     /// <summary>
     /// Show the picker dialog and return the selected item, or null if cancelled.
@@ -43,7 +44,7 @@ public class CatalogPickerDialog
 
         var content = BuildContent();
 
-        var dialog = new ContentDialog
+        _dialog = new ContentDialog
         {
             Title = "Pick from Price Catalog",
             Content = content,
@@ -54,9 +55,10 @@ public class CatalogPickerDialog
             IsPrimaryButtonEnabled = false
         };
 
-        dialog.PrimaryButtonClick += (s, e) => { /* _selectedItem already set */ };
+        _dialog.PrimaryButtonClick += (s, e) => { /* _selectedItem already set */ };
 
-        var result = await dialog.ShowAsync();
+        var result = await _dialog.ShowAsync();
+        _dialog = null;
         return result == ContentDialogResult.Primary ? _selectedItem : null;
     }
 
@@ -328,12 +330,9 @@ public class CatalogPickerDialog
             }
             border.Background = new SolidColorBrush(AccentBlue);
 
-            // Enable primary button on parent dialog
-            if (btn.XamlRoot != null)
-            {
-                // Walk up to find the ContentDialog — the primary button is auto-enabled
-                // by setting _selectedItem. The dialog checks on PrimaryButtonClick.
-            }
+            // Enable the Select button
+            if (_dialog != null)
+                _dialog.IsPrimaryButtonEnabled = true;
         };
 
         border.Child = btn;

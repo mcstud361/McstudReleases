@@ -36,7 +36,6 @@ namespace McStudDesktop.Views
 
         // Controls
         private ToggleSwitch? _monitorToggle;
-        private ComboBox? _intervalCombo;
         private Button? _captureOnceButton;
         private Button? _clearButton;
         private Button? _insuranceButton;
@@ -78,6 +77,9 @@ namespace McStudDesktop.Views
 
         // Insurance / DRP compliance
         private InsurerProfile? _activeInsurerProfile;
+
+        // Must-have checklist cache for populate buttons
+        private List<MustHaveChecklistItem> _lastMustHaveChecklist = new();
 
         // State
         private ScreenOcrResult? _latestResult;
@@ -327,28 +329,8 @@ namespace McStudDesktop.Views
             toggleStack.Children.Add(_monitorToggle);
             controlsRow.Children.Add(toggleStack);
 
-            // Interval dropdown
-            var intervalStack = new StackPanel { Spacing = 4 };
-            intervalStack.Children.Add(new TextBlock
-            {
-                Text = "Interval",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140))
-            });
-            _intervalCombo = new ComboBox
-            {
-                Width = 100,
-                Background = new SolidColorBrush(Color.FromArgb(255, 45, 50, 58)),
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            _intervalCombo.Items.Add("1 sec");
-            _intervalCombo.Items.Add("2 sec");
-            _intervalCombo.Items.Add("5 sec");
-            _intervalCombo.Items.Add("10 sec");
-            _intervalCombo.SelectedIndex = 1; // Default: 2 sec
-            _intervalCombo.SelectionChanged += IntervalCombo_SelectionChanged;
-            intervalStack.Children.Add(_intervalCombo);
-            controlsRow.Children.Add(intervalStack);
+            // Interval hardcoded to 1 second (lightweight CPU-only OCR)
+            _monitorService.CaptureInterval = TimeSpan.FromSeconds(1);
 
             // Capture Once button
             _captureOnceButton = new Button
@@ -1593,121 +1575,161 @@ namespace McStudDesktop.Views
 
             _collapsibleSections.Clear();
 
-            // === MUST-HAVE OPERATIONS CHECKLIST ===
+            // === MUST-HAVE OPERATIONS ===
             var mustHaveChecklist = new List<MustHaveChecklistItem>();
             try
             {
                 mustHaveChecklist = BuildScreenMustHaveChecklist(accumulatedOps);
+                _lastMustHaveChecklist = mustHaveChecklist;
 
                 if (mustHaveChecklist.Count > 0)
                 {
                     var presentCount = mustHaveChecklist.Count(m => m.IsPresent);
                     var missingCount = mustHaveChecklist.Count(m => !m.IsPresent);
+                    var allMissingItems = mustHaveChecklist.Where(m => !m.IsPresent).ToList();
+                    var allPresentItems = mustHaveChecklist.Where(m => m.IsPresent).ToList();
 
-                    var mustHaveHeader = new Border
-                    {
-                        Background = new SolidColorBrush(Color.FromArgb(255, 28, 35, 45)),
-                        CornerRadius = new CornerRadius(6),
-                        Padding = new Thickness(10, 8, 10, 8),
-                        Margin = new Thickness(0, 4, 0, 2),
-                        BorderBrush = new SolidColorBrush(missingCount > 0
-                            ? Color.FromArgb(255, 180, 120, 40)
-                            : Color.FromArgb(255, 50, 140, 70)),
-                        BorderThickness = new Thickness(1)
-                    };
-
-                    var mustHaveStack = new StackPanel { Spacing = 4 };
-
-                    // Title row with score
-                    var titleRow = new Grid();
-                    titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-                    var titleText = new TextBlock
-                    {
-                        Text = "MUST-HAVE OPERATIONS",
-                        FontSize = 12,
-                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                        Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 200, 140))
-                    };
-                    Grid.SetColumn(titleText, 0);
-                    titleRow.Children.Add(titleText);
-
-                    var scoreText = new TextBlock
-                    {
-                        Text = $"{presentCount}/{mustHaveChecklist.Count}",
-                        FontSize = 12,
-                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                        Foreground = new SolidColorBrush(missingCount > 0
-                            ? Color.FromArgb(255, 240, 180, 80)
-                            : Color.FromArgb(255, 80, 200, 120))
-                    };
-                    Grid.SetColumn(scoreText, 1);
-                    titleRow.Children.Add(scoreText);
-                    mustHaveStack.Children.Add(titleRow);
-
-                    // Group by category
-                    var grouped = mustHaveChecklist.GroupBy(c => c.Category).ToList();
-                    foreach (var group in grouped)
-                    {
-                        mustHaveStack.Children.Add(new TextBlock
-                        {
-                            Text = group.Key,
-                            FontSize = 10,
-                            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                            Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 160)),
-                            Margin = new Thickness(0, 4, 0, 1)
-                        });
-
-                        foreach (var item in group)
-                        {
-                            var itemRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-
-                            itemRow.Children.Add(new TextBlock
-                            {
-                                Text = item.IsPresent ? "\u2705" : "\u274C",
-                                FontSize = 11,
-                                VerticalAlignment = VerticalAlignment.Center
-                            });
-
-                            itemRow.Children.Add(new TextBlock
-                            {
-                                Text = item.Description,
-                                FontSize = 11,
-                                Foreground = new SolidColorBrush(item.IsPresent
-                                    ? Color.FromArgb(255, 100, 200, 120)
-                                    : Color.FromArgb(255, 220, 140, 80)),
-                                TextDecorations = item.IsPresent ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None,
-                                VerticalAlignment = VerticalAlignment.Center
-                            });
-
-                            var detail = item.LaborHours > 0 ? $"{item.LaborHours:N1}h" : $"${item.Price:N2}";
-                            itemRow.Children.Add(new TextBlock
-                            {
-                                Text = $"({item.OperationType}, {detail})",
-                                FontSize = 9,
-                                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 110)),
-                                VerticalAlignment = VerticalAlignment.Center
-                            });
-
-                            mustHaveStack.Children.Add(itemRow);
-                        }
-                    }
-
-                    // Recovery potential
+                    // ── SECTION 1: MISSING OPERATIONS ──
                     if (missingCount > 0)
                     {
-                        var missingItems = mustHaveChecklist.Where(m => !m.IsPresent).ToList();
-                        var missingHours = missingItems.Sum(m => m.LaborHours);
-                        var missingDollars = missingItems.Sum(m => m.Price) + missingItems.Sum(m => m.MaterialsCost);
+                        var missingBorder = new Border
+                        {
+                            Background = new SolidColorBrush(Color.FromArgb(255, 28, 35, 45)),
+                            CornerRadius = new CornerRadius(6),
+                            Padding = new Thickness(10, 8, 10, 8),
+                            Margin = new Thickness(0, 4, 0, 2),
+                            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 180, 120, 40)),
+                            BorderThickness = new Thickness(1)
+                        };
 
+                        var missingStack = new StackPanel { Spacing = 4 };
+
+                        // Title row with count
+                        var missingTitleRow = new Grid();
+                        missingTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                        missingTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                        var missingTitleText = new TextBlock
+                        {
+                            Text = "MISSING OPERATIONS",
+                            FontSize = 12,
+                            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 180, 80))
+                        };
+                        Grid.SetColumn(missingTitleText, 0);
+                        missingTitleRow.Children.Add(missingTitleText);
+
+                        var missingCountText = new TextBlock
+                        {
+                            Text = $"{missingCount} remaining",
+                            FontSize = 11,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 240, 180, 80))
+                        };
+                        Grid.SetColumn(missingCountText, 1);
+                        missingTitleRow.Children.Add(missingCountText);
+                        missingStack.Children.Add(missingTitleRow);
+
+                        // "Populate All Missing" button
+                        var populateAllBtn = new Button
+                        {
+                            Content = $"Populate All {missingCount} Missing",
+                            FontSize = 11,
+                            Padding = new Thickness(10, 4, 10, 4),
+                            Margin = new Thickness(0, 2, 0, 2),
+                            Background = new SolidColorBrush(Color.FromArgb(255, 60, 100, 60)),
+                            Foreground = new SolidColorBrush(Colors.White),
+                            HorizontalAlignment = HorizontalAlignment.Stretch
+                        };
+                        var capturedAllMissing = allMissingItems;
+                        populateAllBtn.Click += (s, e) =>
+                        {
+                            PopulateMustHaves(capturedAllMissing, populateAllBtn);
+                        };
+                        missingStack.Children.Add(populateAllBtn);
+
+                        // Group missing items by category
+                        var missingByCategory = allMissingItems.GroupBy(c => c.Category).ToList();
+                        foreach (var group in missingByCategory)
+                        {
+                            // Category header with populate button
+                            var categoryRow = new Grid { Margin = new Thickness(0, 4, 0, 1) };
+                            categoryRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                            categoryRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                            var categoryText = new TextBlock
+                            {
+                                Text = group.Key,
+                                FontSize = 10,
+                                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                                Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 160)),
+                                VerticalAlignment = VerticalAlignment.Center
+                            };
+                            Grid.SetColumn(categoryText, 0);
+                            categoryRow.Children.Add(categoryText);
+
+                            if (group.Count() > 1)
+                            {
+                                var populateCatBtn = new Button
+                                {
+                                    Content = $"Populate {group.Count()}",
+                                    FontSize = 9,
+                                    Padding = new Thickness(6, 2, 6, 2),
+                                    Background = new SolidColorBrush(Color.FromArgb(255, 50, 80, 50)),
+                                    Foreground = new SolidColorBrush(Colors.White),
+                                    VerticalAlignment = VerticalAlignment.Center
+                                };
+                                var capturedGroupMissing = group.ToList();
+                                populateCatBtn.Click += (s, e) =>
+                                {
+                                    PopulateMustHaves(capturedGroupMissing, populateCatBtn);
+                                };
+                                Grid.SetColumn(populateCatBtn, 1);
+                                categoryRow.Children.Add(populateCatBtn);
+                            }
+
+                            missingStack.Children.Add(categoryRow);
+
+                            foreach (var item in group)
+                            {
+                                var itemRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+                                itemRow.Children.Add(new TextBlock
+                                {
+                                    Text = "\u274C",
+                                    FontSize = 11,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                });
+
+                                itemRow.Children.Add(new TextBlock
+                                {
+                                    Text = item.Description,
+                                    FontSize = 11,
+                                    Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 140, 80)),
+                                    VerticalAlignment = VerticalAlignment.Center
+                                });
+
+                                var detail = item.LaborHours > 0 ? $"{item.LaborHours:N1}h" : $"${item.Price:N2}";
+                                itemRow.Children.Add(new TextBlock
+                                {
+                                    Text = $"({item.OperationType}, {detail})",
+                                    FontSize = 9,
+                                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 110)),
+                                    VerticalAlignment = VerticalAlignment.Center
+                                });
+
+                                missingStack.Children.Add(itemRow);
+                            }
+                        }
+
+                        // Recovery potential
+                        var missingHours = allMissingItems.Sum(m => m.LaborHours);
+                        var missingDollars = allMissingItems.Sum(m => m.Price) + allMissingItems.Sum(m => m.MaterialsCost);
                         var recoveryParts = new List<string>();
                         if (missingHours > 0) recoveryParts.Add($"{missingHours:N1}h labor");
                         if (missingDollars > 0) recoveryParts.Add($"${missingDollars:N2}");
-
                         if (recoveryParts.Count > 0)
                         {
-                            mustHaveStack.Children.Add(new TextBlock
+                            missingStack.Children.Add(new TextBlock
                             {
                                 Text = $"Potential recovery: {string.Join(" + ", recoveryParts)}",
                                 FontSize = 10,
@@ -1716,10 +1738,115 @@ namespace McStudDesktop.Views
                                 Margin = new Thickness(0, 4, 0, 0)
                             });
                         }
+
+                        missingBorder.Child = missingStack;
+                        _analysisContentStack.Children.Add(missingBorder);
                     }
 
-                    mustHaveHeader.Child = mustHaveStack;
-                    _analysisContentStack.Children.Add(mustHaveHeader);
+                    // ── SECTION 2: ON ESTIMATE ALREADY ──
+                    if (presentCount > 0)
+                    {
+                        var presentBorder = new Border
+                        {
+                            Background = new SolidColorBrush(Color.FromArgb(255, 25, 32, 28)),
+                            CornerRadius = new CornerRadius(6),
+                            Padding = new Thickness(10, 8, 10, 8),
+                            Margin = new Thickness(0, 2, 0, 2),
+                            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 140, 70)),
+                            BorderThickness = new Thickness(1)
+                        };
+
+                        var presentStack = new StackPanel { Spacing = 4 };
+
+                        // Title row with count
+                        var presentTitleRow = new Grid();
+                        presentTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                        presentTitleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                        var presentTitleText = new TextBlock
+                        {
+                            Text = "ON ESTIMATE",
+                            FontSize = 12,
+                            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120))
+                        };
+                        Grid.SetColumn(presentTitleText, 0);
+                        presentTitleRow.Children.Add(presentTitleText);
+
+                        var presentCountText = new TextBlock
+                        {
+                            Text = $"{presentCount}/{mustHaveChecklist.Count}",
+                            FontSize = 11,
+                            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120))
+                        };
+                        Grid.SetColumn(presentCountText, 1);
+                        presentTitleRow.Children.Add(presentCountText);
+                        presentStack.Children.Add(presentTitleRow);
+
+                        // Group present items by category
+                        var presentGrouped = allPresentItems.GroupBy(c => c.Category).ToList();
+                        foreach (var group in presentGrouped)
+                        {
+                            var categoryText = new TextBlock
+                            {
+                                Text = $"\u2705 {group.Key}",
+                                FontSize = 10,
+                                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                                Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120)),
+                                Margin = new Thickness(0, 4, 0, 1)
+                            };
+                            presentStack.Children.Add(categoryText);
+
+                            foreach (var item in group)
+                            {
+                                var itemRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+                                itemRow.Children.Add(new TextBlock
+                                {
+                                    Text = "\u2705",
+                                    FontSize = 11,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                });
+
+                                itemRow.Children.Add(new TextBlock
+                                {
+                                    Text = item.Description,
+                                    FontSize = 11,
+                                    Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 120)),
+                                    TextDecorations = Windows.UI.Text.TextDecorations.Strikethrough,
+                                    VerticalAlignment = VerticalAlignment.Center
+                                });
+
+                                var detail = item.LaborHours > 0 ? $"{item.LaborHours:N1}h" : $"${item.Price:N2}";
+                                itemRow.Children.Add(new TextBlock
+                                {
+                                    Text = $"({item.OperationType}, {detail})",
+                                    FontSize = 9,
+                                    Foreground = new SolidColorBrush(Color.FromArgb(255, 70, 80, 70)),
+                                    VerticalAlignment = VerticalAlignment.Center
+                                });
+
+                                presentStack.Children.Add(itemRow);
+                            }
+                        }
+
+                        // Show complete message when nothing is missing
+                        if (missingCount == 0)
+                        {
+                            presentStack.Children.Add(new TextBlock
+                            {
+                                Text = "All must-have operations are on the estimate",
+                                FontSize = 10,
+                                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                                Foreground = new SolidColorBrush(Color.FromArgb(255, 80, 200, 120)),
+                                Margin = new Thickness(0, 4, 0, 0)
+                            });
+                        }
+
+                        presentBorder.Child = presentStack;
+                        _analysisContentStack.Children.Add(presentBorder);
+                    }
                 }
             }
             catch (Exception ex)
@@ -2399,7 +2526,7 @@ namespace McStudDesktop.Views
                 {
                     Description = mh.Description,
                     Category = mh.Section,
-                    OperationType = mh.OpType,
+                    OperationType = !string.IsNullOrEmpty(mh.CccOperationType) ? mh.CccOperationType : mh.OpType,
                     LaborHours = mh.ExpectedHours,
                     Price = mh.ExpectedPrice,
                     MaterialsCost = 0,
@@ -3128,6 +3255,146 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
+        /// Populates missing must-have operations into the virtual clipboard and navigates to Export.
+        /// </summary>
+        private void PopulateMustHaves(List<MustHaveChecklistItem> missingItems)
+        {
+            PopulateMustHaves(missingItems, null);
+        }
+
+        private void PopulateMustHaves(List<MustHaveChecklistItem> missingItems, Button? sourceButton)
+        {
+            if (missingItems.Count == 0) return;
+
+            // If a source button is provided, show a flyout with export target options
+            if (sourceButton != null)
+            {
+                ShowExportTargetFlyout(sourceButton, missingItems);
+                return;
+            }
+
+            // Default: load to virtual clipboard and navigate to Export tab
+            LoadMustHavesToVirtualClipboard(missingItems);
+            OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void LoadMustHavesToVirtualClipboard(List<MustHaveChecklistItem> items)
+        {
+            VirtualClipboardService.Instance.Clear();
+            foreach (var item in items)
+            {
+                var opType = item.OperationType.ToLowerInvariant();
+                bool isRefinish = opType == "refn" || opType == "blnd" || opType == "refinish" || opType == "blend";
+
+                var op = new VirtualClipboardOp
+                {
+                    OperationType = MapCccOpType(item.OperationType),
+                    Description = item.Description,
+                    Quantity = 1,
+                    Price = item.Price,
+                    LaborHours = isRefinish ? 0 : item.LaborHours,
+                    RefinishHours = isRefinish ? item.LaborHours : 0,
+                    Category = item.Category
+                };
+                VirtualClipboardService.Instance.AddOperation(op, "Must Haves");
+            }
+        }
+
+        private void ShowExportTargetFlyout(Button sourceButton, List<MustHaveChecklistItem> items)
+        {
+            var flyout = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom };
+
+            var cccDesktopItem = new MenuFlyoutItem
+            {
+                Text = "CCC Desktop",
+                Icon = new FontIcon { Glyph = "\uE7F4", FontSize = 14 }
+            };
+            cccDesktopItem.Click += (s, e) =>
+            {
+                LoadMustHavesToVirtualClipboard(items);
+                OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+                sourceButton.IsEnabled = false;
+                sourceButton.Content = "Sent to Export";
+            };
+
+            var cccWebItem = new MenuFlyoutItem
+            {
+                Text = "CCC Web",
+                Icon = new FontIcon { Glyph = "\uE774", FontSize = 14 }
+            };
+            cccWebItem.Click += (s, e) =>
+            {
+                LoadMustHavesToVirtualClipboard(items);
+                OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+                sourceButton.IsEnabled = false;
+                sourceButton.Content = "Sent to Export";
+            };
+
+            var mitchellItem = new MenuFlyoutItem
+            {
+                Text = "Mitchell",
+                Icon = new FontIcon { Glyph = "\uE8A5", FontSize = 14 }
+            };
+            mitchellItem.Click += (s, e) =>
+            {
+                LoadMustHavesToVirtualClipboard(items);
+                OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+                sourceButton.IsEnabled = false;
+                sourceButton.Content = "Sent to Export";
+            };
+
+            var exportTabItem = new MenuFlyoutItem
+            {
+                Text = "Send to Export Tab",
+                Icon = new FontIcon { Glyph = "\uE8C8", FontSize = 14 }
+            };
+            exportTabItem.Click += (s, e) =>
+            {
+                LoadMustHavesToVirtualClipboard(items);
+                OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+                sourceButton.IsEnabled = false;
+                sourceButton.Content = "Sent to Export";
+            };
+
+            flyout.Items.Add(cccDesktopItem);
+            flyout.Items.Add(cccWebItem);
+            flyout.Items.Add(mitchellItem);
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            flyout.Items.Add(exportTabItem);
+
+            flyout.ShowAt(sourceButton);
+        }
+
+        /// <summary>
+        /// Maps CCC operation type codes to the display names used by VirtualClipboardOp.
+        /// </summary>
+        private static string MapCccOpType(string cccOpType)
+        {
+            return cccOpType.ToLowerInvariant() switch
+            {
+                // CCC operation type codes
+                "rpr" => "Rpr",
+                "repl" => "Replace",
+                "r&i" => "R&I",
+                "refn" => "Refinish",
+                "blnd" => "Blend",
+                "sect" => "Sect",
+                "algn" => "Algn",
+                "subl" => "Subl",
+                // Generic OpType values from must-have definitions
+                "body" => "Rpr",
+                "mech" => "Rpr",
+                "rfn" => "Refinish",
+                "sublet" => "Subl",
+                "repair" => "Rpr",
+                "replace" => "Replace",
+                "refinish" => "Refinish",
+                "blend" => "Blend",
+                _ => cccOpType
+            };
+        }
+
+        /// <summary>
         /// Exports a coaching suggestion to the virtual clipboard and navigates to the Export tab.
         /// </summary>
         private void ExportSuggestion(McstudDesktop.Models.CoachingSuggestion suggestion)
@@ -3331,19 +3598,6 @@ namespace McStudDesktop.Views
             }
         }
 
-        private void IntervalCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            var seconds = _intervalCombo!.SelectedIndex switch
-            {
-                0 => 1,
-                1 => 2,
-                2 => 5,
-                3 => 10,
-                _ => 2
-            };
-
-            _monitorService.CaptureInterval = TimeSpan.FromSeconds(seconds);
-        }
 
         private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
         {

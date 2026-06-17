@@ -253,7 +253,16 @@
       "Bash(/c/Users/mcnee/.dotnet/tools/vpk pack:*)",
       "Bash(/c/Users/mcnee/.dotnet/tools/vpk upload:*)",
       "Bash(dotnet script:*)",
-      "WebFetch(domain:www.billablegenie.com)"
+      "WebFetch(domain:www.billablegenie.com)",
+      "Bash(find C:\\\\Users\\\\mcnee\\\\Downloads\\\\McStudDesktop\\\\McStudDesktop:*)",
+      "WebFetch(domain:chriscollinsinc.com)",
+      "WebFetch(domain:autoleap.com)",
+      "Bash(echo === SESSION 1f65b2d0 - USER MESSAGES ===:*)",
+      "Bash(clip:*)",
+      "WebFetch(domain:reclaimr.ai)",
+      "WebFetch(domain:www.scribd.com)",
+      "WebFetch(domain:www.collisionblast.com)",
+      "Bash(sort -k2 -rh)"
     ],
     "deny": [],
     "ask": []

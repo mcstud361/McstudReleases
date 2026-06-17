@@ -262,7 +262,7 @@ namespace McStudDesktop.Services
                     Price = price,
                     LaborHours = labor,
                     RefinishHours = refinish,
-                    Category = ""
+                    Category = op.Category ?? ""
                 });
             }
             _source = source;

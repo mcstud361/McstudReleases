@@ -361,29 +361,31 @@ namespace McStudDesktop.Services
                     }
                 }
 
-                // If only one number found, and it's small with decimal, it's labor
+                // If only one number found, and it's small with decimal, it's labor (or refinish for Refinish ops)
                 if (numbersAfterDesc.Count == 1 && firstNum <= 50)
                 {
                     qty = "1"; // Reset qty to default
-                    if (firstNum == Math.Floor(firstNum))
-                        labor = firstNum.ToString("0");
+                    var formatted = firstNum == Math.Floor(firstNum) ? firstNum.ToString("0") : firstNum.ToString("0.0");
+                    if (operation.Equals("Refinish", StringComparison.OrdinalIgnoreCase))
+                        paint = formatted;
                     else
-                        labor = firstNum.ToString("0.0");
+                        labor = formatted;
                 }
 
-                // If first and last are the same (only 2 numbers: qty and labor)
+                // If first and last are the same (only 2 numbers: qty and labor/refinish)
                 if (numbersAfterDesc.Count == 2)
                 {
-                    // First is qty, last is labor
+                    // First is qty, last is labor (or refinish for Refinish ops)
                     var qtyNum = numbersAfterDesc[0];
                     var laborNum = numbersAfterDesc[1];
                     qty = qtyNum.ToString("0");
-                    if (laborNum <= 100) // Labor hours should be ≤ 100; larger values are prices
+                    if (laborNum <= 100) // Labor/refinish hours should be ≤ 100; larger values are prices
                     {
-                        if (laborNum == Math.Floor(laborNum))
-                            labor = laborNum.ToString("0");
+                        var formatted = laborNum == Math.Floor(laborNum) ? laborNum.ToString("0") : laborNum.ToString("0.0");
+                        if (operation.Equals("Refinish", StringComparison.OrdinalIgnoreCase))
+                            paint = formatted;
                         else
-                            labor = laborNum.ToString("0.0");
+                            labor = formatted;
                     }
                     else
                     {
@@ -450,11 +452,12 @@ namespace McStudDesktop.Services
             }
 
             // Fixed offsets from Operation column:
-            // Op+2 = Description, Op+4 = Quantity, Op+5 = Price, Op+9 = Labor, Op+11 = Refinish
+            // Op+2 = Description, Op+4 = Quantity, Op+5 = Price, Op+9 = Labor, Op+10 = Category, Op+11 = Refinish
             int descIdx = opIndex + 2;
             int qtyIdx = opIndex + 4;
             int priceIdx = opIndex + 5;
             int laborIdx = opIndex + 9;
+            int categoryIdx = opIndex + 10;
             int refinishIdx = opIndex + 11;
 
             string description = descIdx < parts.Length ? parts[descIdx].Trim() : "";
@@ -468,6 +471,7 @@ namespace McStudDesktop.Services
             string price = "";
             string labor = "";
             string paint = "";
+            string category = "";
 
             // Quantity
             if (qtyIdx < parts.Length && decimal.TryParse(parts[qtyIdx].Trim(), out decimal qtyVal) && qtyVal > 0)
@@ -483,13 +487,21 @@ namespace McStudDesktop.Services
                 labor = laborVal == Math.Floor(laborVal) ? laborVal.ToString("0") : laborVal.ToString("0.##");
             }
 
+            // Category (e.g. "F" for Frame, "M" for marker)
+            if (categoryIdx < parts.Length)
+            {
+                var catVal = parts[categoryIdx].Trim();
+                if (!string.IsNullOrEmpty(catVal) && catVal != "0" && !decimal.TryParse(catVal, out _))
+                    category = catVal;
+            }
+
             // Refinish
             if (refinishIdx < parts.Length && decimal.TryParse(parts[refinishIdx].Trim(), out decimal refinishVal) && refinishVal > 0)
             {
                 paint = refinishVal == Math.Floor(refinishVal) ? refinishVal.ToString("0") : refinishVal.ToString("0.##");
             }
 
-            System.Diagnostics.Debug.WriteLine($"[ParseFixed] Op={operation}, Desc={description}, Qty={qty}, Price={price}, Labor={labor}, Refinish={paint}");
+            System.Diagnostics.Debug.WriteLine($"[ParseFixed] Op={operation}, Desc={description}, Qty={qty}, Price={price}, Labor={labor}, Cat={category}, Refinish={paint}");
 
             return new ParsedOperation
             {
@@ -498,7 +510,8 @@ namespace McStudDesktop.Services
                 Qty = qty,
                 Price = price,
                 Labor = labor,
-                Paint = paint
+                Paint = paint,
+                Category = category
             };
         }
 
@@ -528,7 +541,12 @@ namespace McStudDesktop.Services
             var parsed = new List<ParsedOperation>();
             foreach (var raw in Operations)
             {
-                var op = ParseExcelRow(raw);
+                // Prefer fixed-column parser when the row has enough columns for it
+                // (it reads exact positions and correctly separates Labor vs Refinish)
+                var parts = raw.Split('\t');
+                ParsedOperation? op = parts.Length >= 12
+                    ? ParseExcelRowFixedColumns(raw)
+                    : ParseExcelRow(raw);
                 if (op != null)
                 {
                     parsed.Add(op);
@@ -1065,6 +1083,7 @@ namespace McStudDesktop.Services
         public string Price { get; set; } = "";       // Dollar amount
         public string Labor { get; set; } = "";       // Labor hours
         public string Paint { get; set; } = "";       // Paint/Refinish hours
+        public string Category { get; set; } = "";    // Category (e.g. "F" for Frame)
     }
 
     /// <summary>

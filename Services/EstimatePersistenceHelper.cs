@@ -67,7 +67,8 @@ public static class EstimatePersistenceHelper
             ParsedDate = DateTime.Now
         };
 
-        // Extract metadata (Source/VehicleInfo/VIN) from the raw text via SMART parser
+        // Extract metadata AND totals from the raw text via SMART parser
+        EstimateTotals? smartTotals = null;
         try
         {
             var smartParsed = EstimatePdfParser.Instance.ParseText(rawText);
@@ -77,6 +78,7 @@ public static class EstimatePersistenceHelper
                 estimate.VehicleInfo = smartParsed.VehicleInfo;
             if (!string.IsNullOrEmpty(smartParsed.VIN))
                 estimate.VIN = smartParsed.VIN;
+            smartTotals = smartParsed.Totals;
         }
         catch
         {
@@ -102,11 +104,19 @@ public static class EstimatePersistenceHelper
             });
         }
 
-        // Calculate totals from line items
-        estimate.Totals.LaborTotal = estimate.LineItems.Sum(i => i.LaborHours);
-        estimate.Totals.RefinishTotal = estimate.LineItems.Sum(i => i.RefinishHours);
-        estimate.Totals.PartsTotal = estimate.LineItems.Where(i => i.Price > 0 && string.IsNullOrEmpty(i.OperationType)).Sum(i => i.Price);
-        estimate.Totals.GrandTotal = estimate.LineItems.Sum(i => i.Price);
+        // Use totals from the PDF parser (reads the actual totals page) when available.
+        // Only fall back to summing line items if the parser found nothing.
+        if (smartTotals != null && smartTotals.GrandTotal > 0)
+        {
+            estimate.Totals = smartTotals;
+        }
+        else
+        {
+            estimate.Totals.LaborTotal = estimate.LineItems.Sum(i => i.LaborHours);
+            estimate.Totals.RefinishTotal = estimate.LineItems.Sum(i => i.RefinishHours);
+            estimate.Totals.PartsTotal = estimate.LineItems.Where(i => i.Price > 0 && string.IsNullOrEmpty(i.OperationType)).Sum(i => i.Price);
+            estimate.Totals.GrandTotal = estimate.LineItems.Sum(i => i.Price);
+        }
 
         return estimate;
     }

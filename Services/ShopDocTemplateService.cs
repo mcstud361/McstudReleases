@@ -266,10 +266,7 @@ public class ShopDocTemplateService
                         new TemplateChargeItem { Id = "colorMatch", Name = "Color Match", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Each" },
                         new TemplateChargeItem { Id = "paintMaterial", Name = "Paint Material", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
                         new TemplateChargeItem { Id = "clearCoat", Name = "Clear Coat", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
-                        new TemplateChargeItem { Id = "primerSealer", Name = "Primer / Sealer", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
-                        new TemplateChargeItem { Id = "reducerHardener", Name = "Reducer / Hardener", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" },
-                        new TemplateChargeItem { Id = "mixingLabor", Name = "Mixing Labor", DefaultAmount = 0, IsEnabled = true },
-                        new TemplateChargeItem { Id = "sprayout", Name = "Spray Out Card", DefaultAmount = 0, IsEnabled = true }
+                        new TemplateChargeItem { Id = "primerSealer", Name = "Primer / Sealer", DefaultAmount = 0, IsEnabled = true, ShowQuantity = true, QuantityLabel = "Pints" }
                     }
                 },
                 new TemplateSection

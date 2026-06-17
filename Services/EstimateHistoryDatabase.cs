@@ -167,10 +167,13 @@ public class EstimateHistoryDatabase
         // Auto-version by RO number: if no previousVersion was explicitly passed
         // (e.g. from a duplicate dialog), check if we already have an estimate with the same RO.
         var effectiveRo = roNumber ?? ExtractRONumber(parsed.RawText);
-        if (previousVersion == null && !string.IsNullOrWhiteSpace(effectiveRo))
+        if (previousVersion == null && !string.IsNullOrWhiteSpace(effectiveRo) && !string.IsNullOrWhiteSpace(parsed.VIN))
         {
+            // Only auto-version if BOTH RO number AND VIN match — prevents grouping
+            // completely different vehicles that happen to share a short/garbage RO.
             var existing = FindByRoNumber(effectiveRo);
-            if (existing != null)
+            if (existing != null && !string.IsNullOrWhiteSpace(existing.VIN)
+                && string.Equals(existing.VIN, parsed.VIN, StringComparison.OrdinalIgnoreCase))
                 previousVersion = existing;
         }
 
@@ -241,6 +244,25 @@ public class EstimateHistoryDatabase
                 WasPaid = true
             };
             estimate.LineItems.Add(storedItem);
+        }
+
+        // Safety net: re-extract GrandTotal from raw text if it looks like line-item sum was used
+        // instead of the actual PDF totals page value.
+        if (!string.IsNullOrWhiteSpace(parsed.RawText))
+        {
+            var gtRx = new System.Text.RegularExpressions.Regex(
+                @"(?:Grand|Net|Estimate|Job)\s*Total[\s:]*\$?\s*([\d,]+\.\d{2})",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var gtMatch = gtRx.Match(parsed.RawText);
+            if (gtMatch.Success)
+            {
+                var rawGt = decimal.TryParse(gtMatch.Groups[1].Value.Replace(",", ""), out var parsedGt) ? parsedGt : 0;
+                if (parsedGt > estimate.GrandTotal && parsedGt <= 500_000m)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[EstimateHistory] GrandTotal from raw text override: ${estimate.GrandTotal:N2} → ${parsedGt:N2}");
+                    estimate.GrandTotal = parsedGt;
+                }
+            }
         }
 
         // GrandTotal fallback: if the parsed total equals PartsTotal (common CCC parsing issue),
@@ -456,16 +478,21 @@ public class EstimateHistoryDatabase
     {
         var patterns = new[]
         {
-            @"RO[#:\s]+([A-Z0-9-]+)",
-            @"Repair Order[#:\s]+([A-Z0-9-]+)",
-            @"Workfile[#:\s]+([A-Z0-9-]+)"
+            @"(?<!\w)RO\s*[#:]\s*([A-Z0-9][A-Z0-9-]{2,})",
+            @"Repair\s*Order\s*[#:]\s*([A-Z0-9][A-Z0-9-]{2,})",
+            @"Workfile\s*[#:]\s*([A-Z0-9][A-Z0-9-]{2,})"
         };
 
         foreach (var pattern in patterns)
         {
             var match = System.Text.RegularExpressions.Regex.Match(rawText, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (match.Success)
-                return match.Groups[1].Value;
+            {
+                var val = match.Groups[1].Value.Trim();
+                // Must be at least 3 chars and not a common word fragment
+                if (val.Length >= 3)
+                    return val;
+            }
         }
 
         return "";

@@ -1760,44 +1760,167 @@ namespace McStudDesktop.Services
         private EstimateTotals ExtractTotals(string text)
         {
             var totals = new EstimateTotals();
-
-            // Labeled totals must use price-shape: $ prefix OR 2-cent decimal. Same rule as line
-            // items, but with a wider sanity ceiling ($500k) since a *whole estimate* total
-            // is legitimately larger than a single line.
             const decimal MaxSaneEstimateTotal = 500_000m;
 
-            // Tightened regex: require either $ prefix or .## decimal cents.
-            var patterns = new Dictionary<string, Action<decimal>>
-            {
-                { @"Labor\s*(?:Total)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.LaborTotal = val },
-                { @"Parts?\s*(?:Total)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.PartsTotal = val },
-                { @"Paint\s*(?:Material)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.PaintMaterial = val },
-                { @"Refinish\s*(?:Total)?[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.RefinishTotal = val },
-                { @"(?:Sub)?Total[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.Subtotal = val },
-                { @"Tax[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.Tax = val },
-                { @"(?:Grand|Net|Estimate)\s*Total[:\s]*(\$\s*[\d,]+(?:\.\d{2})?|\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})", val => totals.GrandTotal = val },
-            };
+            // === Strategy 1: Parse CCC/Mitchell ESTIMATE TOTALS structured block ===
+            // This block looks like:
+            //   ESTIMATE TOTALS
+            //   Parts                    4,108.62
+            //   Body Labor  19.8 hrs @ $ 65.00 /hr  1,287.00
+            //   Paint Labor 19.9 hrs @ $ 65.00 /hr  1,293.50
+            //   Subtotal                 9,535.82
+            //   Grand Total             10,167.57
+            // iText7 LocationTextExtractionStrategy may put columns on same line or separate lines.
 
-            foreach (var kvp in patterns)
+            // Find the ESTIMATE TOTALS or SUBTOTALS section (last occurrence — the summary, not inline subtotals)
+            // Find the TOTALS section — try multiple known headers (last occurrence = the summary)
+            var totalsBlockIdx = -1;
+            foreach (var header in new[] { "ESTIMATE TOTALS", "TOTALS SUMMARY", "Estimate Totals", "Totals Summary" })
             {
-                var match = Regex.Match(text, kvp.Key, RegexOptions.IgnoreCase);
-                if (!match.Success) continue;
-
-                var raw = match.Groups[1].Value.Replace(" ", "");
-                var hasDollar = raw.StartsWith("$");
-                if (hasDollar) raw = raw.Substring(1);
-                var cleaned = raw.Replace(",", "");
-                if (!decimal.TryParse(cleaned, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var val))
-                    continue;
-                if (val <= 0m || val > MaxSaneEstimateTotal)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Parser] Rejected absurd total ({kvp.Key}): {match.Groups[1].Value} -> {val:C}");
-                    continue;
-                }
-                kvp.Value(val);
+                totalsBlockIdx = text.LastIndexOf(header, StringComparison.OrdinalIgnoreCase);
+                if (totalsBlockIdx >= 0) break;
             }
 
+            string totalsBlock = totalsBlockIdx >= 0
+                ? text.Substring(totalsBlockIdx, Math.Min(2000, text.Length - totalsBlockIdx))
+                : "";
+
+            // === Grand Total — search from totals block first, then fall back to whole text ===
+            // Matches: "Grand Total 10,167.57", "Job Total: $ 9,060.56", "Net Total $5,000.00"
+            // Also handles newlines between label and value (iText7 may split across lines)
+            var grandTotalRx = new Regex(
+                @"(?:Grand|Net|Estimate|Job)\s*Total[\s:]*\$?\s*([\d,]+\.\d{2})",
+                RegexOptions.IgnoreCase);
+            var grandMatch = !string.IsNullOrEmpty(totalsBlock) ? grandTotalRx.Match(totalsBlock) : null;
+            if (grandMatch == null || !grandMatch.Success)
+                grandMatch = grandTotalRx.Match(text);
+            if (grandMatch != null && grandMatch.Success)
+            {
+                var val = ParseTotalValue(grandMatch.Groups[1].Value);
+                if (val > 0 && val <= MaxSaneEstimateTotal)
+                    totals.GrandTotal = val;
+            }
+
+            // === CCC rate table lines: "Body Labor XX.X hrs @ $ XX.XX /hr X,XXX.XX" ===
+            // This captures both the rate AND the dollar amount for each labor category.
+            var rateLineRx = new Regex(
+                @"(Body|Paint|Refinish|Mechanical|Frame|Structural)\s*(?:Labor)?\s+([\d.]+)\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr\s*([\d,]+\.\d{2})?",
+                RegexOptions.IgnoreCase);
+            var searchText = !string.IsNullOrEmpty(totalsBlock) ? totalsBlock : text;
+            foreach (Match m in rateLineRx.Matches(searchText))
+            {
+                var category = m.Groups[1].Value.ToLowerInvariant();
+                decimal.TryParse(m.Groups[2].Value, out var hours);
+                decimal.TryParse(m.Groups[3].Value, out var rate);
+                var dollarAmount = m.Groups[4].Success ? ParseTotalValue(m.Groups[4].Value) : hours * rate;
+
+                if (rate > 10 && rate < 500)
+                {
+                    switch (category)
+                    {
+                        case "body":
+                            totals.BodyHourlyRate = rate;
+                            if (dollarAmount > 0) totals.LaborTotal += dollarAmount;
+                            break;
+                        case "paint":
+                        case "refinish":
+                            totals.RefinishHourlyRate = rate;
+                            if (dollarAmount > 0) totals.RefinishTotal += dollarAmount;
+                            break;
+                        case "mechanical":
+                            totals.MechanicalHourlyRate = rate;
+                            if (dollarAmount > 0) totals.LaborTotal += dollarAmount;
+                            break;
+                        case "frame":
+                            totals.FrameHourlyRate = rate;
+                            if (dollarAmount > 0) totals.LaborTotal += dollarAmount;
+                            break;
+                        case "structural":
+                            if (totals.BodyHourlyRate == 0) totals.BodyHourlyRate = rate;
+                            if (dollarAmount > 0) totals.LaborTotal += dollarAmount;
+                            break;
+                    }
+                }
+            }
+
+            // === Parts total — look for "Parts" followed by a dollar amount in the totals block ===
+            var partsRx = new Regex(@"^Parts\s*([\d,]+\.\d{2})", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+            var partsMatch = !string.IsNullOrEmpty(totalsBlock) ? partsRx.Match(totalsBlock) : null;
+            if (partsMatch == null || !partsMatch.Success)
+            {
+                // Fallback: "Parts Total" or "Parts: $X"
+                partsRx = new Regex(@"Parts?\s*(?:Total)?[:\s]+(\$?\s*[\d,]+\.\d{2})", RegexOptions.IgnoreCase);
+                partsMatch = partsRx.Match(!string.IsNullOrEmpty(totalsBlock) ? totalsBlock : text);
+            }
+            if (partsMatch != null && partsMatch.Success)
+            {
+                var val = ParseTotalValue(partsMatch.Groups[1].Value);
+                if (val > 0 && val <= MaxSaneEstimateTotal)
+                    totals.PartsTotal = val;
+            }
+
+            // === Subtotal ===
+            var subtotalRx = new Regex(@"Subtotal\s*([\d,]+\.\d{2})", RegexOptions.IgnoreCase);
+            var subMatch = !string.IsNullOrEmpty(totalsBlock) ? subtotalRx.Match(totalsBlock) : null;
+            if (subMatch == null || !subMatch.Success)
+                subMatch = subtotalRx.Match(text);
+            if (subMatch != null && subMatch.Success)
+            {
+                var val = ParseTotalValue(subMatch.Groups[1].Value);
+                if (val > 0 && val <= MaxSaneEstimateTotal)
+                    totals.Subtotal = val;
+            }
+
+            // === Tax ===
+            var taxRx = new Regex(@"(?:Sales\s*)?Tax\s*\$?\s*([\d,]+\.\d{2})", RegexOptions.IgnoreCase);
+            var taxMatch = !string.IsNullOrEmpty(totalsBlock) ? taxRx.Match(totalsBlock) : null;
+            if (taxMatch == null || !taxMatch.Success)
+                taxMatch = taxRx.Match(text);
+            if (taxMatch != null && taxMatch.Success)
+            {
+                var val = ParseTotalValue(taxMatch.Groups[1].Value);
+                if (val > 0 && val <= MaxSaneEstimateTotal)
+                    totals.Tax = val;
+            }
+
+            // === Paint Supplies / Paint Material ===
+            var paintSupRx = new Regex(@"Paint\s*(?:Supplies|Materials?)\s+([\d.]+)\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr\s*([\d,]+\.\d{2})?", RegexOptions.IgnoreCase);
+            var paintSupMatch = paintSupRx.Match(searchText);
+            if (paintSupMatch.Success)
+            {
+                decimal.TryParse(paintSupMatch.Groups[2].Value, out var rate);
+                var dollarAmount = paintSupMatch.Groups[3].Success ? ParseTotalValue(paintSupMatch.Groups[3].Value) : 0;
+                if (dollarAmount > 0)
+                    totals.PaintMaterial = dollarAmount;
+            }
+
+            // === Fallback: if no LaborTotal from rate lines, try "Labor Total" pattern ===
+            if (totals.LaborTotal == 0)
+            {
+                var laborTotalRx = new Regex(@"(?:Total\s*)?Labor\s*(?:Total)?[:\s]+\$?\s*([\d,]+\.\d{2})", RegexOptions.IgnoreCase);
+                var laborMatch = laborTotalRx.Match(!string.IsNullOrEmpty(totalsBlock) ? totalsBlock : text);
+                if (laborMatch.Success)
+                {
+                    var val = ParseTotalValue(laborMatch.Groups[1].Value);
+                    if (val > 100 && val <= MaxSaneEstimateTotal) // Must be > $100 to be dollars, not hours
+                        totals.LaborTotal = val;
+                }
+            }
+
+            // If LaborHourlyRate wasn't set, fall back to body rate
+            if (totals.LaborHourlyRate == 0 && totals.BodyHourlyRate > 0)
+                totals.LaborHourlyRate = totals.BodyHourlyRate;
+
             return totals;
+        }
+
+        /// <summary>Parse a dollar value from "$ 10,167.57" or "10,167.57" or "$10167.57"</summary>
+        private static decimal ParseTotalValue(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return 0;
+            raw = raw.Replace(" ", "").Replace("$", "").Replace(",", "");
+            return decimal.TryParse(raw, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out var val) ? val : 0;
         }
 
         // ───── v2 metadata extractors ─────────────────────────────────────────
@@ -1974,6 +2097,7 @@ namespace McStudDesktop.Services
         {
             if (string.IsNullOrWhiteSpace(text)) return;
 
+            // Only fill in rates that weren't already set by ExtractTotals
             foreach (var (rx, setter) in RateRegexes)
             {
                 var match = rx.Match(text);

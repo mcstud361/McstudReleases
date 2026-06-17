@@ -186,6 +186,16 @@ namespace McStudDesktop.Services
             return Math.Round(bookHours / (efficiencyPercent / 100m), 1);
         }
 
+        /// <summary>
+        /// Given actual repair time and tech efficiency, returns how many hours to write on the estimate.
+        /// e.g., 3 actual hours × 225% efficiency = 6.75 billable hours.
+        /// </summary>
+        public static decimal CalculateBillableHours(decimal actualHours, decimal efficiencyPercent)
+        {
+            if (efficiencyPercent <= 0) return 0;
+            return Math.Round(actualHours * (efficiencyPercent / 100m), 1);
+        }
+
         public TechEfficiencySummary GetSummary(string technicianId, DateTime from, DateTime to)
         {
             var entries = GetEntries(technicianId, from, to);

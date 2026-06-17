@@ -365,15 +365,16 @@ namespace McstudDesktop.Services
                 }
             }
 
-            // Accumulate raw text for vehicle/customer info only — no part scanning.
-            // Strip CCC parts catalog sidebar text (after "Add to Estimate") to avoid
-            // false "confirmed on estimate" matches from catalog items.
+            // Accumulate raw text for must-have matching and vehicle/customer info.
+            // Remove CCC parts catalog sidebar labels that cause false matches:
+            // "Add to Estimate" button text, catalog group names, and part code labels.
+            // IMPORTANT: Don't truncate at "Add to Estimate" — OCR reads columns left-to-right
+            // and the button text may appear BEFORE actual estimate operations.
             if (!string.IsNullOrWhiteSpace(result.RawText))
             {
-                var cleanedRaw = result.RawText;
-                var catalogIdx = cleanedRaw.IndexOf("Add to Estimate", StringComparison.OrdinalIgnoreCase);
-                if (catalogIdx > 50)
-                    cleanedRaw = cleanedRaw.Substring(0, catalogIdx);
+                var cleanedRaw = result.RawText
+                    .Replace("Add to Estimate", " ", StringComparison.OrdinalIgnoreCase)
+                    .Replace("Advisa-", " ", StringComparison.OrdinalIgnoreCase);
                 // Cap accumulated text at 100KB to prevent unbounded growth over long sessions
                 if (_accumulatedRawText.Length > 100_000)
                 {
@@ -385,8 +386,15 @@ namespace McstudDesktop.Services
                 _accumulatedRawText.AppendLine(cleanedRaw);
                 if (_vehicleInfo == null)
                     _vehicleInfo = ExtractVehicleInfo(cleanedRaw);
+                // Also try the source window title — CCC puts vehicle info there
+                // (e.g., "Antm Test12, Antm Test12 - 2024 TESL Model 3 AWD w...")
+                if (_vehicleInfo == null && !string.IsNullOrEmpty(result.SourceWindow))
+                    _vehicleInfo = ExtractVehicleInfo(result.SourceWindow);
                 if (_customerName == null)
                     _customerName = ExtractCustomerName(cleanedRaw);
+                // Also try extracting customer from window title
+                if (_customerName == null && !string.IsNullOrEmpty(result.SourceWindow))
+                    _customerName = ExtractCustomerFromWindowTitle(result.SourceWindow);
                 if (_trackedRO == null)
                     _trackedRO = ExtractRONumber(cleanedRaw);
                 if (_insuranceCompany == null)
@@ -1742,7 +1750,11 @@ namespace McstudDesktop.Services
             "Mazda", "McLaren", "Mercedes", "Mercury", "Mini", "Mitsubishi",
             "Nissan", "Polestar", "Pontiac", "Porsche", "Ram", "Rivian", "Rolls",
             "Saturn", "Scion", "Smart", "Subaru", "Suzuki", "Tesla", "Toyota",
-            "Volkswagen", "Volvo", "VW"
+            "Volkswagen", "Volvo", "VW",
+            // CCC abbreviations (4-char codes used in window titles and headers)
+            "TESL", "CHEV", "TOYO", "HOND", "NISS", "FORD", "DODG", "JEEP",
+            "HYUN", "SUBA", "MAZD", "LEXU", "INFI", "ACUR", "MITS", "VOLV",
+            "MERC", "LINC", "CADI", "BUIC", "CHRY", "PONT", "SATU", "SUZK"
         };
 
         /// <summary>
@@ -1833,6 +1845,32 @@ namespace McstudDesktop.Services
             return null;
         }
 
+        /// <summary>
+        /// Extract customer/owner name from CCC window title.
+        /// CCC format: "LastName FirstName, LastName FirstName - 2024 TESL Model 3..."
+        /// The name portion appears before the " - Year" pattern.
+        /// </summary>
+        private static string? ExtractCustomerFromWindowTitle(string windowTitle)
+        {
+            if (string.IsNullOrWhiteSpace(windowTitle)) return null;
+
+            // Look for pattern: "Name - Year Make Model" where we want the Name part
+            var dashYearMatch = System.Text.RegularExpressions.Regex.Match(
+                windowTitle,
+                @"^(.+?)\s*-\s*(?:19|20)\d{2}\s");
+            if (dashYearMatch.Success)
+            {
+                var namePart = dashYearMatch.Groups[1].Value.Trim();
+                // CCC often repeats the name: "Antm Test12, Antm Test12" — take first part before comma
+                var commaIdx = namePart.IndexOf(',');
+                if (commaIdx > 0)
+                    namePart = namePart.Substring(0, commaIdx).Trim();
+                // Must be at least 3 chars and contain a letter
+                if (namePart.Length >= 3 && namePart.Any(char.IsLetter))
+                    return namePart;
+            }
+            return null;
+        }
 
         private static string? ExtractRONumber(string rawText)
         {

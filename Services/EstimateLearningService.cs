@@ -67,6 +67,23 @@ namespace McStudDesktop.Services
         private static EstimateLearningService? _instance;
         public static EstimateLearningService Instance => _instance ??= new EstimateLearningService();
 
+        /// <summary>
+        /// Get effective confidence for a pattern, factoring in age decay and user feedback.
+        /// </summary>
+        private double GetEffectiveConfidence(LearnedPattern pattern)
+            => PatternIntelligenceService.Instance.GetEffectiveConfidence(pattern);
+
+        /// <summary>
+        /// Get effective confidence for a manual line pattern, applying age decay.
+        /// </summary>
+        private double GetEffectiveConfidence(ManualLinePattern pattern)
+        {
+            var daysSinceUpdate = (DateTime.Now - pattern.LastUpdated).TotalDays;
+            if (daysSinceUpdate <= 90) return pattern.Confidence;
+            var decayPeriods = (daysSinceUpdate - 90) / 90;
+            return Math.Max(0.3, pattern.Confidence * Math.Pow(0.9, decayPeriods));
+        }
+
         // Base knowledge file (distributed with app) - read-only baseline
         private readonly string _baseKnowledgePath;
         // User knowledge file (in AppData) - shop mode learning
@@ -1178,7 +1195,7 @@ namespace McStudDesktop.Services
                     OperationType = patternOp.OperationType,
                     Description = patternOp.Description,
                     Category = patternOp.Category,
-                    Confidence = pattern.Confidence,
+                    Confidence = GetEffectiveConfidence(pattern),
                     Source = $"Learned from {pattern.ExampleCount} examples",
                     RepairHours = line.RepairHours > 0 ? line.RepairHours : patternOp.RepairHours,
                     LaborHours = patternOp.LaborHours,
@@ -1213,7 +1230,7 @@ namespace McStudDesktop.Services
                     OperationType = patternOp.OperationType,
                     Description = patternOp.Description,
                     Category = patternOp.Category,
-                    Confidence = bestMatch.MatchScore * bestMatch.Pattern.Confidence,
+                    Confidence = bestMatch.MatchScore * GetEffectiveConfidence(bestMatch.Pattern),
                     Source = $"Learned from {bestMatch.Pattern.ExampleCount} examples"
                 };
 
@@ -2917,7 +2934,9 @@ namespace McStudDesktop.Services
             var baseConfidence = 1.0 - (1.0 / (1.0 + pattern.ExampleCount * 0.5));
 
             // Boost confidence if manual lines are consistently used
-            var avgTimesUsed = pattern.ManualLines.Average(m => m.TimesUsed);
+            var avgTimesUsed = pattern.ManualLines.Count > 0
+                ? pattern.ManualLines.Average(m => m.TimesUsed)
+                : 0.0;
             var consistencyBoost = Math.Min(0.2, avgTimesUsed * 0.05);
 
             return Math.Min(1.0, baseConfidence + consistencyBoost);
@@ -3269,7 +3288,7 @@ namespace McStudDesktop.Services
                             RefinishHours = manualLine.RefinishUnits,
                             TimesUsed = manualLine.TimesUsed,
                             PatternExampleCount = pattern.ExampleCount,
-                            Confidence = pattern.Confidence,
+                            Confidence = GetEffectiveConfidence(pattern),
                             // Include price data
                             Price = manualLine.Price,
                             MinPrice = manualLine.MinPrice,
@@ -3389,7 +3408,7 @@ namespace McStudDesktop.Services
                         PartName = kvp.Value.ParentPartName,
                         OperationType = kvp.Value.ParentOperationType,
                         ExampleCount = kvp.Value.ExampleCount,
-                        Confidence = kvp.Value.Confidence,
+                        Confidence = GetEffectiveConfidence(kvp.Value),
                         DateCreated = kvp.Value.DateCreated,
                         LastUpdated = kvp.Value.LastUpdated,
                         Operations = ops
@@ -3834,7 +3853,7 @@ namespace McStudDesktop.Services
                 .Where(p => PartMatches(p.PartName, normalizedPart))
                 .Where(p => string.IsNullOrEmpty(operationType) ||
                             p.OperationType.Equals(operationType, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(p => p.Confidence)
+                .OrderByDescending(p => GetEffectiveConfidence(p))
                 .ToList();
 
             // Find training examples for this part to calculate typical ratios
@@ -3903,7 +3922,7 @@ namespace McStudDesktop.Services
                         OriginalRefinishHours = op.RefinishHours,
                         ScaledLaborHours = Math.Round(op.LaborHours * scaleFactor, 2),
                         ScaledRefinishHours = Math.Round(op.RefinishHours * scaleFactor, 2),
-                        Confidence = pattern.Confidence,
+                        Confidence = GetEffectiveConfidence(pattern),
                         ExampleCount = pattern.ExampleCount,
                         Source = $"Learned from {pattern.ExampleCount} estimates"
                     };
@@ -3927,7 +3946,7 @@ namespace McStudDesktop.Services
                         OriginalRefinishHours = manualLine.RefinishUnits,
                         ScaledLaborHours = Math.Round(manualLine.LaborUnits * scaleFactor, 2),
                         ScaledRefinishHours = Math.Round(manualLine.RefinishUnits * scaleFactor, 2),
-                        Confidence = manualPattern.Confidence,
+                        Confidence = GetEffectiveConfidence(manualPattern),
                         ExampleCount = manualLine.TimesUsed,
                         Source = $"Manual line - used {manualLine.TimesUsed}x",
                         IsManualLine = true
@@ -4032,7 +4051,7 @@ namespace McStudDesktop.Services
             }
 
             // Build suggested operations
-            foreach (var pattern in matchingPatterns.OrderByDescending(p => p.Confidence))
+            foreach (var pattern in matchingPatterns.OrderByDescending(p => GetEffectiveConfidence(p)))
             {
                 foreach (var op in pattern.Operations)
                 {
@@ -4045,7 +4064,7 @@ namespace McStudDesktop.Services
                         TypicalLaborHours = op.LaborHours,
                         TypicalRefinishHours = op.RefinishHours,
                         TypicalPrice = op.Price,
-                        Confidence = pattern.Confidence,
+                        Confidence = GetEffectiveConfidence(pattern),
                         TimesUsed = op.TimesUsed,
                         ExampleCount = pattern.ExampleCount,
                         Source = $"Learned from {pattern.ExampleCount} estimates"

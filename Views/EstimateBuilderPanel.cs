@@ -1248,18 +1248,37 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(BuildSectionDivider());
 
-            // ── Financial Breakdown ──
-            stack.Children.Add(BuildFinancialBreakdownTable(est));
+            // ── Estimate Breakdown ──
+            stack.Children.Add(BuildEstimateBreakdownTable(est));
 
             stack.Children.Add(BuildSectionDivider());
 
             // ── Line Items with All/Categorized toggle ──
             if (est.LineItems.Count > 0)
             {
-                var cats = CategorizeLineItems(est.LineItems);
+                // Filter out subtotal lines from the main display items
+                var displayItems = est.LineItems.Where(li => !IsSubtotalLine(li)).ToList();
+                var cats = CategorizeLineItems(displayItems);
 
                 // Container that holds either the "All" flat table or the categorized expanders
                 var lineItemsContainer = new StackPanel { Spacing = 2 };
+
+                // Search state
+                string searchQuery = "";
+
+                // Helper: filter items by search text
+                List<StoredLineItem> FilterItems(List<StoredLineItem> items)
+                {
+                    if (string.IsNullOrWhiteSpace(searchQuery)) return items;
+                    var q = searchQuery.ToLowerInvariant();
+                    return items.Where(li =>
+                        (li.Description ?? "").ToLowerInvariant().Contains(q) ||
+                        (li.PartName ?? "").ToLowerInvariant().Contains(q) ||
+                        (li.PartNumber ?? "").ToLowerInvariant().Contains(q) ||
+                        (li.OperationType ?? "").ToLowerInvariant().Contains(q) ||
+                        (li.Section ?? "").ToLowerInvariant().Contains(q)
+                    ).ToList();
+                }
 
                 // Track active view mode
                 string activeViewMode = "Categorized";
@@ -1270,33 +1289,38 @@ namespace McStudDesktop.Views
                 {
                     lineItemsContainer.Children.Clear();
 
-                    if (cats.OemParts.Count > 0)
+                    var filteredOem = FilterItems(cats.OemParts);
+                    var filteredSvc = FilterItems(cats.Services);
+                    var filteredSup = FilterItems(cats.Supplies);
+                    var filteredLabor = FilterItems(cats.LaborOps);
+
+                    if (filteredOem.Count > 0)
                     {
-                        var oemTotal = cats.OemParts.Sum(li => li.Price);
+                        var oemTotal = filteredOem.Sum(li => li.Price);
                         lineItemsContainer.Children.Add(BuildCategoryExpander(
-                            $"OEM PARTS ({cats.OemParts.Count} items)",
+                            $"OEM PARTS ({filteredOem.Count} items)",
                             oemTotal > 0 ? $"${oemTotal:N0}" : null,
-                            cats.OemParts, showPartNumber: true));
+                            filteredOem, showPartNumber: true));
                     }
-                    if (cats.Services.Count > 0)
+                    if (filteredSvc.Count > 0)
                     {
-                        var svcTotal = cats.Services.Sum(li => li.Price);
+                        var svcTotal = filteredSvc.Sum(li => li.Price);
                         lineItemsContainer.Children.Add(BuildCategoryExpander(
-                            $"SERVICES & CALIBRATIONS ({cats.Services.Count} items)",
+                            $"SERVICES & CALIBRATIONS ({filteredSvc.Count} items)",
                             svcTotal > 0 ? $"${svcTotal:N0}" : null,
-                            cats.Services, showPartNumber: false));
+                            filteredSvc, showPartNumber: false));
                     }
-                    if (cats.Supplies.Count > 0)
+                    if (filteredSup.Count > 0)
                     {
-                        var supTotal = cats.Supplies.Sum(li => li.Price);
+                        var supTotal = filteredSup.Sum(li => li.Price);
                         lineItemsContainer.Children.Add(BuildCategoryExpander(
-                            $"SUPPLIES & MATERIALS ({cats.Supplies.Count} items)",
+                            $"SUPPLIES & MATERIALS ({filteredSup.Count} items)",
                             supTotal > 0 ? $"${supTotal:N0}" : null,
-                            cats.Supplies, showPartNumber: false));
+                            filteredSup, showPartNumber: false));
                     }
-                    if (cats.LaborOps.Count > 0)
+                    if (filteredLabor.Count > 0)
                     {
-                        var laborByCategory = cats.LaborOps
+                        var laborByCategory = filteredLabor
                             .GroupBy(li => ClassifyLaborCategory(li))
                             .OrderBy(g => LaborCategoryOrder(g.Key))
                             .ToList();
@@ -1390,7 +1414,9 @@ namespace McStudDesktop.Views
                 void PopulateAllView()
                 {
                     lineItemsContainer.Children.Clear();
-                    lineItemsContainer.Children.Add(BuildAllLineItemsTable(est.LineItems.ToList(), cats));
+                    var filtered = FilterItems(displayItems);
+                    var filteredCats = CategorizeLineItems(filtered);
+                    lineItemsContainer.Children.Add(BuildAllLineItemsTable(filtered, filteredCats));
                 }
 
                 // ── View toggle bar ──
@@ -1413,7 +1439,7 @@ namespace McStudDesktop.Views
 
                 var allViewBtn = new Button
                 {
-                    Content = new TextBlock { Text = $"All ({est.LineItems.Count})", FontSize = 11 },
+                    Content = new TextBlock { Text = $"All ({displayItems.Count})", FontSize = 11 },
                     Padding = new Thickness(10, 4, 10, 4),
                     CornerRadius = new CornerRadius(4),
                     Tag = "All"
@@ -1444,6 +1470,47 @@ namespace McStudDesktop.Views
                 };
                 viewToggleButtons.Add(catViewBtn);
                 toggleBar.Children.Add(catViewBtn);
+
+                // ── Search box for line items ──
+                var searchBox = new TextBox
+                {
+                    PlaceholderText = "Search line items...",
+                    FontSize = 12,
+                    MinWidth = 200,
+                    Margin = new Thickness(12, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Background = new SolidColorBrush(Color.FromArgb(255, 28, 28, 32)),
+                    Foreground = new SolidColorBrush(TextPrimary),
+                    BorderBrush = new SolidColorBrush(BorderSubtle),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(8, 4, 8, 4)
+                };
+                var searchResultsLabel = new TextBlock
+                {
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(TextMuted),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 0, 0)
+                };
+                searchBox.TextChanged += (s, e) =>
+                {
+                    searchQuery = searchBox.Text?.Trim() ?? "";
+                    if (string.IsNullOrEmpty(searchQuery))
+                    {
+                        searchResultsLabel.Text = "";
+                    }
+                    else
+                    {
+                        var matchCount = FilterItems(displayItems).Count;
+                        searchResultsLabel.Text = $"{matchCount} of {displayItems.Count}";
+                    }
+                    if (activeViewMode == "Categorized")
+                        PopulateCategorizedView();
+                    else
+                        PopulateAllView();
+                };
+                toggleBar.Children.Add(searchBox);
+                toggleBar.Children.Add(searchResultsLabel);
 
                 UpdateViewToggleStyles();
                 stack.Children.Add(toggleBar);
@@ -1518,13 +1585,13 @@ namespace McStudDesktop.Views
                 _estimateListCard.Visibility = Visibility.Visible;
         }
 
-        /// <summary>Financial breakdown table: Parts, Body Labor, Paint Labor, Mechanical, Grand Total</summary>
-        private StackPanel BuildFinancialBreakdownTable(StoredEstimate est)
+        /// <summary>Estimate breakdown table: Parts, Body Labor, Paint Labor, Mechanical, Grand Total</summary>
+        private StackPanel BuildEstimateBreakdownTable(StoredEstimate est)
         {
             var col = new StackPanel { Spacing = 4 };
             col.Children.Add(new TextBlock
             {
-                Text = "FINANCIAL BREAKDOWN",
+                Text = "ESTIMATE BREAKDOWN",
                 FontSize = 10,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(TextMuted),
@@ -1563,7 +1630,7 @@ namespace McStudDesktop.Views
 
             // Calculate hours per labor category using the same classifier as the expanders
             decimal bodyHrs = 0, refinishHrs = 0, mechHrs = 0, frameHrs = 0, structHrs = 0;
-            foreach (var li in est.LineItems)
+            foreach (var li in est.LineItems.Where(li => !IsSubtotalLine(li)))
             {
                 var cat = ClassifyLaborCategory(li);
                 var hrs = li.LaborHours + li.RefinishHours;
@@ -1887,9 +1954,9 @@ namespace McStudDesktop.Views
                 if (est.LossDate.HasValue) sb.AppendLine($"Loss Date: {est.LossDate:M/d/yyyy}");
                 if (est.DeductibleAmount > 0) sb.AppendLine($"Deductible: ${est.DeductibleAmount:N2}");
 
-                // Financial breakdown
+                // Estimate breakdown
                 sb.AppendLine();
-                sb.AppendLine("── Financial Breakdown ──");
+                sb.AppendLine("── Estimate Breakdown ──");
                 if (est.PartsTotal > 0) sb.AppendLine($"Parts:              ${est.PartsTotal:N2}");
 
                 decimal bodyHrs = 0, refinishHrs = 0, mechHrs = 0;
@@ -3613,9 +3680,10 @@ namespace McStudDesktop.Views
                 FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(TextPrimary), TextTrimming = TextTrimming.CharacterEllipsis
             });
+            var displayGrandTotal = ComputeGrandTotal(est);
             var totalBlock = new TextBlock
             {
-                Text = est.GrandTotal > 0 ? $"${est.GrandTotal:N0}" : "",
+                Text = displayGrandTotal > 0 ? $"${displayGrandTotal:N0}" : "",
                 FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(AccentGreen)
             };
@@ -4114,21 +4182,27 @@ namespace McStudDesktop.Views
             if (est.GrandTotal > 0 && est.GrandTotal != est.PartsTotal)
                 return est.GrandTotal;
 
-            // 2. Best fallback: add the parsed category totals (LaborTotal, PaintTotal)
-            //    directly. These come from labeled summary lines in the PDF and are more
-            //    reliable than reconstructing from hours × rates.
-            if (est.PartsTotal > 0 && (est.LaborTotal > 0 || est.PaintTotal > 0))
+            // Detect whether LaborTotal/PaintTotal are dollars or hours.
+            // If LaborTotal < 500 and we have line items with labor hours totaling close
+            // to LaborTotal, it's storing hours (old parser bug), not dollar amounts.
+            var totalLineHours = est.LineItems.Sum(li => li.LaborHours + li.RefinishHours);
+            bool laborTotalIsDollars = est.LaborTotal > 500 ||
+                (est.LaborTotal > 0 && Math.Abs(est.LaborTotal - totalLineHours) > 10);
+
+            // 2. Best fallback: add the parsed category totals IF they are dollar amounts.
+            if (laborTotalIsDollars && est.PartsTotal > 0 && (est.LaborTotal > 0 || est.PaintTotal > 0))
             {
                 decimal fromTotals = est.PartsTotal + est.LaborTotal + est.PaintTotal;
                 // Include manual/service lines not captured by the three category totals
+                // but exclude subtotal/summary lines that leaked through the parser
                 fromTotals += est.LineItems
-                    .Where(li => li.IsManualLine && li.Price > 0)
+                    .Where(li => li.IsManualLine && li.Price > 0 && !IsSubtotalLine(li))
                     .Sum(li => li.Price);
                 if (fromTotals > est.GrandTotal)
                     return fromTotals;
             }
 
-            // 3. Last resort: reconstruct labor dollars from hours × rates
+            // 3. Reconstruct labor dollars from hours × rates
             decimal total = est.PartsTotal;
 
             decimal bodyHrs = 0, refinishHrs = 0, mechHrs = 0;
@@ -4155,7 +4229,7 @@ namespace McStudDesktop.Views
                 total += mechHrs * est.MechanicalHourlyRate;
 
             decimal manualPrices = est.LineItems
-                .Where(li => li.IsManualLine && li.Price > 0)
+                .Where(li => li.IsManualLine && li.Price > 0 && !IsSubtotalLine(li))
                 .Sum(li => li.Price);
             total += manualPrices;
 
@@ -4166,7 +4240,8 @@ namespace McStudDesktop.Views
             List<StoredLineItem> OemParts,
             List<StoredLineItem> Services,
             List<StoredLineItem> Supplies,
-            List<StoredLineItem> LaborOps);
+            List<StoredLineItem> LaborOps,
+            List<StoredLineItem> Subtotals);
 
         private static CategorizedLineItems CategorizeLineItems(IList<StoredLineItem> items)
         {
@@ -4174,10 +4249,14 @@ namespace McStudDesktop.Views
             var services = new List<StoredLineItem>();
             var supplies = new List<StoredLineItem>();
             var labor = new List<StoredLineItem>();
+            var subtotals = new List<StoredLineItem>();
 
             foreach (var li in items)
             {
-                if (!string.IsNullOrEmpty(li.PartNumber) && !li.IsManualLine)
+                // Catch subtotal/summary lines that leaked through the parser
+                if (IsSubtotalLine(li))
+                    subtotals.Add(li);
+                else if (!string.IsNullOrEmpty(li.PartNumber) && !li.IsManualLine)
                     oem.Add(li);
                 else if (IsServiceLine(li))
                     services.Add(li);
@@ -4186,7 +4265,7 @@ namespace McStudDesktop.Views
                 else
                     labor.Add(li);
             }
-            return new CategorizedLineItems(oem, services, supplies, labor);
+            return new CategorizedLineItems(oem, services, supplies, labor, subtotals);
         }
 
         private static readonly string[] ServiceKeywords = {
@@ -4222,6 +4301,22 @@ namespace McStudDesktop.Views
             if (li.Price > 0 && li.LaborHours == 0 && li.RefinishHours == 0)
                 return true;
             return false;
+        }
+
+        /// <summary>Detect subtotal / summary lines that leaked through the parser.</summary>
+        private static readonly string[] SubtotalKeywords = {
+            "subtotal", "sub total", "sub-total", "grand total", "estimate total",
+            "net total", "gross total", "net estimate", "parts total",
+            "labor total", "paint total", "refinish total", "body total",
+            "mechanical total", "frame total", "structural total",
+            "sales tax", "taxable amount", "customer responsibility",
+            "deductible", "total labor", "total paint", "total parts"
+        };
+
+        private static bool IsSubtotalLine(StoredLineItem li)
+        {
+            var desc = (li.Description ?? li.PartName ?? "").ToLowerInvariant();
+            return SubtotalKeywords.Any(kw => desc.Contains(kw));
         }
 
         /// <summary>Classify a labor line item into its labor category for display grouping</summary>

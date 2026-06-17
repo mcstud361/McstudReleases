@@ -383,6 +383,19 @@ namespace McStudDesktop.Services
                     if (_cts.Token.IsCancellationRequested) break;
                     CheckUserInput();
 
+                    // Refresh browser rect every op — handles window moves mid-sequence
+                    GetWindowRect(targetWindow, out browserRect);
+                    contentMinY = browserRect.Top + 130;
+                    contentMaxY = browserRect.Bottom - 30;
+
+                    // Verify browser is still foreground, bring it back if not
+                    if (GetForegroundWindow() != targetWindow)
+                    {
+                        Debug.WriteLine($"[CCC-Web] Browser lost focus before op {i + 1}, bringing back...");
+                        BringBrowserToFront(targetWindow);
+                        await Task.Delay(400, _cts.Token);
+                    }
+
                     var op = ops[i];
                     int displayIndex = i + 1;
 
@@ -456,18 +469,23 @@ namespace McStudDesktop.Services
                         if (insertLinePos == null)
                             insertLinePos = await FindButtonByOcr("Insert", clickX, clickY, searchBelow: true);
 
-                        // If Insert Line not visible (hidden behind diagrams panel), scroll down to reveal it.
+                        // If Insert Line not visible (hidden below fold), scroll down gradually to reveal it.
                         // IMPORTANT: Scroll inside the BROWSER, not at clickX/clickY (which points to McStud).
                         if (insertLinePos == null)
                         {
                             int browserScrollX = (browserRect.Left + browserRect.Right) / 2;
                             int browserScrollY = (browserRect.Top + browserRect.Bottom) / 2;
-                            Debug.WriteLine($"[CCC-Web] Insert Line not visible — scrolling browser at ({browserScrollX}, {browserScrollY})");
-                            ScrollDown(browserScrollX, browserScrollY, 1);
-                            await Task.Delay(400, _cts.Token);
-                            insertLinePos = await FindButtonByOcr("Insert Line", clickX, clickY, searchBelow: true);
-                            if (insertLinePos == null)
-                                insertLinePos = await FindButtonByOcr("Insert", clickX, clickY, searchBelow: true);
+
+                            for (int scrollTry = 0; scrollTry < 3 && insertLinePos == null; scrollTry++)
+                            {
+                                CheckUserInput();
+                                Debug.WriteLine($"[CCC-Web] Insert Line not visible — scroll attempt {scrollTry + 1}/3 at ({browserScrollX}, {browserScrollY})");
+                                ScrollDown(browserScrollX, browserScrollY, 1); // 1 notch at a time
+                                await Task.Delay(400, _cts.Token);
+                                insertLinePos = await FindButtonByOcr("Insert Line", clickX, clickY, searchBelow: true);
+                                if (insertLinePos == null)
+                                    insertLinePos = await FindButtonByOcr("Insert", clickX, clickY, searchBelow: true);
+                            }
                         }
                     }
                     else
@@ -524,9 +542,46 @@ namespace McStudDesktop.Services
                         }
                         else
                         {
-                            // Dismiss any accidental popup from the failed click
-                            SendKeyPress(VK_ESCAPE);
-                            await Task.Delay(200, _cts.Token);
+                            // Insert Line may be just below the fold — scroll down gradually to reveal it
+                            int bScrollX = (browserRect.Left + browserRect.Right) / 2;
+                            int bScrollY = (browserRect.Top + browserRect.Bottom) / 2;
+
+                            for (int scrollTry = 0; scrollTry < 3 && !foundInsertLine; scrollTry++)
+                            {
+                                CheckUserInput();
+                                Debug.WriteLine($"[CCC-Web] Insert Line not visible after click — scroll attempt {scrollTry + 1}/3");
+                                ScrollDown(bScrollX, bScrollY, 1); // 1 notch at a time
+                                await Task.Delay(400, _cts.Token);
+
+                                var scrollCheckWords = await OcrFullScreen();
+                                if (_targetBrowserWindow != IntPtr.Zero)
+                                {
+                                    GetWindowRect(_targetBrowserWindow, out RECT scRect);
+                                    scrollCheckWords = scrollCheckWords.Where(w =>
+                                        w.x + w.w / 2 >= scRect.Left && w.x + w.w / 2 <= scRect.Right &&
+                                        w.y + w.h / 2 >= scRect.Top && w.y + w.h / 2 <= scRect.Bottom).ToList();
+                                }
+                                for (int wi = 0; wi < scrollCheckWords.Count - 1; wi++)
+                                {
+                                    if (scrollCheckWords[wi].text.Equals("Insert", StringComparison.OrdinalIgnoreCase) &&
+                                        scrollCheckWords[wi + 1].text.Equals("Line", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        double cx = (scrollCheckWords[wi].x + scrollCheckWords[wi + 1].x + scrollCheckWords[wi + 1].w) / 2;
+                                        double cy = scrollCheckWords[wi].y + scrollCheckWords[wi].h / 2;
+                                        insertLinePos = new System.Drawing.Point((int)cx, (int)cy);
+                                        foundInsertLine = true;
+                                        Debug.WriteLine($"[CCC-Web] Found Insert Line after scroll at ({insertLinePos.Value.X}, {insertLinePos.Value.Y})");
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!foundInsertLine)
+                            {
+                                // Dismiss any accidental popup from the failed click
+                                SendKeyPress(VK_ESCAPE);
+                                await Task.Delay(200, _cts.Token);
+                            }
                         }
 
                         // CACHED CLICK FAILED — page likely scrolled or shifted.
@@ -609,6 +664,40 @@ namespace McStudDesktop.Services
                                         foundInsertLine = true;
                                         break;
                                     }
+
+                                    // Insert Line may be below the fold — scroll down to reveal it
+                                    int rcScrollX = (browserRect.Left + browserRect.Right) / 2;
+                                    int rcScrollY = (browserRect.Top + browserRect.Bottom) / 2;
+                                    for (int sTry = 0; sTry < 2 && insertLinePos == null; sTry++)
+                                    {
+                                        CheckUserInput();
+                                        Debug.WriteLine($"[CCC-Web] Recovery try {tryIdx + 1}: scroll {sTry + 1}/2 to find Insert Line");
+                                        ScrollDown(rcScrollX, rcScrollY, 1);
+                                        await Task.Delay(400, _cts.Token);
+                                        var scrollRetryWords = await OcrFullScreen();
+                                        if (_targetBrowserWindow != IntPtr.Zero)
+                                        {
+                                            GetWindowRect(_targetBrowserWindow, out RECT srRect);
+                                            scrollRetryWords = scrollRetryWords.Where(w =>
+                                                w.x + w.w / 2 >= srRect.Left && w.x + w.w / 2 <= srRect.Right &&
+                                                w.y + w.h / 2 >= srRect.Top && w.y + w.h / 2 <= srRect.Bottom).ToList();
+                                        }
+                                        for (int wi2 = 0; wi2 < scrollRetryWords.Count - 1; wi2++)
+                                        {
+                                            if (scrollRetryWords[wi2].text.Equals("Insert", StringComparison.OrdinalIgnoreCase) &&
+                                                scrollRetryWords[wi2 + 1].text.Equals("Line", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                double cx2 = (scrollRetryWords[wi2].x + scrollRetryWords[wi2 + 1].x + scrollRetryWords[wi2 + 1].w) / 2;
+                                                double cy2 = scrollRetryWords[wi2].y + scrollRetryWords[wi2].h / 2;
+                                                insertLinePos = new System.Drawing.Point((int)cx2, (int)cy2);
+                                                foundInsertLine = true;
+                                                Debug.WriteLine($"[CCC-Web] Found Insert Line after scroll on recovery try {tryIdx + 1}");
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (foundInsertLine) break;
+
                                     SendKeyPress(VK_ESCAPE);
                                     await Task.Delay(200, _cts.Token);
                                 }
@@ -658,6 +747,40 @@ namespace McStudDesktop.Services
                                     foundInsertLine = true;
                                     break;
                                 }
+
+                                // Scroll down to try to reveal Insert Line below fold
+                                int lrScrollX = (browserRect.Left + browserRect.Right) / 2;
+                                int lrScrollY = (browserRect.Top + browserRect.Bottom) / 2;
+                                for (int sTry = 0; sTry < 2 && insertLinePos == null; sTry++)
+                                {
+                                    CheckUserInput();
+                                    Debug.WriteLine($"[CCC-Web] Last-resort try {tryIdx + 1}: scroll {sTry + 1}/2 to find Insert Line");
+                                    ScrollDown(lrScrollX, lrScrollY, 1);
+                                    await Task.Delay(400, _cts.Token);
+                                    var scrollFbWords = await OcrFullScreen();
+                                    if (_targetBrowserWindow != IntPtr.Zero)
+                                    {
+                                        GetWindowRect(_targetBrowserWindow, out RECT sfRect);
+                                        scrollFbWords = scrollFbWords.Where(w =>
+                                            w.x + w.w / 2 >= sfRect.Left && w.x + w.w / 2 <= sfRect.Right &&
+                                            w.y + w.h / 2 >= sfRect.Top && w.y + w.h / 2 <= sfRect.Bottom).ToList();
+                                    }
+                                    for (int wi2 = 0; wi2 < scrollFbWords.Count - 1; wi2++)
+                                    {
+                                        if (scrollFbWords[wi2].text.Equals("Insert", StringComparison.OrdinalIgnoreCase) &&
+                                            scrollFbWords[wi2 + 1].text.Equals("Line", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            double cx2 = (scrollFbWords[wi2].x + scrollFbWords[wi2 + 1].x + scrollFbWords[wi2 + 1].w) / 2;
+                                            double cy2 = scrollFbWords[wi2].y + scrollFbWords[wi2].h / 2;
+                                            insertLinePos = new System.Drawing.Point((int)cx2, (int)cy2);
+                                            foundInsertLine = true;
+                                            Debug.WriteLine($"[CCC-Web] Found Insert Line after scroll on last-resort try {tryIdx + 1}");
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (foundInsertLine) break;
+
                                 SendKeyPress(VK_ESCAPE);
                                 await Task.Delay(200, _cts.Token);
                             }
@@ -741,11 +864,46 @@ namespace McStudDesktop.Services
                     }
                     CheckUserInput();
 
-                    // --- STEP 5b: Fresh OCR to refresh field positions ---
-                    // Use EnsureEditRowVisible to find (and scroll to) the edit row.
+                    // --- STEP 5b: Verify description was typed (OCR check) ---
+                    // If we can't find our description text on screen, the click missed the field.
+                    // Retry: re-click Description and retype.
                     int editRowY = fields.Description.Value.Y;
-                    Debug.WriteLine($"[CCC-Web] Step 5b: Refreshing field positions (editRowY={editRowY})...");
                     await Task.Delay(OcrDelay, _cts.Token);
+
+                    if (!string.IsNullOrEmpty(op.Description))
+                    {
+                        string[] verifyWords = op.Description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        string verifyWord = verifyWords.Where(w => w.Length >= 3).FirstOrDefault()
+                            ?? (verifyWords.Length > 0 ? verifyWords[0] : "");
+
+                        if (verifyWord.Length >= 2)
+                        {
+                            var verifyOcr = await OcrFullScreen();
+                            GetWindowRect(targetWindow, out RECT vRect);
+                            verifyOcr = verifyOcr.Where(w =>
+                                w.x + w.w / 2 >= vRect.Left && w.x + w.w / 2 <= vRect.Right &&
+                                w.y + w.h / 2 >= vRect.Top && w.y + w.h / 2 <= vRect.Bottom).ToList();
+
+                            bool descFound = verifyOcr.Any(w =>
+                                w.text.IndexOf(verifyWord, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                Math.Abs((w.y + w.h / 2) - editRowY) < 40);
+
+                            if (!descFound)
+                            {
+                                Debug.WriteLine($"[CCC-Web] Step 5b: Description NOT found on screen — click missed, retrying...");
+                                StatusChanged?.Invoke(this, $"Op {displayIndex}/{totalOps}: Re-typing description...");
+
+                                // Cancel this edit row and retry the whole op
+                                SendKeyPress(VK_ESCAPE);
+                                await Task.Delay(300, _cts.Token);
+                                continue; // retry this operation
+                            }
+                            Debug.WriteLine($"[CCC-Web] Step 5b: Description verified on screen");
+                        }
+                    }
+
+                    // --- STEP 5c: Fresh OCR to refresh field positions ---
+                    Debug.WriteLine($"[CCC-Web] Step 5c: Refreshing field positions (editRowY={editRowY})...");
 
                     var ensureResult = await EnsureEditRowVisible(op.Description, editRowY, targetWindow);
                     if (ensureResult != null)
@@ -1089,6 +1247,68 @@ namespace McStudDesktop.Services
                         await Task.Delay(300, _cts.Token);
                     }
                     CheckUserInput();
+
+                    // --- STEP 10: Verify the op actually saved ---
+                    // OCR for our description text on a collapsed (non-edit) row.
+                    // If Cancel is still visible, we're still in edit mode — save failed.
+                    // If our description isn't on screen, the op may not have been saved.
+                    bool saveVerified = true;
+                    if (!string.IsNullOrEmpty(op.Description))
+                    {
+                        await Task.Delay(300, _cts.Token);
+                        var saveCheckWords = await OcrFullScreen();
+                        GetWindowRect(targetWindow, out RECT svRect);
+                        saveCheckWords = saveCheckWords.Where(w =>
+                            w.x + w.w / 2 >= svRect.Left && w.x + w.w / 2 <= svRect.Right &&
+                            w.y + w.h / 2 >= svRect.Top && w.y + w.h / 2 <= svRect.Bottom).ToList();
+
+                        // If Cancel is still visible, we're still in edit mode — try Enter one more time
+                        bool stillEditing = saveCheckWords.Any(w =>
+                            w.text.Equals("Cancel", StringComparison.OrdinalIgnoreCase));
+                        if (stillEditing)
+                        {
+                            Debug.WriteLine($"[CCC-Web] Step 10: Still in edit mode after OK — pressing Enter as fallback");
+                            SendKeyPress(VK_RETURN);
+                            await Task.Delay(OkDelay, _cts.Token);
+                        }
+
+                        // Check that our description text appears on a collapsed row
+                        string[] saveVerifyWords = op.Description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        string saveVerifyWord = saveVerifyWords.Where(w => w.Length >= 3).FirstOrDefault()
+                            ?? (saveVerifyWords.Length > 0 ? saveVerifyWords[0] : "");
+                        if (saveVerifyWord.Length >= 2)
+                        {
+                            if (stillEditing)
+                            {
+                                // Re-OCR after the fallback Enter
+                                saveCheckWords = await OcrFullScreen();
+                                GetWindowRect(targetWindow, out RECT sv2Rect);
+                                saveCheckWords = saveCheckWords.Where(w =>
+                                    w.x + w.w / 2 >= sv2Rect.Left && w.x + w.w / 2 <= sv2Rect.Right &&
+                                    w.y + w.h / 2 >= sv2Rect.Top && w.y + w.h / 2 <= sv2Rect.Bottom).ToList();
+                            }
+
+                            bool opOnScreen = saveCheckWords.Any(w =>
+                                w.text.IndexOf(saveVerifyWord, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                (w.y + w.h / 2) >= contentMinY && (w.y + w.h / 2) <= contentMaxY);
+
+                            if (!opOnScreen)
+                            {
+                                Debug.WriteLine($"[CCC-Web] Step 10: FAILED — '{saveVerifyWord}' not found on estimate after save");
+                                saveVerified = false;
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"[CCC-Web] Step 10: Verified — '{saveVerifyWord}' found on estimate");
+                            }
+                        }
+                    }
+
+                    if (!saveVerified)
+                    {
+                        Debug.WriteLine($"[CCC-Web] Op {displayIndex} save verification failed — will retry");
+                        continue; // retry this operation
+                    }
 
                     successCount++;
                     lastEditRowX = fields.Description.Value.X;

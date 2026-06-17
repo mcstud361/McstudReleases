@@ -19,6 +19,10 @@ namespace McStudDesktop.Services
         private StatsData _data;
         private readonly object _lock = new object();
 
+        private static ExportStatisticsService? _instance;
+        /// <summary>Singleton — data loads once, shared across all callers.</summary>
+        public static ExportStatisticsService Instance => _instance ??= new ExportStatisticsService();
+
         public ExportStatisticsService()
         {
             _data = LoadStats();
@@ -228,12 +232,9 @@ namespace McStudDesktop.Services
         /// <summary>
         /// Get daily breakdown for the current month
         /// </summary>
-        public List<DailyStats> GetDailyBreakdown()
+        public List<DailyStats> GetDailyBreakdown(StatsPeriod period = StatsPeriod.ThisMonth)
         {
-            var today = DateTime.Today;
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-
-            var transactions = _data.Transactions.Where(t => t.Timestamp.Date >= startOfMonth);
+            var transactions = FilterByPeriod(_data.Transactions, period);
 
             return transactions
                 .GroupBy(t => t.Timestamp.Date)
@@ -313,12 +314,27 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Normalize a stored UserId so null/empty becomes "unknown"
+        /// </summary>
+        private static string NormalizeUserId(string? uid)
+            => string.IsNullOrEmpty(uid) ? "unknown" : uid;
+
+        /// <summary>
+        /// Check whether a transaction's UserId matches the given userId.
+        /// Empty/null stored IDs are treated as belonging to the current user
+        /// (single-user app — legacy records didn't always capture UserId).
+        /// </summary>
+        private static bool UserMatches(string? storedId, string userId)
+            => NormalizeUserId(storedId) == userId
+            || (string.IsNullOrEmpty(storedId) && userId == GetCurrentUserId());
+
+        /// <summary>
         /// Get all unique user IDs in the stats
         /// </summary>
         public List<string> GetAllUserIds()
         {
             return _data.Transactions
-                .Select(t => string.IsNullOrEmpty(t.UserId) ? "unknown" : t.UserId)
+                .Select(t => NormalizeUserId(t.UserId))
                 .Distinct()
                 .OrderBy(u => u)
                 .ToList();
@@ -330,22 +346,19 @@ namespace McStudDesktop.Services
         public CombinedStats GetCombinedStatsByUser(StatsPeriod period, string userId, string? targetFilter = null)
         {
             var userTransactions = _data.Transactions.Where(t =>
-                (string.IsNullOrEmpty(t.UserId) ? "unknown" : t.UserId) == userId);
+                UserMatches(t.UserId, userId));
 
             return GetCombinedStatsFromTransactions(userTransactions, period, targetFilter);
         }
 
         /// <summary>
-        /// Get daily breakdown filtered by user
+        /// Get daily breakdown filtered by user and period
         /// </summary>
-        public List<DailyStats> GetDailyBreakdownByUser(string userId)
+        public List<DailyStats> GetDailyBreakdownByUser(string userId, StatsPeriod period = StatsPeriod.ThisMonth)
         {
-            var today = DateTime.Today;
-            var startOfMonth = new DateTime(today.Year, today.Month, 1);
-
-            var transactions = _data.Transactions
-                .Where(t => t.Timestamp.Date >= startOfMonth)
-                .Where(t => (string.IsNullOrEmpty(t.UserId) ? "unknown" : t.UserId) == userId);
+            var transactions = FilterByPeriod(
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId)),
+                period);
 
             return transactions
                 .GroupBy(t => t.Timestamp.Date)
@@ -375,7 +388,7 @@ namespace McStudDesktop.Services
         public List<TransactionRecord> GetRecentTransactionsByUser(string userId, int count = 20)
         {
             return _data.Transactions
-                .Where(t => (string.IsNullOrEmpty(t.UserId) ? "unknown" : t.UserId) == userId)
+                .Where(t => UserMatches(t.UserId, userId))
                 .OrderByDescending(r => r.Timestamp)
                 .Take(count)
                 .ToList();
@@ -387,7 +400,7 @@ namespace McStudDesktop.Services
         public List<OperationTypeStats> GetMostUsedOperationsByUser(string userId, StatsPeriod period, int topCount = 10)
         {
             var userTransactions = FilterByPeriod(
-                _data.Transactions.Where(t => (string.IsNullOrEmpty(t.UserId) ? "unknown" : t.UserId) == userId),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId)),
                 period);
 
             var allOperations = userTransactions
@@ -398,7 +411,7 @@ namespace McStudDesktop.Services
                     OperationType = g.Key,
                     Count = g.Count(),
                     TotalPrice = g.Sum(o => o.Price),
-                    TotalLabor = g.Sum(o => o.Labor),
+                    TotalLabor = g.Sum(o => Math.Min(o.Labor, 50m)),
                     TotalPaint = g.Sum(o => o.Paint)
                 })
                 .OrderByDescending(s => s.Count)
@@ -416,7 +429,7 @@ namespace McStudDesktop.Services
             var transactions = FilterByPeriod(_data.Transactions, period);
 
             return transactions
-                .GroupBy(t => string.IsNullOrEmpty(t.UserId) ? "unknown" : t.UserId)
+                .GroupBy(t => NormalizeUserId(t.UserId))
                 .Select(g => new UserStats
                 {
                     UserId = g.Key,
@@ -724,7 +737,7 @@ namespace McStudDesktop.Services
             lock (_lock)
             {
                 var userId = GetCurrentUserId();
-                var activeSession = _data.Sessions.FirstOrDefault(s => s.IsActive && s.UserId == userId);
+                var activeSession = _data.Sessions.FirstOrDefault(s => s.IsActive && UserMatches(s.UserId, userId));
 
                 // If session is older than 2 hours, consider it stale and start new one
                 if (activeSession != null && activeSession.Duration.TotalHours > 2)
@@ -768,7 +781,7 @@ namespace McStudDesktop.Services
         /// </summary>
         public List<SessionRecord> GetSessionsByUser(string userId, StatsPeriod period)
         {
-            var sessions = _data.Sessions.Where(s => s.UserId == userId);
+            var sessions = _data.Sessions.Where(s => UserMatches(s.UserId, userId));
             return FilterSessionsByPeriod(sessions, period).OrderByDescending(s => s.StartTime).ToList();
         }
 
@@ -796,11 +809,11 @@ namespace McStudDesktop.Services
         public EnhancedStats GetEnhancedStats(string userId, StatsPeriod period)
         {
             var transactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
 
             var sessions = FilterSessionsByPeriod(
-                _data.Sessions.Where(s => s.UserId == userId),
+                _data.Sessions.Where(s => UserMatches(s.UserId, userId)),
                 period).ToList();
 
             // Calculate streaks
@@ -854,7 +867,7 @@ namespace McStudDesktop.Services
         private (int currentStreak, int longestStreak) CalculateStreaks(string userId)
         {
             var dates = _data.Transactions
-                .Where(t => t.UserId == userId && t.Type == TransactionType.Export)
+                .Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export)
                 .Select(t => t.Timestamp.Date)
                 .Distinct()
                 .OrderByDescending(d => d)
@@ -900,7 +913,7 @@ namespace McStudDesktop.Services
         private (double estimatesTrend, double operationsTrend, double valueTrend) CalculateTrends(string userId, StatsPeriod period)
         {
             var currentPeriodData = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
 
             var previousPeriodData = GetPreviousPeriodData(userId, period).ToList();
@@ -925,7 +938,7 @@ namespace McStudDesktop.Services
         private IEnumerable<TransactionRecord> GetPreviousPeriodData(string userId, StatsPeriod period)
         {
             var today = DateTime.Today;
-            var exports = _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export);
+            var exports = _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export);
 
             return period switch
             {
@@ -946,7 +959,7 @@ namespace McStudDesktop.Services
         public List<PartTypeStats> GetPartTypeBreakdown(string userId, StatsPeriod period)
         {
             var transactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
 
             var allOperations = transactions.SelectMany(t => t.Operations).ToList();
@@ -1004,7 +1017,7 @@ namespace McStudDesktop.Services
         public List<OperationTypeStats> GetOperationTypeBreakdown(string userId, StatsPeriod period)
         {
             var transactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
 
             var allOperations = transactions.SelectMany(t => t.Operations).ToList();
@@ -1018,7 +1031,7 @@ namespace McStudDesktop.Services
                     OperationType = g.Key,
                     Count = g.Count(),
                     TotalPrice = g.Sum(o => o.Price),
-                    TotalLabor = g.Sum(o => o.Labor),
+                    TotalLabor = g.Sum(o => Math.Min(o.Labor, 50m)),
                     TotalPaint = g.Sum(o => o.Paint)
                 })
                 .OrderByDescending(o => o.Count)
@@ -1043,10 +1056,10 @@ namespace McStudDesktop.Services
         public List<HourlyActivity> GetHourlyActivity(string userId, StatsPeriod period)
         {
             var exportTransactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
             var learnTransactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Learn),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Learn),
                 period).ToList();
 
             var hourlyGroups = Enumerable.Range(0, 24)
@@ -1059,7 +1072,10 @@ namespace McStudDesktop.Services
                         Hour = hour,
                         ExportCount = hourExports.Count,
                         OperationCount = hourExports.Sum(t => t.OperationCount),
-                        LearnCount = hourLearns.Sum(t => t.OperationCount)
+                        LearnCount = hourLearns.Sum(t => t.OperationCount),
+                        TotalValue = hourExports.Sum(t => t.TotalPrice),
+                        TotalLabor = hourExports.Sum(t => t.TotalLabor),
+                        TotalRefinish = hourExports.Sum(t => t.TotalPaint)
                     };
                 })
                 .ToList();
@@ -1100,7 +1116,7 @@ namespace McStudDesktop.Services
 
             // Calculate avg ops per estimate
             var userTransactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
             var avgOps = userTransactions.Count > 0
                 ? (double)userTransactions.Sum(t => t.OperationCount) / userTransactions.Count
@@ -1135,7 +1151,7 @@ namespace McStudDesktop.Services
         public CategoryBreakdown GetCategoryBreakdown(string userId, StatsPeriod period)
         {
             var transactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
 
             var allOperations = transactions.SelectMany(t => t.Operations).ToList();
@@ -1151,26 +1167,29 @@ namespace McStudDesktop.Services
                 var desc = op.Description.ToUpperInvariant();
 
                 // Categorize based on operation type and description
+                // Note: "Rpr" = Repair, "R&I"/"R+I" = Remove & Install
                 if (opType.Contains("REFIN") || opType.Contains("PAINT") || opType.Contains("BLEND") ||
                     desc.Contains("REFINISH") || desc.Contains("PAINT") || desc.Contains("BLEND"))
                 {
-                    refinishDollars += op.Price;
+                    refinishDollars += op.Price > 0 ? op.Price : op.Paint; // Refinish often has hours, not price
                 }
-                else if (opType.Contains("MATERIAL") || opType.Contains("MAT") ||
+                else if (opType.Contains("MATERIAL") || opType.Contains("MAT") || opType == "SUBLET" ||
                          desc.Contains("MATERIAL") || desc.Contains("ADHESIVE") ||
-                         desc.Contains("SEALER") || desc.Contains("PRIMER"))
+                         desc.Contains("SEALER") || desc.Contains("PRIMER") || desc.Contains("SUBLET"))
                 {
                     materialsDollars += op.Price;
                 }
                 else if (opType.Contains("LABOR") || opType.Contains("BODY") ||
-                         opType.Contains("REPLACE") || opType.Contains("REPAIR") ||
-                         opType.Contains("R&I") || opType.Contains("R/I"))
+                         opType.Contains("REPLACE") || opType.Contains("RPR") || opType.Contains("REPAIR") ||
+                         opType.Contains("R&I") || opType.Contains("R/I") || opType.Contains("R+I") ||
+                         opType.Contains("ALIGN") || opType.Contains("MECH"))
                 {
-                    laborDollars += op.Price;
+                    laborDollars += op.Price > 0 ? op.Price : op.Labor; // Body labor may have hours instead of price
                 }
                 else
                 {
-                    otherDollars += op.Price;
+                    // Default: use price if available, otherwise check hours
+                    otherDollars += op.Price > 0 ? op.Price : (op.Labor + op.Paint);
                 }
             }
 
@@ -1190,7 +1209,7 @@ namespace McStudDesktop.Services
         public ROIStats GetROIStats(string userId, StatsPeriod period)
         {
             var transactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
 
             var totalValue = transactions.Sum(t => t.TotalPrice);
@@ -1227,7 +1246,7 @@ namespace McStudDesktop.Services
 
             // Calculate today's progress
             var todayTransactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 StatsPeriod.Today).ToList();
 
             goals.CurrentDayOperations = todayTransactions.Sum(t => t.OperationCount);
@@ -1266,7 +1285,7 @@ namespace McStudDesktop.Services
         public List<EstimateDetail> GetEstimateDetails(string userId, StatsPeriod period, int limit = 50)
         {
             var transactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period)
                 .OrderByDescending(t => t.Timestamp)
                 .Take(limit)
@@ -1290,7 +1309,7 @@ namespace McStudDesktop.Services
         public List<MissedOperationStats> GetTopAddedOperations(string userId, StatsPeriod period, int limit = 10)
         {
             var transactions = FilterByPeriod(
-                _data.Transactions.Where(t => t.UserId == userId && t.Type == TransactionType.Export),
+                _data.Transactions.Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export),
                 period).ToList();
 
             var allOperations = transactions.SelectMany(t => t.Operations).ToList();
@@ -1746,12 +1765,12 @@ namespace McStudDesktop.Services
             var lastWeekEnd = thisWeekStart.AddDays(-1);
 
             var thisWeekData = _data.Transactions
-                .Where(t => t.UserId == userId && t.Type == TransactionType.Export)
+                .Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export)
                 .Where(t => t.Timestamp.Date >= thisWeekStart)
                 .ToList();
 
             var lastWeekData = _data.Transactions
-                .Where(t => t.UserId == userId && t.Type == TransactionType.Export)
+                .Where(t => UserMatches(t.UserId, userId) && t.Type == TransactionType.Export)
                 .Where(t => t.Timestamp.Date >= lastWeekStart && t.Timestamp.Date <= lastWeekEnd)
                 .ToList();
 
@@ -2123,6 +2142,9 @@ namespace McStudDesktop.Services
         public int ExportCount { get; set; }
         public int OperationCount { get; set; }
         public int LearnCount { get; set; }
+        public decimal TotalValue { get; set; }   // Dollar value exported this hour
+        public decimal TotalLabor { get; set; }   // Body labor hours exported this hour
+        public decimal TotalRefinish { get; set; } // Refinish hours exported this hour
 
         public string FormattedHour => Hour switch
         {

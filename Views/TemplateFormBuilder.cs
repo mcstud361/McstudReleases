@@ -54,6 +54,7 @@ public class TemplateFormBuilder : UserControl
     private ShopDocTemplate? _currentTemplate;
     private bool _isEditMode;
     private bool _showingUserTemplates;
+    private TextBlock? _autoSaveStatus;
 
     // UI Elements
     private ComboBox? _templateSelector;
@@ -99,6 +100,31 @@ public class TemplateFormBuilder : UserControl
     public Dictionary<string, ChargeItemState> ChargeStates => _chargeStates;
     public bool ShowCostColumn => _showCostColumn;
     public bool ShowListPriceColumn => _showListPriceColumn;
+
+    /// <summary>
+    /// Auto-save the current template to disk when in edit mode.
+    /// Only saves user templates (never originals/read-only).
+    /// </summary>
+    private void AutoSave()
+    {
+        if (!_isEditMode || _currentTemplate == null || _currentTemplate.IsReadOnly || _currentTemplate.IsOriginal) return;
+
+        _templateService.SaveUserTemplate(_currentTemplate);
+
+        if (_autoSaveStatus != null)
+        {
+            _autoSaveStatus.Text = "Saved";
+            _autoSaveStatus.Opacity = 1;
+            FadeAutoSaveStatus();
+        }
+    }
+
+    private async void FadeAutoSaveStatus()
+    {
+        if (_autoSaveStatus == null) return;
+        await System.Threading.Tasks.Task.Delay(1500);
+        _autoSaveStatus.Opacity = 0;
+    }
 
     private void BuildUI()
     {
@@ -210,13 +236,26 @@ public class TemplateFormBuilder : UserControl
         Grid.SetColumn(_editButton, 2);
         selectorRow.Children.Add(_editButton);
 
-        // Save button (green, edit-mode only)
-        _saveButton = CreateStyledButton("Save", "\uE74E", AccentGreen);
+        // Done button (green, edit-mode only — auto-save handles persistence)
+        _saveButton = CreateStyledButton("Done", "\uE73E", AccentGreen);
         _saveButton.Visibility = Visibility.Collapsed;
         _saveButton.Margin = new Thickness(8, 0, 0, 0);
         _saveButton.Click += OnSaveClick;
         Grid.SetColumn(_saveButton, 3);
         selectorRow.Children.Add(_saveButton);
+
+        // Auto-save status indicator
+        _autoSaveStatus = new TextBlock
+        {
+            Text = "Saved",
+            FontSize = 11,
+            Foreground = new SolidColorBrush(AccentGreen),
+            VerticalAlignment = VerticalAlignment.Center,
+            Opacity = 0,
+            Margin = new Thickness(6, 0, 0, 0)
+        };
+        Grid.SetColumn(_autoSaveStatus, 3);
+        selectorRow.Children.Add(_autoSaveStatus);
 
         // Delete button (red, edit-mode only)
         _deleteButton = CreateStyledButton("Delete", "\uE74D", Color.FromArgb(255, 200, 50, 50));
@@ -422,7 +461,7 @@ public class TemplateFormBuilder : UserControl
                 Foreground = new SolidColorBrush(Colors.White),
                 BorderThickness = new Thickness(0)
             };
-            nameBox.TextChanged += (s, e) => _currentTemplate.Name = nameBox.Text;
+            nameBox.TextChanged += (s, e) => { _currentTemplate.Name = nameBox.Text; AutoSave(); };
             infoStack.Children.Add(nameBox);
 
             // Editable description
@@ -435,7 +474,7 @@ public class TemplateFormBuilder : UserControl
                 Foreground = new SolidColorBrush(TextGray),
                 BorderThickness = new Thickness(0)
             };
-            descBox.TextChanged += (s, e) => _currentTemplate.Description = descBox.Text;
+            descBox.TextChanged += (s, e) => { _currentTemplate.Description = descBox.Text; AutoSave(); };
             infoStack.Children.Add(descBox);
         }
         else
@@ -841,7 +880,7 @@ public class TemplateFormBuilder : UserControl
                 Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
                 BorderThickness = new Thickness(0)
             };
-            labelBox.TextChanged += (s, e) => field.Label = labelBox.Text;
+            labelBox.TextChanged += (s, e) => { field.Label = labelBox.Text; AutoSave(); };
             labelRow.Children.Add(labelBox);
 
             var deleteBtn = new Button
@@ -1007,7 +1046,7 @@ public class TemplateFormBuilder : UserControl
                 Background = new SolidColorBrush(Colors.Transparent),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            nameBox.TextChanged += (s, e) => item.Name = nameBox.Text;
+            nameBox.TextChanged += (s, e) => { item.Name = nameBox.Text; AutoSave(); };
             nameControl = nameBox;
         }
         else
@@ -1039,7 +1078,7 @@ public class TemplateFormBuilder : UserControl
             costBox.ValueChanged += (s, e) =>
             {
                 _chargeStates[item.Id].CostPrice = (decimal)costBox.Value;
-                if (_isEditMode) item.DefaultCostPrice = (decimal)costBox.Value;
+                if (_isEditMode) { item.DefaultCostPrice = (decimal)costBox.Value; AutoSave(); }
                 NotifyChargeTotalsChanged();
             };
             Grid.SetColumn(costBox, costCol);
@@ -1057,7 +1096,7 @@ public class TemplateFormBuilder : UserControl
         amountBox.ValueChanged += (s, e) =>
         {
             _chargeStates[item.Id].Amount = (decimal)amountBox.Value;
-            if (_isEditMode) item.DefaultAmount = (decimal)amountBox.Value;
+            if (_isEditMode) { item.DefaultAmount = (decimal)amountBox.Value; AutoSave(); }
             NotifyChargeTotalsChanged();
         };
         Grid.SetColumn(amountBox, amountCol);
@@ -1076,7 +1115,7 @@ public class TemplateFormBuilder : UserControl
             listBox.ValueChanged += (s, e) =>
             {
                 _chargeStates[item.Id].ListPrice = (decimal)listBox.Value;
-                if (_isEditMode) item.DefaultListPrice = (decimal)listBox.Value;
+                if (_isEditMode) { item.DefaultListPrice = (decimal)listBox.Value; AutoSave(); }
             };
             Grid.SetColumn(listBox, listCol);
             row.Children.Add(listBox);
@@ -1234,12 +1273,14 @@ public class TemplateFormBuilder : UserControl
     {
         if (_currentTemplate == null || _currentTemplate.IsReadOnly) return;
 
+        // Auto-save already persisted changes — just exit edit mode
         _templateService.SaveUserTemplate(_currentTemplate);
 
         _isEditMode = false;
         _editModeIndicator!.Visibility = Visibility.Collapsed;
         _editButton!.Visibility = Visibility.Visible;
         _saveButton!.Visibility = Visibility.Collapsed;
+        if (_autoSaveStatus != null) _autoSaveStatus.Opacity = 0;
         _makeCopyButton!.IsEnabled = true;
 
         RenderForm();
@@ -1277,6 +1318,7 @@ public class TemplateFormBuilder : UserControl
         };
         section.Fields.Add(newField);
         RenderForm();
+        AutoSave();
     }
 
     private void RemoveField(TemplateField field)
@@ -1288,6 +1330,7 @@ public class TemplateFormBuilder : UserControl
             if (section.Fields.Remove(field))
             {
                 RenderForm();
+                AutoSave();
                 return;
             }
         }
@@ -1298,6 +1341,7 @@ public class TemplateFormBuilder : UserControl
         if (_currentTemplate == null) return;
         _currentTemplate.Sections.Remove(section);
         RenderForm();
+        AutoSave();
     }
 
     private async System.Threading.Tasks.Task AddSectionAsync()
@@ -1333,6 +1377,7 @@ public class TemplateFormBuilder : UserControl
                 ChargeItems = new List<TemplateChargeItem>()
             });
             RenderForm();
+            AutoSave();
         }
     }
 
@@ -1348,6 +1393,7 @@ public class TemplateFormBuilder : UserControl
         };
         section.ChargeItems.Add(newItem);
         RenderForm();
+        AutoSave();
     }
 
     public void AddStockPartAsCharge(string name, decimal sellPrice, decimal costPrice, decimal listPrice, string? partNumber)
@@ -1382,6 +1428,7 @@ public class TemplateFormBuilder : UserControl
         };
 
         RenderForm();
+        AutoSave();
         NotifyChargeTotalsChanged();
     }
 
@@ -1394,6 +1441,7 @@ public class TemplateFormBuilder : UserControl
             if (section.ChargeItems.Remove(item))
             {
                 RenderForm();
+                AutoSave();
                 return;
             }
         }

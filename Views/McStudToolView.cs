@@ -174,7 +174,7 @@ namespace McStudDesktop.Views
         public McStudToolView()
         {
             _exportService = new ClipboardExportService();
-            _statsService = new ExportStatisticsService();
+            _statsService = ExportStatisticsService.Instance;
             _hotkeyService = new GlobalHotkeyService();
             _clipboardPasteService = new ClipboardPasteService();
             _cccAutomationService = new CCCAutomationService();
@@ -1348,7 +1348,12 @@ namespace McStudDesktop.Views
 
             // Chat view takes remaining space
             _chatbotView = new ChatbotView();
-            _chatbotView.OnNavigateToExport += (s, e) => SelectTab(0); // Navigate to Export tab
+            _chatbotView.OnNavigateToExport += (s, e) =>
+            {
+                // Clear stale clipboard rows so VirtualClipboard (from Populate) takes priority
+                _exportService.Operations.Clear();
+                SelectTab(0);
+            };
             _chatbotView.OnNavigateToReference += (s, e) => SelectTab(4); // Navigate to Reference tab
             _chatbotView.OnNavigateToLearnedData += (s, ocrResult) =>
             {
@@ -1405,25 +1410,8 @@ namespace McStudDesktop.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            var badge = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 0, 100, 150)),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(6, 2, 6, 2),
-                Margin = new Thickness(8, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            badge.Child = new TextBlock
-            {
-                Text = "NEW",
-                FontSize = 9,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-
             headerStack.Children.Add(icon);
             headerStack.Children.Add(title);
-            headerStack.Children.Add(badge);
             Grid.SetColumn(headerStack, 0);
 
             // Help button
@@ -2956,21 +2944,22 @@ namespace McStudDesktop.Views
 
             _operationsList.Items.Clear();
 
-            // Check if virtual clipboard has operations (preferred source)
-            if (_virtualClipboard.Count > 0)
-            {
-                UpdateClipboardSummary();
-                return;
-            }
-
-            // Fallback to parsing Windows clipboard
+            // Parse fresh Excel data from _exportService
             var parsedOps = _exportService.GetParsedOperations();
 
-            // Sync to virtual clipboard
+            // If new Excel data is available, it always overwrites the VirtualClipboard.
+            // This ensures Populate data doesn't get "stuck" — fresh Excel copy replaces it.
             if (parsedOps.Count > 0)
             {
                 _virtualClipboard.SetOperations(parsedOps, "Windows Clipboard");
                 return; // UpdateClipboardSummary will be called by the event
+            }
+
+            // No new Excel data — show existing VirtualClipboard if present (from Populate, etc.)
+            if (_virtualClipboard.Count > 0)
+            {
+                UpdateClipboardSummary();
+                return;
             }
 
             // No operations - show empty state
@@ -3215,34 +3204,55 @@ namespace McStudDesktop.Views
                 if (_cccWebButton != null) _cccWebButton.IsEnabled = false;
                 if (_mitchellButton != null) _mitchellButton.IsEnabled = false;
 
-                // Use fixed-column parser for CCC Web — reads exact Excel column positions
-                // (no heuristic guessing, each value comes from its known column)
-                var parsedOps = _exportService.GetParsedOperationsFixedColumns();
-                if (parsedOps.Count == 0)
+                // Get operations — prefer Populate data (Must Haves, Live Coach) over stale Excel
+                var webOps = new System.Collections.Generic.List<McStudDesktop.Services.VirtualClipboardOp>();
+                bool hasPopulateData = _virtualClipboard.Count > 0 &&
+                    !_virtualClipboard.Source.Equals("Windows Clipboard", StringComparison.OrdinalIgnoreCase);
+
+                if (hasPopulateData)
                 {
-                    UpdateStatusError("No operations. Copy from Excel first.");
-                    return;
+                    // Use VirtualClipboard directly (from Populate / Live Coach)
+                    foreach (var op in _virtualClipboard.Operations)
+                    {
+                        webOps.Add(new McStudDesktop.Services.VirtualClipboardOp
+                        {
+                            OperationType = op.OperationType,
+                            Description = op.Description,
+                            Quantity = op.Quantity,
+                            Price = op.Price,
+                            LaborHours = op.LaborHours,
+                            RefinishHours = op.RefinishHours
+                        });
+                    }
+                }
+                else
+                {
+                    // Fall back to Excel clipboard (fixed-column parser)
+                    var parsedOps = _exportService.GetParsedOperationsFixedColumns();
+                    foreach (var op in parsedOps)
+                    {
+                        decimal.TryParse(op.Price, out var price);
+                        decimal.TryParse(op.Labor, out var labor);
+                        decimal.TryParse(op.Paint, out var refinish);
+                        int.TryParse(op.Qty, out var qty);
+                        if (qty == 0) qty = 1;
+
+                        webOps.Add(new McStudDesktop.Services.VirtualClipboardOp
+                        {
+                            OperationType = op.Operation,
+                            Description = op.Description,
+                            Quantity = qty,
+                            Price = price,
+                            LaborHours = labor,
+                            RefinishHours = refinish
+                        });
+                    }
                 }
 
-                // Convert to VirtualClipboardOp — no swap hacks needed with fixed-column parser
-                var webOps = new System.Collections.Generic.List<McStudDesktop.Services.VirtualClipboardOp>();
-                foreach (var op in parsedOps)
+                if (webOps.Count == 0)
                 {
-                    decimal.TryParse(op.Price, out var price);
-                    decimal.TryParse(op.Labor, out var labor);
-                    decimal.TryParse(op.Paint, out var refinish);
-                    int.TryParse(op.Qty, out var qty);
-                    if (qty == 0) qty = 1;
-
-                    webOps.Add(new McStudDesktop.Services.VirtualClipboardOp
-                    {
-                        OperationType = op.Operation,
-                        Description = op.Description,
-                        Quantity = qty,
-                        Price = price,
-                        LaborHours = labor,
-                        RefinishHours = refinish
-                    });
+                    UpdateStatusError("No operations. Use Populate or copy from Excel first.");
+                    return;
                 }
 
                 System.Diagnostics.Debug.WriteLine($"[CCC-Web] Parsed {webOps.Count} operations from clipboard");
@@ -3341,11 +3351,52 @@ namespace McStudDesktop.Views
                 if (_mitchellButton != null) _mitchellButton.IsEnabled = false;
                 if (_resumeButton != null) _resumeButton.Visibility = Visibility.Collapsed;
 
-                // Get clipboard data — prefer raw Excel rows, fall back to Virtual Clipboard
+                // Get clipboard data
+                // If VirtualClipboard was loaded from Populate (Must Haves, Live Coach, etc.),
+                // use it FIRST — don't let stale Excel rows override intentional Populate data.
+                // Only use raw Excel rows when VirtualClipboard is empty or came from "Windows Clipboard".
                 var rawRows = _exportService.Operations;
                 var rows = new List<string[]>();
+                bool useVirtualClipboard = _virtualClipboard.Count > 0 &&
+                    !_virtualClipboard.Source.Equals("Windows Clipboard", StringComparison.OrdinalIgnoreCase);
 
-                if (rawRows.Count > 0)
+                if (useVirtualClipboard)
+                {
+                    // Virtual clipboard source (Live Coach "+ CCC" button, etc.)
+                    // CCC Desktop format:
+                    //   First row (18 cols): 0  0  0  0  0  0  OpType  0  Description  0  Qty  Price  0  0  0  Labor  M  Refinish
+                    //   Subsequent (17 cols):    0  0  0  0  0  OpType  0  Description  0  Qty  Price  0  0  0  Labor  M  Refinish
+                    bool isFirstRow = true;
+                    foreach (var op in _virtualClipboard.Operations)
+                    {
+                        var opType = op.OperationType;
+                        var desc = op.Description;
+                        var qty = op.Quantity > 0 ? op.Quantity.ToString() : "1";
+                        var labor = op.LaborHours > 0 ? op.LaborHours.ToString("0.0") : "0";
+                        var refinish = op.RefinishHours > 0 ? op.RefinishHours.ToString("0.0") : "0";
+                        var price = op.Price > 0 ? op.Price.ToString("0.00") : "0";
+                        if (isFirstRow)
+                        {
+                            // First row: 6 leading zeros (18 columns)
+                            rows.Add(new[] {
+                                "0", "0", "0", "0", "0", "0",
+                                opType, "0", desc, "0", qty, price,
+                                "0", "0", "0", labor, "M", refinish
+                            });
+                            isFirstRow = false;
+                        }
+                        else
+                        {
+                            // Subsequent rows: 5 leading zeros (17 columns)
+                            rows.Add(new[] {
+                                "0", "0", "0", "0", "0",
+                                opType, "0", desc, "0", qty, price,
+                                "0", "0", "0", labor, "M", refinish
+                            });
+                        }
+                    }
+                }
+                else if (rawRows.Count > 0)
                 {
                     // Excel/clipboard source — use raw tab-separated rows
                     foreach (var row in rawRows)
@@ -3356,9 +3407,8 @@ namespace McStudDesktop.Views
                 }
                 else if (_virtualClipboard.Count > 0)
                 {
-                    // Virtual clipboard source (Live Coach "+ CCC" button, etc.)
-                    // Full CCC Desktop 18-column format:
-                    // 0  0  0  0  0  0  OpType  0  Description  0  Qty  Price  0  0  0  Labor  M  Refinish
+                    // VirtualClipboard from Windows Clipboard sync — format as CCC Desktop rows
+                    bool isFirstRow = true;
                     foreach (var op in _virtualClipboard.Operations)
                     {
                         var opType = op.OperationType;
@@ -3367,19 +3417,23 @@ namespace McStudDesktop.Views
                         var labor = op.LaborHours > 0 ? op.LaborHours.ToString("0.0") : "0";
                         var refinish = op.RefinishHours > 0 ? op.RefinishHours.ToString("0.0") : "0";
                         var price = op.Price > 0 ? op.Price.ToString("0.00") : "0";
-                        rows.Add(new[] {
-                            "0", "0", "0", "0", "0", "0",
-                            opType,
-                            "0",
-                            desc,
-                            "0",
-                            qty,
-                            price,
-                            "0", "0", "0",
-                            labor,
-                            "M",
-                            refinish
-                        });
+                        if (isFirstRow)
+                        {
+                            rows.Add(new[] {
+                                "0", "0", "0", "0", "0", "0",
+                                opType, "0", desc, "0", qty, price,
+                                "0", "0", "0", labor, "M", refinish
+                            });
+                            isFirstRow = false;
+                        }
+                        else
+                        {
+                            rows.Add(new[] {
+                                "0", "0", "0", "0", "0",
+                                opType, "0", desc, "0", qty, price,
+                                "0", "0", "0", labor, "M", refinish
+                            });
+                        }
                     }
                 }
                 else

@@ -32,6 +32,11 @@ namespace McStudDesktop.Views
         private string _currentViewType = "all"; // all, exports, shopdocs, operations, charts
         private string _currentUserId = "";
 
+        // View cache — avoids rebuilding UI on every tab switch
+        private readonly Dictionary<string, UIElement> _viewCache = new();
+        private string _cachedPeriodKey = "";  // "{period}|{userId}" — invalidate when these change
+        private bool _dataIsDirty = true;      // force first build
+
         // Colors
         private static readonly Color AccentBlue = Color.FromArgb(255, 0, 120, 215);
         private static readonly Color AccentGreen = Color.FromArgb(255, 0, 150, 80);
@@ -57,11 +62,12 @@ namespace McStudDesktop.Views
         private double _3dZoomLevel = 1.0;
         private double _3dPanX = 0;
         private double _3dPanY = 0;
-        private double _3dRotationAngle = 0; // 0-360 degrees
+        private double _3dRotationAngle = 30; // 0-360 degrees, start angled for 3D look
         private bool _3dIsDragging = false;
         private Windows.Foundation.Point _3dLastPointerPosition;
         private List<HourlyActivity>? _cached3DHourlyActivity;
         private TextBlock? _3dZoomLabel;
+        private string _3dDataMode = "operations"; // operations, value, labor, refinish
 
         // Chart selection state
         private string _selectedChartCategory = "bar";
@@ -89,7 +95,7 @@ namespace McStudDesktop.Views
 
         public StatisticsView()
         {
-            _exportStats = new ExportStatisticsService();
+            _exportStats = ExportStatisticsService.Instance;
             _estimateStats = EstimateStatisticsService.Instance;
             _currentUserId = ExportStatisticsService.GetCurrentUserId();
             BuildUI();
@@ -297,21 +303,53 @@ namespace McStudDesktop.Views
             };
         }
 
-        private void RefreshStats()
+        private void RefreshStats(bool forceRebuild = false)
         {
             if (_contentArea == null) return;
+
+            // Check if period or user changed — if so, invalidate all cached views
+            var periodKey = $"{GetSelectedPeriod()}|{_currentUserId}";
+            if (periodKey != _cachedPeriodKey)
+            {
+                _cachedPeriodKey = periodKey;
+                _viewCache.Clear();
+                _dataIsDirty = true;
+            }
+
+            if (forceRebuild)
+            {
+                _viewCache.Remove(_currentViewType);
+                _dataIsDirty = true;
+            }
+
+            // Return cached view if available and data hasn't changed
+            if (!_dataIsDirty && _viewCache.TryGetValue(_currentViewType, out var cached))
+            {
+                if (_contentArea.Children.Count == 1 && _contentArea.Children[0] == cached)
+                    return; // already showing this exact view
+                _contentArea.Children.Clear();
+                _contentArea.Children.Add(cached);
+                return;
+            }
+
+            // Build fresh view
             _contentArea.Children.Clear();
 
             var content = _currentViewType switch
             {
-                "all" => BuildAllStatsView(),
+                "all" => (UIElement)BuildAllStatsView(),
                 "estimates" => BuildEstimatesView(),
                 "shopdocs" => BuildShopDocsView(),
                 "charts" => BuildChartsTab(),
                 _ => BuildAllStatsView()
             };
 
+            _viewCache[_currentViewType] = content;
             _contentArea.Children.Add(content);
+
+            // If we just built the current view, mark data clean
+            // (other tabs still need rebuilding if they're stale)
+            _dataIsDirty = false;
         }
 
         #region Unified Stats Views
@@ -572,7 +610,7 @@ namespace McStudDesktop.Views
             var docSummary = DocumentUsageTrackingService.Instance.GetUsageSummary(period, _currentUserId);
 
             // Daily data for sparklines
-            var dailyExport = _exportStats.GetDailyBreakdownByUser(_currentUserId).Take(14).Reverse().ToList();
+            var dailyExport = _exportStats.GetDailyBreakdownByUser(_currentUserId, period).Take(14).Reverse().ToList();
             var dailyInvoice = DocumentUsageTrackingService.Instance.GetDailyActivity(period, _currentUserId).Take(14).ToList();
             var estSpark = dailyExport.Select(d => (double)d.ExportCount).ToList();
             var opsSpark = dailyExport.Select(d => (double)d.ExportOperations).ToList();
@@ -2934,7 +2972,7 @@ namespace McStudDesktop.Views
             stack.Children.Add(header);
 
             // Mini bar chart
-            var dailyStats = _exportStats.GetDailyBreakdownByUser(_currentUserId).Take(7).Reverse().ToList();
+            var dailyStats = _exportStats.GetDailyBreakdownByUser(_currentUserId, GetSelectedPeriod()).Take(7).Reverse().ToList();
 
             if (dailyStats.Count == 0)
             {
@@ -3192,7 +3230,7 @@ namespace McStudDesktop.Views
         {
             var period = GetSelectedPeriod();
             var stats = _exportStats.GetEnhancedStats(_currentUserId, period);
-            var dailyStats = _exportStats.GetDailyBreakdownByUser(_currentUserId).Take(14).ToList();
+            var dailyStats = _exportStats.GetDailyBreakdownByUser(_currentUserId, period).Take(14).ToList();
             var hourlyActivity = _exportStats.GetHourlyActivity(_currentUserId, period);
 
             var border = new Border
@@ -3330,10 +3368,21 @@ namespace McStudDesktop.Views
                 _chartSeriesVisibility = GetDefaultSeriesVisibility(_selectedChart);
             }
 
-            var dailyStats = _exportStats.GetDailyBreakdownByUser(_currentUserId).Take(14).Reverse().ToList();
-            var hourlyActivity = _exportStats.GetHourlyActivity(_currentUserId, GetSelectedPeriod());
-            var categoryBreakdown = _exportStats.GetCategoryBreakdown(_currentUserId, GetSelectedPeriod());
-            var operationTypes = _exportStats.GetOperationTypeBreakdown(_currentUserId, GetSelectedPeriod());
+            var chartPeriod = GetSelectedPeriod();
+            // Show more data points for longer periods
+            var chartTake = chartPeriod switch
+            {
+                StatsPeriod.Today => 14,
+                StatsPeriod.ThisWeek => 14,
+                StatsPeriod.ThisMonth => 31,
+                StatsPeriod.ThisYear => 60,
+                StatsPeriod.AllTime => 90,
+                _ => 14
+            };
+            var dailyStats = _exportStats.GetDailyBreakdownByUser(_currentUserId, chartPeriod).Take(chartTake).Reverse().ToList();
+            var hourlyActivity = _exportStats.GetHourlyActivity(_currentUserId, chartPeriod);
+            var categoryBreakdown = _exportStats.GetCategoryBreakdown(_currentUserId, chartPeriod);
+            var operationTypes = _exportStats.GetOperationTypeBreakdown(_currentUserId, chartPeriod);
 
             UIElement? chart = _selectedChart switch
             {
@@ -4934,7 +4983,7 @@ namespace McStudDesktop.Views
                 if (comboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string chartType)
                 {
                     _currentChartType = chartType;
-                    RefreshStats();
+                    RefreshStats(forceRebuild: true);
                 }
             };
 
@@ -5054,35 +5103,36 @@ namespace McStudDesktop.Views
             var x2 = cx + radius * Math.Cos(endRad);
             var y2 = cy + radius * Math.Sin(endRad);
 
-            var largeArc = sweepAngle > 180 ? 1 : 0;
+            var isLargeArc = sweepAngle > 180;
 
-            var pathData = $"M {cx},{cy} L {x1},{y1} A {radius},{radius} 0 {largeArc},1 {x2},{y2} Z";
+            var figure = new PathFigure
+            {
+                StartPoint = new Windows.Foundation.Point(cx, cy),
+                IsClosed = true
+            };
+
+            // Line from center to arc start
+            figure.Segments.Add(new LineSegment { Point = new Windows.Foundation.Point(x1, y1) });
+
+            // Arc from start to end
+            figure.Segments.Add(new ArcSegment
+            {
+                Point = new Windows.Foundation.Point(x2, y2),
+                Size = new Windows.Foundation.Size(radius, radius),
+                IsLargeArc = isLargeArc,
+                SweepDirection = SweepDirection.Clockwise
+            });
+
+            // Z (close) is handled by IsClosed = true
+
+            var geometry = new PathGeometry();
+            geometry.Figures.Add(figure);
 
             return new Microsoft.UI.Xaml.Shapes.Path
             {
-                Data = ParsePath(pathData),
+                Data = geometry,
                 Fill = new SolidColorBrush(color)
             };
-        }
-
-        private Microsoft.UI.Xaml.Media.Geometry ParsePath(string data)
-        {
-            // Simplified path for pie segments
-            var geometry = new PathGeometry();
-            var figure = new PathFigure();
-
-            var parts = data.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < parts.Length; i++)
-            {
-                if (parts[i] == "M" && i + 2 < parts.Length)
-                {
-                    var coords = parts[i + 1].Split(',');
-                    figure.StartPoint = new Windows.Foundation.Point(double.Parse(coords[0]), double.Parse(coords[1]));
-                }
-            }
-
-            geometry.Figures.Add(figure);
-            return geometry;
         }
 
         private Border CreateOperationTypePieChart(string title, List<OperationTypeStats> operations)
@@ -5825,6 +5875,32 @@ namespace McStudDesktop.Views
             // === CONTROL BAR ===
             var controlBar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
 
+            // Data mode selector
+            var dataModeCombo = new ComboBox
+            {
+                FontSize = 11,
+                MinWidth = 140,
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            dataModeCombo.Items.Add(new ComboBoxItem { Content = "Operations", Tag = "operations" });
+            dataModeCombo.Items.Add(new ComboBoxItem { Content = "Dollar Value", Tag = "value" });
+            dataModeCombo.Items.Add(new ComboBoxItem { Content = "Body Labor Hrs", Tag = "labor" });
+            dataModeCombo.Items.Add(new ComboBoxItem { Content = "Refinish Hrs", Tag = "refinish" });
+            dataModeCombo.SelectedIndex = 0;
+            dataModeCombo.SelectionChanged += (s, e) =>
+            {
+                if (dataModeCombo.SelectedItem is ComboBoxItem item && item.Tag is string mode)
+                {
+                    _3dDataMode = mode;
+                    if (_cached3DHourlyActivity != null && _3dHeatmapCanvas != null)
+                        Draw3DHeatmapBars(_cached3DHourlyActivity, (int)_3dHeatmapCanvas.Width, (int)_3dHeatmapCanvas.Height);
+                }
+            };
+            controlBar.Children.Add(dataModeCombo);
+
+            controlBar.Children.Add(new Border { Width = 12 }); // Spacer
+
             // Zoom controls
             var zoomOutBtn = Create3DControlButton("\uE71F", "Zoom Out");
             zoomOutBtn.Click += (s, e) => Adjust3DZoom(-0.2);
@@ -5915,23 +5991,33 @@ namespace McStudDesktop.Views
             clipContainer.Child = _3dHeatmapContainer;
             stack.Children.Add(clipContainer);
 
-            // Legend
-            var legendStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 8, 0, 0) };
-            legendStack.Children.Add(new TextBlock { Text = "Low Activity", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), VerticalAlignment = VerticalAlignment.Center });
+            // Legend with labeled colors
+            var legendStack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(0, 8, 0, 0) };
 
-            for (int i = 0; i <= 5; i++)
+            var colorLabels = new[] { "Idle", "Low", "Moderate", "Busy", "Peak" };
+            var colorValues = new[] { 0.1, 0.3, 0.5, 0.7, 1.0 };
+
+            for (int i = 0; i < 5; i++)
             {
-                var legendCell = new Border
+                var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(0, 0, 12, 0) };
+                item.Children.Add(new Border
                 {
-                    Width = 20,
-                    Height = 12,
-                    CornerRadius = new CornerRadius(2),
-                    Background = new SolidColorBrush(Get3DHeatColor(i / 5.0))
-                };
-                legendStack.Children.Add(legendCell);
+                    Width = 14,
+                    Height = 14,
+                    CornerRadius = new CornerRadius(3),
+                    Background = new SolidColorBrush(Get3DHeatColor(colorValues[i])),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                item.Children.Add(new TextBlock
+                {
+                    Text = colorLabels[i],
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                legendStack.Children.Add(item);
             }
 
-            legendStack.Children.Add(new TextBlock { Text = "High Activity", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)), VerticalAlignment = VerticalAlignment.Center });
             stack.Children.Add(legendStack);
 
             // Instructions
@@ -5974,189 +6060,206 @@ namespace McStudDesktop.Views
             if (_3dHeatmapCanvas == null) return;
             _3dHeatmapCanvas.Children.Clear();
 
-            // Build 7x24 grid (days x hours)
+            // Build 7x24 grid (days x hours) using selected data mode
             var lookup = new double[7, 24];
             double maxVal = 1;
 
             foreach (var hour in hourlyActivity)
             {
+                double value = _3dDataMode switch
+                {
+                    "value" => (double)hour.TotalValue,
+                    "labor" => (double)hour.TotalLabor,
+                    "refinish" => (double)hour.TotalRefinish,
+                    _ => hour.OperationCount // "operations"
+                };
+
                 for (int d = 0; d < 7; d++)
                 {
-                    lookup[d, hour.Hour] = hour.OperationCount * (1 + d * 0.1);
+                    lookup[d, hour.Hour] = value * (1 + d * 0.1);
                     if (lookup[d, hour.Hour] > maxVal) maxVal = lookup[d, hour.Hour];
                 }
             }
 
-            // Rotation-adjusted isometric projection
+            // Isometric projection constants
+            // Standard isometric: x-axis goes right+down, y-axis goes left+down
+            const double isoAngleX = 0.52; // ~30 degree tilt for x
+            const double isoAngleY = 0.52; // ~30 degree tilt for y
+
+            var cellW = 30.0;  // Width of each cell on the grid
+            var cellD = 20.0;  // Depth of each cell on the grid
+            var maxBarH = 160.0; // Max bar height for peaks
+            var centerX = canvasWidth / 2.0;
+            var centerY = canvasHeight * 0.75; // Grid sits in lower portion, bars grow up
+
+            // Rotation
             var rotRad = _3dRotationAngle * Math.PI / 180;
             var cosRot = Math.Cos(rotRad);
             var sinRot = Math.Sin(rotRad);
 
-            var cellWidth = 18;
-            var cellHeight = 14;
-            var maxBarHeight = 80;
-            var offsetX = canvasWidth / 2;
-            var offsetY = 60;
+            // Project a grid point to isometric screen coordinates
+            Windows.Foundation.Point Project(double gx, double gy, double gz)
+            {
+                // Rotate around center of grid
+                var rx = gx * cosRot - gy * sinRot;
+                var ry = gx * sinRot + gy * cosRot;
 
-            // Determine draw order based on rotation
-            var dayOrder = new List<int>();
-            var hourOrder = new List<int>();
-            for (int i = 0; i < 7; i++) dayOrder.Add(i);
-            for (int i = 0; i < 24; i++) hourOrder.Add(i);
+                // Isometric projection
+                var sx = centerX + (rx - ry) * cellW * isoAngleX;
+                var sy = centerY + (rx + ry) * cellD * isoAngleY - gz;
+                return new Windows.Foundation.Point(sx, sy);
+            }
 
-            // Sort by depth based on rotation angle
+            // --- Draw floor grid ---
+            int rows = 7, cols = 24;
+            double halfR = rows / 2.0, halfC = cols / 2.0;
+
+            for (int r = 0; r <= rows; r++)
+            {
+                var p1 = Project(r - halfR, -halfC, 0);
+                var p2 = Project(r - halfR, cols - halfC, 0);
+                var line = new Microsoft.UI.Xaml.Shapes.Line
+                {
+                    X1 = p1.X, Y1 = p1.Y, X2 = p2.X, Y2 = p2.Y,
+                    Stroke = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                    StrokeThickness = 0.5
+                };
+                _3dHeatmapCanvas.Children.Add(line);
+            }
+            for (int c = 0; c <= cols; c += 2) // Every 2 hours
+            {
+                var p1 = Project(-halfR, c - halfC, 0);
+                var p2 = Project(rows - halfR, c - halfC, 0);
+                var line = new Microsoft.UI.Xaml.Shapes.Line
+                {
+                    X1 = p1.X, Y1 = p1.Y, X2 = p2.X, Y2 = p2.Y,
+                    Stroke = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                    StrokeThickness = 0.5
+                };
+                _3dHeatmapCanvas.Children.Add(line);
+            }
+
+            // --- Determine draw order (back to front based on rotation) ---
+            var dayOrder = Enumerable.Range(0, rows).ToList();
+            var hourOrder = Enumerable.Range(0, cols).ToList();
+
             var rotQuadrant = (int)((_3dRotationAngle % 360 + 360) % 360 / 90);
             if (rotQuadrant == 1 || rotQuadrant == 2) dayOrder.Reverse();
             if (rotQuadrant == 2 || rotQuadrant == 3) hourOrder.Reverse();
 
+            // --- Draw bars ---
             foreach (int d in dayOrder)
             {
                 foreach (int h in hourOrder)
                 {
                     var intensity = lookup[d, h] / maxVal;
-                    var barHeight = 8 + intensity * maxBarHeight;
+                    if (intensity < 0.02) continue; // Skip empty cells
 
-                    // Base position before rotation
-                    var baseX = (h - 12) * cellWidth * 0.5;
-                    var baseY = (d - 3) * cellHeight * 0.5;
+                    var barH = 4 + intensity * maxBarH;
+                    var gx = d - halfR + 0.5;
+                    var gy = h - halfC + 0.5;
 
-                    // Apply rotation
-                    var rotX = baseX * cosRot - baseY * sinRot;
-                    var rotY = baseX * sinRot + baseY * cosRot;
+                    // 4 corners of the bar top
+                    var bw = 0.4; // Half-width of bar in grid units
+                    var bd = 0.8; // Half-depth of bar
 
-                    // Isometric projection
-                    var isoX = offsetX + rotX;
-                    var isoY = offsetY + rotY * 0.6 + canvasHeight / 2 - 80;
+                    var topFL = Project(gx - bw, gy - bd, barH); // Front-left top
+                    var topFR = Project(gx + bw, gy - bd, barH); // Front-right top
+                    var topBL = Project(gx - bw, gy + bd, barH); // Back-left top
+                    var topBR = Project(gx + bw, gy + bd, barH); // Back-right top
+
+                    var botFL = Project(gx - bw, gy - bd, 0);
+                    var botFR = Project(gx + bw, gy - bd, 0);
+                    var botBL = Project(gx - bw, gy + bd, 0);
+                    var botBR = Project(gx + bw, gy + bd, 0);
 
                     var color = Get3DHeatColor(intensity);
+                    var darkColor = Color.FromArgb(255, (byte)(color.R * 0.55), (byte)(color.G * 0.55), (byte)(color.B * 0.55));
+                    var midColor = Color.FromArgb(255, (byte)(color.R * 0.75), (byte)(color.G * 0.75), (byte)(color.B * 0.75));
+                    var brightColor = Color.FromArgb(255,
+                        (byte)Math.Min(255, color.R * 1.2),
+                        (byte)Math.Min(255, color.G * 1.2),
+                        (byte)Math.Min(255, color.B * 1.2));
 
-                    var barGroup = new Canvas();
-
-                    // Adjust face visibility based on rotation
-                    var showFront = cosRot >= 0;
-                    var showRight = sinRot >= 0;
+                    // Draw visible faces based on rotation
+                    // Left face (visible when looking from the right)
+                    if (cosRot >= 0)
+                    {
+                        var face = new Microsoft.UI.Xaml.Shapes.Polygon
+                        {
+                            Points = new PointCollection { topFL, topBL, botBL, botFL },
+                            Fill = new SolidColorBrush(midColor)
+                        };
+                        _3dHeatmapCanvas.Children.Add(face);
+                    }
+                    else
+                    {
+                        var face = new Microsoft.UI.Xaml.Shapes.Polygon
+                        {
+                            Points = new PointCollection { topFR, topBR, botBR, botFR },
+                            Fill = new SolidColorBrush(midColor)
+                        };
+                        _3dHeatmapCanvas.Children.Add(face);
+                    }
 
                     // Front face
-                    if (showFront)
+                    if (sinRot >= 0)
                     {
-                        var frontFace = new Microsoft.UI.Xaml.Shapes.Polygon
+                        var face = new Microsoft.UI.Xaml.Shapes.Polygon
                         {
-                            Points = new PointCollection
-                            {
-                                new Windows.Foundation.Point(0, barHeight),
-                                new Windows.Foundation.Point(cellWidth * 0.5, barHeight + cellHeight * 0.3),
-                                new Windows.Foundation.Point(cellWidth * 0.5, cellHeight * 0.3),
-                                new Windows.Foundation.Point(0, 0)
-                            },
-                            Fill = new SolidColorBrush(color)
+                            Points = new PointCollection { topBL, topBR, botBR, botBL },
+                            Fill = new SolidColorBrush(darkColor)
                         };
-                        barGroup.Children.Add(frontFace);
+                        _3dHeatmapCanvas.Children.Add(face);
                     }
                     else
                     {
-                        // Back face when rotated
-                        var backFace = new Microsoft.UI.Xaml.Shapes.Polygon
+                        var face = new Microsoft.UI.Xaml.Shapes.Polygon
                         {
-                            Points = new PointCollection
-                            {
-                                new Windows.Foundation.Point(cellWidth * 0.5, barHeight + cellHeight * 0.3),
-                                new Windows.Foundation.Point(cellWidth, barHeight),
-                                new Windows.Foundation.Point(cellWidth, 0),
-                                new Windows.Foundation.Point(cellWidth * 0.5, cellHeight * 0.3)
-                            },
-                            Fill = new SolidColorBrush(color)
+                            Points = new PointCollection { topFL, topFR, botFR, botFL },
+                            Fill = new SolidColorBrush(darkColor)
                         };
-                        barGroup.Children.Add(backFace);
-                    }
-
-                    // Right/Left face
-                    if (showRight)
-                    {
-                        var rightFace = new Microsoft.UI.Xaml.Shapes.Polygon
-                        {
-                            Points = new PointCollection
-                            {
-                                new Windows.Foundation.Point(cellWidth * 0.5, barHeight + cellHeight * 0.3),
-                                new Windows.Foundation.Point(cellWidth, barHeight),
-                                new Windows.Foundation.Point(cellWidth, 0),
-                                new Windows.Foundation.Point(cellWidth * 0.5, cellHeight * 0.3)
-                            },
-                            Fill = new SolidColorBrush(Color.FromArgb(255, (byte)(color.R * 0.7), (byte)(color.G * 0.7), (byte)(color.B * 0.7)))
-                        };
-                        barGroup.Children.Add(rightFace);
-                    }
-                    else
-                    {
-                        var leftFace = new Microsoft.UI.Xaml.Shapes.Polygon
-                        {
-                            Points = new PointCollection
-                            {
-                                new Windows.Foundation.Point(0, barHeight),
-                                new Windows.Foundation.Point(-cellWidth * 0.5, barHeight + cellHeight * 0.3),
-                                new Windows.Foundation.Point(-cellWidth * 0.5, cellHeight * 0.3),
-                                new Windows.Foundation.Point(0, 0)
-                            },
-                            Fill = new SolidColorBrush(Color.FromArgb(255, (byte)(color.R * 0.7), (byte)(color.G * 0.7), (byte)(color.B * 0.7)))
-                        };
-                        barGroup.Children.Add(leftFace);
+                        _3dHeatmapCanvas.Children.Add(face);
                     }
 
                     // Top face (always visible)
-                    var topFace = new Microsoft.UI.Xaml.Shapes.Polygon
+                    var top = new Microsoft.UI.Xaml.Shapes.Polygon
                     {
-                        Points = new PointCollection
-                        {
-                            new Windows.Foundation.Point(0, 0),
-                            new Windows.Foundation.Point(cellWidth * 0.5, cellHeight * 0.3),
-                            new Windows.Foundation.Point(cellWidth, 0),
-                            new Windows.Foundation.Point(cellWidth * 0.5, -cellHeight * 0.3)
-                        },
-                        Fill = new SolidColorBrush(Color.FromArgb(255, (byte)Math.Min(255, color.R * 1.3), (byte)Math.Min(255, color.G * 1.3), (byte)Math.Min(255, color.B * 1.3)))
+                        Points = new PointCollection { topFL, topFR, topBR, topBL },
+                        Fill = new SolidColorBrush(brightColor)
                     };
-                    barGroup.Children.Add(topFace);
-
-                    Canvas.SetLeft(barGroup, isoX - cellWidth / 2);
-                    Canvas.SetTop(barGroup, isoY - barHeight);
-                    _3dHeatmapCanvas.Children.Add(barGroup);
+                    _3dHeatmapCanvas.Children.Add(top);
                 }
             }
 
-            // Add axis labels
+            // --- Axis labels ---
             var dayLabels = new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-            for (int d = 0; d < 7; d++)
+            for (int d = 0; d < rows; d++)
             {
-                var baseX = -14 * cellWidth * 0.5;
-                var baseY = (d - 3) * cellHeight * 0.5;
-                var rotX = baseX * cosRot - baseY * sinRot;
-                var rotY = baseX * sinRot + baseY * cosRot;
-
+                var p = Project(d - halfR + 0.5, -halfC - 1.5, 0);
                 var lbl = new TextBlock
                 {
                     Text = dayLabels[d],
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
+                    FontSize = 11,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180))
                 };
-                Canvas.SetLeft(lbl, offsetX + rotX - 20);
-                Canvas.SetTop(lbl, offsetY + rotY * 0.6 + canvasHeight / 2 - 80);
+                Canvas.SetLeft(lbl, p.X - 15);
+                Canvas.SetTop(lbl, p.Y - 6);
                 _3dHeatmapCanvas.Children.Add(lbl);
             }
 
-            // Hour labels
-            for (int h = 0; h < 24; h += 4)
+            for (int h = 0; h < cols; h += 3)
             {
-                var baseX = (h - 12) * cellWidth * 0.5;
-                var baseY = 5 * cellHeight * 0.5;
-                var rotX = baseX * cosRot - baseY * sinRot;
-                var rotY = baseX * sinRot + baseY * cosRot;
-
+                var p = Project(rows - halfR + 1.0, h - halfC + 0.5, 0);
                 var lbl = new TextBlock
                 {
-                    Text = $"{h}:00",
-                    FontSize = 9,
-                    Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120))
+                    Text = h == 0 ? "12a" : h < 12 ? $"{h}a" : h == 12 ? "12p" : $"{h - 12}p",
+                    FontSize = 10,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140))
                 };
-                Canvas.SetLeft(lbl, offsetX + rotX - 12);
-                Canvas.SetTop(lbl, offsetY + rotY * 0.6 + canvasHeight / 2 - 60);
+                Canvas.SetLeft(lbl, p.X - 10);
+                Canvas.SetTop(lbl, p.Y);
                 _3dHeatmapCanvas.Children.Add(lbl);
             }
         }
@@ -6192,7 +6295,7 @@ namespace McStudDesktop.Views
             _3dZoomLevel = 1.0;
             _3dPanX = 0;
             _3dPanY = 0;
-            _3dRotationAngle = 0;
+            _3dRotationAngle = 30;
 
             if (_3dScaleTransform != null)
             {
@@ -8239,6 +8342,7 @@ namespace McStudDesktop.Views
             {
                 _exportStats.ClearAllStats();
                 _estimateStats.ClearAllStats();
+                InvalidateCache();
                 RefreshStats();
             }
         }
@@ -8246,7 +8350,15 @@ namespace McStudDesktop.Views
         public void Refresh()
         {
             RefreshUserList();
+            InvalidateCache();
             RefreshStats();
+        }
+
+        /// <summary>Clear all cached views so next RefreshStats() rebuilds from scratch.</summary>
+        private void InvalidateCache()
+        {
+            _viewCache.Clear();
+            _dataIsDirty = true;
         }
 
         #endregion
