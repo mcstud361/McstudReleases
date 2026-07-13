@@ -506,13 +506,22 @@ public sealed class EstimateReferenceMatcherService
         if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(searchTerm))
             return false;
 
+        searchTerm = searchTerm.Trim();
+        var refText = text.Trim();
+
+        // Ignore ultra-short reference tokens (e.g. "ac", "ws"). A 2-char substring match hits far
+        // too many unrelated words ("br-ac-ket", "wa-sh-er", "tr-ac-k") and produces bogus references
+        // (this is why an A/C / refrigerant doc was matching a plain bumper estimate).
+        if (refText.Length < 3)
+            return false;
+
         // Level 1: Exact substring — reference text contains the full search term
         // (e.g. reference "Quarter Panel" contains search term "Quarter Panel")
-        if (text.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        if (searchTerm.Length >= 3 && refText.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             return true;
 
         // Extract significant words for fuzzy matching
-        var textWords = text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        var textWords = refText.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(w => !StopWords.Contains(w) && w.Length > 2)
             .ToList();
         var searchWords = searchTerm.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -520,19 +529,20 @@ public sealed class EstimateReferenceMatcherService
             .ToList();
 
         // Level 2: Reverse match — search term contains the reference text.
-        if (searchTerm.Contains(text, StringComparison.OrdinalIgnoreCase))
+        if (searchTerm.Contains(refText, StringComparison.OrdinalIgnoreCase))
         {
             // Multi-word reference text (2+ significant words) is specific enough to trust.
             // e.g. "Quarter Panel" on a reference → "Quarter Panel Replace" on estimate → good match.
             if (textWords.Count >= 2)
                 return true;
 
-            // Single-word reference text: block generic terms entirely (verbs + common nouns).
-            // e.g. tag "panel" on a welding DEG must NOT match "Bumper Panel" on the estimate.
-            // For non-generic single words (e.g. "blend", "scan"), allow only when the
-            // search term is short (≤3 words) so the word is a substantial part of the concept.
-            var singleWord = textWords.FirstOrDefault() ?? text.Trim();
-            if (!GenericSingleWords.Contains(singleWord) && searchWords.Count <= 3)
+            // Single-word reference text: block generic terms entirely (verbs + common nouns),
+            // and require a WHOLE-WORD match so "cap" doesn't hit "capacity" and "weld" doesn't
+            // catch a stray substring. Allow only when the search term is short (≤3 words) so the
+            // word is a substantial part of the concept.
+            var singleWord = textWords.FirstOrDefault() ?? refText;
+            if (!GenericSingleWords.Contains(singleWord) && searchWords.Count <= 3 &&
+                Regex.IsMatch(searchTerm, $@"\b{Regex.Escape(singleWord)}\b", RegexOptions.IgnoreCase))
                 return true;
         }
 

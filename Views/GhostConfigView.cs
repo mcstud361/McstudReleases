@@ -843,7 +843,7 @@ namespace McStudDesktop.Views
                     Spacing = 8,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uE73E", FontSize = 14 },
+                        new FontIcon { Glyph = "\uE713", FontSize = 14 },
                         new TextBlock { Text = "Must-Haves", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
                     }
                 },

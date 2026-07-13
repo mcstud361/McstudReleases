@@ -224,6 +224,14 @@ namespace McStudDesktop.Views
             {
                 var onboarding = Services.OnboardingStateService.Instance;
 
+                // Terms of Use — show once until accepted, and again only if the terms version changes.
+                // Runs before the welcome/what's-new so acceptance comes first.
+                if (!onboarding.HasAcceptedCurrentTerms())
+                {
+                    await TermsOfUseDialog.ShowForAcceptanceAsync(this.XamlRoot);
+                    onboarding.MarkTermsAccepted();
+                }
+
                 if (onboarding.IsFirstLaunch)
                 {
                     var result = await WelcomeDialog.ShowAsync(this.XamlRoot);
@@ -252,7 +260,7 @@ namespace McStudDesktop.Views
             {
                 new TourStep { Target = _exportTabButton!, Icon = "\uE8C8", Title = "Export", Description = "Paste from MET, types into CCC hands-free. Hit \u2753 on any tab for tips.", TabIndex = 0 },
                 new TourStep { Target = _chatTabButton!, Icon = "\uE8BD", Title = "Chat", Description = "Your estimating assistant with three tools. Let's walk through each.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0) },
-                new TourStep { Target = _chatbotView?.ChatSubTabButton!, Icon = "\uE9CE", Title = "Chat \u2014 Ask", Description = "Ask questions in plain English, get answers from your knowledge base.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0), TryItPrompt = "Type a question and hit Send!", AchievementId = "first_question", AchievementTitle = "First Question" },
+                new TourStep { Target = _chatbotView?.ChatSubTabButton!, Icon = "\uE9CE", Title = "Chat \u2014 Ask", Description = "Ask questions and get answers from your knowledge base.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(0), TryItPrompt = "Type a question and hit Send!", AchievementId = "first_question", AchievementTitle = "First Question" },
                 new TourStep { Target = _chatbotView?.GhostSubTabButton!, Icon = "\uE8B7", Title = "Chat \u2014 Ghost", Description = "Shadow estimate from learned data. Scores against your history.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(1) },
                 new TourStep { Target = _chatbotView?.ScreenOcrSubTabButton!, Icon = "\uE7B3", Title = "Chat \u2014 Screen OCR", Description = "Reads CCC/Mitchell in real time via OCR \u2014 no copy-paste needed.", TabIndex = 1, OnShow = () => _chatbotView?.SelectTab(2) },
                 new TourStep { Target = _guideTabButton!, Icon = "\uE7BC", Title = "Guide", Description = "Searchable MET guides, workflow tips, and tech efficiency tracking.", TabIndex = 2, TryItPrompt = "Try searching for a topic!", AchievementId = "quick_learner", AchievementTitle = "Quick Learner" },
@@ -1521,6 +1529,10 @@ namespace McStudDesktop.Views
             };
 
             // === HEADER ===
+            var headerGrid = new Grid();
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
             var headerStack = new StackPanel { Spacing = 4 };
             headerStack.Children.Add(new TextBlock
             {
@@ -1535,7 +1547,16 @@ namespace McStudDesktop.Views
                 FontSize = 13,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
             });
-            mainStack.Children.Add(headerStack);
+            Grid.SetColumn(headerStack, 0);
+            headerGrid.Children.Add(headerStack);
+
+            // Help button (top-right, matches the other tabs)
+            var settingsHelpButton = ContextualHelpButton.Create("settings-tab");
+            settingsHelpButton.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(settingsHelpButton, 1);
+            headerGrid.Children.Add(settingsHelpButton);
+
+            mainStack.Children.Add(headerGrid);
 
             // === VERSION SECTION ===
             var versionCard = new Border
@@ -1980,6 +2001,48 @@ namespace McStudDesktop.Views
             whatsNewCard.Child = whatsNewStack;
             mainStack.Children.Add(whatsNewCard);
 
+            // === TERMS OF USE SECTION ===
+            var termsCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 35, 35, 35)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(20),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+
+            var termsStack = new StackPanel { Spacing = 12 };
+            termsStack.Children.Add(new TextBlock
+            {
+                Text = "Terms of Use",
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White)
+            });
+            termsStack.Children.Add(new TextBlock
+            {
+                Text = "Review the Terms of Use for McStud. By using the software, you agree to them.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            var viewTermsButton = new Button
+            {
+                Padding = new Thickness(20, 10, 20, 10),
+                Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
+                Foreground = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(4)
+            };
+            var viewTermsContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            viewTermsContent.Children.Add(new FontIcon { Glyph = "", FontSize = 16 });
+            viewTermsContent.Children.Add(new TextBlock { Text = "View Terms of Use" });
+            viewTermsButton.Content = viewTermsContent;
+            viewTermsButton.Click += async (s, e) => await TermsOfUseDialog.ShowReadOnlyAsync(this.XamlRoot);
+            termsStack.Children.Add(viewTermsButton);
+
+            termsCard.Child = termsStack;
+            mainStack.Children.Add(termsCard);
+
             // === CONTACT SUPPORT SECTION ===
             var supportCard = new Border
             {
@@ -2241,9 +2304,11 @@ namespace McStudDesktop.Views
 
         // Guide sub-tab state
         private int _guideSelectedSubTab;
-        private Border? _guideSubTabMet;
+        private Border? _guideSubTabExcel;
+        private Border? _guideSubTabProgram;
         private Border? _guideSubTabTechEff;
-        private FrameworkElement? _guideMetContent;
+        private FrameworkElement? _guideExcelContent;
+        private FrameworkElement? _guideProgramContent;
         private FrameworkElement? _guideTechEffContent;
 
         private void BuildGuideTab()
@@ -2276,9 +2341,11 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(8, 8, 8, 0)
             };
 
-            _guideSubTabMet = CreateGuideSubTabButton("\uE82D MET Guide", "Searchable repair guides", 0, true);
-            _guideSubTabTechEff = CreateGuideSubTabButton("\u23F1 Tech Efficiency", "Plan & track tech hours", 1, false);
-            subTabBar.Children.Add(_guideSubTabMet);
+            _guideSubTabExcel = CreateGuideSubTabButton("\U0001F4CA Excel", "MET Excel spreadsheet guide", 0, true);
+            _guideSubTabProgram = CreateGuideSubTabButton("\U0001F4D8 McStud Program Guide", "How to use the app", 1, false);
+            _guideSubTabTechEff = CreateGuideSubTabButton("\u23F1 Tech Efficiency", "Plan & track tech hours", 2, false);
+            subTabBar.Children.Add(_guideSubTabExcel);
+            subTabBar.Children.Add(_guideSubTabProgram);
             subTabBar.Children.Add(_guideSubTabTechEff);
 
             Grid.SetRow(subTabBar, 1);
@@ -2287,10 +2354,20 @@ namespace McStudDesktop.Views
             // Content area
             var contentArea = new Grid();
 
+            // Excel guide (the existing MET guide content)
             _metGuideView = new METGuideView();
-            _guideMetContent = _metGuideView;
-            _guideMetContent.Visibility = Visibility.Visible;
-            contentArea.Children.Add(_guideMetContent);
+            _guideExcelContent = _metGuideView;
+            _guideExcelContent.Visibility = Visibility.Visible;
+            contentArea.Children.Add(_guideExcelContent);
+
+            // McStud Program Guide (same UI engine, backed by ProgramGuide.json)
+            _guideProgramContent = new METGuideView(
+                METGuideService.CreateForFile("ProgramGuide.json"),
+                "McStud Program Guide",
+                "How to use the McStud app",
+                "Search the guide... (e.g., \"vendor\", \"ghost\", \"export\")");
+            _guideProgramContent.Visibility = Visibility.Collapsed;
+            contentArea.Children.Add(_guideProgramContent);
 
             _guideTechEffContent = new TechEfficiencyView();
             _guideTechEffContent.Visibility = Visibility.Collapsed;
@@ -2385,13 +2462,16 @@ namespace McStudDesktop.Views
         {
             _guideSelectedSubTab = index;
 
-            UpdateGuideSubTabStyle(_guideSubTabMet, index == 0);
-            UpdateGuideSubTabStyle(_guideSubTabTechEff, index == 1);
+            UpdateGuideSubTabStyle(_guideSubTabExcel, index == 0);
+            UpdateGuideSubTabStyle(_guideSubTabProgram, index == 1);
+            UpdateGuideSubTabStyle(_guideSubTabTechEff, index == 2);
 
-            if (_guideMetContent != null)
-                _guideMetContent.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (_guideExcelContent != null)
+                _guideExcelContent.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (_guideProgramContent != null)
+                _guideProgramContent.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
             if (_guideTechEffContent != null)
-                _guideTechEffContent.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+                _guideTechEffContent.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private static void UpdateGuideSubTabStyle(Border? button, bool isSelected)
@@ -3375,13 +3455,21 @@ namespace McStudDesktop.Views
                         var labor = op.LaborHours > 0 ? op.LaborHours.ToString("0.0") : "0";
                         var refinish = op.RefinishHours > 0 ? op.RefinishHours.ToString("0.0") : "0";
                         var price = op.Price > 0 ? op.Price.ToString("0.00") : "0";
+                        // Labor-type letter: Body/regular → "0" (skipped on paste → CCC keeps body rate),
+                        // Frame → "F", everything else (Mechanical/unset) → "M" (unchanged default).
+                        var laborType = (op.LaborType ?? "").Trim().ToLowerInvariant() switch
+                        {
+                            "body" => "0",
+                            "frame" => "F",
+                            _ => "M"
+                        };
                         if (isFirstRow)
                         {
                             // First row: 6 leading zeros (18 columns)
                             rows.Add(new[] {
                                 "0", "0", "0", "0", "0", "0",
                                 opType, "0", desc, "0", qty, price,
-                                "0", "0", "0", labor, "M", refinish
+                                "0", "0", "0", labor, laborType, refinish
                             });
                             isFirstRow = false;
                         }
@@ -3391,7 +3479,7 @@ namespace McStudDesktop.Views
                             rows.Add(new[] {
                                 "0", "0", "0", "0", "0",
                                 opType, "0", desc, "0", qty, price,
-                                "0", "0", "0", labor, "M", refinish
+                                "0", "0", "0", labor, laborType, refinish
                             });
                         }
                     }
@@ -3417,12 +3505,20 @@ namespace McStudDesktop.Views
                         var labor = op.LaborHours > 0 ? op.LaborHours.ToString("0.0") : "0";
                         var refinish = op.RefinishHours > 0 ? op.RefinishHours.ToString("0.0") : "0";
                         var price = op.Price > 0 ? op.Price.ToString("0.00") : "0";
+                        // Labor-type letter: Body/regular → "0" (skipped on paste → CCC keeps body rate),
+                        // Frame → "F", everything else (Mechanical/unset) → "M" (unchanged default).
+                        var laborType = (op.LaborType ?? "").Trim().ToLowerInvariant() switch
+                        {
+                            "body" => "0",
+                            "frame" => "F",
+                            _ => "M"
+                        };
                         if (isFirstRow)
                         {
                             rows.Add(new[] {
                                 "0", "0", "0", "0", "0", "0",
                                 opType, "0", desc, "0", qty, price,
-                                "0", "0", "0", labor, "M", refinish
+                                "0", "0", "0", labor, laborType, refinish
                             });
                             isFirstRow = false;
                         }
@@ -3431,7 +3527,7 @@ namespace McStudDesktop.Views
                             rows.Add(new[] {
                                 "0", "0", "0", "0", "0",
                                 opType, "0", desc, "0", qty, price,
-                                "0", "0", "0", labor, "M", refinish
+                                "0", "0", "0", labor, laborType, refinish
                             });
                         }
                     }

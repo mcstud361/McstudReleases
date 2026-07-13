@@ -64,6 +64,18 @@ namespace McStudDesktop.Services
             SaveState();
         }
 
+        /// <summary>True when the user has accepted the current Terms of Use version.</summary>
+        public bool HasAcceptedCurrentTerms()
+            => string.Equals(_state.AcceptedTermsVersion, TermsOfUseData.Version, StringComparison.Ordinal);
+
+        /// <summary>Record acceptance of the current Terms of Use version (with a UTC timestamp).</summary>
+        public void MarkTermsAccepted()
+        {
+            _state.AcceptedTermsVersion = TermsOfUseData.Version;
+            _state.TermsAcceptedOnUtc = DateTime.UtcNow.ToString("o");
+            SaveState();
+        }
+
         public bool EarnAchievement(string id, string title)
         {
             if (_state.Achievements.Any(a => a.Id == id))
@@ -132,5 +144,10 @@ namespace McStudDesktop.Services
         public bool HasCompletedFirstLaunch { get; set; } = false;
         public string LastSeenVersion { get; set; } = "";
         public List<OnboardingAchievement> Achievements { get; set; } = new();
+
+        /// <summary>Version of the Terms of Use the user has accepted ("" = never accepted).</summary>
+        public string AcceptedTermsVersion { get; set; } = "";
+        /// <summary>UTC timestamp (ISO-8601) when the current terms were accepted.</summary>
+        public string TermsAcceptedOnUtc { get; set; } = "";
     }
 }

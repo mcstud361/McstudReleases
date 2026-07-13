@@ -1838,7 +1838,6 @@ namespace McStudDesktop.Views
 
             // Header row
             var hdr = new Grid { Padding = new Thickness(4, 4, 4, 4) };
-            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });  // CAT
             hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });  // OP
             hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // DESC
             if (anyPartNumber)
@@ -1846,16 +1845,17 @@ namespace McStudDesktop.Views
             hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(35) });  // QTY
             hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });  // PRICE
             hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });  // HOURS
+            hdr.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });  // CAT
 
             int c = 0;
             void HdrCell(string text, int col) { var t = new TextBlock { Text = text, FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = TextMutedBrush }; Grid.SetColumn(t, col); hdr.Children.Add(t); }
-            HdrCell("CAT", c++);
             HdrCell("OP", c++);
             HdrCell("DESCRIPTION", c++);
             if (anyPartNumber) HdrCell("PART #", c++);
             HdrCell("QTY", c++);
             HdrCell("PRICE", c++);
             HdrCell("HOURS", c++);
+            HdrCell("CAT", c++);
             panel.Children.Add(hdr);
 
             bool alt = false;
@@ -1866,13 +1866,13 @@ namespace McStudDesktop.Views
                     Padding = new Thickness(4, 3, 4, 3),
                     Background = new SolidColorBrush(alt ? Color.FromArgb(255, 30, 30, 34) : Colors.Transparent)
                 };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 if (anyPartNumber)
                     row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(35) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(55) });
 
                 c = 0;
@@ -1883,9 +1883,6 @@ namespace McStudDesktop.Views
                     row.Children.Add(t);
                 }
 
-                var catLabel = categoryMap.TryGetValue(li, out var cl) ? cl : "";
-                RowCell(catLabel, c++, TextMutedBrush);
-
                 var opAbbr = (li.OperationType ?? "").Length > 5 ? li.OperationType.Substring(0, 5) : (li.OperationType ?? "");
                 RowCell(opAbbr, c++, TextSecondaryBrush);
                 RowCell(li.Description ?? li.PartName ?? "", c++, TextPrimaryBrush);
@@ -1895,6 +1892,9 @@ namespace McStudDesktop.Views
                 RowCell(li.Price > 0 ? $"${li.Price:N0}" : "", c++, AccentGreenBrush);
                 var hours = li.LaborHours + li.RefinishHours;
                 RowCell(hours > 0 ? $"{hours:N1}" : (li.Price > 0 ? "Incl." : ""), c++, TextSecondaryBrush);
+
+                var catLabel = categoryMap.TryGetValue(li, out var cl) ? cl : "";
+                RowCell(catLabel, c++, TextMutedBrush);
 
                 panel.Children.Add(row);
                 alt = !alt;

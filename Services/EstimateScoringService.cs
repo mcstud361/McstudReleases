@@ -288,7 +288,7 @@ namespace McStudDesktop.Services
         /// </summary>
         public EstimateScoringResult ScoreEstimate(List<ParsedEstimateLine> lines, string? vehicleInfo = null,
             decimal estimateBodyRate = 0, decimal estimatePaintRate = 0, decimal estimateMechRate = 0,
-            string? insuranceCompany = null)
+            string? insuranceCompany = null, decimal estimateGrandTotal = 0)
         {
             // Pre-process: join continuation lines (e.g., "Rub-Out &" + "& Buff" → "Rub-Out & Buff")
             // OCR and PDF parsers sometimes split wrapped descriptions across multiple lines.
@@ -321,8 +321,12 @@ namespace McStudDesktop.Services
                 return result;
             }
 
-            // Calculate estimate total
-            result.EstimateTotal = lines.Sum(l => l.Price);
+            // Calculate estimate total.
+            // Prefer the real Grand Total parsed off the estimate (the authoritative number).
+            // Only fall back to summing parsed line prices when no Grand Total was found — that
+            // fallback is unreliable because noise/fee lines can inflate it.
+            var lineSum = lines.Sum(l => l.Price);
+            result.EstimateTotal = estimateGrandTotal > 0 ? estimateGrandTotal : lineSum;
 
             // Categorize estimate lines for the report card
             result.CategorizedLines = CategorizeEstimateLines(lines);

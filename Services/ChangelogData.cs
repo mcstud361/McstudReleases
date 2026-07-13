@@ -11,6 +11,16 @@ namespace McStudDesktop.Services
         {
             return new List<VersionEntry>
             {
+                new VersionEntry("v1.0.7", "July 2026", new[]
+                {
+                    "New McStud Program Guide in the Guide tab - searchable how-to's for the whole app",
+                    "Guide tab reorganized: the MET spreadsheet guide is now clearly labeled the 'Excel' tab",
+                    "Screen Read OCR now ignores CCC's docked parts-search/Guide panel, so its category list isn't read as phantom operations",
+                    "Must-Haves overhaul: per-category include toggles (base categories stay locked on), $ / Labor input states, editable price & labor values, and typed counts (e.g. wipes x quantity)",
+                    "Expanded OEM position statement library",
+                    "Statistics now track your Screen OCR reads alongside exports and invoices",
+                    "Performance & stability improvements - faster dialogs and smoother screen reading throughout"
+                }),
                 new VersionEntry("v1.0.6", "March 2026", new[]
                 {
                     "Welcome walkthrough for new users on first launch",

@@ -329,7 +329,7 @@
     },
     "chat-tab": {
       "title": "Chat Tab Help",
-      "description": "AI assistant for estimating questions.",
+      "description": "Ask questions about estimating and operations.",
       "steps": [
         "1. Type your question in the chat box",
         "2. Get answers about procedures, P-pages, operations",
@@ -372,15 +372,15 @@
     },
     "settings-tab": {
       "title": "Settings Tab Help",
-      "description": "Configure tool behavior and preferences.",
+      "description": "Set up your shop identity and choose how the app learns from your estimates.",
       "steps": [
-        "1. Adjust paste speed for your computer",
-        "2. Check for updates",
-        "3. View version information"
+        "1. Shop Info: enter your Shop Name and Your Name — Shop Name brands every printed and exported document",
+        "2. Learning Mode: choose Standard (shared pre-trained data) or Personal (builds only from your own uploads)",
+        "3. License & Version: view your version and license — the app auto-updates when a new release is out"
       ],
       "tips": [
-        "Slower paste speed is more reliable on older computers",
-        "Keep auto-update enabled for latest features"
+        "Fill in Shop Name first so every document is branded correctly",
+        "Standard mode is recommended for consistent results across a team"
       ]
     },
     "guide-tab": {
@@ -412,18 +412,28 @@
       ]
     },
     "chat-subtab": {
-      "title": "Chat Help",
-      "description": "Ask questions about estimating, operations, and MET features. The chatbot understands collision repair terminology.",
+      "title": "Chat, Ghost & Screen OCR",
+      "description": "This tab has three sub-tabs across the top. Pick the one that matches what you want to do:",
       "steps": [
-        "1. Type your question in the input box at the bottom",
-        "2. Use quick-reply buttons for common questions",
-        "3. Operations mentioned in answers can be copied to clipboard",
-        "4. Pin important messages for quick reference"
+        "ASK (the chat)",
+        "1. Type a question in the box at the bottom (e.g. 'What is flex additive?')",
+        "2. Or tap a quick-reply chip for a common question",
+        "3. Copy any operation from an answer straight to your clipboard",
+        "",
+        "GHOST ESTIMATE",
+        "1. Enter the vehicle, describe the damage, and click the diagram",
+        "2. Click 'Generate Estimate Guide' to build a shadow estimate from your data",
+        "3. Review the suggested operations and what may be missing",
+        "",
+        "SCREEN OCR / MONITOR",
+        "1. Open your estimate in CCC or Mitchell next to this window",
+        "2. Flip the Monitor toggle On",
+        "3. Scroll through your estimate — operations are read live as you go"
       ],
       "tips": [
-        "Ask about specific operations like 'R&I bumper cover'",
-        "Use categories bar to filter question types",
-        "Chat history is saved between sessions"
+        "Not sure where to start? Use Ask for questions, Ghost to see what's missing, Screen OCR to read your live estimate.",
+        "Ghost and Screen OCR both feed Auto-Matched References on the Reference tab.",
+        "Chat history is saved between sessions."
       ]
     },
     "learned-subtab": {
@@ -473,7 +483,7 @@
     },
     "ghost-compare-subtab": {
       "title": "Ghost Estimate Comparison Help",
-      "description": "Compare your estimate against AI-generated 'ghost' estimates to find missing operations.",
+      "description": "Compare your estimate against a 'ghost' estimate built from your data to find missing operations.",
       "steps": [
         "1. Upload or paste your current estimate",
         "2. The tool generates a comparison ghost estimate",
@@ -496,7 +506,7 @@
         "4. 'Live Coaching' scores your estimate (A+ to F) and flags missing operations by priority (Critical, High, Medium, Low)",
         "5. 'Potential Recovery' shows the dollar amount you may be leaving on the table",
         "6. 'Similar Estimates' finds past jobs like this one so you can compare what you wrote before",
-        "7. Use 'Feed to Chat' to send the captured data to the AI assistant for questions",
+        "7. Use 'Feed to Chat' to send the captured data to the chat for questions",
         "8. Use 'Copy' to grab the coaching suggestions as text"
       ],
       "tips": [

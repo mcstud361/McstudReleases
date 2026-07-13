@@ -365,6 +365,9 @@ namespace McStudDesktop.Views
             // Export stats section
             stack.Children.Add(BuildExportStatsSection(period));
 
+            // Screen OCR usage section
+            stack.Children.Add(BuildScreenOcrSection(period));
+
             // Business outcomes panel
             stack.Children.Add(BuildBusinessOutcomesPanel(period));
 
@@ -867,6 +870,72 @@ namespace McStudDesktop.Views
 
             border.Child = stack;
             return border;
+        }
+
+        private Border BuildScreenOcrSection(StatsPeriod period)
+        {
+            var ocr = _exportStats.GetScreenOcrStatsByUser(_currentUserId, period);
+            var daily = _exportStats.GetScreenOcrDailyBreakdownByUser(_currentUserId, period);
+
+            var border = new Border { Background = new SolidColorBrush(CardBg), CornerRadius = new CornerRadius(8), Padding = new Thickness(16) };
+            var stack = new StackPanel { Spacing = 12 };
+
+            // Title row with a screen/monitor glyph
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            titleRow.Children.Add(new FontIcon { Glyph = "", FontSize = 15, Foreground = new SolidColorBrush(AccentCyan), VerticalAlignment = VerticalAlignment.Center });
+            titleRow.Children.Add(new TextBlock { Text = "Screen OCR Usage", FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White), VerticalAlignment = VerticalAlignment.Center });
+            stack.Children.Add(titleRow);
+
+            if (ocr.TotalScans == 0)
+            {
+                stack.Children.Add(CreateNoDataMessage());
+                border.Child = stack;
+                return border;
+            }
+
+            // Primary stat cards
+            var statsGrid = new Grid();
+            for (int i = 0; i < 4; i++) statsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var reads = CreateMiniStatCard("Screen Reads", ocr.TotalScans.ToString("N0"), AccentCyan, ocr.TotalScans, "N0");
+            var opsRead = CreateMiniStatCard("Operations Read", ocr.TotalOperationsRead.ToString("N0"), AccentGreen, ocr.TotalOperationsRead, "N0");
+            var avgOps = CreateMiniStatCard("Avg Ops/Read", ocr.AvgOperationsPerScan.ToString("F1"), AccentOrange, ocr.AvgOperationsPerScan, "F1");
+            var activeDays = CreateMiniStatCard("Active Days", ocr.ActiveDays.ToString("N0"), AccentPurple, ocr.ActiveDays, "N0");
+
+            Grid.SetColumn(reads, 0); Grid.SetColumn(opsRead, 1); Grid.SetColumn(avgOps, 2); Grid.SetColumn(activeDays, 3);
+            statsGrid.Children.Add(reads); statsGrid.Children.Add(opsRead); statsGrid.Children.Add(avgOps); statsGrid.Children.Add(activeDays);
+            stack.Children.Add(statsGrid);
+
+            // Secondary metrics
+            var metricsRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 24, Margin = new Thickness(0, 8, 0, 0) };
+            metricsRow.Children.Add(CreateShopDocSmallMetric("Busiest Day", $"{ocr.BusiestDayScans:N0} reads"));
+            metricsRow.Children.Add(CreateShopDocSmallMetric("Avg Reads/Day", ocr.AvgScansPerActiveDay.ToString("F1")));
+            metricsRow.Children.Add(CreateShopDocSmallMetric("Last Read", FormatRelativeTime(ocr.LastScan)));
+            stack.Children.Add(metricsRow);
+
+            // Daily reads sparkline (needs at least 2 days of data)
+            if (daily.Count >= 2)
+            {
+                var sparkRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+                sparkRow.Children.Add(new TextBlock { Text = "Daily reads", FontSize = 10, Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 140, 140)), VerticalAlignment = VerticalAlignment.Center });
+                AddSparkline(sparkRow, daily.Select(d => (double)d.Scans).ToList(), AccentCyan, 120, 20);
+                stack.Children.Add(sparkRow);
+            }
+
+            border.Child = stack;
+            return border;
+        }
+
+        /// <summary>Human-friendly "time ago" for the most recent Screen OCR read.</summary>
+        private static string FormatRelativeTime(DateTime? when)
+        {
+            if (when == null) return "Never";
+            var span = DateTime.Now - when.Value;
+            if (span.TotalMinutes < 1) return "Just now";
+            if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes}m ago";
+            if (span.TotalHours < 24) return $"{(int)span.TotalHours}h ago";
+            if (span.TotalDays < 7) return $"{(int)span.TotalDays}d ago";
+            return when.Value.ToString("MMM d");
         }
 
         private Border BuildQuickOperationsSection(StatsPeriod period)

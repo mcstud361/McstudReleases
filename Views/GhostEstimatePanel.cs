@@ -158,20 +158,29 @@ namespace McStudDesktop.Views
         {
             var panel = new StackPanel { Spacing = 8 };
 
-            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-            titleRow.Children.Add(new FontIcon
+            // Match Screen OCR header layout: star first column pushes the buttons to the far right.
+            var titleRow = new Grid();
+            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var titleContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+            titleContent.Children.Add(new FontIcon
             {
                 Glyph = "\uE8F4",
                 FontSize = 28,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 200, 255))
             });
-            titleRow.Children.Add(new TextBlock
+            titleContent.Children.Add(new TextBlock
             {
                 Text = "Estimate Assistant - Damage Guidance",
                 FontSize = 24,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White)
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center
             });
+            Grid.SetColumn(titleContent, 0);
+            titleRow.Children.Add(titleContent);
 
             // Must-Haves button
             var mustHavesButton = new Button
@@ -182,7 +191,7 @@ namespace McStudDesktop.Views
                     Spacing = 8,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uE73E", FontSize = 14 },
+                        new FontIcon { Glyph = "\uE713", FontSize = 14 },
                         new TextBlock { Text = "Must-Haves", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
                     }
                 },
@@ -190,8 +199,7 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Colors.White),
                 Padding = new Thickness(12, 6, 12, 6),
                 CornerRadius = new CornerRadius(4),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(12, 0, 0, 0)
+                VerticalAlignment = VerticalAlignment.Center
             };
             ToolTipService.SetToolTip(mustHavesButton,
                 "Configure which operations must appear on every estimate.\n" +
@@ -205,6 +213,7 @@ namespace McStudDesktop.Views
                     System.Diagnostics.Debug.WriteLine($"[Ghost] Must-haves updated: {enabledCount} enabled");
                 }
             };
+            Grid.SetColumn(mustHavesButton, 1);
             titleRow.Children.Add(mustHavesButton);
 
             // Settings gear button
@@ -216,10 +225,11 @@ namespace McStudDesktop.Views
                 Padding = new Thickness(8, 4, 8, 4),
                 CornerRadius = new CornerRadius(4),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 0, 0)
+                Margin = new Thickness(8, 0, 0, 0)
             };
             ToolTipService.SetToolTip(settingsButton, "Ghost Estimate Settings");
             settingsButton.Click += SettingsButton_Click;
+            Grid.SetColumn(settingsButton, 2);
             titleRow.Children.Add(settingsButton);
 
             panel.Children.Add(titleRow);

@@ -334,7 +334,7 @@ namespace McStudDesktop.Views
                     Spacing = 6,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uE73E", FontSize = 12 },
+                        new FontIcon { Glyph = "\uE713", FontSize = 12 },
                         new TextBlock { Text = "Must-Haves", FontSize = 11 }
                     }
                 },
@@ -1019,7 +1019,13 @@ namespace McStudDesktop.Views
 
             // Fix All Critical button — show count
             int critHighCount = result.CriticalCount + result.HighCount;
-            if (critHighCount > 0)
+            // Bulk-add steps down one tier per click (Critical/High → Medium → Low → hidden),
+            // so the flow never dead-ends after the criticals are handled.
+            string bulkLabel =
+                critHighCount > 0 ? $"Fix All Critical ({critHighCount})" :
+                result.MediumCount > 0 ? $"Add Medium Suggestions ({result.MediumCount})" :
+                result.LowCount > 0 ? $"Add Low Suggestions ({result.LowCount})" : "";
+            if (!string.IsNullOrEmpty(bulkLabel))
             {
                 _addAllCriticalButton!.Visibility = Visibility.Visible;
                 // Update button text with count
@@ -1030,7 +1036,7 @@ namespace McStudDesktop.Views
                     Children =
                     {
                         new FontIcon { Glyph = "\uE7BA", FontSize = 12 },
-                        new TextBlock { Text = $"Fix All Critical ({critHighCount})", FontSize = 11 }
+                        new TextBlock { Text = bulkLabel, FontSize = 11 }
                     }
                 };
             }
@@ -1695,13 +1701,25 @@ namespace McStudDesktop.Views
         {
             if (_currentResult == null) return;
 
-            var criticalItems = _currentResult.Issues
-                .Where(i => i.Severity == IssueSeverity.Critical || i.Severity == IssueSeverity.High)
+            // Add the highest-priority tier still outstanding: Critical/High first, then Medium,
+            // then Low. This matches the button label, which steps down a tier each time, so the
+            // user always has a clear next action instead of dead-ending after criticals.
+            bool hasCritHigh = _currentResult.Issues.Any(i =>
+                i.Severity == IssueSeverity.Critical || i.Severity == IssueSeverity.High);
+            bool hasMedium = _currentResult.Issues.Any(i => i.Severity == IssueSeverity.Medium);
+
+            IssueSeverity[] tier =
+                hasCritHigh ? new[] { IssueSeverity.Critical, IssueSeverity.High } :
+                hasMedium ? new[] { IssueSeverity.Medium } :
+                new[] { IssueSeverity.Low };
+
+            var items = _currentResult.Issues
+                .Where(i => tier.Contains(i.Severity))
                 .ToList();
 
-            if (criticalItems.Count > 0)
+            if (items.Count > 0)
             {
-                OnAddItems?.Invoke(this, criticalItems);
+                OnAddItems?.Invoke(this, items);
             }
         }
 

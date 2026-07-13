@@ -25,12 +25,23 @@ namespace McStudDesktop.Services
             LoadGuideData();
         }
 
-        private void LoadGuideData()
+        private METGuideService(string dataFileName)
+        {
+            LoadGuideData(dataFileName);
+        }
+
+        /// <summary>
+        /// Create a guide service backed by a specific data file (e.g. "ProgramGuide.json").
+        /// Use this for guides other than the default MET/Excel guide.
+        /// </summary>
+        public static METGuideService CreateForFile(string dataFileName) => new(dataFileName);
+
+        private void LoadGuideData(string dataFileName = "METGuide.json")
         {
             try
             {
                 var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                var dataPath = Path.Combine(baseDir, "Data", "METGuide.json");
+                var dataPath = Path.Combine(baseDir, "Data", dataFileName);
 
                 if (File.Exists(dataPath))
                 {

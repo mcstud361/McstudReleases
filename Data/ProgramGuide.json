@@ -1,0 +1,444 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-07-04",
+  "sections": [
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "icon": "E8F1",
+      "order": 1,
+      "topics": [
+        {
+          "id": "overview",
+          "title": "What McStud Does",
+          "summary": "The 30-second overview of the program",
+          "content": [
+            "McStud helps you build more complete, better-supported collision estimates and negotiate them with insurers.",
+            "It reads estimates, learns from your history, flags operations that are commonly missed, and backs them up with reference documents.",
+            "Everything runs locally on your machine. Your uploaded estimates and learned data stay private to your shop."
+          ],
+          "tips": [
+            "Work top to bottom through the tabs: Import an estimate, review it in Chat/Ghost, check Scoring and Must-Haves, then Export.",
+            "You do not need to use every feature. Start with Import and Chat, then add the rest as you get comfortable."
+          ],
+          "keywords": ["overview", "what", "does", "start", "intro", "about"]
+        },
+        {
+          "id": "first-setup",
+          "title": "First-Time Setup",
+          "summary": "Set your Shop Info and Learning Mode before you begin",
+          "content": [
+            "Open the Settings tab and fill in Shop Info: your Shop Name and Your Name.",
+            "Shop Name appears on the window title bar and on every document you print or export (checklists, PDFs, tow bills, vendor sheets, and more).",
+            "Your Name is used for friendly greetings in the Chat and Welcome screens.",
+            "Choose a Learning Mode: Standard uses the pre-trained knowledge base that ships with the app. Personal starts fresh and builds only from your own uploaded estimates."
+          ],
+          "tips": [
+            "Standard mode is recommended for most shops and gives consistent results across a team.",
+            "Fill in Shop Name first so every document you generate is branded correctly."
+          ],
+          "warnings": [
+            "In Standard mode, uploaded estimates use the shared knowledge base but do not modify it. Choose Personal if you want your uploads to build your own private data set."
+          ],
+          "keywords": ["setup", "settings", "shop name", "your name", "learning mode", "standard", "personal", "first"]
+        },
+        {
+          "id": "tour",
+          "title": "The Interactive Tour",
+          "summary": "Take the guided walkthrough with Try It mode and achievements",
+          "content": [
+            "The app includes an interactive tour that walks you through each tab with Try It prompts and unlockable achievements.",
+            "The tour highlights one feature at a time and lets you try it live before moving on.",
+            "You can relaunch the tour any time if you want a refresher."
+          ],
+          "tips": [
+            "Use the tour on your first day to see where everything lives.",
+            "Achievements are just for fun and to confirm you have tried each core feature."
+          ],
+          "keywords": ["tour", "walkthrough", "guide", "try it", "achievements", "help"]
+        },
+        {
+          "id": "tab-layout",
+          "title": "Understanding the Tabs",
+          "summary": "What each top-level tab is for",
+          "content": [
+            "Export: send finished operations out to CCC/Mitchell, the clipboard, or Excel.",
+            "Chat: ask questions, generate a ghost estimate, or read the screen live with OCR.",
+            "Guide: this guide, the Excel guide, and Tech Efficiency planning.",
+            "Import: upload estimates so the app can read and learn from them.",
+            "Reference: pull P-pages, definitions, OEM position statements, and procedures to back up your estimate.",
+            "Settings: Shop Info, Learning Mode, and license.",
+            "Shop Docs: vendor lists, checklists, tow bills, invoices, parts requests, and more.",
+            "Stats: track your performance over time."
+          ],
+          "tips": [
+            "Each tab has a help button in its top-right corner for quick context."
+          ],
+          "keywords": ["tabs", "layout", "navigation", "where", "find"]
+        }
+      ]
+    },
+    {
+      "id": "import",
+      "title": "Import — Getting Estimates In",
+      "icon": "E8E5",
+      "order": 2,
+      "topics": [
+        {
+          "id": "estimate-upload",
+          "title": "Uploading an Estimate",
+          "summary": "How to bring an estimate into the app",
+          "content": [
+            "Open the Import tab and use Estimate Upload to load an estimate file.",
+            "The app parses the estimate into structured lines it can read, score, and learn from.",
+            "Once parsed, the estimate feeds the Ghost, Scoring, and Reference features automatically."
+          ],
+          "tips": [
+            "Upload the insurer's version of the estimate to see what operations may be missing.",
+            "After upload, check the Chat > Ghost sub-tab to see how it compares to your history."
+          ],
+          "keywords": ["import", "upload", "estimate", "parse", "load", "file"]
+        },
+        {
+          "id": "what-it-learns",
+          "title": "What the App Learns",
+          "summary": "How uploads build the knowledge base",
+          "content": [
+            "Each uploaded estimate teaches the app patterns: which operations tend to go together, typical hours, and shop-specific habits.",
+            "In Personal mode, uploads are saved to your own private data file and build your personal knowledge base.",
+            "In Standard mode, uploads use the shared pre-trained data but do not change it."
+          ],
+          "warnings": [
+            "Your uploaded estimates and learned data are your private property. They never leave your machine and are never shared with other users."
+          ],
+          "keywords": ["learn", "learning", "knowledge", "patterns", "data", "personal", "standard"]
+        },
+        {
+          "id": "duplicate-detection",
+          "title": "Duplicate Detection",
+          "summary": "The app flags estimates you have already uploaded",
+          "content": [
+            "When you upload, the app checks whether the same estimate already exists so you do not learn from it twice.",
+            "This keeps your statistics and learned patterns accurate."
+          ],
+          "tips": [
+            "If an estimate is flagged as a duplicate, you have likely already imported it."
+          ],
+          "keywords": ["duplicate", "detection", "repeat", "already", "uploaded"]
+        }
+      ]
+    },
+    {
+      "id": "chat",
+      "title": "Chat — Ask, Ghost & Screen OCR",
+      "icon": "E8BD",
+      "order": 3,
+      "topics": [
+        {
+          "id": "ask",
+          "title": "Ask",
+          "summary": "Ask questions and get answers from your knowledge base",
+          "content": [
+            "The Ask sub-tab lets you type a question and get an answer from the app's knowledge base.",
+            "You can ask about definitions, procedures, operations, or how to handle a specific situation.",
+            "Try questions like 'What is flex additive?' or 'Check front bumper replace'."
+          ],
+          "tips": [
+            "Use the suggested question chips for quick common answers."
+          ],
+          "keywords": ["ask", "question", "chat", "answer", "knowledge", "search"]
+        },
+        {
+          "id": "ghost",
+          "title": "Ghost Estimate",
+          "summary": "A shadow estimate built from your learned data",
+          "content": [
+            "The Ghost sub-tab builds a shadow estimate from your learned data and history.",
+            "It predicts the operations and hours a complete estimate for this vehicle and damage should include.",
+            "The ghost is scored against your history so you can see where the current estimate falls short."
+          ],
+          "tips": [
+            "Use the ghost to spot operations the insurer left off before you negotiate."
+          ],
+          "keywords": ["ghost", "shadow", "predict", "estimate", "guidance", "compare"]
+        },
+        {
+          "id": "screen-ocr",
+          "title": "Screen OCR / Screen Monitor",
+          "summary": "Read CCC or Mitchell live on screen without copy-paste",
+          "content": [
+            "The Screen OCR sub-tab reads what is on your screen in real time, so you do not have to copy and paste from CCC or Mitchell.",
+            "As you work in your estimating system, the app can pick up the operations and match reference content automatically.",
+            "This feeds the Auto-Matched References in the Reference tab."
+          ],
+          "tips": [
+            "Position your estimating window so the operations are clearly visible for the best OCR results."
+          ],
+          "keywords": ["ocr", "screen", "monitor", "ccc", "mitchell", "live", "read"]
+        }
+      ]
+    },
+    {
+      "id": "export",
+      "title": "Export — Getting Work Out",
+      "icon": "E8C8",
+      "order": 4,
+      "topics": [
+        {
+          "id": "export-basics",
+          "title": "Exporting Operations",
+          "summary": "Send finished operations to the clipboard or Excel",
+          "content": [
+            "The Export tab sends your finished operations out of the app.",
+            "You can copy operations to the clipboard to paste into your estimating system, or export to Excel.",
+            "Review your operations before exporting to make sure everything is correct."
+          ],
+          "keywords": ["export", "clipboard", "excel", "copy", "paste", "output"]
+        },
+        {
+          "id": "ccc-web-insert",
+          "title": "CCC Web Insert",
+          "summary": "Automatically insert operations into CCC",
+          "content": [
+            "CCC Web Insert can place operations into CCC for you, so you do not have to type each line by hand.",
+            "The automation is scroll-resilient and finds the right spot to insert each operation.",
+            "It verifies and retries where needed to make sure operations land correctly."
+          ],
+          "tips": [
+            "Let the automation finish before interacting with the CCC window."
+          ],
+          "keywords": ["ccc", "web", "insert", "automation", "auto", "operations"]
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference — Backing Up Your Estimate",
+      "icon": "E82D",
+      "order": 5,
+      "topics": [
+        {
+          "id": "auto-matched",
+          "title": "Auto-Matched References",
+          "summary": "References matched to your estimate automatically",
+          "content": [
+            "The first Reference tab shows references that were auto-matched to your estimate.",
+            "These come from uploading an estimate in the Import tab or from the Screen Monitor reading your screen.",
+            "Add the ones you want to your PDF export queue to include them in your backup document."
+          ],
+          "tips": [
+            "If you see no auto-matched references, upload an estimate or run the Screen Monitor first."
+          ],
+          "keywords": ["auto", "matched", "reference", "backup", "support"]
+        },
+        {
+          "id": "reference-library",
+          "title": "P-Pages, Definitions, OEM & Procedures",
+          "summary": "Look up supporting documentation",
+          "content": [
+            "The Reference tab includes P-pages, definitions, OEM position statements, procedures, and Included/Not Included details.",
+            "Use these to justify operations and explain why they belong on the estimate.",
+            "Search for a term or operation to find the backing documentation quickly."
+          ],
+          "keywords": ["p-page", "ppages", "definitions", "oem", "position", "procedures", "included", "not included"]
+        },
+        {
+          "id": "pdf-queue",
+          "title": "Building the PDF Export Queue",
+          "summary": "Collect references into a single PDF",
+          "content": [
+            "Click 'Add to PDF' on any reference item to add it to the PDF Export Queue.",
+            "When you have everything you need, generate the PDF to produce one backup document.",
+            "Use Clear to empty the queue and start over."
+          ],
+          "tips": [
+            "Give the insurer one clean PDF of supporting documentation instead of loose pages."
+          ],
+          "keywords": ["pdf", "queue", "export", "generate", "document", "backup"]
+        }
+      ]
+    },
+    {
+      "id": "shop-docs",
+      "title": "Shop Docs — Documents & Vendors",
+      "icon": "E8A5",
+      "order": 6,
+      "topics": [
+        {
+          "id": "vendor-info",
+          "title": "Vendor Information",
+          "summary": "Store vendors, sublet shops, and labor rates",
+          "content": [
+            "Vendor Information holds your dealers, tow companies, glass shops, alignment shops, mechanical shops, and sublet/other vendors.",
+            "Each vendor can store contacts, phone numbers, emails, address, delivery info, returns info, and labor rates.",
+            "Pick a vendor type when adding one. Sublet work uses the specific type (glass, alignment, mechanical) or the Sublet / Other category.",
+            "Everything you enter flows onto the Vendor Information document."
+          ],
+          "tips": [
+            "Add your sublet vendors here so their contact info is one click away on any job.",
+            "Filter the vendor list by type to quickly find, for example, just your sublet shops."
+          ],
+          "keywords": ["vendor", "sublet", "dealer", "labor rates", "tow", "glass", "alignment", "mechanical", "contacts"]
+        },
+        {
+          "id": "checklists",
+          "title": "Checklists",
+          "summary": "Built-in and custom shop checklists",
+          "content": [
+            "Shop Docs includes checklists for quality control, blueprinting, health-check scanning, and more.",
+            "You can use the built-in checklists or create your own custom ones.",
+            "Checklists print with your Shop Name in the header and footer."
+          ],
+          "keywords": ["checklist", "quality", "blueprint", "scanning", "custom", "qc"]
+        },
+        {
+          "id": "other-docs",
+          "title": "Tow Bills, Invoices, Parts & Intake",
+          "summary": "The rest of the Shop Docs document types",
+          "content": [
+            "Shop Docs also generates tow bills, invoices, parts requests, and vehicle intake forms.",
+            "Shop Stock Parts, Vehicle Protection, Price Catalogs, and My Docs round out the document set.",
+            "All of these pull your Shop Name automatically so your branding is consistent."
+          ],
+          "tips": [
+            "Fill in Shop Info once in Settings and every document is branded for you."
+          ],
+          "keywords": ["tow bill", "invoice", "parts request", "intake", "shop stock", "protection", "price catalog", "my docs"]
+        }
+      ]
+    },
+    {
+      "id": "scoring-musthaves",
+      "title": "Scoring & Must-Haves",
+      "icon": "E9D2",
+      "order": 7,
+      "topics": [
+        {
+          "id": "scoring",
+          "title": "Estimate Scoring",
+          "summary": "How complete is this estimate?",
+          "content": [
+            "Estimate Scoring grades an estimate against your history and the knowledge base.",
+            "A lower score means operations are likely missing or under-documented.",
+            "Use the score as a quick gut check before you send or negotiate an estimate."
+          ],
+          "keywords": ["score", "scoring", "grade", "complete", "quality"]
+        },
+        {
+          "id": "must-haves",
+          "title": "Must-Haves",
+          "summary": "The operations that should not be missed",
+          "content": [
+            "Must-Haves are the operations the app believes belong on this estimate and are commonly left off.",
+            "They are ordered for negotiation: lower-grade or easier-to-justify items lead, not just the biggest dollar items.",
+            "Work the Must-Haves list to make sure nothing important is missing before you finalize."
+          ],
+          "tips": [
+            "Lead your insurer negotiation with the items the Must-Haves ordering puts first."
+          ],
+          "keywords": ["must have", "must-haves", "missing", "negotiation", "points", "order"]
+        }
+      ]
+    },
+    {
+      "id": "stats",
+      "title": "Stats — Tracking Performance",
+      "icon": "E9D9",
+      "order": 8,
+      "topics": [
+        {
+          "id": "stats-overview",
+          "title": "Statistics",
+          "summary": "Track your estimating performance over time",
+          "content": [
+            "The Stats tab tracks your performance: estimates handled, patterns learned, and trends over time.",
+            "Use it to see how your estimating is improving as the app learns your shop."
+          ],
+          "keywords": ["stats", "statistics", "performance", "track", "trends"]
+        },
+        {
+          "id": "tech-efficiency",
+          "title": "Tech Efficiency",
+          "summary": "Plan and track technician hours",
+          "content": [
+            "Tech Efficiency lives in the Guide tab and helps you plan and track technician hours.",
+            "Use it to compare planned hours against actual and keep your techs on target."
+          ],
+          "keywords": ["tech", "efficiency", "hours", "technician", "plan", "track"]
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Settings — Configuration",
+      "icon": "E713",
+      "order": 9,
+      "topics": [
+        {
+          "id": "shop-info",
+          "title": "Shop Info",
+          "summary": "Your shop and user identity",
+          "content": [
+            "Shop Name brands the title bar and every printed or exported document.",
+            "Your Name personalizes greetings in the Chat and Welcome screens.",
+            "Type once and it applies everywhere the document supports it."
+          ],
+          "keywords": ["shop info", "shop name", "your name", "settings", "branding"]
+        },
+        {
+          "id": "learning-mode-settings",
+          "title": "Learning Mode",
+          "summary": "Standard vs Personal knowledge base",
+          "content": [
+            "Standard uses the pre-trained data that ships with the app and is best for consistent, team-wide results.",
+            "Personal starts fresh and builds a knowledge base entirely from your own uploaded estimates.",
+            "You can switch modes in Settings at any time."
+          ],
+          "keywords": ["learning mode", "standard", "personal", "knowledge base"]
+        },
+        {
+          "id": "license",
+          "title": "License",
+          "summary": "Activation and updates",
+          "content": [
+            "Your license is managed in Settings.",
+            "The app updates itself automatically when a new version is released, so you stay current."
+          ],
+          "keywords": ["license", "activation", "update", "version"]
+        }
+      ]
+    },
+    {
+      "id": "tips-workflow",
+      "title": "Tips, Workflow & Troubleshooting",
+      "icon": "E897",
+      "order": 11,
+      "topics": [
+        {
+          "id": "daily-workflow",
+          "title": "Recommended Workflow",
+          "summary": "A simple day-to-day routine",
+          "content": [
+            "1. Import the estimate (or run the Screen Monitor as you work in CCC/Mitchell).",
+            "2. Review the Ghost estimate and Estimate Score to see what may be missing.",
+            "3. Work the Must-Haves list and pull supporting References into a PDF.",
+            "4. Export your operations to CCC, the clipboard, or Excel.",
+            "5. Generate any Shop Docs you need for the job."
+          ],
+          "keywords": ["workflow", "routine", "daily", "process", "steps", "how"]
+        },
+        {
+          "id": "troubleshooting",
+          "title": "Common Questions",
+          "summary": "Quick fixes for everyday issues",
+          "content": [
+            "No auto-matched references? Upload an estimate in Import or run the Screen Monitor first.",
+            "Documents missing your shop name? Fill in Shop Name in Settings > Shop Info.",
+            "Uploads not building your own data? Switch Learning Mode to Personal in Settings."
+          ],
+          "keywords": ["troubleshoot", "problem", "issue", "fix", "help", "not working"]
+        }
+      ]
+    }
+  ]
+}

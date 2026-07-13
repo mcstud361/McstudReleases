@@ -1397,6 +1397,24 @@ namespace McStudDesktop.Services
             if (boilerplateFragments.Any(p => upper.Contains(p)))
                 return true;
 
+            // === REGULATORY / STATUTE CITATIONS (state fee & disclaimer lines) ===
+            // e.g. "N.J.S.A 13:1E-99.11", "N.J.A.C 7:26", "N.J.A.C (Hazardous Waste)" — these are
+            // regulatory fee/disclaimer lines in the estimate footer, not repair operations.
+            if (upper.Contains("N.J.S.A") || upper.Contains("N.J.A.C") ||
+                Regex.IsMatch(upper, @"\bN\.?J\.?[SA]\.?[AC]\.?\b"))
+                return true;
+            // Generic statute citation number like "7:26", "13:1E-99.11" (colon-separated with a dash to a number)
+            if (Regex.IsMatch(trimmed, @"\b\d{1,3}:\d{1,3}[A-Za-z]?-\d"))
+                return true;
+
+            // === ADDRESS LINES ===
+            // "City, ST" or "City, ST 12345" at end of line — shop/customer address, not an operation.
+            // Matched against real US state abbreviations so op descriptions ending in ", LT"/", RT" are safe.
+            if (Regex.IsMatch(trimmed,
+                    @",\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\.?(\s+\d{5}(-\d{4})?)?\s*$",
+                    RegexOptions.IgnoreCase))
+                return true;
+
             // === VEHICLE DESCRIPTION LINES ===
             // Make/model/engine/transmission descriptions from estimate header
             // Engine displacement like "2.0L", "1.8L", "3.6L"
@@ -1477,8 +1495,10 @@ namespace McStudDesktop.Services
             if (upper.StartsWith("PRICE") || upper.StartsWith("RATE") || upper.StartsWith("COST"))
                 return true;
 
-            // Lines that end with $ followed by digits (summary/total lines)
-            if (Regex.IsMatch(trimmed, @"\$\s*$") || Regex.IsMatch(trimmed, @"\$\d"))
+            // Lines that end with $ followed by digits (summary/total lines).
+            // Include an optional space after $ ("$ 8.00") — iText often emits the amount that way,
+            // which previously slipped past this guard. Real CCC op lines use bare column numbers (no $).
+            if (Regex.IsMatch(trimmed, @"\$\s*$") || Regex.IsMatch(trimmed, @"\$\s*\d"))
                 return true;
 
             // Production date, mileage, condition lines

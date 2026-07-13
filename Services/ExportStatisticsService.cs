@@ -684,6 +684,79 @@ namespace McStudDesktop.Services
 
         #endregion
 
+        #region Screen OCR Tracking
+
+        /// <summary>
+        /// Record a Screen OCR read (the monitor detected new estimate content on screen).
+        /// </summary>
+        public void RecordScreenOcrScan(int detectedOperations)
+        {
+            lock (_lock)
+            {
+                _data.ScreenOcrScans.Add(new ScreenOcrRecord
+                {
+                    Timestamp = DateTime.Now,
+                    UserId = GetCurrentUserId(),
+                    DetectedOperations = Math.Max(0, detectedOperations)
+                });
+                SaveStats();
+            }
+        }
+
+        /// <summary>
+        /// Get Screen OCR usage (scan count + operations read) for a user and period.
+        /// </summary>
+        public ScreenOcrStats GetScreenOcrStatsByUser(string userId, StatsPeriod period)
+        {
+            var records = FilterScreenOcrByPeriod(
+                _data.ScreenOcrScans.Where(s => UserMatches(s.UserId, userId)),
+                period).ToList();
+
+            var byDay = records.GroupBy(r => r.Timestamp.Date).ToList();
+            var totalOps = records.Sum(r => r.DetectedOperations);
+
+            return new ScreenOcrStats
+            {
+                TotalScans = records.Count,
+                TotalOperationsRead = totalOps,
+                AvgOperationsPerScan = records.Count > 0 ? (double)totalOps / records.Count : 0,
+                ActiveDays = byDay.Count,
+                BusiestDayScans = byDay.Count > 0 ? byDay.Max(g => g.Count()) : 0,
+                AvgScansPerActiveDay = byDay.Count > 0 ? (double)records.Count / byDay.Count : 0,
+                LastScan = records.Count > 0 ? records.Max(r => r.Timestamp) : (DateTime?)null
+            };
+        }
+
+        /// <summary>
+        /// Daily Screen OCR read counts for a user/period, oldest-first (for sparklines/trends).
+        /// </summary>
+        public List<(DateTime Date, int Scans, int Operations)> GetScreenOcrDailyBreakdownByUser(string userId, StatsPeriod period)
+        {
+            return FilterScreenOcrByPeriod(
+                    _data.ScreenOcrScans.Where(s => UserMatches(s.UserId, userId)),
+                    period)
+                .GroupBy(r => r.Timestamp.Date)
+                .Select(g => (Date: g.Key, Scans: g.Count(), Operations: g.Sum(r => r.DetectedOperations)))
+                .OrderBy(d => d.Date)
+                .ToList();
+        }
+
+        private IEnumerable<ScreenOcrRecord> FilterScreenOcrByPeriod(IEnumerable<ScreenOcrRecord> records, StatsPeriod period)
+        {
+            var today = DateTime.Today;
+            return period switch
+            {
+                StatsPeriod.Today => records.Where(r => r.Timestamp.Date == today),
+                StatsPeriod.ThisWeek => records.Where(r => r.Timestamp.Date >= today.AddDays(-(int)today.DayOfWeek)),
+                StatsPeriod.ThisMonth => records.Where(r => r.Timestamp.Date >= new DateTime(today.Year, today.Month, 1)),
+                StatsPeriod.ThisYear => records.Where(r => r.Timestamp.Date >= new DateTime(today.Year, 1, 1)),
+                StatsPeriod.AllTime => records,
+                _ => records
+            };
+        }
+
+        #endregion
+
         #region Session Tracking
 
         private string? _currentSessionId;
@@ -1816,6 +1889,34 @@ namespace McStudDesktop.Services
         public List<PdfExportRecord> PdfExports { get; set; } = new List<PdfExportRecord>();
         public List<SessionRecord> Sessions { get; set; } = new List<SessionRecord>();
         public List<UserGoals> UserGoals { get; set; } = new List<UserGoals>();
+        public List<ScreenOcrRecord> ScreenOcrScans { get; set; } = new List<ScreenOcrRecord>();
+    }
+
+    /// <summary>
+    /// One Screen OCR read — logged each time the monitor detects new estimate content on screen.
+    /// </summary>
+    public class ScreenOcrRecord
+    {
+        public DateTime Timestamp { get; set; }
+        public string UserId { get; set; } = "";
+        public int DetectedOperations { get; set; }
+    }
+
+    /// <summary>Aggregated Screen OCR usage for a user/period.</summary>
+    public class ScreenOcrStats
+    {
+        public int TotalScans { get; set; }
+        public int TotalOperationsRead { get; set; }
+        /// <summary>Average operations detected per read.</summary>
+        public double AvgOperationsPerScan { get; set; }
+        /// <summary>Distinct calendar days on which at least one read occurred.</summary>
+        public int ActiveDays { get; set; }
+        /// <summary>Most reads recorded on any single day in the period.</summary>
+        public int BusiestDayScans { get; set; }
+        /// <summary>Average reads per active day.</summary>
+        public double AvgScansPerActiveDay { get; set; }
+        /// <summary>Timestamp of the most recent read (null if none in period).</summary>
+        public DateTime? LastScan { get; set; }
     }
 
     public class TransactionRecord

@@ -31,6 +31,9 @@ namespace McStudDesktop.Views
         private static readonly Color DeleteBg = Color.FromArgb(255, 75, 40, 40);
         private static readonly Color DeleteFg = Color.FromArgb(255, 220, 120, 120);
 
+        // Cached Excel autocomplete pool — built once, reused across every dialog open.
+        private static List<(string Description, decimal Price, decimal Hours)>? _cachedKnownOps;
+
         // CCC Operation Types (short, long)
         private static readonly (string Short, string Long)[] CccOpTypes = new[]
         {
@@ -348,34 +351,39 @@ namespace McStudDesktop.Views
                 countText.Text = $"{total} items, {checkedCount} checked";
             }
 
-            // All known operation descriptions for autocomplete (from Excel)
-            var allKnownOps = new List<(string Description, decimal Price, decimal Hours)>();
-            foreach (var sheetName in new[] { "SOP List", "Refinish Operations", "Cover Car Operations", "Body Operations", "Mechanical Operations" })
+            // All known operation descriptions for autocomplete (from Excel) — built once, then cached
+            var allKnownOps = _cachedKnownOps;
+            if (allKnownOps == null)
             {
-                var ops = excel.GetSheetOperations(sheetName);
-                foreach (var op in ops)
+                var built = new List<(string Description, decimal Price, decimal Hours)>();
+                foreach (var sheetName in new[] { "SOP List", "Refinish Operations", "Cover Car Operations", "Body Operations", "Mechanical Operations" })
                 {
-                    var trimmedDesc = op.Description?.Trim() ?? "";
-                    // Skip Excel placeholder rows full of zeros
-                    var zeroCount = trimmedDesc.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Count(t => t == "0");
-                    if (!string.IsNullOrWhiteSpace(trimmedDesc) && trimmedDesc.Length >= 4 &&
-                        !trimmedDesc.StartsWith("*") && trimmedDesc.Any(char.IsLetter) &&
-                        zeroCount < 3 &&
-                        !trimmedDesc.Contains("\U0001f517") && !trimmedDesc.Contains("\U0001f4ca") &&
-                        !trimmedDesc.Contains("\U0001f4b2") && !trimmedDesc.Contains("\U0001f6e0") &&
-                        !trimmedDesc.Contains("\U0001f3a8") &&
-                        !trimmedDesc.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase) &&
-                        !trimmedDesc.StartsWith("Category", StringComparison.OrdinalIgnoreCase) &&
-                        !trimmedDesc.Contains("\t"))
+                    var ops = excel.GetSheetOperations(sheetName);
+                    foreach (var op in ops)
                     {
-                        allKnownOps.Add((trimmedDesc, op.Price, op.LaborHours > 0 ? op.LaborHours : op.RefinishHours));
+                        var trimmedDesc = op.Description?.Trim() ?? "";
+                        // Skip Excel placeholder rows full of zeros
+                        var zeroCount = trimmedDesc.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Count(t => t == "0");
+                        if (!string.IsNullOrWhiteSpace(trimmedDesc) && trimmedDesc.Length >= 4 &&
+                            !trimmedDesc.StartsWith("*") && trimmedDesc.Any(char.IsLetter) &&
+                            zeroCount < 3 &&
+                            !trimmedDesc.Contains("\U0001f517") && !trimmedDesc.Contains("\U0001f4ca") &&
+                            !trimmedDesc.Contains("\U0001f4b2") && !trimmedDesc.Contains("\U0001f6e0") &&
+                            !trimmedDesc.Contains("\U0001f3a8") &&
+                            !trimmedDesc.StartsWith("Back to top", StringComparison.OrdinalIgnoreCase) &&
+                            !trimmedDesc.StartsWith("Category", StringComparison.OrdinalIgnoreCase) &&
+                            !trimmedDesc.Contains("\t"))
+                        {
+                            built.Add((trimmedDesc, op.Price, op.LaborHours > 0 ? op.LaborHours : op.RefinishHours));
+                        }
                     }
                 }
+                // Deduplicate autocomplete pool
+                allKnownOps = built.GroupBy(o => o.Description, StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First()).ToList();
+                _cachedKnownOps = allKnownOps;
             }
-            // Deduplicate autocomplete pool
-            allKnownOps = allKnownOps.GroupBy(o => o.Description, StringComparer.OrdinalIgnoreCase)
-                .Select(g => g.First()).ToList();
 
             var scrollViewer = new ScrollViewer
             {
@@ -695,11 +703,43 @@ namespace McStudDesktop.Views
 
                     // === Section header ===
                     var headerGrid = new Grid();
-                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 0: Chevron
-                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 1: Label
-                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 2: Count
-                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 3: Add "+"
-                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 4: Check All
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 0: Include toggle / lock
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 1: Chevron
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // 2: Label
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 3: Count
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 4: Add "+"
+                    headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // 5: Check All
+
+                    // Per-category include toggle — base categories are locked-on, optional ones toggle on/off
+                    FrameworkElement includeControl;
+                    if (group.IsBase)
+                    {
+                        var lockIcon = new FontIcon
+                        {
+                            Glyph = "",
+                            FontSize = 11,
+                            Foreground = new SolidColorBrush(accent),
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = new Thickness(0, 0, 8, 0)
+                        };
+                        ToolTipService.SetToolTip(lockIcon, "Standard base category — always included");
+                        includeControl = lockIcon;
+                    }
+                    else
+                    {
+                        var incCb = new CheckBox
+                        {
+                            IsChecked = group.Included,
+                            MinWidth = 0,
+                            Margin = new Thickness(0, 0, 4, 0),
+                            VerticalAlignment = VerticalAlignment.Center
+                        };
+                        ToolTipService.SetToolTip(incCb, "Include this category in the active set (scrubber / screen-read)");
+                        var capturedGrpInc = group;
+                        incCb.Checked += (s, ev) => { capturedGrpInc.Included = true; config.UpdateMustHaveGroup(capturedGrpInc); };
+                        incCb.Unchecked += (s, ev) => { capturedGrpInc.Included = false; config.UpdateMustHaveGroup(capturedGrpInc); };
+                        includeControl = incCb;
+                    }
 
                     var chevron = new TextBlock
                     {
@@ -757,11 +797,13 @@ namespace McStudDesktop.Views
                         VerticalAlignment = VerticalAlignment.Center
                     };
 
-                    Grid.SetColumn(chevron, 0);
-                    Grid.SetColumn(headerLabel, 1);
-                    Grid.SetColumn(countLabel, 2);
-                    Grid.SetColumn(addSectionBtn, 3);
-                    Grid.SetColumn(checkAllBtn, 4);
+                    Grid.SetColumn(includeControl, 0);
+                    Grid.SetColumn(chevron, 1);
+                    Grid.SetColumn(headerLabel, 2);
+                    Grid.SetColumn(countLabel, 3);
+                    Grid.SetColumn(addSectionBtn, 4);
+                    Grid.SetColumn(checkAllBtn, 5);
+                    headerGrid.Children.Add(includeControl);
                     headerGrid.Children.Add(chevron);
                     headerGrid.Children.Add(headerLabel);
                     headerGrid.Children.Add(countLabel);
@@ -902,7 +944,7 @@ namespace McStudDesktop.Views
 
                         // Add row to current section
                         AddOperationRow(newMh, capturedGroup, accent, capturedSectionItems, allCheckBoxes,
-                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(capturedGroup.Id); UpdateSummary(); }, pendingTagEdits);
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(capturedGroup.Id); UpdateSummary(); }, pendingTagEdits, () => rebuildSections?.Invoke());
 
                         addNameBox.Text = "";
                         addOpTypeBox.SelectedIndex = 0;
@@ -964,16 +1006,19 @@ namespace McStudDesktop.Views
                     sectionsStack.Children.Add(addFormBorder);
                     sectionsStack.Children.Add(sectionItemsPanel);
 
+                    // Column header row (labels above each field), then operation rows
+                    sectionItemsPanel.Children.Add(BuildColumnHeaderRow(accent));
+
                     // Add operation rows
                     foreach (var mh in groupOps)
                     {
                         AddOperationRow(mh, group, accent, sectionItemsPanel, allCheckBoxes,
-                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); }, pendingTagEdits);
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); }, pendingTagEdits, () => rebuildSections?.Invoke());
                     }
                     foreach (var mh in pendingGroupOps)
                     {
                         AddOperationRow(mh, group, accent, sectionItemsPanel, allCheckBoxes,
-                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); }, pendingTagEdits);
+                            pendingEdits, pendingDeletes, groups, () => { UpdateSectionCount(group.Id); UpdateSummary(); }, pendingTagEdits, () => rebuildSections?.Invoke());
                     }
                 }
 
@@ -1111,7 +1156,6 @@ namespace McStudDesktop.Views
                 foreach (var tmpl in templates)
                 {
                     var capturedTmpl = tmpl;
-                    var capturedDescs = tmpl.Descriptions;
 
                     var btnContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                     btnContent.Children.Add(new TextBlock
@@ -1145,29 +1189,9 @@ namespace McStudDesktop.Views
 
                     tmplBtn.Click += (s, ev) =>
                     {
-                        bool isActive = activePresets.Contains(capturedTmpl.Id);
-                        var matching = allCheckBoxes.Where(kv =>
-                            capturedDescs.Any(d => kv.Value.Description.Equals(d, StringComparison.OrdinalIgnoreCase)))
-                            .Select(kv => kv.Key).ToList();
-
-                        if (isActive)
-                        {
-                            foreach (var cb in matching) cb.IsChecked = false;
-                            activePresets.Remove(capturedTmpl.Id);
-                            tmplBtn.Background = new SolidColorBrush(Color.FromArgb(255, 45, 40, 55));
-                            tmplBtn.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 80, 65, 100));
-                        }
-                        else
-                        {
-                            foreach (var cb in matching) cb.IsChecked = true;
-                            activePresets.Add(capturedTmpl.Id);
-                            tmplBtn.Background = new SolidColorBrush(Color.FromArgb(255, 60, 45, 85));
-                            tmplBtn.BorderBrush = new SolidColorBrush(Color.FromArgb(255, 140, 100, 200));
-                        }
-
-                        foreach (var gId in sectionPanels.Keys)
-                            UpdateSectionCount(gId);
-                        UpdateSummary();
+                        // Apply this template's category selection (base 3 stay always-on), then refresh
+                        config.ApplyCategoryTemplate(capturedTmpl);
+                        rebuildSections?.Invoke();
                     };
 
                     deleteX.Click += async (s, ev) =>
@@ -1216,12 +1240,11 @@ namespace McStudDesktop.Views
 
                 saveTemplateBtn.Click += async (s, ev) =>
                 {
-                    var checkedDescs = allCheckBoxes
-                        .Where(kv => kv.Key.IsChecked == true)
-                        .Select(kv => kv.Value.Description)
+                    // A template = the base 3 + whichever optional categories are currently checked on
+                    var includedCats = config.GetMustHaveGroups()
+                        .Where(g => !g.IsBase && g.Included)
+                        .Select(g => g.Name)
                         .ToList();
-
-                    if (checkedDescs.Count == 0) return;
 
                     var nameInput = new TextBox
                     {
@@ -1229,6 +1252,10 @@ namespace McStudDesktop.Views
                         FontSize = 13,
                         Width = 300
                     };
+
+                    var summary = includedCats.Count == 0
+                        ? "Save the base 3 categories as a template (no optional categories checked):"
+                        : $"Save base 3 + {includedCats.Count} optional categor{(includedCats.Count == 1 ? "y" : "ies")} ({string.Join(", ", includedCats)}) as a template:";
 
                     var nameDialog = new ContentDialog
                     {
@@ -1240,7 +1267,7 @@ namespace McStudDesktop.Views
                             {
                                 new TextBlock
                                 {
-                                    Text = $"Save {checkedDescs.Count} checked operations as a template:",
+                                    Text = summary,
                                     FontSize = 12,
                                     Foreground = new SolidColorBrush(TextMuted),
                                     TextWrapping = TextWrapping.Wrap
@@ -1260,7 +1287,11 @@ namespace McStudDesktop.Views
                         GhostConfigService.Instance.SaveMustHaveTemplate(new MustHaveTemplate
                         {
                             Name = nameInput.Text.Trim(),
-                            Descriptions = checkedDescs
+                            IncludedCategories = includedCats,
+                            DisabledOps = config.GetDisabledStandardOps(),
+                            InputSelections = config.GetInputSelections(),
+                            ValueOverrides = config.GetValueOverrides(),
+                            CountSelections = config.GetCountSelections()
                         });
                         RebuildUserTemplateButtons();
                     }
@@ -1460,6 +1491,66 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
+        /// Build a column-header row that aligns with the fields in AddOperationRow.
+        /// Mirrors the exact wrapper margins/padding, checkbox spacer, and field widths
+        /// so the labels line up directly above each input column.
+        /// </summary>
+        private static Border BuildColumnHeaderRow(Color accent)
+        {
+            var wrapper = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 4,
+                Margin = new Thickness(4, 1, 4, 1),
+                Padding = new Thickness(6, 3, 6, 3)
+            };
+
+            TextBlock Hdr(string text, double width, bool center = false) => new TextBlock
+            {
+                Text = text,
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextMuted),
+                Width = width,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = center ? TextAlignment.Center : TextAlignment.Left,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+
+            // Header over the checkbox column (matches CheckBox width 20 + 2px right margin)
+            wrapper.Children.Add(new TextBlock
+            {
+                Text = "On",
+                FontSize = 9,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextMuted),
+                Width = 20,
+                Margin = new Thickness(0, 0, 2, 0),
+                TextAlignment = TextAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            wrapper.Children.Add(Hdr("Operation", 95));
+            wrapper.Children.Add(Hdr("Description", 220));
+            wrapper.Children.Add(Hdr("Quantity", 55, true));
+            wrapper.Children.Add(Hdr("Price", 70, true));
+            wrapper.Children.Add(Hdr("Labor", 60, true));
+            wrapper.Children.Add(Hdr("Category", 115));
+            wrapper.Children.Add(Hdr("Refinish", 60, true));
+            wrapper.Children.Add(Hdr("Condition", 110));
+            wrapper.Children.Add(Hdr("Tags", 60));
+
+            return new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(70, accent.R, accent.G, accent.B)),
+                CornerRadius = new CornerRadius(3),
+                BorderThickness = new Thickness(1, 0, 0, 0),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(40, accent.R, accent.G, accent.B)),
+                Margin = new Thickness(8, 1, 0, 3),
+                Child = wrapper
+            };
+        }
+
+        /// <summary>
         /// Add a single operation row to a section panel.
         /// </summary>
         private static void AddOperationRow(
@@ -1472,7 +1563,8 @@ namespace McStudDesktop.Views
             HashSet<string> pendingDeletes,
             List<MustHaveGroup> groups,
             Action updateCounts,
-            Dictionary<string, (List<string> InsuranceCompanies, List<string> VehicleTypes)>? pendingTagEdits = null)
+            Dictionary<string, (List<string> InsuranceCompanies, List<string> VehicleTypes)>? pendingTagEdits = null,
+            Action? requestRebuild = null)
         {
             var opPrice = mh.ExpectedPrice;
             var opHours = mh.ExpectedHours;
@@ -1507,20 +1599,10 @@ namespace McStudDesktop.Views
             };
             cb.Checked += (s, ev) => updateCounts();
             cb.Unchecked += (s, ev) => updateCounts();
+            ToolTipService.SetToolTip(cb, "On = required. The scrubber, ghost estimate & screen-read flag it if missing. Off = kept in the list but ignored.");
             rowWrapper.Children.Add(cb);
 
-            // Operation Name (editable, primary display)
-            var fldName = new TextBox
-            {
-                Text = mh.Description, FontSize = 11, Width = 220,
-                Padding = new Thickness(6, 3, 6, 3),
-                PlaceholderText = "Operation name...",
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            ToolTipService.SetToolTip(fldName, "Operation Name");
-            rowWrapper.Children.Add(fldName);
-
-            // Op Type
+            // Op Type (first column — matches Excel "Operation")
             var fldOpType = new ComboBox { FontSize = 10, MinWidth = 0, Width = 95, Padding = new Thickness(6, 3, 6, 3), VerticalAlignment = VerticalAlignment.Center };
             int selectedOpIdx = 0;
             for (int i = 0; i < CccOpTypes.Length; i++)
@@ -1532,6 +1614,17 @@ namespace McStudDesktop.Views
             fldOpType.SelectedIndex = selectedOpIdx;
             ToolTipService.SetToolTip(fldOpType, "Operation Type");
             rowWrapper.Children.Add(fldOpType);
+
+            // Operation Name / Description (editable, primary display)
+            var fldName = new TextBox
+            {
+                Text = mh.Description, FontSize = 11, Width = 220,
+                Padding = new Thickness(6, 3, 6, 3),
+                PlaceholderText = "Operation name...",
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(fldName, "Operation Name");
+            rowWrapper.Children.Add(fldName);
 
             // Qty
             var fldQty = new NumberBox
@@ -1875,6 +1968,183 @@ namespace McStudDesktop.Views
             ToolTipService.SetToolTip(deleteBtn, "Delete operation");
             rowWrapper.Children.Add(deleteBtn);
 
+            // === MOVE UP / DOWN (reorder within section) ===
+            // Swaps the row visually (no rebuild, so in-flight edits are preserved) and
+            // swaps the underlying list order so it persists.
+            void MoveRow(int dir)
+            {
+                var siblings = sectionPanel.Children;
+                int idx = siblings.IndexOf(rowBorder);
+                if (idx < 0) return;
+
+                // Find the nearest *visible* operation row in the given direction
+                // (skips the column header and any hidden/filtered/deleted rows).
+                int target = idx + dir;
+                while (target >= 0 && target < siblings.Count)
+                {
+                    if (siblings[target] is FrameworkElement f &&
+                        f.Tag is Dictionary<string, string> &&
+                        f.Visibility == Visibility.Visible)
+                        break;
+                    target += dir;
+                }
+                if (target < 0 || target >= siblings.Count) return;
+                if (siblings[target] is not FrameworkElement targetEl ||
+                    targetEl.Tag is not Dictionary<string, string> targetTags)
+                    return;
+
+                // Visual swap of the two rows
+                int lo = Math.Min(idx, target);
+                int hi = Math.Max(idx, target);
+                var hiEl = siblings[hi];
+                var loEl = siblings[lo];
+                siblings.RemoveAt(hi);
+                siblings.RemoveAt(lo);
+                siblings.Insert(lo, hiEl);
+                siblings.Insert(hi, loEl);
+
+                // Persist the new order (no-op for not-yet-saved pending adds)
+                if (targetTags.TryGetValue("__opid__", out var otherId))
+                    GhostConfigService.Instance.SwapMustHaveOrder(mh.Id, otherId);
+            }
+
+            var moveUpBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "", FontSize = 9 },
+                Padding = new Thickness(4, 2, 4, 2),
+                Background = new SolidColorBrush(Colors.Transparent),
+                Foreground = new SolidColorBrush(TextDim),
+                CornerRadius = new CornerRadius(3),
+                MinWidth = 0,
+                Margin = new Thickness(2, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.7
+            };
+            ToolTipService.SetToolTip(moveUpBtn, "Move up");
+            moveUpBtn.Click += (s, ev) => MoveRow(-1);
+            rowWrapper.Children.Add(moveUpBtn);
+
+            var moveDownBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "", FontSize = 9 },
+                Padding = new Thickness(4, 2, 4, 2),
+                Background = new SolidColorBrush(Colors.Transparent),
+                Foreground = new SolidColorBrush(TextDim),
+                CornerRadius = new CornerRadius(3),
+                MinWidth = 0,
+                Margin = new Thickness(1, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.7
+            };
+            ToolTipService.SetToolTip(moveDownBtn, "Move down");
+            moveDownBtn.Click += (s, ev) => MoveRow(1);
+            rowWrapper.Children.Add(moveDownBtn);
+
+            // === MOVE TO ANOTHER CATEGORY (reassigns the operation's group) ===
+            var moveCategoryBtn = new Button
+            {
+                Content = new FontIcon { Glyph = "", FontSize = 9 },
+                Padding = new Thickness(4, 2, 4, 2),
+                Background = new SolidColorBrush(Colors.Transparent),
+                Foreground = new SolidColorBrush(TextDim),
+                CornerRadius = new CornerRadius(3),
+                MinWidth = 0,
+                Margin = new Thickness(2, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.7
+            };
+            ToolTipService.SetToolTip(moveCategoryBtn, "Move to category…");
+            moveCategoryBtn.Click += (s, ev) =>
+            {
+                var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Bottom };
+                var currentGroupId = mh.GroupId ?? group.Id;
+                foreach (var g in groups)
+                {
+                    var targetGroup = g;
+                    bool isCurrent = g.Id == currentGroupId;
+                    var item = new MenuFlyoutItem
+                    {
+                        Text = isCurrent ? g.Name + "   (current)" : g.Name,
+                        IsEnabled = !isCurrent
+                    };
+                    item.Click += (mi, me) =>
+                    {
+                        mh.GroupId = targetGroup.Id;
+                        GhostConfigService.Instance.MoveOperationToGroup(mh.Id, targetGroup.Id);
+                        requestRebuild?.Invoke();
+                    };
+                    menu.Items.Add(item);
+                }
+                menu.ShowAt(moveCategoryBtn);
+            };
+            rowWrapper.Children.Add(moveCategoryBtn);
+
+            // === INPUT chip — switch between defined states (sets the default for this op) ===
+            if (mh.InputStates != null && mh.InputStates.Count > 0)
+            {
+                var states = mh.InputStates;
+                var curLabel = GhostConfigService.Instance.GetInputSelection(mh.Description) ?? states[0].Label;
+                int curIdx = states.FindIndex(s => s.Label == curLabel);
+                if (curIdx < 0) curIdx = 0;
+                int nextIdx = (curIdx + 1) % states.Count;
+
+                var inputChip = new Button
+                {
+                    Content = new TextBlock { Text = states[curIdx].Label, FontSize = 10, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                    FontSize = 10,
+                    Background = new SolidColorBrush(Color.FromArgb(255, 45, 55, 72)),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 190, 240)),
+                    BorderThickness = new Thickness(1),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(255, 70, 105, 150)),
+                    Padding = new Thickness(8, 2, 8, 2),
+                    CornerRadius = new CornerRadius(10),
+                    MinWidth = 0,
+                    Margin = new Thickness(4, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                var nextHover = string.IsNullOrWhiteSpace(states[nextIdx].HoverText) ? states[nextIdx].Label : states[nextIdx].HoverText;
+                ToolTipService.SetToolTip(inputChip, states.Count == 2
+                    ? $"Input — switch to: {nextHover}"
+                    : $"Input ({states.Count} states) — next: {nextHover}");
+                var capturedInputDesc = mh.Description;
+                inputChip.Click += (s, ev) =>
+                {
+                    var st = mh.InputStates;
+                    var cl = GhostConfigService.Instance.GetInputSelection(capturedInputDesc) ?? st[0].Label;
+                    int ci = st.FindIndex(x => x.Label == cl); if (ci < 0) ci = 0;
+                    int ni = (ci + 1) % st.Count;
+                    GhostConfigService.Instance.SetInputSelection(capturedInputDesc, st[ni].Label);
+                    requestRebuild?.Invoke();
+                };
+                rowWrapper.Children.Add(inputChip);
+            }
+
+            // === COUNT Input default — the shop's starting count (overridden per-job on the OCR line) ===
+            if (!string.IsNullOrEmpty(mh.CountInputLabel))
+            {
+                var countDefaultBox = new NumberBox
+                {
+                    Value = GhostConfigService.Instance.GetCountSelection(mh.Description),
+                    Minimum = 1,
+                    Maximum = 99,
+                    SmallChange = 1,
+                    SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+                    Width = 48,
+                    FontSize = 10,
+                    Margin = new Thickness(4, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                ToolTipService.SetToolTip(countDefaultBox, $"Default {mh.CountInputLabel} — starting count (override per-job on the estimate)");
+                var capturedCountDesc = mh.Description;
+                countDefaultBox.ValueChanged += (s, ev) =>
+                {
+                    int n = !double.IsNaN(countDefaultBox.Value) ? (int)countDefaultBox.Value : 1;
+                    if (n < 1) n = 1;
+                    GhostConfigService.Instance.SetCountSelection(capturedCountDesc, n);
+                };
+                rowWrapper.Children.Add(countDefaultBox);
+            }
+
             // Capture for closures
             var capturedCb = cb;
             var capturedCondTag = condTag;
@@ -1969,6 +2239,51 @@ namespace McStudDesktop.Views
             fldOpType.SelectionChanged += (s, ev) => UpdateSearchTag();
             fldLaborCat.SelectionChanged += (s, ev) => UpdateSearchTag();
             fldCond.SelectionChanged += (s, ev) => UpdateSearchTag();
+
+            // Standard (MET) rows are read-only — the shop copies them into a template to customize
+            if (mh.IsStandard)
+            {
+                foreach (var ctl in new Control[] { fldName, fldOpType, fldQty, fldLaborCat, fldRfnHrs, fldCond })
+                    ctl.IsEnabled = false;
+
+                // Editable-value ops: the shop may type its own price + labor (floored at the Standard minimum on use)
+                if (mh.EditableValue)
+                {
+                    fldPrice.IsEnabled = true;
+                    fldBodyHrs.IsEnabled = true;
+                    ToolTipService.SetToolTip(fldPrice, "Editable — your price (Standard enforces the minimum)");
+                    ToolTipService.SetToolTip(fldBodyHrs, "Editable — your labor hours (Standard enforces the minimum)");
+                    var capturedEvDesc = mh.Description;
+                    void SaveEv()
+                    {
+                        decimal p = !double.IsNaN(fldPrice.Value) ? (decimal)fldPrice.Value : 0;
+                        decimal h = !double.IsNaN(fldBodyHrs.Value) ? (decimal)fldBodyHrs.Value : 0;
+                        GhostConfigService.Instance.SetValueOverride(capturedEvDesc, p, h);
+                    }
+                    fldPrice.ValueChanged += (s, ev) => SaveEv();
+                    fldBodyHrs.ValueChanged += (s, ev) => SaveEv();
+                }
+                else
+                {
+                    fldPrice.IsEnabled = false;
+                    fldBodyHrs.IsEnabled = false;
+                }
+
+                cb.IsEnabled = mh.Optional;   // optional standard ops can be checked on/off; the rest are locked-on
+                if (mh.Optional)
+                {
+                    var capturedDesc = mh.Description;
+                    cb.Checked += (s, ev) => GhostConfigService.Instance.SetStandardOpEnabled(capturedDesc, true);
+                    cb.Unchecked += (s, ev) => GhostConfigService.Instance.SetStandardOpEnabled(capturedDesc, false);
+                    ToolTipService.SetToolTip(cb, "Optional standard operation — check to include, uncheck to skip.");
+                }
+                deleteBtn.Visibility = Visibility.Collapsed;
+                tagEditBtn.Visibility = Visibility.Collapsed;
+                moveUpBtn.Visibility = Visibility.Collapsed;
+                moveDownBtn.Visibility = Visibility.Collapsed;
+                moveCategoryBtn.Visibility = Visibility.Collapsed;
+                ToolTipService.SetToolTip(fldName, "MET Standard — read-only. Copy to a template to customize.");
+            }
 
             sectionPanel.Children.Add(rowBorder);
             allCheckBoxes[cb] = (mh.Id, mh.Description, mh.Section, mh.GroupId ?? group.Id, opPrice, opHours);

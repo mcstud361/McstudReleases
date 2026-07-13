@@ -19,6 +19,9 @@ namespace McStudDesktop.Views
     public sealed class METGuideView : UserControl
     {
         private readonly METGuideService _guideService;
+        private readonly string _headerTitle;
+        private readonly string _headerSubtitle;
+        private readonly string _searchPlaceholder;
 
         // UI Elements
         private TextBox? _searchBox;
@@ -41,8 +44,21 @@ namespace McStudDesktop.Views
         private Dictionary<string, StackPanel> _topicPanels = new();
 
         public METGuideView()
+            : this(METGuideService.Instance, "MET Guide", "Learn how to use MET Excel tool",
+                   "Search guide... (e.g., \"paste\", \"input cell\", \"tabs\")")
         {
-            _guideService = METGuideService.Instance;
+        }
+
+        /// <summary>
+        /// Create a guide view backed by a specific guide service and header text.
+        /// Used to render alternate guides (e.g. the McStud Program Guide) with the same UI.
+        /// </summary>
+        public METGuideView(METGuideService guideService, string headerTitle, string headerSubtitle, string searchPlaceholder)
+        {
+            _guideService = guideService;
+            _headerTitle = headerTitle;
+            _headerSubtitle = headerSubtitle;
+            _searchPlaceholder = searchPlaceholder;
             BuildUI();
         }
 
@@ -76,8 +92,9 @@ namespace McStudDesktop.Views
             _searchResultsContainer = BuildSearchResultsContainer();
             mainStack.Children.Add(_searchResultsContainer);
 
-            // === QUICK ANSWERS ===
-            mainStack.Children.Add(BuildQuickAnswersSection());
+            // === QUICK ANSWERS === (only when the guide defines any)
+            if (_guideService.GetQuickAnswers().Count > 0)
+                mainStack.Children.Add(BuildQuickAnswersSection());
 
             // === GUIDE SECTIONS ===
             _contentStack = new StackPanel { Spacing = 8 };
@@ -111,14 +128,14 @@ namespace McStudDesktop.Views
             var titleStack = new StackPanel();
             titleStack.Children.Add(new TextBlock
             {
-                Text = "MET Guide",
+                Text = _headerTitle,
                 FontSize = 18,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White)
             });
             titleStack.Children.Add(new TextBlock
             {
-                Text = "Learn how to use MET Excel tool",
+                Text = _headerSubtitle,
                 FontSize = 11,
                 Foreground = new SolidColorBrush(TextGray)
             });
@@ -155,7 +172,7 @@ namespace McStudDesktop.Views
 
             _searchBox = new TextBox
             {
-                PlaceholderText = "Search guide... (e.g., \"paste\", \"input cell\", \"tabs\")",
+                PlaceholderText = _searchPlaceholder,
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
                 FontSize = 13,

@@ -378,6 +378,17 @@ namespace McStudDesktop.Services
         public string WhyNeeded { get; set; } = "";
         public string Conditions { get; set; } = "always";
         public bool IsPresent { get; set; }
+        /// <summary>Selectable Input states for this line (e.g. $ ⇄ Labor). Empty = no Input.</summary>
+        public List<MustHaveInputState> InputStates { get; set; } = new();
+        /// <summary>Currently selected Input state label for this line (per-job).</summary>
+        public string SelectedInputLabel { get; set; } = "";
+        /// <summary>If set, this line has a typed count Input (e.g. "Wipes"); price/labor = per-unit × Count.</summary>
+        public string CountInputLabel { get; set; } = "";
+        public int Count { get; set; } = 1;
+        public decimal PerUnitPrice { get; set; }
+        public decimal PerUnitHours { get; set; }
+        /// <summary>Labor category (Body/Mechanical/Frame) → the M/F/B labor-type letter on paste.</summary>
+        public string LaborCategory { get; set; } = "";
     }
 
     // JSON deserialization models

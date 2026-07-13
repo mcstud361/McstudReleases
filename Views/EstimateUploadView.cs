@@ -3798,7 +3798,8 @@ namespace McStudDesktop.Views
                             vehicleInfo = vehicleLine.PartName;
 
                         sw.Restart();
-                        sr = _scoringService.ScoreEstimate(linesSnapshot, vehicleInfo, bodyRate, paintRate, mechRate);
+                        sr = _scoringService.ScoreEstimate(linesSnapshot, vehicleInfo, bodyRate, paintRate, mechRate,
+                            insuranceCompany: null, estimateGrandTotal: _parsedGrandTotal);
                         Console.Error.WriteLine($"[Perf] Scoring: {sw.ElapsedMilliseconds}ms");
                     }
                     catch (Exception ex)

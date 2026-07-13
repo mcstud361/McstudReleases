@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -36,7 +36,6 @@ namespace McStudDesktop.Views
 
         // Controls
         private ToggleSwitch? _monitorToggle;
-        private Button? _captureOnceButton;
         private Button? _clearButton;
         private Button? _insuranceButton;
         private Button? _feedToChatButton;
@@ -80,6 +79,11 @@ namespace McStudDesktop.Views
 
         // Must-have checklist cache for populate buttons
         private List<MustHaveChecklistItem> _lastMustHaveChecklist = new();
+        // While the export-target flyout is open, suppress the live-OCR rebuild (it would dismiss the flyout).
+        private bool _exportFlyoutOpen;
+        // Per-job Input overrides made on the screen-read line (survive the live-OCR rebuild loop).
+        private readonly Dictionary<string, string> _sessionInputOverrides = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, int> _sessionCountOverrides = new(StringComparer.OrdinalIgnoreCase);
 
         // State
         private ScreenOcrResult? _latestResult;
@@ -142,6 +146,7 @@ namespace McStudDesktop.Views
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var titleContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             titleContent.Children.Add(new FontIcon
@@ -169,7 +174,7 @@ namespace McStudDesktop.Views
                     Spacing = 8,
                     Children =
                     {
-                        new FontIcon { Glyph = "\uE73E", FontSize = 14 },
+                        new FontIcon { Glyph = "\uE713", FontSize = 14 },
                         new TextBlock { Text = "Must-Haves", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
                     }
                 },
@@ -220,6 +225,38 @@ namespace McStudDesktop.Views
 
             Grid.SetColumn(mustHavesButton, 2);
             titleRow.Children.Add(mustHavesButton);
+
+            // Help (?) — the header explanation now lives here instead of an always-visible line.
+            var helpButton = new Button
+            {
+                Content = new FontIcon { Glyph = "", FontSize = 14 },
+                Width = 32,
+                Height = 32,
+                Padding = new Thickness(0),
+                CornerRadius = new CornerRadius(16),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 60)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 170, 170, 180)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            ToolTipService.SetToolTip(helpButton, "About this tool");
+            helpButton.Flyout = new Flyout
+            {
+                Content = new StackPanel
+                {
+                    Spacing = 6,
+                    MaxWidth = 300,
+                    Children =
+                    {
+                        new TextBlock { Text = "Reviewing an existing estimate?", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)) },
+                        new TextBlock { Text = "Turn on the monitor and scroll through your estimate in CCC/Mitchell. Operations will be detected as you go and missing items will be suggested.", FontSize = 12, TextWrapping = TextWrapping.Wrap },
+                        new TextBlock { Text = "Starting from scratch?", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)), Margin = new Thickness(0, 4, 0, 0) },
+                        new TextBlock { Text = "Begin writing your estimate — suggestions will populate based on the parts and operations you add.", FontSize = 12, TextWrapping = TextWrapping.Wrap }
+                    }
+                }
+            };
+            Grid.SetColumn(helpButton, 3);
+            titleRow.Children.Add(helpButton);
 
             headerPanel.Children.Add(titleRow);
 
@@ -332,22 +369,6 @@ namespace McStudDesktop.Views
             // Interval hardcoded to 1 second (lightweight CPU-only OCR)
             _monitorService.CaptureInterval = TimeSpan.FromSeconds(1);
 
-            // Capture Once button
-            _captureOnceButton = new Button
-            {
-                Content = "Capture Once",
-                Padding = new Thickness(16, 8, 16, 8),
-                FontSize = 13,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Background = new SolidColorBrush(Color.FromArgb(255, 60, 130, 200)),
-                Foreground = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(6),
-                VerticalAlignment = VerticalAlignment.Bottom,
-                Margin = new Thickness(0, 0, 0, 2)
-            };
-            _captureOnceButton.Click += CaptureOnceButton_Click;
-            controlsRow.Children.Add(_captureOnceButton);
-
             // Clear button
             _clearButton = new Button
             {
@@ -365,98 +386,7 @@ namespace McStudDesktop.Views
 
             stack.Children.Add(controlsRow);
 
-            // Usage guidance (collapsible)
-            var guidanceOuter = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 30, 38, 50)),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(12, 6, 12, 6),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 70, 90)),
-                BorderThickness = new Thickness(1)
-            };
-            var guidanceOuterStack = new StackPanel { Spacing = 4 };
-
-            // Header row with title + minimize/expand button
-            var guidanceHeaderRow = new Grid();
-            guidanceHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            guidanceHeaderRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var guidanceTitle = new TextBlock
-            {
-                Text = "How to use",
-                FontSize = 11,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(guidanceTitle, 0);
-            guidanceHeaderRow.Children.Add(guidanceTitle);
-
-            var guidanceToggleBtn = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE010", FontSize = 10 }, // minimize icon
-                Background = new SolidColorBrush(Colors.Transparent),
-                Padding = new Thickness(4, 2, 4, 2),
-                MinWidth = 24,
-                MinHeight = 20,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(guidanceToggleBtn, 1);
-            guidanceHeaderRow.Children.Add(guidanceToggleBtn);
-
-            guidanceOuterStack.Children.Add(guidanceHeaderRow);
-
-            // Collapsible content
-            var guidanceContent = new StackPanel { Spacing = 6 };
-            guidanceContent.Children.Add(new TextBlock
-            {
-                Text = "Reviewing an existing estimate?",
-                FontSize = 11,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)),
-                Margin = new Thickness(0, 2, 0, 0)
-            });
-            guidanceContent.Children.Add(new TextBlock
-            {
-                Text = "Turn on the monitor and scroll through your estimate in CCC/Mitchell. Operations will be detected as you go and missing items will be suggested.",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 165, 175)),
-                TextWrapping = TextWrapping.Wrap
-            });
-            guidanceContent.Children.Add(new TextBlock
-            {
-                Text = "Starting from scratch?",
-                FontSize = 11,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 230)),
-                Margin = new Thickness(0, 4, 0, 0)
-            });
-            guidanceContent.Children.Add(new TextBlock
-            {
-                Text = "Begin writing your estimate — suggestions will populate based on the parts and operations you add.",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 165, 175)),
-                TextWrapping = TextWrapping.Wrap
-            });
-            guidanceOuterStack.Children.Add(guidanceContent);
-
-            // Toggle visibility on button click
-            guidanceToggleBtn.Click += (s, e) =>
-            {
-                if (guidanceContent.Visibility == Visibility.Visible)
-                {
-                    guidanceContent.Visibility = Visibility.Collapsed;
-                    ((FontIcon)guidanceToggleBtn.Content).Glyph = "\uE011"; // expand icon
-                }
-                else
-                {
-                    guidanceContent.Visibility = Visibility.Visible;
-                    ((FontIcon)guidanceToggleBtn.Content).Glyph = "\uE010"; // minimize icon
-                }
-            };
-
-            guidanceOuter.Child = guidanceOuterStack;
-            stack.Children.Add(guidanceOuter);
+            // ("How to use" guidance now lives in the header ? flyout instead of an inline box.)
 
             // OCR availability warning
             if (!_monitorService.IsOcrAvailable)
@@ -624,7 +554,7 @@ namespace McStudDesktop.Views
 
             _statusText = new TextBlock
             {
-                Text = "Ready - click 'Capture Once' or toggle monitoring on",
+                Text = "Ready - toggle monitoring on",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 180, 130)),
                 FontStyle = Windows.UI.Text.FontStyle.Italic
@@ -656,8 +586,7 @@ namespace McStudDesktop.Views
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(12, 8, 12, 8),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 50, 80, 110)),
-                BorderThickness = new Thickness(1),
-                Visibility = Visibility.Collapsed
+                BorderThickness = new Thickness(1)
             };
             var vehicleBannerGrid = new Grid();
             vehicleBannerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -666,7 +595,8 @@ namespace McStudDesktop.Views
             var vehicleInfoStack = new StackPanel { Spacing = 2 };
             _vehicleInfoText = new TextBlock
             {
-                Text = "",
+                Text = "Vehicle — waiting for capture…",
+                Opacity = 0.55,
                 FontSize = 14,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 200, 255))
@@ -1440,6 +1370,10 @@ namespace McStudDesktop.Views
         private void RebuildAnalysisDisplay()
         {
             if (_analysisContentStack == null) return;
+            // Don't rebuild while the export-target flyout is open — the rebuild removes the button
+            // the flyout is anchored to, which dismisses it. Latest snapshot is still stored; we
+            // refresh when the flyout closes.
+            if (_exportFlyoutOpen) return;
 
             var snapshot = _latestSnapshot;
             var result = _latestResult;
@@ -1456,34 +1390,33 @@ namespace McStudDesktop.Views
             // --- Vehicle Banner ---
             if (_vehicleBanner != null)
             {
-                var hasIdentity = snapshot != null && (!string.IsNullOrEmpty(snapshot.VehicleInfo) ||
-                    !string.IsNullOrEmpty(snapshot.VIN) || !string.IsNullOrEmpty(snapshot.RONumber));
-                _vehicleBanner.Visibility = hasIdentity ? Visibility.Visible : Visibility.Collapsed;
-                if (hasIdentity)
+                // Persistent title bar: show whatever identity we have (it persists across captures);
+                // a placeholder shows until the vehicle is first captured.
+                _vehicleBanner.Visibility = Visibility.Visible;
+
+                var vehicle = snapshot?.VehicleInfo ?? "";
+                _vehicleInfoText!.Text = string.IsNullOrWhiteSpace(vehicle) ? "Vehicle — waiting for capture…" : vehicle;
+                _vehicleInfoText.Opacity = string.IsNullOrWhiteSpace(vehicle) ? 0.55 : 1.0;
+
+                // Detail line: Customer | Insurance | VIN | RO (each labeled, only if present)
+                var detailParts = new List<string>();
+                if (!string.IsNullOrEmpty(snapshot?.CustomerName))
+                    detailParts.Add($"Customer: {snapshot!.CustomerName}");
+                if (!string.IsNullOrEmpty(snapshot?.InsuranceCompany))
+                    detailParts.Add($"Insurance: {snapshot!.InsuranceCompany}");
+                if (!string.IsNullOrEmpty(snapshot?.VIN))
+                    detailParts.Add($"VIN: {snapshot!.VIN}");
+                if (!string.IsNullOrEmpty(snapshot?.RONumber))
+                    detailParts.Add($"RO: {snapshot!.RONumber}");
+
+                if (detailParts.Count > 0)
                 {
-                    var infoText = snapshot!.VehicleInfo ?? "";
-                    if (!string.IsNullOrEmpty(snapshot.CustomerName))
-                        infoText += (infoText.Length > 0 ? "  |  " : "") + snapshot.CustomerName;
-                    _vehicleInfoText!.Text = infoText;
-
-                    // Build detail line: VIN + RO + Insurer
-                    var detailParts = new List<string>();
-                    if (!string.IsNullOrEmpty(snapshot.VIN))
-                        detailParts.Add($"VIN: {snapshot.VIN}");
-                    if (!string.IsNullOrEmpty(snapshot.RONumber))
-                        detailParts.Add($"RO: {snapshot.RONumber}");
-                    if (!string.IsNullOrEmpty(snapshot.InsuranceCompany))
-                        detailParts.Add(snapshot.InsuranceCompany);
-
-                    if (detailParts.Count > 0)
-                    {
-                        _vinText!.Text = string.Join("   |   ", detailParts);
-                        _vinText.Visibility = Visibility.Visible;
-                    }
-                    else
-                    {
-                        _vinText!.Visibility = Visibility.Collapsed;
-                    }
+                    _vinText!.Text = string.Join("   |   ", detailParts);
+                    _vinText.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    _vinText!.Visibility = Visibility.Collapsed;
                 }
             }
 
@@ -1708,14 +1641,93 @@ namespace McStudDesktop.Views
                                     VerticalAlignment = VerticalAlignment.Center
                                 });
 
-                                var detail = item.LaborHours > 0 ? $"{item.LaborHours:N1}h" : $"${item.Price:N2}";
-                                itemRow.Children.Add(new TextBlock
+                                var detailText = new TextBlock
                                 {
-                                    Text = $"({item.OperationType}, {detail})",
+                                    Text = $"({item.OperationType}, {(item.LaborHours > 0 ? $"{item.LaborHours:N1}h" : $"${item.Price:N2}")})",
                                     FontSize = 9,
                                     Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 110)),
                                     VerticalAlignment = VerticalAlignment.Center
-                                });
+                                };
+                                itemRow.Children.Add(detailText);
+
+                                // Input chip — flip this line's state for THIS estimate (per-job, not saved as default)
+                                if (item.InputStates != null && item.InputStates.Count > 0)
+                                {
+                                    var capturedItem = item;
+                                    var capturedDetail = detailText;
+                                    Button inputChip = null!;
+                                    void RefreshInputChip()
+                                    {
+                                        var st = capturedItem.InputStates;
+                                        int ci = st.FindIndex(x => x.Label == capturedItem.SelectedInputLabel); if (ci < 0) ci = 0;
+                                        int ni = (ci + 1) % st.Count;
+                                        ((TextBlock)inputChip.Content).Text = st[ci].Label;
+                                        var nh = string.IsNullOrWhiteSpace(st[ni].HoverText) ? st[ni].Label : st[ni].HoverText;
+                                        ToolTipService.SetToolTip(inputChip, st.Count == 2 ? $"Input — switch to: {nh}" : $"Input ({st.Count} states) — next: {nh}");
+                                        capturedDetail.Text = $"({capturedItem.OperationType}, {(capturedItem.LaborHours > 0 ? $"{capturedItem.LaborHours:N1}h" : $"${capturedItem.Price:N2}")})";
+                                    }
+                                    inputChip = new Button
+                                    {
+                                        Content = new TextBlock { Text = item.SelectedInputLabel, FontSize = 9, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold },
+                                        FontSize = 9,
+                                        Background = new SolidColorBrush(Color.FromArgb(255, 45, 55, 72)),
+                                        Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 190, 240)),
+                                        BorderThickness = new Thickness(1),
+                                        BorderBrush = new SolidColorBrush(Color.FromArgb(255, 70, 105, 150)),
+                                        Padding = new Thickness(6, 1, 6, 1),
+                                        CornerRadius = new CornerRadius(8),
+                                        MinWidth = 0,
+                                        VerticalAlignment = VerticalAlignment.Center
+                                    };
+                                    inputChip.Click += (s, e) =>
+                                    {
+                                        var st = capturedItem.InputStates;
+                                        int ci = st.FindIndex(x => x.Label == capturedItem.SelectedInputLabel); if (ci < 0) ci = 0;
+                                        int ni = (ci + 1) % st.Count;
+                                        var sel = st[ni];
+                                        capturedItem.SelectedInputLabel = sel.Label;
+                                        capturedItem.Price = sel.Price;
+                                        capturedItem.LaborHours = sel.Hours;
+                                        if (!string.IsNullOrEmpty(sel.CccOperationType)) capturedItem.OperationType = sel.CccOperationType;
+                                        _sessionInputOverrides[capturedItem.Description] = sel.Label; // survive the rebuild
+                                        RefreshInputChip();
+                                    };
+                                    RefreshInputChip();
+                                    itemRow.Children.Add(inputChip);
+                                }
+
+                                // Count Input — type a quantity for THIS estimate; price/labor scale by it (per-job)
+                                if (!string.IsNullOrEmpty(item.CountInputLabel))
+                                {
+                                    var capturedItemC = item;
+                                    var capturedDetailC = detailText;
+                                    var countBox = new NumberBox
+                                    {
+                                        Value = capturedItemC.Count > 0 ? capturedItemC.Count : 1,
+                                        Minimum = 1,
+                                        Maximum = 99,
+                                        SmallChange = 1,
+                                        SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Hidden,
+                                        Width = 36,
+                                        Height = 22,
+                                        MinHeight = 0,
+                                        Padding = new Thickness(4, 0, 4, 0),
+                                        FontSize = 9,
+                                        VerticalAlignment = VerticalAlignment.Center
+                                    };
+                                    ToolTipService.SetToolTip(countBox, capturedItemC.CountInputLabel);
+                                    countBox.ValueChanged += (s, e) =>
+                                    {
+                                        int n = !double.IsNaN(countBox.Value) ? (int)countBox.Value : 1;
+                                        if (n < 1) n = 1;
+                                        capturedItemC.Count = n;
+                                        capturedItemC.Price = capturedItemC.PerUnitPrice * n;
+                                        capturedItemC.LaborHours = capturedItemC.PerUnitHours * n;
+                                        _sessionCountOverrides[capturedItemC.Description] = n; // survive the rebuild
+                                        capturedDetailC.Text = $"({capturedItemC.OperationType}, {(capturedItemC.LaborHours > 0 ? $"{capturedItemC.LaborHours:N1}h" : $"${capturedItemC.Price:N2}")})";
+                                    };
+                                    itemRow.Children.Add(countBox);
+                                }
 
                                 missingStack.Children.Add(itemRow);
                             }
@@ -2522,17 +2534,49 @@ namespace McStudDesktop.Views
 
                 System.Diagnostics.Debug.WriteLine($"[MustHave] {(isPresent ? "MATCH" : "miss ")}: '{mh.Description}' (words: {string.Join(",", opWords)})");
 
+                // Resolve the effective Input state + count. A per-job override made on the line
+                // (stored in the session maps) survives the live rebuild; otherwise use the saved
+                // Must-Haves default.
+                string selLabel = "";
+                decimal effPrice = mh.ExpectedPrice;
+                decimal effHours = mh.ExpectedHours;
+                string effOpType = !string.IsNullOrEmpty(mh.CccOperationType) ? mh.CccOperationType : mh.OpType;
+                string effLaborCat = mh.BodyLaborCategory ?? "";
+                if (mh.InputStates != null && mh.InputStates.Count > 0)
+                {
+                    selLabel = _sessionInputOverrides.TryGetValue(mh.Description, out var so) ? so
+                        : (GhostConfigService.Instance.GetInputSelection(mh.Description) ?? mh.InputStates[0].Label);
+                    var selState = mh.InputStates.FirstOrDefault(s => s.Label == selLabel) ?? mh.InputStates[0];
+                    selLabel = selState.Label;
+                    effPrice = selState.Price;
+                    effHours = selState.Hours;
+                    if (!string.IsNullOrEmpty(selState.CccOperationType)) effOpType = selState.CccOperationType;
+                    if (!string.IsNullOrEmpty(selState.BodyLaborCategory)) effLaborCat = selState.BodyLaborCategory;
+                }
+
+                int startCount = 1;
+                if (!string.IsNullOrEmpty(mh.CountInputLabel))
+                    startCount = _sessionCountOverrides.TryGetValue(mh.Description, out var sc) ? sc
+                        : GhostConfigService.Instance.GetCountSelection(mh.Description);
+
                 checklist.Add(new MustHaveChecklistItem
                 {
                     Description = mh.Description,
                     Category = mh.Section,
-                    OperationType = !string.IsNullOrEmpty(mh.CccOperationType) ? mh.CccOperationType : mh.OpType,
-                    LaborHours = mh.ExpectedHours,
-                    Price = mh.ExpectedPrice,
+                    OperationType = effOpType,
+                    LaborHours = effHours * startCount,
+                    Price = effPrice * startCount,
                     MaterialsCost = 0,
                     WhyNeeded = "",
                     Conditions = mh.Conditions,
-                    IsPresent = isPresent
+                    IsPresent = isPresent,
+                    InputStates = mh.InputStates ?? new List<MustHaveInputState>(),
+                    SelectedInputLabel = selLabel,
+                    CountInputLabel = mh.CountInputLabel ?? "",
+                    Count = startCount,
+                    PerUnitPrice = effPrice,
+                    PerUnitHours = effHours,
+                    LaborCategory = effLaborCat
                 });
             }
 
@@ -3266,16 +3310,14 @@ namespace McStudDesktop.Views
         {
             if (missingItems.Count == 0) return;
 
-            // If a source button is provided, show a flyout with export target options
-            if (sourceButton != null)
-            {
-                ShowExportTargetFlyout(sourceButton, missingItems);
-                return;
-            }
-
-            // Default: load to virtual clipboard and navigate to Export tab
+            // Send straight to the Export tab (no export-target picker).
             LoadMustHavesToVirtualClipboard(missingItems);
             OnNavigateToExport?.Invoke(this, EventArgs.Empty);
+            if (sourceButton != null)
+            {
+                sourceButton.IsEnabled = false;
+                sourceButton.Content = "Sent to Export";
+            }
         }
 
         private void LoadMustHavesToVirtualClipboard(List<MustHaveChecklistItem> items)
@@ -3294,7 +3336,8 @@ namespace McStudDesktop.Views
                     Price = item.Price,
                     LaborHours = isRefinish ? 0 : item.LaborHours,
                     RefinishHours = isRefinish ? item.LaborHours : 0,
-                    Category = item.Category
+                    Category = item.Category,
+                    LaborType = item.LaborCategory
                 };
                 VirtualClipboardService.Instance.AddOperation(op, "Must Haves");
             }
@@ -3362,6 +3405,13 @@ namespace McStudDesktop.Views
             flyout.Items.Add(new MenuFlyoutSeparator());
             flyout.Items.Add(exportTabItem);
 
+            // Keep the flyout alive against the live-OCR rebuild loop; refresh once it closes.
+            _exportFlyoutOpen = true;
+            flyout.Closed += (s, e) =>
+            {
+                _exportFlyoutOpen = false;
+                RebuildAnalysisDisplay();
+            };
             flyout.ShowAt(sourceButton);
         }
 
@@ -3485,7 +3535,7 @@ namespace McStudDesktop.Views
             _diagnosticStack = new StackPanel { Spacing = 3 };
             _diagnosticStack.Children.Add(new TextBlock
             {
-                Text = "Click 'Capture Once' or toggle monitoring to see pipeline status",
+                Text = "Toggle monitoring to see pipeline status",
                 FontSize = 11,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 110, 110, 110)),
                 FontStyle = Windows.UI.Text.FontStyle.Italic
@@ -3598,30 +3648,6 @@ namespace McStudDesktop.Views
             }
         }
 
-
-        private async void CaptureOnceButton_Click(object sender, RoutedEventArgs e)
-        {
-            _captureOnceButton!.IsEnabled = false;
-            _captureOnceButton.Content = "Capturing...";
-
-            // Auto-start live coaching so suggestions generate even on one-shot captures
-            if (!LiveCoachingService.Instance.IsRunning)
-                LiveCoachingService.Instance.Start();
-
-            try
-            {
-                await _monitorService.CaptureOnceAsync();
-            }
-            catch (Exception ex)
-            {
-                UpdateStatus($"Capture failed: {ex.Message}");
-            }
-            finally
-            {
-                _captureOnceButton.IsEnabled = true;
-                _captureOnceButton.Content = "Capture Once";
-            }
-        }
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
@@ -3825,6 +3851,13 @@ namespace McStudDesktop.Views
             if (result.HasChanges && result.DetectedOperations.Count > 0)
             {
                 _ = RunReferenceMatchingAsync(result);
+            }
+
+            // Track this as a Screen OCR read for stats — count only genuinely new content
+            // (HasChanges) with recognized text, so idle re-captures don't inflate the count.
+            if (result.HasChanges && !string.IsNullOrEmpty(result.RawText))
+            {
+                ExportStatisticsService.Instance.RecordScreenOcrScan(result.DetectedOperations.Count);
             }
         }
 

@@ -227,6 +227,10 @@ namespace McstudDesktop.Services
                     });
                 }
 
+                // Drop CCC's parts-search / Guide panel (docked below the estimate) before parsing, so
+                // its category list isn't read as estimate operations. Keeps the estimate lines above.
+                TrimPartsGuidePanel(result);
+
                 // Parse operations from recognized text
                 result.DetectedOperations = ParseOperations(result.Lines, result.EstimateSource);
 
@@ -311,6 +315,29 @@ namespace McstudDesktop.Services
                 }
             }
             return false;
+        }
+
+        // Strong markers that only appear in CCC's parts-search / Guide toolbar — the boundary where
+        // the docked part-catalog panel begins.
+        private static readonly string[] _partsGuideStrongMarkers =
+        {
+            "Search for Parts", "PartCodes", "Part Codes"
+        };
+
+        /// <summary>
+        /// CCC docks its parts-search / Guide panel below the estimate, so one capture contains both.
+        /// Everything from the guide's toolbar line down is part-catalog navigation (the category list),
+        /// not estimate content — remove those lines and rebuild RawText, keeping the estimate lines
+        /// above. Stops the category list being read as phantom operations / matched to must-haves.
+        /// </summary>
+        private static void TrimPartsGuidePanel(ScreenOcrResult result)
+        {
+            int guideStart = result.Lines.FindIndex(l =>
+                _partsGuideStrongMarkers.Any(m => l.Text.Contains(m, StringComparison.OrdinalIgnoreCase)));
+            if (guideStart < 0) return;
+
+            result.Lines.RemoveRange(guideStart, result.Lines.Count - guideStart);
+            result.RawText = string.Join(" ", result.Lines.Select(l => l.Text));
         }
 
         /// <summary>
@@ -1142,10 +1169,16 @@ namespace McstudDesktop.Services
                         var priceMatch = _pricePattern.Match(nearby);
                         if (priceMatch.Success && decimal.TryParse(priceMatch.Groups[1].Value.Replace(",", ""), out var pv))
                             nearbyPrice = pv;
-                        // Hours: bare decimal 0.1–50
+                        // Hours: bare decimal, realistic per-line range. Two guards stop a price from
+                        // masquerading as labor when OCR flattens the Price/Labor columns together:
+                        //  1. CCC/Mitchell show labor to ONE decimal (0.2, 1.0); money uses TWO (50.00) — skip 2-decimal values.
+                        //  2. Cap at 40h — a single estimate line essentially never exceeds that; a "50" is a price, not hours.
                         foreach (Match hm in _bareDecimalPattern.Matches(nearby))
                         {
-                            if (decimal.TryParse(hm.Groups[1].Value, out var hv) && hv >= 0.1m && hv <= 50m && hv != nearbyPrice)
+                            var raw = hm.Groups[1].Value;
+                            var decimals = raw.Contains('.') ? raw.Length - raw.IndexOf('.') - 1 : 0;
+                            if (decimals >= 2) continue; // two-decimal value → price/money, not labor hours
+                            if (decimal.TryParse(raw, out var hv) && hv >= 0.1m && hv <= 40m && hv != nearbyPrice)
                             {
                                 nearbyHours = hv;
                                 break;
@@ -1157,9 +1190,11 @@ namespace McstudDesktop.Services
                     // often misclassifies these (e.g., "pre-repair scan" → "Repair" due to "repair" substring)
                     if (_diagnosticCanonicalNames.Contains(canonical))
                         opType = "Sublet";
-                    // Default op type for must-have/shop operations that appear in misc-charges sections
-                    // without standard op-type keywords nearby — prevents LiveCoachingService filtering
-                    else if (string.IsNullOrEmpty(opType) && _mustHaveCanonicalNames.Contains(canonical))
+                    // Must-have / shop operations are labor operations — always "Rpr". Force it rather than
+                    // only defaulting when context is empty: when OCR flattens descriptions onto one line,
+                    // stray words from adjacent ops (e.g. "remove", "repl") leak into the ±80-char window and
+                    // mis-tag these as R&I / Replace. Forcing Rpr mirrors the diagnostic → Sublet override above.
+                    else if (_mustHaveCanonicalNames.Contains(canonical))
                         opType = "Rpr";
 
                     operations.Add(new OcrDetectedOperation

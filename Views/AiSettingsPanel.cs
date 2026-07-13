@@ -428,7 +428,7 @@ namespace McStudDesktop.Views
             stack.Children.Add(CreateFeatureToggle("Ghost Panel Detection", "Use AI to parse damage descriptions into affected panels", AiFeature.GhostPanelDetection, config.Config.FeatureToggles.GhostPanelDetection));
             stack.Children.Add(CreateFeatureToggle("Part Name Matching", "Resolve unknown part names to canonical names using AI", AiFeature.PartMatching, config.Config.FeatureToggles.PartMatching));
             stack.Children.Add(CreateFeatureToggle("Suggestion Dedup", "Use AI to detect duplicate coaching suggestions", AiFeature.SuggestionDedup, config.Config.FeatureToggles.SuggestionDedup));
-            stack.Children.Add(CreateFeatureToggle("Ghost Explanation", "Generate plain-English summaries of ghost estimates", AiFeature.GhostExplanation, config.Config.FeatureToggles.GhostExplanation));
+            stack.Children.Add(CreateFeatureToggle("Ghost Explanation", "Generate easy-to-read summaries of ghost estimates", AiFeature.GhostExplanation, config.Config.FeatureToggles.GhostExplanation));
             stack.Children.Add(CreateFeatureToggle("AI Chat Assistant", "Context-aware AI responses in the chat tab with full estimate knowledge", AiFeature.Chat, config.Config.FeatureToggles.ChatAssistant));
             stack.Children.Add(CreateFeatureToggle("AI Estimate Review", "AI-powered estimate review checking must-haves and commonly missed items", AiFeature.EstimateReview, config.Config.FeatureToggles.EstimateReview));
             stack.Children.Add(CreateFeatureToggle("Automation", "AI-driven automation to enter operations in CCC/Mitchell from chat commands", AiFeature.Automation, config.Config.FeatureToggles.Automation));

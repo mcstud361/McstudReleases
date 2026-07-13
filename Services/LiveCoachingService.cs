@@ -66,6 +66,13 @@ namespace McstudDesktop.Services
         // that were already confirmed on a previous page.
         private readonly HashSet<string> _lockedMustHaves = new(StringComparer.OrdinalIgnoreCase);
 
+        // RO-change debounce: OCR misreads RO digits constantly, so require the SAME different RO
+        // on several consecutive captures before treating it as a new estimate (which would reset
+        // ops + locks). A single bad read must not wipe crossed-off progress.
+        private string? _candidateRO;
+        private int _candidateROCount;
+        private const int RoChangeConfirmCaptures = 3;
+
         private const int DebounceMs = 500;
 
         public event EventHandler<CoachingSnapshot>? SuggestionsUpdated;
@@ -176,6 +183,8 @@ namespace McstudDesktop.Services
             _lockedMustHaves.Clear();
             _accumulatedOpsOrder = 0;
             _trackedRO = null;
+            _candidateRO = null;
+            _candidateROCount = 0;
             _insuranceCompany = null;
             _vehicleInfo = null;
             _customerName = null;
@@ -258,21 +267,48 @@ namespace McstudDesktop.Services
             // the same VIN, it could be a supplement or new estimate, so reset ops but keep vehicle info.
             if (!string.IsNullOrEmpty(result.DetectedRO))
             {
-                if (_trackedRO != null && !string.Equals(_trackedRO, result.DetectedRO, StringComparison.OrdinalIgnoreCase))
-                {
-                    Debug.WriteLine($"[LiveCoaching] RO changed from \"{_trackedRO}\" to \"{result.DetectedRO}\" — resetting operations for new estimate");
-                    // Keep vehicle info (same car) but clear operations (different estimate/supplement)
-                    _accumulatedOps.Clear();
-                    _accumulatedRawText.Clear();
-                    _opInsertionOrder.Clear();
-                    _opMissCount.Clear();
-                    _opSeenCount.Clear();
-                    _lockedConfirmations.Clear();
-                    _lockedMustHaves.Clear();
-                    _accumulatedOpsOrder = 0;
-                }
                 if (_trackedRO == null)
+                {
                     _trackedRO = result.DetectedRO;
+                    _candidateRO = null;
+                    _candidateROCount = 0;
+                }
+                else if (!string.Equals(_trackedRO, result.DetectedRO, StringComparison.OrdinalIgnoreCase))
+                {
+                    // RO differs from the tracked one — but OCR misreads RO digits constantly, so
+                    // require the SAME different RO on several consecutive captures before treating
+                    // it as a genuine new estimate. This stops a single bad read from resetting.
+                    if (string.Equals(_candidateRO, result.DetectedRO, StringComparison.OrdinalIgnoreCase))
+                        _candidateROCount++;
+                    else
+                    {
+                        _candidateRO = result.DetectedRO;
+                        _candidateROCount = 1;
+                    }
+
+                    if (_candidateROCount >= RoChangeConfirmCaptures)
+                    {
+                        Debug.WriteLine($"[LiveCoaching] RO changed from \"{_trackedRO}\" to \"{result.DetectedRO}\" (confirmed over {_candidateROCount} captures) — resetting operations for new estimate");
+                        // Keep vehicle info (same car) but clear operations (different estimate/supplement)
+                        _accumulatedOps.Clear();
+                        _accumulatedRawText.Clear();
+                        _opInsertionOrder.Clear();
+                        _opMissCount.Clear();
+                        _opSeenCount.Clear();
+                        _lockedConfirmations.Clear();
+                        _lockedMustHaves.Clear();
+                        _accumulatedOpsOrder = 0;
+                        _trackedRO = result.DetectedRO;
+                        _candidateRO = null;
+                        _candidateROCount = 0;
+                    }
+                }
+                else
+                {
+                    // Matches the tracked RO — any pending candidate was OCR noise; clear it.
+                    _candidateRO = null;
+                    _candidateROCount = 0;
+                }
             }
 
             // Insurance company tracking (first detection wins)

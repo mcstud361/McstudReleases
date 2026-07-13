@@ -1,7 +1,7 @@
 {
-  "version": "2.0",
-  "lastUpdated": "2025-02-04",
-  "note": "All links verified from official OEM sources, I-CAR RTS, and OEM1Stop.com",
+  "version": "2.3",
+  "lastUpdated": "2026-07-04",
+  "note": "Original 20 entries carry a Feb 2025 link-verified note. The 17 v2.1-2.3 entries were LIVE-VERIFIED by direct web-fetch of each cited source (official OEM PDFs, OEM1Stop.com, I-CAR RTS, AGSC) on 2026-07-04. Key confirmations: Mazda 'recommends' (not requires); Volvo 'required'; Mitsubishi and Porsche have NO scanning position statement (service manual / approved-center program instead); Lucid has no public position-statement PDF (certified network only). Two image-based Ford/Honda PDFs were corroborated via web search rather than direct text extraction.",
   "statements": [
     {
       "id": "honda-scanning",
@@ -391,6 +391,332 @@
       "link": "https://erwin.vw.com",
       "pdfLink": "https://www.oem1stop.com/sites/default/files/Audi_Position_Vehicle-Structure-and-Unibody-Component-Replacement(12-4-18).pdf",
       "icarLink": "https://rts.i-car.com/oem-information/audi.html"
+    },
+    {
+      "id": "mazda-scanning",
+      "oem": "Mazda",
+      "title": "Pre- and Post-Repair Scanning",
+      "category": "Scanning",
+      "dateIssued": "January 3, 2018",
+      "summary": "Mazda RECOMMENDS that all vehicles being repaired for collision damage be scanned before and after the repair, since DTCs will be stored if sensors, cameras, or radars were damaged. (Mazda uses 'recommends,' not 'requires.')",
+      "fullText": "Mazda North American Operations' position statement recommends that all vehicles being repaired for collision damage be scanned both before and after the repair. Diagnostic trouble codes will be stored if any sensors, cameras, or radars were damaged in the collision. Mazda also recommends the use of only Mazda Genuine Parts. Diagnostics use the Mazda Modular Diagnostic System (M-MDS)/MDARS.",
+      "keyPoints": [
+        "Pre- and post-repair scan recommended on collision vehicles",
+        "DTCs stored if sensors/cameras/radars damaged",
+        "Mazda uses 'recommends' (not 'requires')",
+        "Recommends Mazda Genuine Parts",
+        "Diagnostics via M-MDS / MDARS"
+      ],
+      "link": "https://www.mazdatechinfo.com",
+      "pdfLink": "https://oem1stop.com/sites/default/files/Mazda_Pre-and-Post-Repair-Scanning_Position(1-18)%20.pdf",
+      "icarLink": "https://rts.i-car.com/crn-796.html"
+    },
+    {
+      "id": "volvo-scanning",
+      "oem": "Volvo",
+      "title": "Scanning and Diagnostics",
+      "category": "Scanning",
+      "dateIssued": "Updated November 21, 2024 (I-CAR RTS)",
+      "summary": "Volvo REQUIRES pre-repair scanning prior to performing any and all work, and post-repair scanning/diagnosis for any work performed. Collision-activated safety/autonomous systems may require inspection, initialization, calibration, or replacement.",
+      "fullText": "Volvo Car USA's position is that pre-repair scanning is required prior to performing any and all work on the vehicle, and post-repair scanning and diagnosis are required for any work performed. Collision-activated safety and autonomous-drive systems may require inspection, initialization, calibration, or replacement - examples include windshield replacement, bumper/sensor/mirror/camera R&I, wiring harnesses, control units, and disconnected batteries. Diagnostics use VIDA.",
+      "keyPoints": [
+        "Pre-repair scan REQUIRED before any and all work",
+        "Post-repair scan/diagnosis REQUIRED for any work performed",
+        "Safety/AD systems may need inspection, init, calibration, or replacement",
+        "Applies to glass, sensors, cameras, harnesses, control units, battery",
+        "Diagnostics via VIDA"
+      ],
+      "link": "",
+      "pdfLink": "https://rts.i-car.com/images/pdf/oem-info/volvo/position-statements/75868.pdf",
+      "icarLink": "https://rts.i-car.com/crn-1042.html"
+    },
+    {
+      "id": "jlr-scanning",
+      "oem": "Jaguar/Land Rover",
+      "title": "Pre- and Post-Repair Scanning (JLRGPS 02)",
+      "category": "Scanning",
+      "dateIssued": "August 2018 (Global Position Statement JLRGPS 02)",
+      "summary": "Jaguar Land Rover REQUIRES a pre-repair scan and a post-repair diagnostic scan AND calibration. A full Pathfinder diagnostic scan is required after any collision regardless of visible damage.",
+      "fullText": "JLR Global Position Statement JLRGPS 02 states a pre-repair scan is required to reveal issues early in estimating, and a post-repair diagnostic scan and calibration are required to verify that safety and driver-assist systems function. A full Pathfinder diagnostic scan is required after any collision regardless of visible damage, and for windshield, headlamp, bumper, sensor, harness, control-unit, seat, and trim work. JLR recommends genuine JLR parts. The official statement lives behind JLR's TOPIx portal.",
+      "keyPoints": [
+        "Pre-repair scan required (issues found early)",
+        "Post-repair diagnostic scan AND calibration required",
+        "Full Pathfinder scan required after any collision",
+        "Applies regardless of visible damage",
+        "Recommends genuine JLR parts"
+      ],
+      "link": "https://topix.jaguar.jlrext.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-1012.html"
+    },
+    {
+      "id": "mitsubishi-scanning",
+      "oem": "Mitsubishi",
+      "title": "Scanning via Service Manual (No Formal Position Statement)",
+      "category": "Scanning",
+      "dateIssued": "I-CAR RTS article June 6, 2019",
+      "summary": "Mitsubishi has NOT published a standalone pre/post-repair scanning position statement. However, its service-manual 'Post-Collision Diagnosis' procedures require connecting a scan tool to read, record, and clear DTCs and to re-scan - so scanning is effectively required by repair procedures.",
+      "fullText": "Per I-CAR RTS, Mitsubishi has not issued a formal position statement on pre- and post-repair scanning. Its vehicle service manuals include 'Post-Collision Diagnosis' procedures (e.g., 2019 Eclipse Cross) that require connecting a scan tool to read, record, and clear diagnostic trouble codes and to re-scan the vehicle. Scan requirements should be cited from the specific Mitsubishi service manual, not from a position statement. Diagnostics use MUT-III.",
+      "keyPoints": [
+        "No standalone Mitsubishi scanning position statement exists",
+        "Service-manual 'Post-Collision Diagnosis' requires scanning",
+        "Cite the specific service manual, not a position statement",
+        "Diagnostics use MUT-III",
+        "Confirmed via I-CAR RTS"
+      ],
+      "link": "https://www.mitsubishitechinfo.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-1085.html"
+    },
+    {
+      "id": "porsche-repair",
+      "oem": "Porsche",
+      "title": "Approved Collision Center Program",
+      "category": "Repair Procedures",
+      "dateIssued": "Not shown",
+      "summary": "Porsche has NO pre/post-repair scanning position statement (confirmed by I-CAR). It requires collision repairs at Porsche Approved Collision Centers that follow Porsche procedures and use genuine Porsche parts, tools, and equipment.",
+      "fullText": "Porsche runs a network of factory-approved collision centers that must strictly follow Porsche restoration procedures and use genuine Porsche parts, materials, tools, and equipment, with facilities monitored by factory technical personnel. Per I-CAR RTS, Porsche does not have a position statement regarding pre- and post-repair scanning. Detailed OEM repair procedures live behind the Porsche technical portal (subscription).",
+      "keyPoints": [
+        "Porsche Approved Collision Center required",
+        "Genuine Porsche parts, tools, and equipment",
+        "Strict adherence to Porsche restoration procedures",
+        "No formal pre/post-scanning position statement (per I-CAR)",
+        "Repair procedures behind Porsche technical portal"
+      ],
+      "link": "https://www.porschecollisioncenter.com/",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/oem-information/porsche.html"
+    },
+    {
+      "id": "rivian-repair",
+      "oem": "Rivian",
+      "title": "General Repair Guidelines & High-Voltage Safety",
+      "category": "Electric Vehicle",
+      "dateIssued": "Revised May 7, 2024",
+      "summary": "Rivian's General Repair Guidelines state repairs should be performed by trained/Rivian-Certified technicians using Rivian procedures, tools, and Original Equipment Parts. Technicians must consult Rivian procedures to determine whether the high-voltage system must be de-energized/isolated before repairs.",
+      "fullText": "Rivian's position statement (General Repair Guidelines) states that repairs should be performed by trained or Rivian-Certified technicians using Rivian procedures, tools, and Original Equipment Parts. Before repairs, technicians must consult Rivian service procedures to determine whether the high-voltage system must be de-energized/isolated (failure can cause major injury or death). Pre- and post-repair diagnostic scanning is addressed as part of the repair process.",
+      "keyPoints": [
+        "Trained / Rivian-Certified technicians",
+        "Rivian procedures, tools, and Original Equipment Parts",
+        "Consult procedures re: high-voltage de-energize/isolate",
+        "HV work can cause serious injury if mishandled",
+        "Diagnostic scanning per the repair process"
+      ],
+      "link": "https://business.rivian.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Rivian_POS_General-Repair-Guidelines_Revised(5-7-24).pdf",
+      "icarLink": "https://rts.i-car.com/oem-information/rivian.html"
+    },
+    {
+      "id": "aftermarket-non-oem-parts",
+      "oem": "Multiple OEMs",
+      "title": "Aftermarket / Non-OEM Parts Position",
+      "category": "Parts",
+      "dateIssued": "Ford statement dated May 26, 2022",
+      "summary": "Many OEMs publish statements that do NOT support non-OEM (aftermarket, recycled, reconditioned, reverse-engineered) parts for structural/safety repairs. On record: Ford/Lincoln, Honda/Acura, Stellantis, Hyundai/Kia/Genesis, Nissan/Infiniti, Mazda, Subaru, Volvo, VW, Mercedes-Benz. These are OEM recommendations, not law.",
+      "fullText": "Ford's 2022 statement ('Use of Non-OEM Parts,' May 26, 2022) discourages non-OEM parts for structural/safety repairs, stating OE parts are engineered for proper fit, function, and safety. Honda's position is that American Honda does not support aftermarket, reverse-engineered, or salvaged structural components. Comparable statements exist from Stellantis, Hyundai/Kia/Genesis, Nissan/Infiniti, Mazda, Subaru, Volvo, VW, and Mercedes-Benz. Refer to each OEM's individual statement for exact language; free copies are indexed at OEM1Stop.com and I-CAR RTS. These are OEM recommendations, not law.",
+      "keyPoints": [
+        "Many OEMs oppose non-OEM structural/safety parts",
+        "Ford statement dated May 26, 2022 (OEM1Stop)",
+        "On record: Ford, Honda, Stellantis, Hyundai/Kia, Nissan, Mazda, Subaru, Volvo, VW, MB",
+        "Reasons: fit, function, crashworthiness, ADAS compatibility",
+        "OEM recommendations - not law"
+      ],
+      "link": "https://www.oem1stop.com/position-statements",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Ford_Use_of_NonOEM_Parts%20-Position%20Statement%20_FNL_2022.pdf",
+      "icarLink": "https://rts.i-car.com/oem-information/honda/honda-position-statements.html"
+    },
+    {
+      "id": "srs-seatbelt-replacement",
+      "oem": "Multiple OEMs",
+      "title": "Airbag (SRS) & Seat Belt Non-Reuse",
+      "category": "Restraints",
+      "dateIssued": "Ford statement dated October 1, 2025",
+      "summary": "OEMs direct that deployed airbags and loaded seat belts be REPLACED, not reused. Ford: salvaged/aftermarket/remanufactured/reverse-engineered restraint parts 'are not validated by Ford.' Honda: after deployment, the SRS system must be restored with replacement parts.",
+      "fullText": "Ford's position ('Use of Salvaged, Aftermarket and Remanufactured Supplemental Restraint Systems (SRS) & Components,' Oct 1, 2025) states such restraint parts 'are not validated by Ford Motor Company and may compromise the designed safety and functionality of the SRS system,' since airbag systems are engineered, crash-tested, and validated as a complete package; Ford does not approve reuse of restraint modules, safety belts, buckles, or retractors. Honda's SRS update confirms that after a deployment the SRS system must be restored with replacement parts, including the SRS unit and impact sensors. Comparable statements exist from Stellantis, Nissan/Infiniti, Subaru, Volvo, VW, and Mercedes-Benz.",
+      "keyPoints": [
+        "Deployed airbags must be replaced with new OEM parts",
+        "No salvage/aftermarket/reman SRS or restraint parts",
+        "Loaded seat belts, buckles, retractors must be replaced",
+        "SRS validated as a complete package",
+        "On record: Ford, Honda, Stellantis, Nissan, Subaru, Volvo, VW, MB"
+      ],
+      "link": "https://www.oem1stop.com/position-statements",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/FORD%20Use%20of%20Salvage%20Aftermarket%20and%20Reman%20Restraints%20-%20FNL%20(9-30-25).pdf",
+      "icarLink": "https://rts.i-car.com",
+      "freeResources": "https://www.oem1stop.com/sites/default/files/Honda_SRS-Replacement-Parts-Update(6-12).pdf"
+    },
+    {
+      "id": "structural-sectioning-welding",
+      "oem": "Multiple OEMs",
+      "title": "Structural Sectioning & Welding Procedures",
+      "category": "Structural",
+      "dateIssued": "Ongoing (per-OEM)",
+      "summary": "OEM procedures define where (and whether) a part may be sectioned and the required weld type. Per Ford (via I-CAR): where no specific procedure exists, structural repairs should be made at original factory joints/seams, and the workshop manual provides the weld and sectioning joint required.",
+      "fullText": "Per I-CAR RTS relaying Ford's position: 'Where no specific Ford Motor Company procedure exists, structural repairs should be made at original factory joints or seams,' and 'The vehicle-specific Workshop manual provides the type of welding and sectioning joint required.' Sectioning is only permitted where explicitly supported by OEM repair information because HSS/UHSS/aluminum/CFRP parts react to collision forces differently. I-CAR maintains parallel per-OEM sectioning pages (GM, Stellantis, Nissan/Infiniti, BMW/Mini, VW, Mazda, Genesis).",
+      "keyPoints": [
+        "Section only where OEM procedures allow",
+        "Absent a procedure, repair at factory joints/seams",
+        "Workshop manual specifies weld and joint type",
+        "HSS/UHSS/aluminum/CFRP react differently",
+        "Per-OEM sectioning pages on I-CAR RTS"
+      ],
+      "link": "https://www.oem1stop.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-577.html"
+    },
+    {
+      "id": "corrosion-protection",
+      "oem": "Multiple OEMs",
+      "title": "Corrosion Protection Restoration",
+      "category": "Corrosion",
+      "dateIssued": "Ongoing",
+      "summary": "OEMs require restoring corrosion protection (weld-through primer, seam sealer, cavity wax) in the correct sequence. Per I-CAR: applying it at the wrong step 'can cause refinish defects and fire hazards' - always refer to the body repair manual.",
+      "fullText": "Per I-CAR RTS ('When to Apply Corrosion Protection During the Repair Process'): adhesives are applied before welding when bonding; foam fillers before refinish; seam sealers before or after refinishing per product; cavity wax after refinish but before trim. Applying corrosion protection at the wrong step can cause refinish defects and fire hazards (it cites a rocker-panel explosion from propellant fumes ignited during welding). Always refer to the body repair manual. Several OEMs specify zinc-based (not copper) weld-through primer.",
+      "keyPoints": [
+        "Restore weld-through primer, seam sealer, cavity wax",
+        "Apply in the correct sequence per procedure",
+        "Wrong step can cause refinish defects and fire hazards",
+        "Some OEMs specify zinc-based weld-through primer",
+        "Always refer to the body repair manual"
+      ],
+      "link": "https://www.oem1stop.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-551.html"
+    },
+    {
+      "id": "glass-adas-calibration",
+      "oem": "Multiple OEMs",
+      "title": "Windshield / Glass Replacement ADAS Calibration",
+      "category": "ADAS Calibration",
+      "dateIssued": "Ongoing",
+      "summary": "OEMs require the forward-facing camera to be recalibrated when the windshield is replaced on ADAS-equipped vehicles. Per AGSC, the ADAS system will not be accurate without calibration; one degree of misalignment is ~8 ft off at 100 ft.",
+      "fullText": "The Auto Glass Safety Council (AGSC) states OEMs require the forward camera to be recalibrated when it is removed / the windshield is replaced, and the ADAS system will not be accurate without it. Honda's Driver Assist statement explains camera-based systems (ACC, CMBS, FCW, LDW, LKAS, RDM) mounted behind the mirror require an OE windshield or the camera cannot aim properly. Nissan's glass statement requires OE glass and notes some mirrors (housing the camera) are non-reusable and must be replaced with the windshield. I-CAR directs to the OEM Calibration Requirements Search.",
+      "keyPoints": [
+        "Windshield replacement requires forward-camera recalibration",
+        "ADAS inaccurate without calibration (AGSC)",
+        "Some OEMs require OE glass (camera aim)",
+        "Some camera-housing mirrors are non-reusable",
+        "Static, dynamic, or both - per OEM procedure"
+      ],
+      "link": "https://agsc.org/understanding-the-importance-of-calibration-what-are-the-facts/",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Nissan_Pos_Glass-Replacement_2016(8-7-20).pdf",
+      "icarLink": "https://rts.i-car.com/crn-801.html",
+      "freeResources": "https://www.oem1stop.com/sites/default/files/Honda_Pos_DriverAssistSystems_Revised(6-18).pdf"
+    },
+    {
+      "id": "lucid-repair",
+      "oem": "Lucid",
+      "title": "Certified Body Repair Network",
+      "category": "Electric Vehicle",
+      "dateIssued": "Not shown",
+      "summary": "Lucid directs collision repairs to its network of certified body repair centers, selected for expertise in repairing high-end electric vehicles. No standalone public Lucid position-statement PDF was found; repair procedures are on the Lucid Tech Info Portal.",
+      "fullText": "Lucid has established a network of certified body repair centers in major markets, specifically chosen for their expertise in repairing high-end electric vehicles; collision repairs are directed to these Lucid-approved centers. As a newer manufacturer, Lucid does not publish a standalone public collision position-statement PDF that could be verified; repair procedures are hosted on the Lucid Tech Info Portal and repairer requests are handled via Lucid's repairer program. Confirm current requirements directly with Lucid.",
+      "keyPoints": [
+        "Repairs directed to Lucid certified body repair centers",
+        "Network selected for high-end EV repair expertise",
+        "No standalone public position-statement PDF confirmed",
+        "Repair procedures on the Lucid Tech Info Portal",
+        "Verify current requirements directly with Lucid"
+      ],
+      "link": "https://lucidmotors.com/knowledge/ownership/maintenance-and-warranty/service-and-maintenance",
+      "pdfLink": "",
+      "icarLink": ""
+    },
+    {
+      "id": "polestar-repair",
+      "oem": "Polestar",
+      "title": "Certified Collision Center Network",
+      "category": "Electric Vehicle",
+      "dateIssued": "Not shown",
+      "summary": "Polestar operates a Certified Collision Center network that uses Polestar genuine parts, with each center undergoing rigorous annual audits of tools, facilities, processes, and parts. Polestar also maintains an ADAS position statement (via I-CAR RTS).",
+      "fullText": "Polestar requires collision repairs at its Certified Collision Center network, which uses Polestar genuine parts to restore original performance, safety, and design; every certified center undergoes rigorous annual audits of tools, facilities, processes, and parts. Polestar's ADAS position statement (referenced via I-CAR RTS) covers items such as bumper cover paint repair, windshields, and OEM parts. Repair procedures are hosted on polestartechhub.com.",
+      "keyPoints": [
+        "Polestar Certified Collision Center network required",
+        "Polestar genuine parts required",
+        "Centers undergo rigorous annual audits",
+        "ADAS position statement exists (via I-CAR RTS)",
+        "Repair procedures on polestartechhub.com"
+      ],
+      "link": "https://www.polestar.com/us/owning-a-polestar/certified-collision-centers/",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/oem-information/polestar.html"
+    },
+    {
+      "id": "aluminum-intensive-repair",
+      "oem": "Multiple OEMs",
+      "title": "Aluminum-Intensive Repair Requirements",
+      "category": "Structural",
+      "dateIssued": "Ongoing (industry-verified)",
+      "summary": "Aluminum-intensive repairs require an isolated work area and dedicated, aluminum-only tools to prevent galvanic corrosion and thermite-reaction risk. Some OEMs require a dedicated room; others allow a curtained bay. (Verified via ASA/AutoInc and BodyShopBusiness; documented programs: Ford F-150, Audi.)",
+      "fullText": "Industry sources (ASA/AutoInc. and BodyShopBusiness) confirm the requirement: some OEMs require dealers/approved shops to devote a room solely to aluminum repairs; others allow a curtain system to isolate a bay. Tools and equipment used on aluminum should not be shared with steel-vehicle tools and should be stored separately to prevent contamination (galvanic corrosion when steel dust contacts bare aluminum; thermite-reaction risk from mixed aluminum/steel dust, requiring separate vacuums). The best-documented OEM programs are Ford F-150 (aluminum clean-room + dedicated tooling) and Audi (dedicated aluminum tooling).",
+      "keyPoints": [
+        "Isolated room or curtained bay for aluminum repair",
+        "Dedicated aluminum-only tools, stored separately",
+        "Prevents galvanic corrosion and thermite/fire risk",
+        "Separate vacuum/extraction required",
+        "Documented programs: Ford F-150, Audi"
+      ],
+      "link": "https://www.autoinc.org/get-ready-aluminum-shop-repair-ready/",
+      "pdfLink": "",
+      "icarLink": "",
+      "freeResources": "https://www.bodyshopbusiness.com/aluminum-series-how-to-work-safely-when-repairing-aluminum/"
+    },
+    {
+      "id": "rivet-bonding-adhesive",
+      "oem": "Multiple OEMs",
+      "title": "Rivet-Bonding & Structural Adhesive",
+      "category": "Structural",
+      "dateIssued": "Ford statement dated May 2022",
+      "summary": "Per Ford's statement: aluminum vehicles require OEM structural repair rivets and approved installation tools; aftermarket structural rivets (self-piercing, blind, solid) are NOT authorized. These vehicles use mechanical fasteners and structural adhesive in place of spot welds; rivet placement cannot deviate from OEM procedures.",
+      "fullText": "Ford's 'Use of Non-OEM Structural Rivets' position statement (May 20, 2022) states all Ford vehicles with aluminum structural/cosmetic components require OEM structural repair rivets and approved installation tools, and that aftermarket structural rivets - including self-piercing (SPR), blind, and solid rivets - are not authorized. These vehicles use mechanical fasteners and structural adhesives (SPR, blind rivets, solid rivets, flow-drill screws) in place of conventional spot welds; rivets are not universal and placement cannot deviate from OEM procedures, and flow-drill screws cannot be reused. Ford lists the only approved SPR installation systems (Henrob, Pro Spot, Car-O-Liner PNP90, Chief, Spanesi, TKR, Wielander & Schill).",
+      "keyPoints": [
+        "OEM structural rivets and approved tools required",
+        "Aftermarket SPR/blind/solid rivets NOT authorized",
+        "Fasteners + adhesive replace spot welds on aluminum",
+        "Rivet placement cannot deviate from OEM procedure",
+        "Flow-drill screws cannot be reused"
+      ],
+      "link": "https://www.oem1stop.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Ford_Use_of_Rivets%20-%20Positon%20Statement_FNL_2022.pdf",
+      "icarLink": "https://rts.i-car.com"
+    },
+    {
+      "id": "wheel-alignment-adas",
+      "oem": "Multiple OEMs",
+      "title": "Wheel Alignment & Calibration Triggers",
+      "category": "ADAS Calibration",
+      "dateIssued": "Ongoing",
+      "summary": "Per I-CAR: numerous OEMs require ADAS to be calibrated when a wheel alignment is performed. If the steering angle sensor is adjusted during an alignment, the forward-facing camera may misread steering position and cause incorrect corrections.",
+      "fullText": "Per I-CAR RTS ('The Effects of Wheel Alignment on ADAS'): if the steering angle sensor is adjusted during a wheel alignment, the forward-facing camera controlling lane departure may think the steering wheel is turned, causing incorrect steering corrections. Numerous OEMs require the ADAS to be calibrated when a wheel alignment is performed; refer to OEM repair information for the specific requirements and sequence. Related I-CAR guidance covers steering-angle/position-sensor calibration.",
+      "keyPoints": [
+        "Numerous OEMs require ADAS calibration with wheel alignment",
+        "Steering-angle-sensor changes affect the forward camera",
+        "Misread steering angle can cause wrong corrections",
+        "Steering-angle-sensor calibration often required",
+        "Follow the OEM procedure for specific triggers"
+      ],
+      "link": "https://www.oem1stop.com",
+      "pdfLink": "",
+      "icarLink": "https://rts.i-car.com/crn-927.html"
+    },
+    {
+      "id": "scan-tool-selection",
+      "oem": "Multiple OEMs",
+      "title": "Diagnostic Tool Selection (OEM vs Aftermarket)",
+      "category": "Scanning",
+      "dateIssued": "Honda statement issued May 2019 (v4)",
+      "summary": "Per Honda's position: the only way to accurately determine post-collision status of all Honda/Acura electronic systems is with factory-authorized i-HDS software; 'American Honda does not test other scan tools or remote diagnostic services and cannot comment on their capabilities or accuracy.'",
+      "fullText": "American Honda's position ('Post-Collision Diagnostic Scan and Calibration Requirements,' May 2019, v4) states the only way to accurately determine the post-collision status of all Honda/Acura electronic control systems is with the factory-authorized diagnostic software i-HDS, whose 'All DTC Check' scans every equipped ECU. It states American Honda does not test other scan tools or remote diagnostic services and cannot comment on their accuracy. Not all systems are accessible via i-HDS (e.g., LaneWatch), and many ADAS DTCs won't display unless the specific system is damaged. Stellantis and Ford also publish scan-tool/scan statements; Toyota advises verifying an aftermarket tool can retrieve History/Pending/Current DTCs.",
+      "keyPoints": [
+        "Honda requires factory i-HDS for a complete scan",
+        "Honda does not validate other scan tools' accuracy",
+        "Not all aftermarket tools read all modules/DTCs",
+        "Some systems not accessible even via i-HDS",
+        "Stellantis/Ford have scan statements; verify tool capability"
+      ],
+      "link": "https://www.oem1stop.com",
+      "pdfLink": "https://www.oem1stop.com/sites/default/files/Honda_Pos_Diagnostic-Scans_Revised_FINAL(5-19).pdf",
+      "icarLink": "https://rts.i-car.com"
     }
   ]
 }

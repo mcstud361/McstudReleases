@@ -129,6 +129,16 @@ public class EstimateHistoryDatabase
     private const decimal MaxSaneGrandTotal = 200_000m;
 
     /// <summary>
+    /// Minimum sane single-claim grand total. Anything below this (e.g. $3, $8) is a partial/garbage
+    /// parse — a fragment of a fee or address line read as a total — not a real repair estimate.
+    /// Real collision claims are always well above this, so it won't exclude legitimate small jobs.
+    /// </summary>
+    private const decimal MinSaneGrandTotal = 50m;
+
+    /// <summary>A stored estimate's grand total is "sane" (a real total, not a parse fragment).</summary>
+    private static bool IsSaneGrandTotal(decimal total) => total >= MinSaneGrandTotal && total <= MaxSaneGrandTotal;
+
+    /// <summary>
     /// Average grand total across all imported estimates that have a sane labeled grand total.
     /// This is the single source of truth for "Avg estimate value" — backed by the labeled
     /// "Grand Total" line from each parsed PDF, not by summing line items.
@@ -138,7 +148,7 @@ public class EstimateHistoryDatabase
         get
         {
             var sane = _data.Estimates
-                .Where(e => e.GrandTotal > 0m && e.GrandTotal <= MaxSaneGrandTotal)
+                .Where(e => IsSaneGrandTotal(e.GrandTotal))
                 .ToList();
             if (sane.Count == 0) return 0m;
             return sane.Sum(e => e.GrandTotal) / sane.Count;
@@ -149,7 +159,7 @@ public class EstimateHistoryDatabase
     /// Count of stored estimates with a sane labeled grand total. Use this for stat displays
     /// instead of the legacy EstimatesImported counter, which can drift from reality.
     /// </summary>
-    public int SaneEstimateCount => _data.Estimates.Count(e => e.GrandTotal > 0m && e.GrandTotal <= MaxSaneGrandTotal);
+    public int SaneEstimateCount => _data.Estimates.Count(e => IsSaneGrandTotal(e.GrandTotal));
 
     #endregion
 
@@ -1044,7 +1054,11 @@ public class EstimateHistoryDatabase
         tempEstimate.DNA = GenerateEstimateDNA(tempEstimate);
 
         // Find similar estimates (broad sample)
-        var matches = FindSimilarEstimates(tempEstimate, maxResults: 20);
+        var allMatches = FindSimilarEstimates(tempEstimate, maxResults: 20);
+
+        // Only benchmark against estimates with a sane grand total. A junk/partial parse
+        // (e.g. a $3 fragment) would otherwise set the bottom of the range and drag the average down.
+        var matches = allMatches.Where(m => IsSaneGrandTotal(m.Estimate.GrandTotal)).ToList();
         if (matches.Count < minSimilar)
             return null;
 

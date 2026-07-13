@@ -399,7 +399,7 @@ public sealed class MainWindow : Window
         var workArea = displayArea.WorkArea;
 
         int width = workArea.Width / 2;
-        int height = (int)(workArea.Height * 0.70);
+        int height = (int)(workArea.Height * 0.62);
         int x = workArea.X + workArea.Width - width;
         int y = workArea.Y + workArea.Height - height;
 

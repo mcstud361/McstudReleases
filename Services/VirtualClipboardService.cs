@@ -349,5 +349,6 @@ namespace McStudDesktop.Services
         public decimal LaborHours { get; set; }
         public decimal RefinishHours { get; set; }
         public string Category { get; set; } = "";
+        public string LaborType { get; set; } = "";   // labor category (Body/Mechanical/Frame) → M/F/B letter on paste
     }
 }

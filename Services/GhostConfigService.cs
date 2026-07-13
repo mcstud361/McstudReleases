@@ -19,6 +19,11 @@ namespace McStudDesktop.Services
         private GhostConfig _config;
         private readonly string _configPath;
 
+        // Cached read-only Standard (rebuilt on demand, invalidated on SaveConfig) — avoids
+        // regenerating + re-normalizing the canonical list on every GetMustHaves() call.
+        private List<MustHaveOperation>? _standardCache;
+        private HashSet<string>? _standardNormCache;
+
         // Default labor rates
         public const decimal DEFAULT_BODY_RATE = 55.00m;
         public const decimal DEFAULT_PAINT_RATE = 55.00m;
@@ -41,10 +46,11 @@ namespace McStudDesktop.Services
             Directory.CreateDirectory(appDir);
             _configPath = Path.Combine(appDir, "GhostConfig.json");
             _config = LoadConfig();
-            SeedDefaultMustHaves();
-            DeduplicateMustHaves();
-            MigrateExistingConfig();
             SeedMustHaveGroups();
+            MigrateBuiltInGroupOrder();
+            SetBaseGroupFlags();
+            SplitStandardFromShopMustHaves();
+            DeduplicateMustHaves();
         }
 
         /// <summary>
@@ -82,24 +88,18 @@ namespace McStudDesktop.Services
         {
             return new()
             {
-                // === MISCELLANEOUS OPERATIONS ===
+                // === MISCELLANEOUS OPERATIONS (standard order — these 10 first) ===
                 ("Clean for Delivery",                              "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     1.0m, 0m,   0m,      3, "always"),
                 ("Glass Cleaner",                                   "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   2.00m,   2, "always"),
-                ("Mask and Protect Removed Components",             "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0.5m, 10.00m,  3, "always"),
-                ("Parts Disposal",                                  "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   25.00m,  3, "always"),
-                ("Hazardous Waste Disposal",                        "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   7.50m,   3, "always"),
+                ("Mask and Protect Removed Components",             "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0.5m, 0m,   10.00m,  3, "always"),
+                ("N.J.S.A 13:1E-126 et seq. (A-901 Hauler Compliance Fee)", "MISCELLANEOUS OPERATIONS", "Body", "Body Operations", 0m, 0m, 7.50m,  2, "always"),
+                ("N.J.A.C 7:26 (Solid Waste Disposal Fee)",                 "MISCELLANEOUS OPERATIONS", "Body", "Body Operations", 0m, 0m, 25.00m, 2, "always"),
+                ("N.J.A.C 7:26G (Hazardous Waste Disposal Fee)",            "MISCELLANEOUS OPERATIONS", "Body", "Body Operations", 0m, 0m, 7.50m,  2, "always"),
+                ("N.J.S.A 13:1E-99.11 et seq. (Recycling Fee)",             "MISCELLANEOUS OPERATIONS", "Body", "Body Operations", 0m, 0m, 20.00m, 2, "always"),
                 ("Misc Hardware",                                   "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   15.00m,  2, "always"),
-                ("Steering Wheel Cover, Seat Cover, and Floor Mat", "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0.2m, 5.00m,   2, "always"),
-                ("Refinish Material Invoice",                       "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0m,   0m,   1.00m,   2, "always"),
-                ("Color Tint (2-Stage)",                            "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      3, "when refinish"),
-                ("Spray Out Cards (2-Stage)",                       "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      3, "when refinish"),
-                ("Cover Car for Overspray",                         "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
-                ("Cover for Edging",                                "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.3m, 0m,      2, "always"),
-                ("Mask for Buffing",                                "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.5m, 0m,      2, "always"),
-                ("Cover Engine Compartment",                        "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
-                ("Cover Interior and Jambs for Refinish",           "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
-                ("Clean and Cover Car for Primer",                  "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.3m, 0m,      2, "always"),
-                ("Cover Interior and Jambs for Repairs",            "MISCELLANEOUS OPERATIONS", "Rfn",    "Refinish Operations", 0m,   0.2m, 0m,      2, "always"),
+                ("Steering Wheel Cover, Seat Cover, and Floor Mat", "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0.2m, 0m,   5.00m,   2, "always"),
+                ("IPA Wipe 1x",                                     "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0.1m, 0m,   2.00m,   2, "when refinish"),  // confirm condition (paint prep?)
+                ("Collision Wrap",                                  "MISCELLANEOUS OPERATIONS", "Body",   "Body Operations",     0.3m, 0m,   25.00m,  2, "always"),  // optional, default-off; count Input ($25/0.3 per area)
 
                 // === VEHICLE DIAGNOSTICS ===
                 ("Pre-Scan",                                        "VEHICLE DIAGNOSTICS", "Sublet", "Scanning",              0m,   0m,   150.00m, 5, "always"),
@@ -110,8 +110,6 @@ namespace McStudDesktop.Services
                 ("OEM Research",                                    "VEHICLE DIAGNOSTICS", "Mech",   "Scanning",              1.0m, 0m,   50.00m,  3, "always"),
                 ("ADAS Diagnostic Report",                          "VEHICLE DIAGNOSTICS", "Body",   "Calibration",           0m,   0m,   25.00m,  3, "when adas"),
                 ("Simulate Full Fluids for ADAS Calibrations",      "VEHICLE DIAGNOSTICS", "Mech",   "Calibration",           0.2m, 0m,   0m,      2, "when adas"),
-                ("Check and Adjust Tire Pressure for ADAS",         "VEHICLE DIAGNOSTICS", "Mech",   "Calibration",           0.2m, 0m,   0m,      2, "when adas"),
-                ("Remove Customer Belongings for ADAS",             "VEHICLE DIAGNOSTICS", "Body",   "Calibration",           0.2m, 0m,   0m,      2, "when adas"),
 
                 // === ELECTRICAL ===
                 ("Disconnect and Reconnect Battery",                "ELECTRICAL", "Mech", "Mechanical Operations",            0.4m, 0m,   0m,      3, "always"),
@@ -119,8 +117,10 @@ namespace McStudDesktop.Services
                 ("Electronic Reset",                                "ELECTRICAL", "Mech", "Mechanical Operations",            0.5m, 0m,   0m,      3, "always"),
                 ("Cover and Protect Electrical Connections",        "ELECTRICAL", "Mech", "Mechanical Operations",            0.3m, 0m,   5.00m,   2, "always"),
                 ("Battery Support",                                 "ELECTRICAL", "Mech", "Mechanical Operations",            0.2m, 0m,   0m,      2, "always"),
-                ("Charge and Maintain Battery during ADAS",         "ELECTRICAL", "Mech", "Mechanical Operations",            0.6m, 0m,   0m,      2, "when adas"),
+                ("Charge and Maintain Battery",                     "ELECTRICAL", "Mech", "Mechanical Operations",            0.6m, 0m,   0m,      2, "when adas"),        // renamed from "...during ADAS" — confirm condition
+                ("Mobile Cart for EV",                              "ELECTRICAL", "Mech", "Mechanical Operations",            0.5m, 0m,   50.00m,  2, "when high voltage"),  // labor type (M/F/0) still pending CCC field-wiring
                 ("Verify No High Voltage",                         "ELECTRICAL", "Mech", "Mechanical Operations",            0.2m, 0m,   0m,      3, "when high voltage"),
+                ("Service Mode",                                    "ELECTRICAL", "Mech", "Mechanical Operations",            0m,   0m,   0m,      2, "when high voltage"),  // TODO: price/hrs/labor/condition
 
                 // === WELDING OPERATIONS ===
                 ("Weld Blankets",                                  "WELDING OPERATIONS", "Body", "Body Operations",          0m,   0m,   25.00m,  3, "when welding"),
@@ -155,11 +155,6 @@ namespace McStudDesktop.Services
                 ("Seatbelt and Steering Column Inspection",        "SRS AND RESTRAINTS", "Mech", "Mechanical Operations",    0.5m, 0m,   0m,      3, "when srs"),
                 ("Airbag Residue Cleanup",                         "SRS AND RESTRAINTS", "Body", "Body Operations",          0.3m, 0m,   0m,      2, "when srs"),
                 ("Restraint Control Module Program",               "SRS AND RESTRAINTS", "Sublet", "Mechanical Operations",  0m,   0m,   100.00m, 3, "when srs"),
-
-                // === ADDITIONAL MISCELLANEOUS ===
-                ("Touch Up Painted Bolts",                         "MISCELLANEOUS OPERATIONS", "Rfn",  "Refinish Operations", 0m,  0.5m, 0m,      3, "when refinish"),
-                ("Setup ADAS Equipment",                           "VEHICLE DIAGNOSTICS", "Mech", "Calibration",             0.5m, 0m,   0m,      3, "when adas"),
-                ("Steering Wheel Lock",                            "MISCELLANEOUS OPERATIONS", "Body", "Body Operations",    0m,   0m,   15.00m,  2, "always"),
 
                 // === BODY ON FRAME ===
                 ("Cut Up Shipping Crate",                          "BODY ON FRAME", "Body", "Body Operations",              0.5m, 0m,   0m,      2, "when body on frame"),
@@ -351,6 +346,8 @@ namespace McStudDesktop.Services
 
         public void SaveConfig()
         {
+            _standardCache = null;       // invalidate cached Standard (groups/config may have changed)
+            _standardNormCache = null;
             try
             {
                 var json = JsonSerializer.Serialize(_config, new JsonSerializerOptions
@@ -445,37 +442,163 @@ namespace McStudDesktop.Services
         #region Must-Have Groups
 
         /// <summary>
-        /// Seed built-in must-have groups from canonical sections if none exist.
+        /// Canonical order of built-in must-have groups — single source of truth.
+        /// Used both to seed new configs and to migrate existing ones to the standard order.
+        /// To change the shipped section order, reorder this array and bump
+        /// CURRENT_GROUP_ORDER_VERSION below.
+        /// </summary>
+        private static readonly (string Name, string Color)[] CanonicalGroupOrder = new[]
+        {
+            ("ELECTRICAL",               "#64B4FF"),
+            ("VEHICLE DIAGNOSTICS",      "#50C8DC"),
+            ("MISCELLANEOUS OPERATIONS", "#C8B464"),
+            ("WELDING OPERATIONS",       "#FF9664"),
+            ("MEASUREMENT",              "#C8B4FF"),
+            ("AC AND CLIMATE",           "#64DCDC"),
+            ("WHEEL AND TIRE",           "#64C896"),
+            ("SRS AND RESTRAINTS",       "#FF6464"),
+            ("BODY ON FRAME",            "#C89664"),
+            ("TOTAL LOSS",               "#DC6464"),
+            ("STOLEN RECOVERY",          "#9664C8"),
+        };
+
+        // Bump this whenever CanonicalGroupOrder changes to push the new order to existing shops once.
+        private const int CURRENT_GROUP_ORDER_VERSION = 1;
+
+        // The three locked base categories that make up the read-only Standard (always present, can't be removed).
+        private static readonly HashSet<string> BaseGroupNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "ELECTRICAL", "VEHICLE DIAGNOSTICS", "MISCELLANEOUS OPERATIONS"
+        };
+
+        // Bump when the legacy split logic changes; the one-time split runs once per version.
+        private const int CURRENT_SPLIT_VERSION = 1;
+
+        // Standard operations that stay read-only but the shop can still toggle on/off (checkbox
+        // enabled). Stored in NormalizeMustHaveDesc form.
+        private static readonly HashSet<string> ToggleableStandardDescriptions = new(StringComparer.Ordinal)
+        {
+            "mobile cart for ev",
+            "verify no high voltage",
+            "service mode",
+            "collision wrap",
+            "oem research"
+        };
+
+        // Optional base ops that start OFF (unchecked) — the shop enables them when relevant.
+        private static readonly HashSet<string> DefaultOffStandardDescriptions = new(StringComparer.Ordinal)
+        {
+            "collision wrap"
+        };
+
+        // Base ops whose price + labor the shop may type its own value for (floored at the canonical minimum).
+        private static readonly HashSet<string> EditableValueStandardDescriptions = new(StringComparer.Ordinal)
+        {
+            "oem research"
+        };
+
+        // Founder-defined Inputs for base SOP ops (keyed by NormalizeMustHaveDesc). Each op can
+        // switch between these states; the chosen state's values become the op's effective values.
+        private static readonly Dictionary<string, List<MustHaveInputState>> StandardInputStates = new(StringComparer.Ordinal)
+        {
+            ["pre scan"] = ScanInputStates(),
+            ["in process scan"] = ScanInputStates(),
+            ["post scan"] = ScanInputStates(),
+            ["disconnect and reconnect battery"] = new()
+            {
+                new MustHaveInputState { Label = "Single", HoverText = "Single battery — 0.4 hr Mechanical", Hours = 0.4m, BodyLaborCategory = "Mechanical", CccOperationType = "Rpr" },
+                new MustHaveInputState { Label = "Dual",   HoverText = "Dual battery — 0.8 hr Mechanical",   Hours = 0.8m, BodyLaborCategory = "Mechanical", CccOperationType = "Rpr" },
+            },
+        };
+
+        private static List<MustHaveInputState> ScanInputStates() => new()
+        {
+            new MustHaveInputState { Label = "$",     HoverText = "$150 flat (Sublet)",       Price = 150.00m, CccOperationType = "Repl" },
+            new MustHaveInputState { Label = "Labor", HoverText = "1.0 hr Mechanical labor",   Hours = 1.0m, BodyLaborCategory = "Mechanical", CccOperationType = "Rpr" },
+        };
+
+        // Base SOP ops with a typed count Input (keyed by NormalizeMustHaveDesc → the count's label).
+        // The op's per-unit price/hours scale by the typed count (e.g. 2 wipes = 2× price & labor).
+        private static readonly Dictionary<string, string> StandardCountInputs = new(StringComparer.Ordinal)
+        {
+            ["ipa wipe 1x"] = "Wipes",
+            ["collision wrap"] = "Areas",
+        };
+
+        // CCC op-type + labor category per base op (from the shop's CCC data). Keyed by the exact
+        // canonical description. Op-type must be a price-bearing type (Repl / R&I) for lines that
+        // carry a dollar amount — CCC voids a manual price on a labor-only "Rpr". Labor category
+        // drives the M/F/B letter on labor lines. (Scans + Disconnect Battery come from InputStates.)
+        private static readonly Dictionary<string, (string CccOp, string LaborCat)> StandardOpMeta =
+            new(StringComparer.OrdinalIgnoreCase)
+        {
+            // Misc
+            ["Clean for Delivery"] = ("Rpr", "Body"),
+            ["Glass Cleaner"] = ("Repl", "Body"),
+            ["Mask and Protect Removed Components"] = ("Repl", "Body"),
+            ["N.J.S.A 13:1E-126 et seq. (A-901 Hauler Compliance Fee)"] = ("Repl", "Body"),
+            ["N.J.A.C 7:26 (Solid Waste Disposal Fee)"] = ("Repl", "Body"),
+            ["N.J.A.C 7:26G (Hazardous Waste Disposal Fee)"] = ("Repl", "Body"),
+            ["N.J.S.A 13:1E-99.11 et seq. (Recycling Fee)"] = ("Repl", "Body"),
+            ["Misc Hardware"] = ("Repl", "Body"),
+            ["Steering Wheel Cover, Seat Cover, and Floor Mat"] = ("Repl", "Body"),
+            ["IPA Wipe 1x"] = ("Repl", "Body"),
+            ["Collision Wrap"] = ("Repl", "Body"),
+            // Vehicle Diagnostics
+            ["Setup Scan Tool"] = ("R&I", "Mechanical"),
+            ["Dynamic Systems Verification"] = ("Rpr", "Mechanical"),
+            ["OEM Research"] = ("Repl", "Mechanical"),
+            ["ADAS Diagnostic Report"] = ("Repl", "Mechanical"),
+            ["Simulate Full Fluids for ADAS Calibrations"] = ("R&I", "Mechanical"),
+            // Electrical
+            ["Test Battery Condition"] = ("Rpr", "Mechanical"),
+            ["Electronic Reset"] = ("Rpr", "Mechanical"),
+            ["Cover and Protect Electrical Connections"] = ("Repl", "Mechanical"),
+            ["Battery Support"] = ("Rpr", "Mechanical"),
+            ["Charge and Maintain Battery"] = ("Rpr", "Mechanical"),
+            ["Verify No High Voltage"] = ("Rpr", "Mechanical"),
+        };
+
+        /// <summary>
+        /// Seed built-in must-have groups from the canonical order if none exist.
         /// </summary>
         private void SeedMustHaveGroups()
         {
             if (_config.MustHaveGroups.Count > 0) return;
 
-            var groups = new (string Name, string Color, int Order)[]
-            {
-                ("MISCELLANEOUS OPERATIONS", "#C8B464", 0),
-                ("VEHICLE DIAGNOSTICS",      "#50C8DC", 1),
-                ("ELECTRICAL",               "#64B4FF", 2),
-                ("WELDING OPERATIONS",       "#FF9664", 3),
-                ("MEASUREMENT",              "#C8B4FF", 4),
-                ("AC AND CLIMATE",           "#64DCDC", 5),
-                ("WHEEL AND TIRE",           "#64C896", 6),
-                ("SRS AND RESTRAINTS",       "#FF6464", 7),
-                ("BODY ON FRAME",            "#C89664", 8),
-                ("TOTAL LOSS",               "#DC6464", 9),
-                ("STOLEN RECOVERY",          "#9664C8", 10),
-            };
-
-            foreach (var (name, color, order) in groups)
+            for (int i = 0; i < CanonicalGroupOrder.Length; i++)
             {
                 _config.MustHaveGroups.Add(new MustHaveGroup
                 {
-                    Name = name,
-                    AccentColor = color,
-                    SortOrder = order,
-                    IsBuiltIn = true
+                    Name = CanonicalGroupOrder[i].Name,
+                    AccentColor = CanonicalGroupOrder[i].Color,
+                    SortOrder = i,
+                    IsBuiltIn = true,
+                    IsBase = BaseGroupNames.Contains(CanonicalGroupOrder[i].Name)
                 });
             }
+            _config.BuiltInGroupOrderVersion = CURRENT_GROUP_ORDER_VERSION;
+            SaveConfig();
+        }
+
+        /// <summary>
+        /// One-time migration: re-order an existing shop's built-in groups to match the
+        /// current canonical standard. Runs once per version bump (guarded by
+        /// BuiltInGroupOrderVersion), so shops can still reorder afterward without it resetting.
+        /// </summary>
+        private void MigrateBuiltInGroupOrder()
+        {
+            if (_config.BuiltInGroupOrderVersion >= CURRENT_GROUP_ORDER_VERSION) return;
+
+            for (int i = 0; i < CanonicalGroupOrder.Length; i++)
+            {
+                var grp = _config.MustHaveGroups.FirstOrDefault(g =>
+                    g.IsBuiltIn && g.Name.Equals(CanonicalGroupOrder[i].Name, StringComparison.OrdinalIgnoreCase));
+                if (grp != null)
+                    grp.SortOrder = i;
+            }
+
+            _config.BuiltInGroupOrderVersion = CURRENT_GROUP_ORDER_VERSION;
             SaveConfig();
         }
 
@@ -522,7 +645,183 @@ namespace McStudDesktop.Services
 
         public static readonly string[] KnownVehicleFuelTypes = { "Gas Vehicle", "Electric Vehicle", "Hybrid Vehicle" };
 
-        public List<MustHaveOperation> GetMustHaves() => _config.MustHaves;
+        /// <summary>
+        /// The read-only MET Standard must-haves, generated fresh from code each call.
+        /// Never written to the shop's config — always reflects the latest shipped standard.
+        /// Stable IDs ("std:" + normalized description) so templates can reference them and
+        /// they stay consistent across launches.
+        /// </summary>
+        public List<MustHaveOperation> GetStandardMustHaves()
+        {
+            if (_standardCache != null) return _standardCache;
+
+            var groupIdByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var g in _config.MustHaveGroups)
+                if (!groupIdByName.ContainsKey(g.Name)) groupIdByName[g.Name] = g.Id;
+
+            var disabled = new HashSet<string>(_config.DisabledStandardOps.Select(NormalizeMustHaveDesc));
+            var list = new List<MustHaveOperation>();
+            foreach (var d in GetCanonicalMustHaves())
+            {
+                var norm = NormalizeMustHaveDesc(d.Desc);
+                // Toggleable if it's a named toggleable op, OR it lives in a non-base (optional) category
+                bool optional = ToggleableStandardDescriptions.Contains(norm) || !BaseGroupNames.Contains(d.Section);
+                // Default-off ops start unchecked (presence in DisabledStandardOps = ON for them);
+                // normal optional ops start on (presence = OFF); locked base ops are always on.
+                bool enabled = !optional ? true
+                    : (DefaultOffStandardDescriptions.Contains(norm) ? disabled.Contains(norm) : !disabled.Contains(norm));
+                var op = new MustHaveOperation
+                {
+                    Id = "std:" + norm,
+                    Description = d.Desc,
+                    Section = d.Section,
+                    GroupId = groupIdByName.TryGetValue(d.Section, out var gid) ? gid : null,
+                    OpType = d.OpType,
+                    Category = d.Category,
+                    ExpectedPrice = d.Price,
+                    ExpectedHours = d.Hours,
+                    RefinishHours = d.RefinishHours,
+                    PointDeduction = d.Points,
+                    Conditions = d.Conditions,
+                    Enabled = enabled,
+                    Optional = optional,
+                    IsStandard = true
+                };
+
+                // CCC op-type + labor category. Op-type: a price-bearing type (Replace) so CCC keeps the
+                // dollar amount. Labor category drives the labor-type letter on paste ("0" for Body/regular,
+                // "M" for Mechanical) matching the shop's CCC export format.
+                if (StandardOpMeta.TryGetValue(d.Desc, out var meta))
+                {
+                    op.CccOperationType = meta.CccOp;
+                    op.BodyLaborCategory = meta.LaborCat;
+                }
+
+                // Attach founder-defined Inputs and apply the chosen state's values
+                if (StandardInputStates.TryGetValue(norm, out var states) && states.Count > 0)
+                {
+                    op.InputStates = states;
+                    var selLabel = _config.InputSelections.TryGetValue(norm, out var sl) ? sl : states[0].Label;
+                    var sel = states.FirstOrDefault(s => s.Label == selLabel) ?? states[0];
+                    op.ExpectedPrice = sel.Price;
+                    op.ExpectedHours = sel.Hours;
+                    op.RefinishHours = sel.RefinishHours;
+                    if (!string.IsNullOrEmpty(sel.BodyLaborCategory)) op.BodyLaborCategory = sel.BodyLaborCategory;
+                    if (!string.IsNullOrEmpty(sel.CccOperationType)) op.CccOperationType = sel.CccOperationType;
+                    if (sel.Quantity > 0) op.Quantity = sel.Quantity;
+                }
+
+                // Attach a typed count Input if this op has one (values stay per-unit; count applied at point of use)
+                if (StandardCountInputs.TryGetValue(norm, out var countLabel))
+                    op.CountInputLabel = countLabel;
+
+                // Editable-value op: the shop may type its own price/labor, floored at the canonical minimum
+                if (EditableValueStandardDescriptions.Contains(norm))
+                {
+                    op.EditableValue = true;
+                    if (_config.ValueOverrides.TryGetValue(norm, out var ov))
+                    {
+                        op.ExpectedPrice = Math.Max(ov.Price, d.Price);
+                        op.ExpectedHours = Math.Max(ov.Hours, d.Hours);
+                    }
+                }
+
+                list.Add(op);
+            }
+
+            _standardCache = list;
+            _standardNormCache = new HashSet<string>(list.Select(s => NormalizeMustHaveDesc(s.Description)));
+            return list;
+        }
+
+        /// <summary>
+        /// Effective must-haves = the read-only Standard (always shown as-is, never editable in
+        /// place) PLUS the shop's own items that are NOT part of the Standard (custom ops, etc.).
+        /// There are NO in-place overrides of the Standard — a shop customizes by copying to a
+        /// template. Any leftover shop item matching a Standard description is suppressed here so
+        /// the Standard is the single source of truth for its operations.
+        /// </summary>
+        public List<MustHaveOperation> GetMustHaves()
+        {
+            var standard = GetStandardMustHaves();
+            var stdNorms = _standardNormCache!; // populated by GetStandardMustHaves above
+
+            var result = new List<MustHaveOperation>(standard);
+            foreach (var m in _config.MustHaves)
+                if (!stdNorms.Contains(NormalizeMustHaveDesc(m.Description)))
+                    result.Add(m);
+            return result;
+        }
+
+        /// <summary>The shop's own must-haves only (custom ops + overrides), excluding the Standard.</summary>
+        public List<MustHaveOperation> GetShopMustHaves() => _config.MustHaves;
+
+        /// <summary>Current per-op toggles turned OFF (normalized descriptions) — used when saving a template.</summary>
+        public List<string> GetDisabledStandardOps() => new List<string>(_config.DisabledStandardOps);
+
+        /// <summary>The shop's chosen Input state label for an op (null = use the op's first/default state).</summary>
+        public string? GetInputSelection(string description)
+        {
+            var norm = NormalizeMustHaveDesc(description);
+            return _config.InputSelections.TryGetValue(norm, out var label) ? label : null;
+        }
+
+        /// <summary>Set the shop's default Input state for an op (e.g. scans → "Labor"). Persisted.</summary>
+        public void SetInputSelection(string description, string stateLabel)
+        {
+            _config.InputSelections[NormalizeMustHaveDesc(description)] = stateLabel;
+            SaveConfig();
+        }
+
+        /// <summary>Current Input selections (copy) — used when saving a template.</summary>
+        public Dictionary<string, string> GetInputSelections() => new Dictionary<string, string>(_config.InputSelections);
+
+        /// <summary>The shop's typed price/labor override for an editable-value op (null = use the Standard default).</summary>
+        public MustHaveValueOverride? GetValueOverride(string description)
+        {
+            var norm = NormalizeMustHaveDesc(description);
+            return _config.ValueOverrides.TryGetValue(norm, out var ov) ? ov : null;
+        }
+
+        /// <summary>Set the shop's typed price/labor for an editable-value op (e.g. OEM Research). Persisted; floored at the minimum on read.</summary>
+        public void SetValueOverride(string description, decimal price, decimal hours)
+        {
+            _config.ValueOverrides[NormalizeMustHaveDesc(description)] = new MustHaveValueOverride { Price = price, Hours = hours };
+            SaveConfig();
+        }
+
+        /// <summary>Current editable-value overrides (copy) — used when saving a template.</summary>
+        public Dictionary<string, MustHaveValueOverride> GetValueOverrides()
+            => _config.ValueOverrides.ToDictionary(kv => kv.Key, kv => new MustHaveValueOverride { Price = kv.Value.Price, Hours = kv.Value.Hours });
+
+        /// <summary>The shop's default count for a count-Input op (min 1).</summary>
+        public int GetCountSelection(string description)
+        {
+            var norm = NormalizeMustHaveDesc(description);
+            return _config.CountSelections.TryGetValue(norm, out var c) && c > 0 ? c : 1;
+        }
+
+        /// <summary>Set the shop's default count for a count-Input op. Persisted.</summary>
+        public void SetCountSelection(string description, int count)
+        {
+            if (count < 1) count = 1;
+            _config.CountSelections[NormalizeMustHaveDesc(description)] = count;
+            SaveConfig();
+        }
+
+        /// <summary>Current count defaults (copy) — used when saving a template.</summary>
+        public Dictionary<string, int> GetCountSelections() => new Dictionary<string, int>(_config.CountSelections);
+
+        /// <summary>Toggle a (toggleable) Standard operation on/off for this shop. Persisted in DisabledStandardOps.</summary>
+        public void SetStandardOpEnabled(string description, bool enabled)
+        {
+            var norm = NormalizeMustHaveDesc(description);
+            _config.DisabledStandardOps.RemoveAll(d => NormalizeMustHaveDesc(d) == norm);
+            // Default-off ops store presence = ON; normal ops store presence = OFF.
+            bool listed = DefaultOffStandardDescriptions.Contains(norm) ? enabled : !enabled;
+            if (listed) _config.DisabledStandardOps.Add(norm);
+            SaveConfig();
+        }
 
         /// <summary>
         /// Get must-haves filtered by insurance company and vehicle fuel type context.
@@ -530,7 +829,75 @@ namespace McStudDesktop.Services
         /// </summary>
         public List<MustHaveOperation> GetMustHavesForContext(string? insuranceCompany, string? vehicleFuelType)
         {
-            return _config.MustHaves.Where(m => m.Enabled && MatchesContext(m, insuranceCompany, vehicleFuelType)).ToList();
+            return GetMustHaves().Where(m => m.Enabled && IsOpCategoryActive(m) && MatchesContext(m, insuranceCompany, vehicleFuelType)).ToList();
+        }
+
+        /// <summary>
+        /// Is the operation's category active? Base categories (Electrical/VD/Misc) are always
+        /// active; optional categories are active only when their Included flag is on.
+        /// </summary>
+        private bool IsOpCategoryActive(MustHaveOperation mh)
+        {
+            var grp = _config.MustHaveGroups.FirstOrDefault(g => g.Id == mh.GroupId)
+                   ?? _config.MustHaveGroups.FirstOrDefault(g => g.Name.Equals(mh.Section, StringComparison.OrdinalIgnoreCase));
+            if (grp == null) return true;          // ungrouped → always active
+            return grp.IsBase || grp.Included;     // base always; optional only when included
+        }
+
+        /// <summary>Set the IsBase flag on built-in base categories (idempotent).</summary>
+        private void SetBaseGroupFlags()
+        {
+            bool changed = false;
+            foreach (var g in _config.MustHaveGroups)
+            {
+                bool shouldBeBase = g.IsBuiltIn && BaseGroupNames.Contains(g.Name);
+                if (g.IsBase != shouldBeBase) { g.IsBase = shouldBeBase; changed = true; }
+            }
+            if (changed) SaveConfig();
+        }
+
+        /// <summary>
+        /// One-time migration to the read-only-Standard model: removes items from the shop's
+        /// list that are unmodified duplicates of the current Standard (stale auto-seeds), and
+        /// keeps everything else (shop edits = overrides, custom ops, retired-standard leftovers).
+        /// Non-destructive to genuine shop data; writes a one-time backup first. Version-guarded.
+        /// </summary>
+        private void SplitStandardFromShopMustHaves()
+        {
+            if (_config.MustHavesSplitVersion >= CURRENT_SPLIT_VERSION) return;
+
+            try { if (File.Exists(_configPath)) File.Copy(_configPath, _configPath + ".pre-standard-split.bak", true); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[GhostConfig] split backup failed: {ex.Message}"); }
+
+            var standard = GetStandardMustHaves();
+            var stdByNorm = new Dictionary<string, MustHaveOperation>();
+            foreach (var s in standard)
+                stdByNorm[NormalizeMustHaveDesc(s.Description)] = s;
+
+            var kept = new List<MustHaveOperation>();
+            foreach (var m in _config.MustHaves)
+            {
+                var norm = NormalizeMustHaveDesc(m.Description);
+                if (stdByNorm.TryGetValue(norm, out var std) && StandardValuesMatch(m, std))
+                    continue; // unmodified copy of the current standard → drop (served read-only now)
+                m.IsStandard = false;
+                kept.Add(m);
+            }
+            int removed = _config.MustHaves.Count - kept.Count;
+            _config.MustHaves = kept;
+            _config.MustHavesSplitVersion = CURRENT_SPLIT_VERSION;
+            SaveConfig();
+            System.Diagnostics.Debug.WriteLine($"[GhostConfig] Standard split: dropped {removed} stale seeds, kept {kept.Count} shop items");
+        }
+
+        private static bool StandardValuesMatch(MustHaveOperation a, MustHaveOperation b)
+        {
+            return a.ExpectedPrice == b.ExpectedPrice
+                && a.ExpectedHours == b.ExpectedHours
+                && a.RefinishHours == b.RefinishHours
+                && a.PointDeduction == b.PointDeduction
+                && string.Equals(a.Conditions ?? "", b.Conditions ?? "", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(a.OpType ?? "", b.OpType ?? "", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool MatchesContext(MustHaveOperation mh, string? insuranceCompany, string? vehicleFuelType)
@@ -763,6 +1130,22 @@ namespace McStudDesktop.Services
             SaveConfig();
         }
 
+        /// <summary>
+        /// Swap the list positions of two must-haves. Display order within a section is the
+        /// position in the MustHaves list, so this is how manual up/down reordering persists.
+        /// No-op if either id isn't found (e.g. a not-yet-saved pending add).
+        /// </summary>
+        public void SwapMustHaveOrder(string idA, string idB)
+        {
+            int ia = _config.MustHaves.FindIndex(m => m.Id == idA);
+            int ib = _config.MustHaves.FindIndex(m => m.Id == idB);
+            if (ia >= 0 && ib >= 0 && ia != ib)
+            {
+                (_config.MustHaves[ia], _config.MustHaves[ib]) = (_config.MustHaves[ib], _config.MustHaves[ia]);
+                SaveConfig();
+            }
+        }
+
         // --- Must-Have Templates ---
 
         public List<MustHaveTemplate> GetMustHaveTemplates() => _config.MustHaveTemplates;
@@ -778,6 +1161,26 @@ namespace McStudDesktop.Services
         public void DeleteMustHaveTemplate(string id)
         {
             _config.MustHaveTemplates.RemoveAll(t => t.Id == id);
+            SaveConfig();
+        }
+
+        /// <summary>
+        /// Apply a category-set template: include exactly the optional categories the template
+        /// names (the base 3 categories stay always-on). Persists.
+        /// </summary>
+        public void ApplyCategoryTemplate(MustHaveTemplate t)
+        {
+            var wanted = new HashSet<string>(t.IncludedCategories ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+            foreach (var g in _config.MustHaveGroups)
+            {
+                if (g.IsBase) continue;
+                g.Included = wanted.Contains(g.Name);
+            }
+            _config.DisabledStandardOps = new List<string>(t.DisabledOps ?? new List<string>());
+            _config.InputSelections = new Dictionary<string, string>(t.InputSelections ?? new Dictionary<string, string>());
+            _config.ValueOverrides = (t.ValueOverrides ?? new Dictionary<string, MustHaveValueOverride>())
+                .ToDictionary(kv => kv.Key, kv => new MustHaveValueOverride { Price = kv.Value.Price, Hours = kv.Value.Hours });
+            _config.CountSelections = new Dictionary<string, int>(t.CountSelections ?? new Dictionary<string, int>());
             SaveConfig();
         }
 
@@ -828,6 +1231,21 @@ namespace McStudDesktop.Services
         public List<MustHaveGroup> MustHaveGroups { get; set; } = new();
         public ScoringWeights ScoringWeights { get; set; } = new();
         public string EstimateHeading { get; set; } = GhostConfigService.DEFAULT_ESTIMATE_HEADING;
+        /// <summary>
+        /// Bumped when the canonical built-in group order changes, so a one-time
+        /// migration can re-order existing shops' built-in groups to the new standard.
+        /// </summary>
+        public int BuiltInGroupOrderVersion { get; set; } = 0;
+        /// <summary>Bumped when the legacy merged-list → read-only-Standard split runs (once).</summary>
+        public int MustHavesSplitVersion { get; set; } = 0;
+        /// <summary>Normalized descriptions of toggleable Standard ops the shop has turned OFF.</summary>
+        public List<string> DisabledStandardOps { get; set; } = new();
+        /// <summary>Chosen Input state per op: normalized description → selected state label.</summary>
+        public Dictionary<string, string> InputSelections { get; set; } = new();
+        /// <summary>Shop-typed price/labor overrides for editable-value ops: normalized description → override.</summary>
+        public Dictionary<string, MustHaveValueOverride> ValueOverrides { get; set; } = new();
+        /// <summary>Default count per count-Input op: normalized description → count.</summary>
+        public Dictionary<string, int> CountSelections { get; set; } = new();
     }
 
     public class GhostLaborRates
@@ -887,6 +1305,30 @@ namespace McStudDesktop.Services
     }
 
     /// <summary>
+    /// One selectable state of an operation "Input" — e.g. "$" vs "Labor", or "Single" vs "Dual".
+    /// The user picks a state (default in Must-Haves, or live on the screen-read line) and its
+    /// values become the operation's effective values (what the scrubber checks / what inserts to CCC).
+    /// </summary>
+    public class MustHaveInputState
+    {
+        public string Label { get; set; } = "";        // chip text, e.g. "$", "Labor", "Single", "Dual"
+        public string HoverText { get; set; } = "";     // preview shown on hover, e.g. "1.0 hr Mechanical"
+        public decimal Price { get; set; }
+        public decimal Hours { get; set; }              // body labor hours
+        public decimal RefinishHours { get; set; }
+        public string BodyLaborCategory { get; set; } = "";
+        public string CccOperationType { get; set; } = "";
+        public int Quantity { get; set; } = 1;
+    }
+
+    /// <summary>The shop's typed price/labor override for an editable-value op (e.g. OEM Research).</summary>
+    public class MustHaveValueOverride
+    {
+        public decimal Price { get; set; }
+        public decimal Hours { get; set; }
+    }
+
+    /// <summary>
     /// A must-have operation that should always be present on every estimate.
     /// Used by scoring to flag missing must-haves as issues.
     /// </summary>
@@ -908,6 +1350,16 @@ namespace McStudDesktop.Services
         public decimal RefinishHours { get; set; }
         public string Conditions { get; set; } = "always";
         public bool Enabled { get; set; } = true;
+        /// <summary>True = part of the read-only MET Standard (generated from code, not editable in place). Not persisted on shop items.</summary>
+        public bool IsStandard { get; set; }
+        /// <summary>Standard op the shop may still toggle on/off (checkbox enabled) even though it's read-only.</summary>
+        public bool Optional { get; set; }
+        /// <summary>Selectable Input states (e.g. $ ⇄ Labor). Empty = no Inputs. The chosen state's values are applied to this op.</summary>
+        public List<MustHaveInputState> InputStates { get; set; } = new();
+        /// <summary>If set (e.g. "Wipes"), this op has a typed count Input — its per-unit price/hours scale by the count.</summary>
+        public string CountInputLabel { get; set; } = "";
+        /// <summary>True = the shop may type its own price + labor on this op (floored at the Standard minimum).</summary>
+        public bool EditableValue { get; set; }
         public List<string> InsuranceCompanies { get; set; } = new(); // empty = applies to all
         public List<string> VehicleTypes { get; set; } = new();       // empty = applies to all
     }
@@ -919,7 +1371,17 @@ namespace McStudDesktop.Services
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = "";
-        public List<string> Descriptions { get; set; } = new();  // Must-have descriptions included
+        public List<string> Descriptions { get; set; } = new();  // (legacy) operation descriptions
+        /// <summary>Optional category names folded in on top of the base 3 — the template model.</summary>
+        public List<string> IncludedCategories { get; set; } = new();
+        /// <summary>Normalized descriptions of toggleable ops turned OFF in this template.</summary>
+        public List<string> DisabledOps { get; set; } = new();
+        /// <summary>Chosen Input states in this template: normalized description → selected state label.</summary>
+        public Dictionary<string, string> InputSelections { get; set; } = new();
+        /// <summary>Editable-value overrides in this template: normalized description → price/labor.</summary>
+        public Dictionary<string, MustHaveValueOverride> ValueOverrides { get; set; } = new();
+        /// <summary>Default counts in this template: normalized description → count.</summary>
+        public Dictionary<string, int> CountSelections { get; set; } = new();
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 
@@ -934,6 +1396,10 @@ namespace McStudDesktop.Services
         public string AccentColor { get; set; } = "#64B4FF";
         public int SortOrder { get; set; }
         public bool IsBuiltIn { get; set; }
+        /// <summary>True = locked base category (Electrical / Vehicle Diagnostics / Misc) — always present, can't be removed.</summary>
+        public bool IsBase { get; set; }
+        /// <summary>Whether this (optional) category is folded into the active scrubbing set. Base categories are always included regardless.</summary>
+        public bool Included { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 
