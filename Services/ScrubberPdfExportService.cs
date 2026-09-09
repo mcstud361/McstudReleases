@@ -102,6 +102,10 @@ namespace McStudDesktop.Services
                             // Recovery summary bar
                             if (scoringResult != null)
                                 column.Item().Element(e => ComposeRecoverySummary(e, scoringResult));
+
+                            // OEM position statements for this vehicle's manufacturer
+                            if (scoringResult != null && scoringResult.OemStatements.Count > 0)
+                                column.Item().Element(e => ComposeOemStatements(e, scoringResult));
                         });
                     });
 
@@ -129,6 +133,12 @@ namespace McStudDesktop.Services
                 {
                     row.RelativeItem().Column(titleCol =>
                     {
+                        // Shop name from Settings (source of truth) sits above the report title.
+                        var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+                        if (!string.IsNullOrWhiteSpace(shopName))
+                            titleCol.Item().Text(shopName)
+                                .FontSize(20).Bold().FontColor(Colors.Grey.Darken3);
+
                         titleCol.Item().Text("Import Scrubber Report")
                             .FontSize(18).Bold().FontColor(Colors.Blue.Darken2);
 
@@ -192,7 +202,10 @@ namespace McStudDesktop.Services
                     row.RelativeItem().Text(sectionName)
                         .Bold().FontSize(11).FontColor(Colors.White);
 
-                    var bodyHrs = lines.Sum(l => l.LaborHours + l.RepairHours);
+                    // LaborHours and RepairHours are duplicates for imported estimates (ConvertToParsedLine
+                    // copies the single parsed labor value into both), so summing them double-counts.
+                    // Take the labor value once.
+                    var bodyHrs = lines.Sum(l => Math.Max(l.LaborHours, l.RepairHours));
                     var rfnHrs = lines.Sum(l => l.RefinishHours);
                     var parts = lines.Sum(l => l.Price);
                     var totals = new List<string>();
@@ -252,7 +265,7 @@ namespace McStudDesktop.Services
                         opRow.ConstantItem(55).AlignRight().Text(line.Price > 0 ? $"${line.Price:F2}" : "")
                             .FontSize(9).FontColor(Colors.Green.Darken2);
 
-                        var bodyHrs = line.LaborHours + line.RepairHours;
+                        var bodyHrs = Math.Max(line.LaborHours, line.RepairHours);
                         var laborLabel = bodyHrs > 0 ? $"{bodyHrs:F1}" : "";
                         if (bodyHrs > 0 && !string.IsNullOrEmpty(line.LaborType))
                         {
@@ -275,7 +288,7 @@ namespace McStudDesktop.Services
                 }
 
                 // Subtotals
-                var totalBody = lines.Sum(l => l.LaborHours + l.RepairHours);
+                var totalBody = lines.Sum(l => Math.Max(l.LaborHours, l.RepairHours));
                 var totalPaint = lines.Sum(l => l.RefinishHours);
                 var totalParts = lines.Sum(l => l.Price);
 
@@ -603,6 +616,52 @@ namespace McStudDesktop.Services
                         col.Item().AlignRight().Text(string.Join("  |  ", parts))
                             .FontSize(9).FontColor(Colors.Blue.Lighten3);
                 });
+            });
+        }
+
+        // ── OEM position statements (by manufacturer) ──────────────────
+
+        private void ComposeOemStatements(IContainer container, EstimateScoringResult result)
+        {
+            var make = OemStatementService.Instance.ExtractMake(result.VehicleInfo);
+            var heading = string.IsNullOrEmpty(make)
+                ? "OEM POSITION STATEMENTS"
+                : $"{make.ToUpper()} POSITION STATEMENTS";
+
+            container.Column(col =>
+            {
+                col.Item().Background(Colors.Orange.Darken3).Padding(10)
+                    .Text(heading).FontSize(13).Bold().FontColor(Colors.White);
+
+                col.Item().PaddingTop(4).Text(
+                    "Manufacturer requirements that apply to this vehicle. Verify against the OEM procedure for the specific VIN.")
+                    .FontSize(8).Italic().FontColor(Colors.Grey.Darken1);
+
+                col.Item().PaddingTop(6);
+
+                foreach (var stmt in result.OemStatements)
+                {
+                    col.Item().PaddingBottom(6).Border(1).BorderColor(Colors.Grey.Lighten2)
+                        .Padding(8).Column(card =>
+                    {
+                        card.Item().Row(row =>
+                        {
+                            row.RelativeItem().Text($"{stmt.Oem} — {stmt.Title}")
+                                .FontSize(10).Bold().FontColor(Colors.Grey.Darken3);
+                            if (!string.IsNullOrEmpty(stmt.Category))
+                                row.AutoItem().Text(stmt.Category)
+                                    .FontSize(8).FontColor(Colors.Orange.Darken2);
+                        });
+
+                        if (!string.IsNullOrEmpty(stmt.Summary))
+                            card.Item().PaddingTop(2).Text(stmt.Summary)
+                                .FontSize(9).FontColor(Colors.Grey.Darken2);
+
+                        if (!string.IsNullOrEmpty(stmt.PublicLink))
+                            card.Item().PaddingTop(2).Text($"Source: {stmt.PublicLink}")
+                                .FontSize(8).FontColor(Colors.Blue.Darken1);
+                    });
+                }
             });
         }
 

@@ -950,9 +950,10 @@ public class ChatbotView : UserControl
         // Update help button for active sub-tab
         if (_subtabHelpButton != null)
         {
-            // The Screen OCR panel has its own "?" help in its header, so hide the
-            // floating sub-tab help there to avoid two "?" stacking on top of each other.
-            _subtabHelpButton.Visibility = index == 2 ? Visibility.Collapsed : Visibility.Visible;
+            // The Ghost and Screen OCR panels each have their own "?" help in their
+            // header, so hide the floating sub-tab help there to avoid two "?" stacking
+            // on top of each other (and overlapping their gear/buttons).
+            _subtabHelpButton.Visibility = (index == 1 || index == 2) ? Visibility.Collapsed : Visibility.Visible;
 
             var viewId = index switch
             {

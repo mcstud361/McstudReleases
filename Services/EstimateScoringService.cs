@@ -361,6 +361,16 @@ namespace McStudDesktop.Services
                     .Take(MaxIssues).ToList();
             }
 
+            // Attach OEM position statements for this vehicle's manufacturer (non-critical).
+            try
+            {
+                result.OemStatements = OemStatementService.Instance.GetForVehicle(vehicleInfo);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ScoringService] OEM statement match failed: {ex.Message}");
+            }
+
             return result;
         }
 
@@ -439,9 +449,14 @@ namespace McStudDesktop.Services
             var refinishPanels = new List<int>();
             for (int i = 0; i < lines.Count; i++)
             {
+                // Only ACTUAL paint operations drive adjacent-panel blend suggestions. A plain "Repl"
+                // (e.g. a clip, retainer, liner or molding) is NOT a refinished panel — including it
+                // made replaced hardware trigger "Blend Hood", etc. Require Refn/Blnd or refinish hours.
                 if (!lines[i].IsManualLine &&
-                    (_idxOpsLower[i].Contains("repl") || _idxOpsLower[i].Contains("rfn") ||
-                     _idxOpsLower[i].Contains("refinish") || lines[i].RefinishHours > 0))
+                    (_idxOpsLower[i].Contains("rfn") || _idxOpsLower[i].Contains("refn") ||
+                     _idxOpsLower[i].Contains("refinish") || _idxOpsLower[i].Contains("blnd") ||
+                     _idxOpsLower[i].Contains("blend") || lines[i].RefinishHours > 0) &&
+                    !IsHardwareOrSmallPart(_idxDescsLower[i]))
                     refinishPanels.Add(i);
             }
 
@@ -582,6 +597,17 @@ namespace McStudDesktop.Services
                         ? learnedOp.ManualLineType : learnedOp.Description;
                     if (string.IsNullOrWhiteSpace(opDesc) || opDesc.Length < 4) continue;
 
+                    // Skip truncated / garbled learned descriptions (PDF-parse artifacts) so fragments
+                    // like "for Clear Coat", "LT Fender to CH 348732 (ALU)" or embedded line markers
+                    // don't surface as suggestions. Mirrors the guards in ConvertFromLearnedOperations.
+                    var opTrim = opDesc.Trim();
+                    if (opTrim.StartsWith("for ", StringComparison.OrdinalIgnoreCase) ||
+                        opTrim.EndsWith(" &") || opTrim.EndsWith(" and", StringComparison.OrdinalIgnoreCase) ||
+                        opTrim.Length > 60 ||
+                        opTrim.Contains('#') ||
+                        System.Text.RegularExpressions.Regex.IsMatch(opTrim, @"\b\d{5,}\b"))
+                        continue;
+
                     var opDescLower = opDesc.ToLowerInvariant();
 
                     // Check if this operation already exists on the estimate for this panel
@@ -636,6 +662,18 @@ namespace McStudDesktop.Services
 
         #region Material Checks
 
+        // Hardware / small parts carry a panel keyword in their name (e.g. "bumper cover CLIP",
+        // "fender LINER retainer", "rocker molding CLIP") but are NOT the panel being painted or
+        // welded. Replacing them must not fire adhesion promoter / corrosion / weld-thru / blend.
+        private static readonly string[] _hardwareIndicators =
+        {
+            "clip", "retainer", "rivet", "grommet", "liner", "insulator", "deadener",
+            "bracket", "fastener", "screw", "bolt", " pin", " nut", "cover pin",
+        };
+
+        private static bool IsHardwareOrSmallPart(string descLower)
+            => !string.IsNullOrEmpty(descLower) && _hardwareIndicators.Any(descLower.Contains);
+
         private void CheckMaterialOperations(List<ParsedEstimateLine> lines, EstimateScoringResult result)
         {
             var existingTitles = new HashSet<string>(
@@ -644,6 +682,9 @@ namespace McStudDesktop.Services
             for (int li = 0; li < lines.Count; li++)
             {
                 if (lines[li].IsManualLine || string.IsNullOrEmpty(lines[li].PartName)) continue;
+
+                // Skip hardware/small parts — a replaced clip/retainer/liner isn't a paintable panel.
+                if (IsHardwareOrSmallPart(_idxDescsLower[li])) continue;
 
                 var opType = lines[li].OperationType ?? "";
                 var opLower = _idxOpsLower[li];
@@ -1584,7 +1625,8 @@ namespace McStudDesktop.Services
         {
             var issues = new List<ScoringIssue>();
 
-            foreach (var op in operations)
+            // Most-used first so downstream per-trigger caps keep the strongest suggestions.
+            foreach (var op in operations.OrderByDescending(o => o.TimesUsed))
             {
                 // Skip items seen only once — too low confidence to suggest
                 if (op.TimesUsed < 2)
@@ -1603,8 +1645,9 @@ namespace McStudDesktop.Services
                 if (opDesc.EndsWith(" &") || opDesc.EndsWith(" and") || opDesc.StartsWith("for "))
                     continue;
 
-                // Skip suspiciously high hours — legitimate missing ops rarely exceed 4 hrs
-                if (op.LaborHours + op.RepairHours > 4.0m)
+                // Skip suspiciously high hours — legitimate missing ops rarely exceed 4 hrs.
+                // LaborHours and RepairHours are duplicate fields for imports — never sum them.
+                if (Math.Max(op.LaborHours, op.RepairHours) > 4.0m)
                     continue;
 
                 // Skip bare part names without an operation verb (e.g., "Rear body panel | 8.0 hr")
@@ -1642,7 +1685,8 @@ namespace McStudDesktop.Services
                     {
                         OperationType = op.OperationType,
                         Description = op.Description,
-                        LaborHours = op.LaborHours + op.RepairHours,
+                        // LaborHours/RepairHours are duplicate fields — never sum them.
+                        LaborHours = Math.Max(op.LaborHours, op.RepairHours),
                         EstimatedCost = op.Price,
                         LaborCategory = MapIssueCategoryToLaborCategory(category)
                     }
@@ -1950,6 +1994,22 @@ namespace McStudDesktop.Services
 
         #region Estimate Line Categorization
 
+        // Display name for the breakdown table only. ExtractPartName returns "" for parts not in its
+        // keyword list (Applique, black-out tape, seals, …), which showed as blank rows. Fall back to a
+        // cleaned description (trailing part numbers / qty / prices / Incl. stripped) so every row is
+        // labeled. Breakdown-only — scoring/matching still use the raw ParsedEstimateLine.PartName.
+        private static string DisplayNameForBreakdown(ParsedEstimateLine line)
+        {
+            if (!string.IsNullOrWhiteSpace(line.PartName)) return line.PartName;
+            var d = (line.Description ?? "").Trim();
+            if (d.Length == 0) return "";
+            d = System.Text.RegularExpressions.Regex.Replace(
+                d, @"(\s+(#|Incl\.?|\$?\d[\d,]*\.?\d*))+$", "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+            if (d.Length > 45) d = d.Substring(0, 45).TrimEnd() + "…";
+            return d;
+        }
+
         private List<CategorizedEstimateLine> CategorizeEstimateLines(List<ParsedEstimateLine> lines)
         {
             var categorized = new List<CategorizedEstimateLine>();
@@ -1968,7 +2028,7 @@ namespace McStudDesktop.Services
 
                 categorized.Add(new CategorizedEstimateLine
                 {
-                    PartName = line.PartName ?? "",
+                    PartName = DisplayNameForBreakdown(line),
                     OperationType = line.OperationType ?? "",
                     Description = line.Description ?? "",
                     LaborHours = line.LaborHours,
@@ -2296,6 +2356,9 @@ namespace McStudDesktop.Services
         internal decimal EstimateMechRate { get; set; }
 
         public BenchmarkResult? Benchmark { get; set; }
+
+        /// <summary>OEM position statements matching this vehicle's manufacturer (may be empty).</summary>
+        public List<OemStatementMatch> OemStatements { get; set; } = new();
     }
 
     public class CategorizedEstimateLine

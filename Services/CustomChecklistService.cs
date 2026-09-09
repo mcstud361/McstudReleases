@@ -99,7 +99,11 @@ public class CustomChecklistService
     /// </summary>
     public List<Checklist> GetCustomChecklists()
     {
-        return _customChecklists.ToList();
+        // Ordered by the user's saved arrangement (SortOrder), then title as a stable tiebreak.
+        return _customChecklists
+            .OrderBy(c => c.SortOrder)
+            .ThenBy(c => c.Title ?? "", StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>
@@ -183,6 +187,16 @@ public class CustomChecklistService
     /// </summary>
     public void SaveChecklist(Checklist checklist)
     {
+        if (WriteChecklist(checklist))
+            ChecklistsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Writes a checklist to disk + updates the in-memory list, WITHOUT firing ChecklistsChanged.
+    /// Used by bulk operations (reorder) that fire the event once at the end.
+    /// </summary>
+    private bool WriteChecklist(Checklist checklist)
+    {
         try
         {
             EnsureFolder();
@@ -205,13 +219,35 @@ public class CustomChecklistService
             else
                 _customChecklists.Add(checklist);
 
-            ChecklistsChanged?.Invoke(this, EventArgs.Empty);
             System.Diagnostics.Debug.WriteLine($"[CustomChecklist] Saved: {checklist.Title}");
+            return true;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[CustomChecklist] Error saving: {ex.Message}");
+            return false;
         }
+    }
+
+    /// <summary>
+    /// Move a custom checklist up or down one position and persist the new order.
+    /// </summary>
+    public void MoveChecklist(string id, bool up)
+    {
+        var sorted = GetCustomChecklists();
+        int idx = sorted.FindIndex(c => c.Id == id);
+        if (idx < 0) return;
+        int swap = up ? idx - 1 : idx + 1;
+        if (swap < 0 || swap >= sorted.Count) return;
+
+        // Swap the two, then renumber and persist ALL so the order is consistent on reload.
+        (sorted[idx], sorted[swap]) = (sorted[swap], sorted[idx]);
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            sorted[i].SortOrder = i;
+            WriteChecklist(sorted[i]);
+        }
+        ChecklistsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

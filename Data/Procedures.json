@@ -23,7 +23,7 @@
         "Print/save scan report"
       ],
       "timeGuideline": "0.5 - 1.0 hour depending on vehicle complexity",
-      "oilRequirement": "Required by most OEMs for any collision repair",
+      "oemRequirement": "Required by most OEMs for any collision repair",
       "equipment": [
         "OEM or compatible diagnostic scan tool",
         "Battery support device",
@@ -160,7 +160,71 @@
         "Highway or specified road type",
         "Maintain steady speed"
       ],
+      "equipment": [
+        "OEM or compatible calibration tool",
+        "Battery maintainer/power supply",
+        "Second technician (recommended for tool monitoring during drive)"
+      ],
+      "prerequisites": [
+        "All related repairs completed",
+        "Wheel alignment completed",
+        "Tire pressure at OEM spec",
+        "Clean sensors/cameras and windshield",
+        "Static calibration completed first (if system requires both)",
+        "Adequate fuel for the drive cycle"
+      ],
+      "systemsCovered": [
+        "Forward collision warning",
+        "Automatic emergency braking",
+        "Lane departure warning",
+        "Lane keep assist",
+        "Adaptive cruise control (radar)"
+      ],
       "tags": ["ADAS", "calibration", "dynamic", "road test", "drive"]
+    },
+    {
+      "id": "proc-adas-static-dynamic",
+      "name": "ADAS Static + Dynamic Calibration (Combined)",
+      "category": "ADAS/Calibration",
+      "operation": "NOT INCLUDED",
+      "pPageRef": "G33",
+      "description": "Some ADAS systems require BOTH an in-shop static calibration (targets/fixtures) AND a dynamic road-test calibration to complete. Always follow the OEM procedure for the specific vehicle and system to confirm which type(s) are required and the correct order.",
+      "steps": [
+        "Confirm OEM procedure and which calibration type(s) the system requires",
+        "Complete all related repairs and wheel alignment first",
+        "Verify tire pressure at OEM spec and correct ride height (fuel level, no cargo)",
+        "Clean all sensors, cameras, and the windshield",
+        "STATIC: Position vehicle on level surface with proper lighting",
+        "STATIC: Set up OEM/equivalent targets at specified distance and height",
+        "STATIC: Connect calibration tool and run the static procedure to completion",
+        "DYNAMIC: Initiate dynamic mode on the calibration tool",
+        "DYNAMIC: Road test at the required speed on a straight road with visible lane markings in clear weather",
+        "Monitor progress until both phases report successful completion",
+        "Clear any calibration-related DTCs and run a post-scan",
+        "Document targets used, drive cycle, and pre/post scan results"
+      ],
+      "timeGuideline": "1.5 - 3.0 hours (static setup plus dynamic drive)",
+      "equipment": [
+        "OEM or compatible calibration tool",
+        "Calibration targets/fixtures",
+        "Measuring tape/laser",
+        "Level surface with proper lighting",
+        "Battery maintainer/power supply"
+      ],
+      "prerequisites": [
+        "OEM procedure reviewed for this vehicle/system",
+        "All related repairs completed",
+        "Wheel alignment completed",
+        "Tire pressure at OEM spec and correct ride height",
+        "Clean sensors/cameras and windshield"
+      ],
+      "systemsCovered": [
+        "Forward-facing camera systems",
+        "Front/rear radar (adaptive cruise, AEB)",
+        "Lane keep / lane departure",
+        "Systems where the OEM mandates both static and dynamic steps"
+      ],
+      "tags": ["ADAS", "calibration", "static", "dynamic", "combined", "targets", "road test"]
     },
     {
       "id": "proc-ac-evacuate-recharge",
@@ -476,7 +540,7 @@
         "Apply clear coat",
         "Allow flash between clear coats"
       ],
-      "timeGuideline": "Add 20-30% to base refinish time",
+      "timeGuideline": "Add 70% to base refinish time for the first panel, 40% for each additional panel",
       "notes": "Three-stage systems include pearl, candy, and special effect paints.",
       "tags": ["tri-coat", "three-stage", "pearl", "candy", "refinish"]
     },

@@ -405,6 +405,22 @@
             "The app updates itself automatically when a new version is released, so you stay current."
           ],
           "keywords": ["license", "activation", "update", "version"]
+        },
+        {
+          "id": "data-privacy",
+          "title": "Your Data & Privacy",
+          "summary": "Where your data lives and who can see it",
+          "content": [
+            "All of your data is stored locally on this device. Nothing is uploaded to a server or shared with other users.",
+            "Your uploaded estimates, learned patterns, shop documents, dealer info, labor rates, and tow bills are saved on this machine only.",
+            "Insurance company names and claim numbers are sensitive and never leave your machine — they are visible only to you on this device.",
+            "App data is kept under %LocalAppData%\\McStudDesktop, and documents you generate are saved under your Documents\\McStudDocs folder."
+          ],
+          "tips": [
+            "Because everything is local, include this device in your regular backups so you do not lose your estimate history or documents.",
+            "Standard checklists and templates ship with the app; your copies and custom documents are the ones stored locally on this device."
+          ],
+          "keywords": ["privacy", "data", "local", "locally", "device", "storage", "stored", "insurance", "claim", "backup", "private", "security"]
         }
       ]
     },

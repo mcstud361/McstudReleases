@@ -49,6 +49,7 @@ namespace McStudDesktop.Services
             SeedMustHaveGroups();
             MigrateBuiltInGroupOrder();
             SetBaseGroupFlags();
+            MigrateOptionalGroupsDefaultOff();
             SplitStandardFromShopMustHaves();
             DeduplicateMustHaves();
         }
@@ -474,6 +475,9 @@ namespace McStudDesktop.Services
         // Bump when the legacy split logic changes; the one-time split runs once per version.
         private const int CURRENT_SPLIT_VERSION = 1;
 
+        // Bump to re-run the one-time migration that turns optional (non-base) categories OFF by default.
+        private const int CURRENT_OPTIONAL_GROUPS_VERSION = 1;
+
         // Standard operations that stay read-only but the shop can still toggle on/off (checkbox
         // enabled). Stored in NormalizeMustHaveDesc form.
         private static readonly HashSet<string> ToggleableStandardDescriptions = new(StringComparer.Ordinal)
@@ -568,13 +572,16 @@ namespace McStudDesktop.Services
 
             for (int i = 0; i < CanonicalGroupOrder.Length; i++)
             {
+                bool isBase = BaseGroupNames.Contains(CanonicalGroupOrder[i].Name);
                 _config.MustHaveGroups.Add(new MustHaveGroup
                 {
                     Name = CanonicalGroupOrder[i].Name,
                     AccentColor = CanonicalGroupOrder[i].Color,
                     SortOrder = i,
                     IsBuiltIn = true,
-                    IsBase = BaseGroupNames.Contains(CanonicalGroupOrder[i].Name)
+                    IsBase = isBase,
+                    // Only the three base categories are on by default; optional ones are opt-in per job.
+                    Included = isBase
                 });
             }
             _config.BuiltInGroupOrderVersion = CURRENT_GROUP_ORDER_VERSION;
@@ -664,8 +671,11 @@ namespace McStudDesktop.Services
             foreach (var d in GetCanonicalMustHaves())
             {
                 var norm = NormalizeMustHaveDesc(d.Desc);
-                // Toggleable if it's a named toggleable op, OR it lives in a non-base (optional) category
-                bool optional = ToggleableStandardDescriptions.Contains(norm) || !BaseGroupNames.Contains(d.Section);
+                // Every standard op is toggleable: shops define their OWN standard by turning off any of
+                // the McStud defaults they disagree with (and adding their own). The defaults still seed
+                // the list as a starting point; "Reset to McStud Standard" restores them.
+                // (Was: only whitelisted ops or non-base categories were toggleable.)
+                bool optional = true;
                 // Default-off ops start unchecked (presence in DisabledStandardOps = ON for them);
                 // normal optional ops start on (presence = OFF); locked base ops are always on.
                 bool enabled = !optional ? true
@@ -824,6 +834,21 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Reset the shop's Standard baseline back to the McStud defaults: re-enable every standard op
+        /// and drop per-op value/count/input overrides. The shop's OWN custom groups and custom
+        /// operations are preserved — only the standard set is restored.
+        /// </summary>
+        public void ResetToDefaultStandard()
+        {
+            _config.DisabledStandardOps.Clear();
+            _config.InputSelections.Clear();
+            _config.ValueOverrides.Clear();
+            _config.CountSelections.Clear();
+            _standardCache = null;
+            SaveConfig();
+        }
+
+        /// <summary>
         /// Get must-haves filtered by insurance company and vehicle fuel type context.
         /// Returns enabled must-haves that are universal (no tags) OR match the given context.
         /// </summary>
@@ -854,6 +879,27 @@ namespace McStudDesktop.Services
                 if (g.IsBase != shouldBeBase) { g.IsBase = shouldBeBase; changed = true; }
             }
             if (changed) SaveConfig();
+        }
+
+        /// <summary>
+        /// One-time migration: optional (non-base) built-in categories now default to OFF, so the
+        /// baseline active set is just the three locked Standard categories (Electrical, Vehicle
+        /// Diagnostics, Miscellaneous). Existing configs had every category included; flip the
+        /// optional built-ins off once. The shop turns extras on per job in the Must-Haves dialog.
+        /// Custom (non-built-in) groups are left untouched. Version-guarded so shop choices persist.
+        /// </summary>
+        private void MigrateOptionalGroupsDefaultOff()
+        {
+            if (_config.OptionalGroupsDefaultVersion >= CURRENT_OPTIONAL_GROUPS_VERSION) return;
+
+            foreach (var g in _config.MustHaveGroups)
+            {
+                if (g.IsBuiltIn && !BaseGroupNames.Contains(g.Name))
+                    g.Included = false;
+            }
+
+            _config.OptionalGroupsDefaultVersion = CURRENT_OPTIONAL_GROUPS_VERSION;
+            SaveConfig();
         }
 
         /// <summary>
@@ -926,6 +972,96 @@ namespace McStudDesktop.Services
             _config.MustHaves.Add(mh);
             SaveConfig();
         }
+
+        // --- Auto-learned must-haves ---------------------------------------------------------
+
+        /// <summary>Dialog section that holds operations auto-promoted from the shop's own history.</summary>
+        public const string LearnedGroupName = "Learned From Your Estimates";
+
+        private MustHaveGroup GetOrCreateLearnedGroup()
+        {
+            var grp = _config.MustHaveGroups.FirstOrDefault(
+                g => g.Name.Equals(LearnedGroupName, StringComparison.OrdinalIgnoreCase));
+            if (grp == null)
+            {
+                grp = new MustHaveGroup
+                {
+                    Name = LearnedGroupName,
+                    AccentColor = "#48DBFB",
+                    IsBuiltIn = false,
+                    IsBase = false,
+                    Included = true
+                };
+                AddMustHaveGroup(grp); // persists
+            }
+            return grp;
+        }
+
+        /// <summary>
+        /// Merge auto-learned recurring operations into the shop's must-haves so they show up in the
+        /// Must-Haves dialog and can be toggled. Never overrides the shop's own items or the Standard,
+        /// and preserves the shop's enable/disable + value edits on resync (only stats are refreshed).
+        /// </summary>
+        public void SyncLearnedMustHaves(IEnumerable<RecurringOperation> recurring)
+        {
+            var list = recurring?.ToList() ?? new List<RecurringOperation>();
+            if (list.Count == 0) return;
+
+            var standardNorms = new HashSet<string>(
+                GetStandardMustHaves().Select(s => NormalizeMustHaveDesc(s.Description)));
+            var shopNonLearnedNorms = new HashSet<string>(
+                _config.MustHaves.Where(m => !m.IsLearned).Select(m => NormalizeMustHaveDesc(m.Description)));
+
+            MustHaveGroup? learnedGroup = null;
+            bool changed = false;
+
+            foreach (var r in list)
+            {
+                var desc = string.IsNullOrWhiteSpace(r.Description) ? r.PartName : r.Description;
+                var norm = NormalizeMustHaveDesc(desc);
+                if (norm.Length == 0) continue;
+                if (standardNorms.Contains(norm)) continue;       // Standard already covers it
+                if (shopNonLearnedNorms.Contains(norm)) continue; // the shop's own op wins
+
+                var existing = _config.MustHaves.FirstOrDefault(
+                    m => m.IsLearned && NormalizeMustHaveDesc(m.Description) == norm);
+                if (existing != null)
+                {
+                    // Refresh stats only — respect the shop's toggle + any value edits.
+                    existing.LearnedAppearanceRate = r.AppearanceRate;
+                    existing.LearnedSampleCount = r.SampleCount;
+                    existing.LearnedTotalEstimates = r.TotalEstimates;
+                    changed = true;
+                    continue;
+                }
+
+                learnedGroup ??= GetOrCreateLearnedGroup();
+                _config.MustHaves.Add(new MustHaveOperation
+                {
+                    Description = desc,
+                    Section = LearnedGroupName,
+                    GroupId = learnedGroup.Id,
+                    OpType = string.IsNullOrWhiteSpace(r.OperationType) ? "Body" : r.OperationType,
+                    Category = norm.Contains("scan") ? "Scanning" : "Miscellaneous",
+                    ExpectedHours = r.MedianLaborHours,
+                    RefinishHours = r.MeanRefinishHours,
+                    ExpectedPrice = r.MeanPrice,
+                    Conditions = "always",
+                    Enabled = true,
+                    IsLearned = true,
+                    LearnedAppearanceRate = r.AppearanceRate,
+                    LearnedSampleCount = r.SampleCount,
+                    LearnedTotalEstimates = r.TotalEstimates
+                });
+                changed = true;
+            }
+
+            if (changed) SaveConfig();
+        }
+
+        /// <summary>Enabled auto-learned must-haves — injected into ghost estimates.</summary>
+        public List<MustHaveOperation> GetEnabledLearnedMustHaves() =>
+            _config.MustHaves.Where(m => m.IsLearned && m.Enabled).ToList();
 
         /// <summary>
         /// Normalize text for must-have matching: lowercase, replace &amp;/hyphens/slashes,
@@ -1164,6 +1300,19 @@ namespace McStudDesktop.Services
             SaveConfig();
         }
 
+        /// <summary>Rename a saved template. No-op if the id isn't found or the new name is blank.</summary>
+        public void RenameMustHaveTemplate(string id, string newName)
+        {
+            newName = (newName ?? "").Trim();
+            if (string.IsNullOrEmpty(newName)) return;
+            var t = _config.MustHaveTemplates.FirstOrDefault(x => x.Id == id);
+            if (t == null) return;
+            // Drop any OTHER template already using that name so names stay unique.
+            _config.MustHaveTemplates.RemoveAll(x => x.Id != id && x.Name.Equals(newName, StringComparison.OrdinalIgnoreCase));
+            t.Name = newName;
+            SaveConfig();
+        }
+
         /// <summary>
         /// Apply a category-set template: include exactly the optional categories the template
         /// names (the base 3 categories stay always-on). Persists.
@@ -1238,6 +1387,8 @@ namespace McStudDesktop.Services
         public int BuiltInGroupOrderVersion { get; set; } = 0;
         /// <summary>Bumped when the legacy merged-list → read-only-Standard split runs (once).</summary>
         public int MustHavesSplitVersion { get; set; } = 0;
+        /// <summary>Bumped when the one-time "optional categories default OFF" migration runs.</summary>
+        public int OptionalGroupsDefaultVersion { get; set; } = 0;
         /// <summary>Normalized descriptions of toggleable Standard ops the shop has turned OFF.</summary>
         public List<string> DisabledStandardOps { get; set; } = new();
         /// <summary>Chosen Input state per op: normalized description → selected state label.</summary>
@@ -1362,6 +1513,12 @@ namespace McStudDesktop.Services
         public bool EditableValue { get; set; }
         public List<string> InsuranceCompanies { get; set; } = new(); // empty = applies to all
         public List<string> VehicleTypes { get; set; } = new();       // empty = applies to all
+
+        /// <summary>True = auto-learned from the shop's uploaded estimates (recurs on ~every job).</summary>
+        public bool IsLearned { get; set; }
+        public double LearnedAppearanceRate { get; set; }
+        public int LearnedSampleCount { get; set; }
+        public int LearnedTotalEstimates { get; set; }
     }
 
     /// <summary>
@@ -1399,7 +1556,9 @@ namespace McStudDesktop.Services
         /// <summary>True = locked base category (Electrical / Vehicle Diagnostics / Misc) — always present, can't be removed.</summary>
         public bool IsBase { get; set; }
         /// <summary>Whether this (optional) category is folded into the active scrubbing set. Base categories are always included regardless.</summary>
-        public bool Included { get; set; } = true;
+        /// Defaults to false: only the three locked base categories are on by default; the shop opts
+        /// optional categories in per job.
+        public bool Included { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 

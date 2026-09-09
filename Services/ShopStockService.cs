@@ -304,11 +304,17 @@ public class ShopStockService
 
     public StockInvoice CreateInvoice()
     {
+        // Shop Stock keeps its own shop-info block (address/phone/tax); the name field,
+        // when blank, falls back to the global Settings shop name (source of truth).
+        var stockShopName = !string.IsNullOrWhiteSpace(_data.Settings.ShopName)
+            ? _data.Settings.ShopName
+            : ShopDocsSettingsService.Instance.GetSettings().ShopName ?? "";
+
         return new StockInvoice
         {
             InvoiceNumber = GenerateInvoiceNumber(),
             Date = DateTime.Now,
-            ShopName = _data.Settings.ShopName,
+            ShopName = stockShopName,
             ShopAddress = _data.Settings.ShopAddress,
             ShopCity = _data.Settings.ShopCity,
             ShopPhone = _data.Settings.ShopPhone,

@@ -138,27 +138,41 @@ namespace McStudDesktop.Services
 
         private void ComposeTowBillHeader(IContainer container, TowBillData data)
         {
+            // Clean header styled to match the blueprint checklist: shop name on top,
+            // document title below with an underline rule.
             container.Column(column =>
             {
-                column.Item().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                var shopName = string.IsNullOrWhiteSpace(data.ShopName) ? "Shop Name" : data.ShopName;
+
+                column.Item().Background(Colors.White).PaddingTop(6).PaddingLeft(12).PaddingRight(12)
+                    .Text(shopName).FontSize(16).Bold().FontColor(Colors.Black);
+
+                // Optional letterhead lines (address / phone / email) — only when enabled in settings.
+                var lh = McStudDesktop.Services.ShopDocsSettingsService.Instance.GetSettings();
+                if (lh.ShowLetterhead)
                 {
-                    row.RelativeItem().Column(shopCol =>
+                    if (!string.IsNullOrWhiteSpace(lh.ShopAddress))
+                        column.Item().Background(Colors.White).PaddingLeft(12).PaddingRight(12)
+                            .Text(lh.ShopAddress).FontSize(9).FontColor(Colors.Grey.Darken1);
+                    var contact = lh.ShopPhone ?? "";
+                    if (!string.IsNullOrWhiteSpace(lh.ShopEmail))
+                        contact = string.IsNullOrWhiteSpace(contact) ? lh.ShopEmail : $"{contact}    {lh.ShopEmail}";
+                    if (!string.IsNullOrWhiteSpace(contact))
+                        column.Item().Background(Colors.White).PaddingLeft(12).PaddingRight(12)
+                            .Text(contact).FontSize(9).FontColor(Colors.Grey.Darken1);
+                }
+
+                column.Item().Background(Colors.White).BorderBottom(1).BorderColor(Colors.Grey.Medium)
+                    .PaddingLeft(12).PaddingRight(12).PaddingBottom(8)
+                    .Row(row =>
                     {
-                        var shopName = !string.IsNullOrEmpty(data.ShopName)
-                            ? data.ShopName
-                            : "Tow Bill";
-                        shopCol.Item().Text(shopName).FontSize(18).Bold().FontColor(Colors.White);
+                        row.RelativeItem().AlignBottom()
+                            .Text("Tow Bill").FontSize(14).Bold().FontColor(Colors.Black);
+                        row.ConstantItem(160).AlignRight().AlignBottom()
+                            .Text($"Date: {data.TowDate:MM/dd/yyyy}").FontSize(10).FontColor(Colors.Grey.Darken1);
                     });
 
-                    row.ConstantItem(150).AlignRight().Column(titleCol =>
-                    {
-                        titleCol.Item().Text("TOW BILL").FontSize(20).Bold().FontColor(Colors.White);
-                        titleCol.Item().PaddingTop(4).Text($"Date: {data.TowDate:MM/dd/yyyy}")
-                            .FontSize(10).FontColor(Colors.Grey.Lighten2);
-                    });
-                });
-
-                column.Item().PaddingTop(10);
+                column.Item().PaddingTop(8);
             });
         }
 

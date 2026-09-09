@@ -270,7 +270,8 @@ namespace McStudDesktop.Views
                     PPageLocation = q.PPageLocation,
                     DegInquiry = q.DegInquiry,
                     DegResponse = q.DegResponse,
-                    Status = q.Status
+                    Status = q.Status,
+                    Links = q.Links
                 }).ToList();
 
                 var outputPath = _pdfService.GeneratePdfFromItems(exportItems);
@@ -705,7 +706,6 @@ namespace McStudDesktop.Views
             ["G3"]  = "ComponentClassification.htm",
             ["G4"]  = "R_I_Remove_Reinstall_.htm",
             ["G5"]  = "R_R_Remove_Replace_.htm",
-            ["G6"]  = "ADD%20IF%20REQUIRED.htm",
             ["G7"]  = "IncludedOperations.htm",
             ["G9"]  = "ELECTRONICSYSTEMS_ON_BOARDCOMPUTERS.htm",
             ["G10"] = "Frame%20Machine%20Set%20up.htm",
@@ -717,13 +717,10 @@ namespace McStudDesktop.Views
             ["G19"] = "Lamps.htm",
             ["G20"] = "ELECTRONICSYSTEMS_ON_BOARDCOMPUTERS.htm",
             ["G21"] = "ELECTRONICSYSTEMS_ON_BOARDCOMPUTERS.htm",
-            ["G22"] = "UnprimedBumperPrep.htm",
             ["G23"] = "DOOR_OUTERPANELR_R.htm",
             ["G26"] = "SECTIONING.htm",
             ["G27"] = "PANEL_BONDING.htm",
-            ["G28"] = "SpecialSteels.htm",
             ["G29"] = "FRAME_UNITIZEDFRAMEVEHICLES.htm",
-            ["G31"] = "STONE_CHOP_GUARD_Protective_Material_.htm",
             ["G33"] = "CameraSensorAiming.htm",
             ["G34"] = "REFINISH_TIME_PREMISE.htm",
             ["G35"] = "BasicColorCoatApplication.htm",
@@ -840,7 +837,8 @@ namespace McStudDesktop.Views
                 PPageLocation = def.PPageLocation,
                 DegInquiry = def.DegInquiry,
                 DegResponse = def.DegResponse,
-                Status = def.Status
+                Status = def.Status,
+                Links = def.Links
             };
 
             // Check if already in queue
@@ -912,5 +910,7 @@ namespace McStudDesktop.Views
         public string? DegInquiry { get; set; }
         public string? DegResponse { get; set; }
         public string? Status { get; set; }
+        /// <summary>Optional clickable reference links (label → URL) carried into the exported PDF.</summary>
+        public Dictionary<string, string>? Links { get; set; }
     }
 }

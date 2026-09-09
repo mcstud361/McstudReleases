@@ -4576,6 +4576,7 @@ namespace McStudDesktop.Services
         public string Description { get; set; } = "";
         public string OriginalDescription { get; set; } = "";
         public string PartName { get; set; } = "";
+        public string PartNumber { get; set; } = "";
         public string OperationType { get; set; } = "";
         public string Category { get; set; } = "";
         public string Position { get; set; } = "";

@@ -24,6 +24,7 @@ public class ChecklistEditorView : UserControl
     private bool _isCustom;
     private bool _isDirty;
     private bool _suppressAutoSave; // suppress during LoadChecklist / RefreshUI
+    private string? _originalSnapshotJson; // snapshot taken when the editor opens, for Cancel/discard
 
     // Header fields
     private TextBox? _titleBox;
@@ -55,8 +56,58 @@ public class ChecklistEditorView : UserControl
         _checklist = checklist;
         _isCustom = isCustom;
         _isDirty = false;
+        // Snapshot the checklist as-opened so Cancel can discard this session's edits
+        // (auto-save writes changes to disk as you go, so Cancel restores this snapshot).
+        try { _originalSnapshotJson = System.Text.Json.JsonSerializer.Serialize(checklist); }
+        catch { _originalSnapshotJson = null; }
         RefreshUI();
         _suppressAutoSave = false;
+    }
+
+    /// <summary>
+    /// Cancel/discard: restore the checklist to the snapshot taken when the editor opened,
+    /// undoing everything auto-saved during this session, then close.
+    /// </summary>
+    private async void OnCancelClick(object sender, RoutedEventArgs e)
+    {
+        if (_checklist == null || string.IsNullOrEmpty(_originalSnapshotJson))
+        {
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        var dialog = new ContentDialog
+        {
+            Title = "Discard changes?",
+            Content = "Discard the changes you made in this editing session? This restores the checklist to how it was when you opened it.",
+            PrimaryButtonText = "Discard",
+            CloseButtonText = "Keep editing",
+            XamlRoot = this.XamlRoot
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        try
+        {
+            var restored = System.Text.Json.JsonSerializer.Deserialize<Checklist>(_originalSnapshotJson);
+            if (restored != null)
+            {
+                // Copy restored fields back INTO the same object the parent holds, so the
+                // revert shows everywhere, then persist it over the auto-saved edits.
+                _suppressAutoSave = true;
+                _checklist.Title = restored.Title;
+                _checklist.Description = restored.Description;
+                _checklist.ShopName = restored.ShopName;
+                _checklist.Sections = restored.Sections;
+                _suppressAutoSave = false;
+                _customService.SaveChecklist(_checklist);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ChecklistEditor] Cancel restore failed: {ex.Message}");
+        }
+
+        CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -256,7 +307,20 @@ public class ChecklistEditorView : UserControl
         // Spacer
         row.Children.Add(new Border { Width = 30 });
 
-        // Done button (replaces Cancel — changes are already saved)
+        // Cancel button — discards this editing session's changes by restoring the snapshot
+        // taken when the editor opened (auto-save has been writing changes as you went).
+        var cancelBtn = new Button
+        {
+            Content = "Cancel",
+            Padding = new Thickness(15, 8, 15, 8),
+            Margin = new Thickness(0, 0, 10, 0),
+            Background = new SolidColorBrush(Color.FromArgb(255, 120, 50, 50)),
+            Foreground = new SolidColorBrush(Colors.White)
+        };
+        cancelBtn.Click += OnCancelClick;
+        row.Children.Add(cancelBtn);
+
+        // Done button — changes are already saved by auto-save, so this just closes
         var doneBtn = new Button
         {
             Content = "Done",

@@ -39,15 +39,21 @@ public class ShopStockInvoiceView : UserControl
             Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
             RowDefinitions =
             {
+                new RowDefinition { Height = GridLength.Auto }, // Header card
                 new RowDefinition { Height = new GridLength(1, GridUnitType.Star) },
                 new RowDefinition { Height = GridLength.Auto }
             }
         };
 
+        // Header card — matches the blueprint checklist's on-screen title bar
+        var headerCard = ShopDocHeader.Build("Shop Stock Invoice");
+        Grid.SetRow(headerCard, 0);
+        mainGrid.Children.Add(headerCard);
+
         // Template form builder
         _formBuilder = new TemplateFormBuilder(ShopDocType.ShopStockInvoice);
         _formBuilder.ExportRequested += OnExportRequested;
-        Grid.SetRow(_formBuilder, 0);
+        Grid.SetRow(_formBuilder, 1);
         mainGrid.Children.Add(_formBuilder);
 
         // Footer — totals only (action buttons are in TemplateFormBuilder header)
@@ -69,7 +75,7 @@ public class ShopStockInvoiceView : UserControl
         };
 
         footer.Child = totalText;
-        Grid.SetRow(footer, 1);
+        Grid.SetRow(footer, 2);
         mainGrid.Children.Add(footer);
 
         // InfoBar for notifications
@@ -80,6 +86,7 @@ public class ShopStockInvoiceView : UserControl
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 60, 0, 0)
         };
+        Grid.SetRow(_infoBar, 1);
         mainGrid.Children.Add(_infoBar);
 
         Content = mainGrid;

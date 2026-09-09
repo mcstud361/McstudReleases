@@ -8,7 +8,7 @@
       "oem": "Honda/Acura",
       "title": "Pre and Post Repair Scanning Requirements",
       "category": "Scanning",
-      "dateIssued": "March 2024 (Updated)",
+      "dateIssued": "July 2025 (Updated)",
       "summary": "All Honda/Acura vehicles (1996+) involved in a collision REQUIRE both pre-repair and post-repair diagnostic scans. Dashboard indicators are NOT acceptable for determining if scans are necessary.",
       "fullText": "American Honda's position states that all vehicles involved in a collision (defined as damage that exceeds minor outer panel cosmetic distortion) must have minimum diagnostic scans, inspections and/or calibrations done to avoid improper repair. A pre-repair scan during estimation identifies DTCs present. A post-repair scan confirms no DTCs remain. Any repair requiring disconnection of electrical components requires a post-repair scan. Dashboard indicators are intended for driver notification, not vehicle diagnostics.",
       "keyPoints": [
@@ -29,10 +29,10 @@
       "title": "Pre and Post Repair System Scanning",
       "category": "Scanning",
       "dateIssued": "July 2016",
-      "summary": "Toyota/Lexus/Scion requires health check before and after collision repairs to ensure electronic systems operate as designed.",
+      "summary": "Toyota/Lexus/Scion strongly recommends a health check before and after collision repairs to ensure electronic systems operate as designed (Toyota requires it when damage may affect electrical systems).",
       "fullText": "Toyota recommends that a health check be performed prior to and after any collision repair to ensure all electronic systems are operating as designed. This includes vehicles that may not have visible damage to components containing electronic control units. Access to TIS repair manuals and technical bulletins is available at techinfo.toyota.com. ADAS information is found in Audio/Visual/Telematics, Engine/Hybrid System, Vehicle Interior, and ADAS/AD categories.",
       "keyPoints": [
-        "Health check BEFORE and AFTER collision repair required",
+        "Health check BEFORE and AFTER collision repair strongly recommended",
         "Applies even without visible electronic damage",
         "Access repair manuals at techinfo.toyota.com ($15 for 48 hours)",
         "ADAS calibration required after windshield, bumper, deck lid repairs",
@@ -61,7 +61,7 @@
       "link": "https://www.acdelcotds.com",
       "pdfLink": "https://www.gmparts.com/trade-professionals/position-statements",
       "icarLink": "https://rts.i-car.com/crn-469.html",
-      "positionStatementsPage": "https://www.gmparts.com/technical-resources/position-statements"
+      "positionStatementsPage": "https://www.gmparts.com/trade-professionals/position-statements"
     },
     {
       "id": "ford-scanning",
@@ -110,7 +110,7 @@
       "category": "Scanning",
       "dateIssued": "January 2026 (Updated)",
       "summary": "Nissan/Infiniti REQUIRES pre-repair and post-repair scanning on all collision vehicles. New position statements released on salvaged/aftermarket ADAS components.",
-      "fullText": "Nissan/Infiniti requires pre-repair and post-repair diagnosis on all collision vehicles. Mandatory radar calibration prevents malfunctions of Forward Emergency Braking (FEB), Predictive Forward Collision Warning (PFCW), and Intelligent Cruise Control (ICC). Module 'configuration' (programming) is required after replacement. Action tests required after ADAS repairs even when calibration is not needed. Nine new position statements released January 2026 on salvaged/aftermarket ADAS components.",
+      "fullText": "Nissan/Infiniti requires pre-repair and post-repair diagnosis on all collision vehicles. Mandatory radar calibration prevents malfunctions of Forward Emergency Braking (FEB), Predictive Forward Collision Warning (PFCW), and Intelligent Cruise Control (ICC). Module 'configuration' (programming) is required after replacement. Action tests required after ADAS repairs even when calibration is not needed. In January 2026, Nissan and INFINITI each released a position statement prohibiting the use of salvaged, aftermarket, or secondary-market ADAS components.",
       "keyPoints": [
         "Pre-repair and post-repair scans REQUIRED",
         "Mandatory radar calibration for FEB, PFCW, ICC systems",
@@ -169,10 +169,10 @@
       "title": "Collision Repair Diagnostic Requirements",
       "category": "Scanning",
       "dateIssued": "2020",
-      "summary": "VW/Audi requires comprehensive diagnostic scans and does NOT support use of recycled vehicle parts or assemblies for repairs.",
-      "fullText": "Volkswagen and Audi require comprehensive diagnostic scans to be performed before and after any collision repair. VWoA does not support the repair of Volkswagen vehicles with recycled vehicle parts or assemblies. Due to the complexity of modern vehicle electronics, collision forces can affect systems throughout the vehicle. Only fastening elements with Dacromet® surface coating should be installed. Wheel repair and reconditioning must meet VW standards.",
+      "summary": "VW/Audi have no standalone pre/post scanning position statement; their repair information directs checking DTC memory before and after collision repair. VWoA does NOT support use of recycled vehicle parts or assemblies for repairs.",
+      "fullText": "Volkswagen and Audi do not publish a standalone pre/post scanning position statement, but their Safety Precautions and Repair Information directs that DTC memory be checked before a collision repair and rechecked after the repair, and any stored codes processed. VWoA does not support the repair of Volkswagen vehicles with recycled vehicle parts or assemblies. Due to the complexity of modern vehicle electronics, collision forces can affect systems throughout the vehicle. Only fastening elements with Dacromet® surface coating should be installed. Wheel repair and reconditioning must meet VW standards.",
       "keyPoints": [
-        "Comprehensive diagnostic scans REQUIRED",
+        "DTC memory check required before & after repair (per repair info, not a standalone position statement)",
         "Recycled parts/assemblies NOT supported",
         "Fasteners require Dacromet® coating",
         "Wheel repair must meet VW standards",
@@ -407,7 +407,7 @@
         "Recommends Mazda Genuine Parts",
         "Diagnostics via M-MDS / MDARS"
       ],
-      "link": "https://www.mazdatechinfo.com",
+      "link": "https://www.mazdaserviceinfo.com",
       "pdfLink": "https://oem1stop.com/sites/default/files/Mazda_Pre-and-Post-Repair-Scanning_Position(1-18)%20.pdf",
       "icarLink": "https://rts.i-car.com/crn-796.html"
     },

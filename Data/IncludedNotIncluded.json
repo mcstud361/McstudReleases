@@ -1,6 +1,6 @@
 {
-  "version": "3.0",
-  "lastUpdated": "2025-02-20",
+  "version": "3.1",
+  "lastUpdated": "2026-08-12",
   "sources": {
     "cccMotor": {
       "name": "CCC/MOTOR Guide to Estimating (P-Pages)",
@@ -22,7 +22,7 @@
     },
     "asa": {
       "name": "ASA Not-Included Operations Reference Chart",
-      "url": "https://collisionadvice.com/wp-content/themes/finano-child/download_files/Estimating-Best-Practices/Not-Included-Operations-Chart-11x8_5.pdf"
+      "url": "https://collisionadvice.com/wp-content/themes/finano-child/download_files/Estimating-Best-Practices/ASA-Not-Included-Chart-New-Parts.pdf"
     }
   },
   "terminology": {
@@ -42,8 +42,7 @@
       "RF": "Right Front",
       "LR": "Left Rear",
       "RR": "Right Rear",
-      "FR": "Front",
-      "RR": "Rear"
+      "FR": "Front"
     },
     "laborTypes": {
       "B": "Body Labor - Structural and panel work",
@@ -134,8 +133,8 @@
     },
     "triCoatAdditive": {
       "description": "Three-stage/tri-coat paint requires additional time per CCC/MOTOR G41",
-      "formula": "Add 20-30% to refinish time for 3-stage paint (CCC/MOTOR G41). CCC blend button calculates 3-stage blend at 70% of full refinish (vs 50% for two-stage).",
-      "example": "3.0 hrs base refinish + 0.6-0.9 hr (20-30%) = 3.6-3.9 hrs total"
+      "formula": "Add 70% to refinish time for the first three-stage panel and 40% for each additional three-stage panel (CCC/MOTOR G41). A panel receiving blended three-stage paint is counted at 70% of full refinish (vs 50% for two-stage).",
+      "example": "3.0 hr base refinish + 2.1 hr (70%) = 5.1 hr first panel; each additional three-stage panel adds 40% (1.2 hr)"
     }
   },
   "orderOfOperations": {
@@ -772,7 +771,7 @@
         "Release agent removal from raw plastic (Mitchell CEG Section 28)",
         "Feather, Prime & Block welded panels (Mitchell CEG Section 28)",
         "Gravel guard refinish (Mitchell - 0.5 first panel, 0.3 each additional)",
-        "Tri-coat additional time (CCC/MOTOR G41 - add 20-30%)",
+        "Tri-coat additional time (CCC/MOTOR G41 - add 70% first panel / 40% additional)",
         "Two-tone/multi-color (CCC/MOTOR G40)",
         "Cost of paint and materials (Mitchell - NEVER included)"
       ],
@@ -1654,7 +1653,7 @@
         "Paint MIL thickness measurement (DEG 19625, 14513)",
         "Spray out cards/panels (DEG 16149)",
         "Masking within panel perimeter (DEG 17278)",
-        "Tri-coat additional time (add 20-30%)",
+        "Tri-coat additional time (add 70% first panel / 40% additional)",
         "Cost of paint and materials (NEVER included)"
       ]
     },
@@ -1682,6 +1681,9 @@
         "Adaptive cruise control calibration",
         "Static calibration",
         "Dynamic calibration",
+        "Static and dynamic (combined) calibration",
+        "Steering angle sensor calibration",
+        "Calibration required after wheel alignment",
         "Target setup and positioning"
       ]
     },

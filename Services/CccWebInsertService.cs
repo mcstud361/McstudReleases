@@ -79,8 +79,8 @@ namespace McStudDesktop.Services
         [DllImport("user32.dll")]
         private static extern bool GetCursorPos(out POINT lpPoint);
 
-        [DllImport("user32.dll")]
-        private static extern bool SetCursorPos(int X, int Y);
+        [DllImport("user32.dll", EntryPoint = "SetCursorPos")]
+        private static extern bool SetCursorPosNative(int X, int Y);
 
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
@@ -100,9 +100,37 @@ namespace McStudDesktop.Services
 
         private delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
 
+        // Message-pump APIs for the dedicated safety-hook thread. Low-level hooks only fire
+        // if the thread that owns them is actively pumping messages — a dedicated pump thread
+        // guarantees the stop is never missed no matter how busy the automation is.
+        [DllImport("user32.dll")]
+        private static extern int GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+        [DllImport("user32.dll")]
+        private static extern bool TranslateMessage(ref MSG lpMsg);
+        [DllImport("user32.dll")]
+        private static extern IntPtr DispatchMessage(ref MSG lpMsg);
+        [DllImport("user32.dll")]
+        private static extern bool PostThreadMessage(uint idThread, uint Msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        private const uint WM_QUIT = 0x0012;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
+        {
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public POINT pt;
+        }
+
         private const int WH_KEYBOARD_LL = 13;
         private const int WH_MOUSE_LL = 14;
         private const int WM_KEYDOWN = 0x0100;
+        private const int WM_MOUSEMOVE = 0x0200;
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
         private const int WM_MBUTTONDOWN = 0x0207;
@@ -187,6 +215,8 @@ namespace McStudDesktop.Services
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<InsertProgressArgs>? ProgressChanged;
         public event EventHandler<bool>? InsertCompleted;
+        /// <summary>Fired right before automation begins — UI shows the safety banner.</summary>
+        public event EventHandler? InsertStarting;
 
         // State
         private bool _isInserting = false;
@@ -200,6 +230,17 @@ namespace McStudDesktop.Services
         private LowLevelProc? _keyboardProc;
         private volatile bool _userInputDetected = false;
         private volatile bool _automationClicking = false; // True when our code is clicking
+
+        // Dedicated thread that owns the safety hooks + its own message pump, so a real
+        // key/click/move is detected within milliseconds regardless of what the automation is doing.
+        private Thread? _hookThread;
+        private uint _hookThreadId;
+
+        // Where the automation last told the cursor to go. A real mouse move that lands far
+        // from here (and isn't flagged as injected) means the USER moved the mouse → stop.
+        private volatile int _expectedCursorX;
+        private volatile int _expectedCursorY;
+        private const int MoveStopThresholdPx = 20; // ignore tiny jitter / sub-pixel settling
 
         // OCR engine (reused)
         private OcrEngine? _ocrEngine;
@@ -334,9 +375,30 @@ namespace McStudDesktop.Services
             int totalOps = ops.Count;
             int successCount = 0;
 
+            // Capture the whole [CCC-Web] play-by-play to a log file so a run can be reviewed
+            // afterward (which OCR words were found, where it clicked, which branch it took).
+            // Overwrites each run, so the file always reflects the most recent insert.
+            TextWriterTraceListener? runLog = null;
+            var logPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "McStudDesktop", "ccc_web_debug.log");
             try
             {
-                // Install safety hooks BEFORE automation starts
+                Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+                runLog = new TextWriterTraceListener(new StreamWriter(logPath, append: false));
+                System.Diagnostics.Trace.Listeners.Add(runLog);
+                System.Diagnostics.Trace.AutoFlush = true;
+                Debug.WriteLine($"[CCC-Web] ===== Insert run started: {totalOps} ops @ {DateTime.Now:HH:mm:ss} =====");
+            }
+            catch (Exception logEx)
+            {
+                Debug.WriteLine($"[CCC-Web] Could not open run log: {logEx.Message}");
+            }
+
+            try
+            {
+                // Show the safety banner, then install safety hooks BEFORE automation starts
+                InsertStarting?.Invoke(this, EventArgs.Empty);
                 InstallInputHooks();
 
                 StatusChanged?.Invoke(this, $"Starting CCC Web insert ({totalOps} ops)...");
@@ -376,7 +438,14 @@ namespace McStudDesktop.Services
                 int lastEditRowY = 0;
                 int lastEditRowX = 0; // Known-good X inside browser (from first op's Description)
                 int lastInsertLineY = 0;
+                // Y of the row we MOST RECENTLY added. Each new op is inserted directly below the
+                // previous one, so this is the anchor that keeps ops in order: when several rows
+                // share the same leading words (e.g. many "Refinish / Color Tint (2-Stage) ..."
+                // lines), text scoring ties and can't tell them apart — we then disambiguate by
+                // ORDER, picking the matching row just below this one. 0 = no op added yet.
+                int lastAddedRowY = 0;
                 string? lastAddedDescription = null;
+                string? prevAddedDescription = null; // op added BEFORE the current one — for same-frame direction logging
 
                 for (int i = 0; i < ops.Count; i++)
                 {
@@ -510,7 +579,7 @@ namespace McStudDesktop.Services
                         // Try clicking the cached position first (no offset)
                         bool foundInsertLine = false;
                         int clampedY = Math.Max(contentMinY, Math.Min(contentMaxY, useY));
-                        SetCursorPos(useX, clampedY);
+                        MoveCursorTo(useX, clampedY);
                         await Task.Delay(30, _cts.Token);
                         LeftClick();
                         await Task.Delay(ExpandDelay + 200, _cts.Token);
@@ -634,7 +703,7 @@ namespace McStudDesktop.Services
                                     int tryY = Math.Max(contentMinY, Math.Min(contentMaxY,
                                         useY + fineOffsets[tryIdx]));
                                     Debug.WriteLine($"[CCC-Web] Recovery try {tryIdx + 1}: Click at ({useX}, {tryY})");
-                                    SetCursorPos(useX, tryY);
+                                    MoveCursorTo(useX, tryY);
                                     await Task.Delay(30, _cts.Token);
                                     LeftClick();
                                     await Task.Delay(ExpandDelay + 200, _cts.Token);
@@ -717,7 +786,7 @@ namespace McStudDesktop.Services
                                 CheckUserInput();
                                 int tryY = Math.Max(contentMinY, Math.Min(contentMaxY,
                                     useY + lastOffsets[tryIdx]));
-                                SetCursorPos(useX, tryY);
+                                MoveCursorTo(useX, tryY);
                                 await Task.Delay(30, _cts.Token);
                                 LeftClick();
                                 await Task.Delay(ExpandDelay + 200, _cts.Token);
@@ -801,7 +870,7 @@ namespace McStudDesktop.Services
 
                     Debug.WriteLine($"[CCC-Web] Found Insert Line at ({insertLinePos.Value.X}, {insertLinePos.Value.Y})");
                     lastInsertLineY = insertLinePos.Value.Y;
-                    SetCursorPos(insertLinePos.Value.X, insertLinePos.Value.Y);
+                    MoveCursorTo(insertLinePos.Value.X, insertLinePos.Value.Y);
                     await Task.Delay(30, _cts.Token);
                     LeftClick();
                     await Task.Delay(InsertLineDelay, _cts.Token);
@@ -818,15 +887,15 @@ namespace McStudDesktop.Services
                         continue; // retry this operation
                     }
 
-                    // Verify: Description should be reasonably near Insert Line Y.
-                    // Column headers are typically 300+ px away from the operations area.
+                    // NOTE: We do NOT reject based on distance from the Insert Line button.
+                    // In CCC Web the edit row is pinned to the TOP of the estimate (Description ~Y435)
+                    // while the Insert Line button sits lower down (Y500-850+), so the gap is
+                    // legitimately 300-450px+. The old ">300px = false match" guard rejected every
+                    // valid edit row, forcing a needless Escape + scroll + retry on EVERY operation.
+                    // Correctness is already verified downstream (Step 5b description check + Step 10
+                    // post-save check), so trust the edit row here and proceed.
                     int descToInsertDist = Math.Abs(fields.Description.Value.Y - insertLinePos.Value.Y);
-                    Debug.WriteLine($"[CCC-Web] Verification: Description Y={fields.Description.Value.Y}, Insert Line Y={insertLinePos.Value.Y}, dist={descToInsertDist}");
-                    if (descToInsertDist > 300)
-                    {
-                        Debug.WriteLine($"[CCC-Web] WARNING: Description too far from Insert Line — likely a column header false match");
-                        continue; // retry this operation
-                    }
+                    Debug.WriteLine($"[CCC-Web] Verification: Description Y={fields.Description.Value.Y}, Insert Line Y={insertLinePos.Value.Y}, dist={descToInsertDist} (informational — not a rejection)");
                     CheckUserInput();
 
                     // --- STEP 4: Select Op Type via typeahead ---
@@ -837,7 +906,7 @@ namespace McStudDesktop.Services
                     int opTypeX = fields.OpType?.X ?? (fields.Description.Value.X - 150);
                     int opTypeY = fields.OpType?.Y ?? fields.Description.Value.Y;
                     Debug.WriteLine($"[CCC-Web] Step 4: Click Op Type at ({opTypeX}, {opTypeY})");
-                    SetCursorPos(opTypeX, opTypeY);
+                    MoveCursorTo(opTypeX, opTypeY);
                     await Task.Delay(30, _cts.Token);
                     LeftClick();
                     await Task.Delay(ExpandDelay, _cts.Token);
@@ -854,7 +923,7 @@ namespace McStudDesktop.Services
 
                     // --- STEP 5: Click Description field and type ---
                     Debug.WriteLine($"[CCC-Web] Step 5: Click Description at ({fields.Description.Value.X}, {fields.Description.Value.Y})");
-                    SetCursorPos(fields.Description.Value.X, fields.Description.Value.Y);
+                    MoveCursorTo(fields.Description.Value.X, fields.Description.Value.Y);
                     await Task.Delay(30, _cts.Token);
                     LeftClick();
                     await Task.Delay(TabDelay, _cts.Token);
@@ -890,13 +959,28 @@ namespace McStudDesktop.Services
 
                             if (!descFound)
                             {
-                                Debug.WriteLine($"[CCC-Web] Step 5b: Description NOT found on screen — click missed, retrying...");
-                                StatusChanged?.Invoke(this, $"Op {displayIndex}/{totalOps}: Re-typing description...");
+                                // Diagnostic: dump what OCR actually saw so we can tell WHY the verify
+                                // failed for this specific op — is the text at a different Y (a CCC
+                                // dropdown / shifted row), missing entirely (typing failed), or is
+                                // editRowY itself wrong (landed on the wrong row)?
+                                var nearRow = verifyOcr
+                                    .Where(w => Math.Abs((w.y + w.h / 2) - editRowY) < 60)
+                                    .OrderBy(w => w.x)
+                                    .Select(w => $"'{w.text}'@{(int)(w.x + w.w / 2)},{(int)(w.y + w.h / 2)}");
+                                var anyMatch = verifyOcr
+                                    .Where(w => w.text.IndexOf(verifyWord, StringComparison.OrdinalIgnoreCase) >= 0)
+                                    .Select(w => $"'{w.text}'@Y{(int)(w.y + w.h / 2)}");
+                                Debug.WriteLine($"[CCC-Web] Step 5b: could not OCR-confirm '{verifyWord}' within 40px of editRowY={editRowY} for op '{op.Description}' (type {op.OperationType})");
+                                Debug.WriteLine($"[CCC-Web] Step 5b: words on that row: {string.Join(" | ", nearRow)}");
+                                Debug.WriteLine($"[CCC-Web] Step 5b: '{verifyWord}' seen anywhere at: {string.Join(" | ", anyMatch)}");
 
-                                // Cancel this edit row and retry the whole op
-                                SendKeyPress(VK_ESCAPE);
-                                await Task.Delay(300, _cts.Token);
-                                continue; // retry this operation
+                                // DO NOT abandon the line here. The op type and description are already
+                                // entered on this row — pressing Escape and restarting from Insert Line
+                                // is exactly what caused the "type description → back to Insert Line" loop
+                                // on ops whose text the OCR can't confirm (e.g. "Welding Consumables",
+                                // "Jig Setup"). Keep the completed work and finish the line; the post-save
+                                // check (Step 10) is the real backstop if the text genuinely didn't land.
+                                Debug.WriteLine($"[CCC-Web] Step 5b: proceeding without abandoning the line — Step 10 will verify the save");
                             }
                             Debug.WriteLine($"[CCC-Web] Step 5b: Description verified on screen");
                         }
@@ -1059,7 +1143,7 @@ namespace McStudDesktop.Services
                         int qtyX = fields.Qty?.X ?? (fields.Description.Value.X + QtyXFromDescription);
                         int qtyY = fields.Qty?.Y ?? editRowY;
                         Debug.WriteLine($"[CCC-Web] Step 6: Click Qty at ({qtyX}, {qtyY}) → open popup");
-                        SetCursorPos(qtyX, qtyY);
+                        MoveCursorTo(qtyX, qtyY);
                         await Task.Delay(30, _cts.Token);
                         LeftClick();
                         await Task.Delay(ExpandDelay, _cts.Token);
@@ -1094,7 +1178,7 @@ namespace McStudDesktop.Services
                         int laborX = fields.Labor?.X ?? (fields.Description.Value.X + LaborXFromDescription);
                         int laborY = editRowY; // Always use live Y, not stale fields.Labor.Y
                         Debug.WriteLine($"[CCC-Web] Step 7: Click Labor at ({laborX}, {laborY}), type '{op.LaborHours}'");
-                        SetCursorPos(laborX, laborY);
+                        MoveCursorTo(laborX, laborY);
                         await Task.Delay(50, _cts.Token);
                         LeftClick();
                         await Task.Delay(100, _cts.Token);
@@ -1112,7 +1196,7 @@ namespace McStudDesktop.Services
                         int paintX = fields.Paint?.X ?? (fields.Description.Value.X + PaintXFromDescription);
                         int paintY = editRowY; // Always use live Y
                         Debug.WriteLine($"[CCC-Web] Step 8: Click Refinish at ({paintX}, {paintY}), type '{op.RefinishHours}'");
-                        SetCursorPos(paintX, paintY);
+                        MoveCursorTo(paintX, paintY);
                         await Task.Delay(50, _cts.Token);
                         LeftClick();
                         await Task.Delay(100, _cts.Token);
@@ -1202,7 +1286,7 @@ namespace McStudDesktop.Services
 
                     if (okPos != null)
                     {
-                        SetCursorPos(okPos.Value.X, okPos.Value.Y);
+                        MoveCursorTo(okPos.Value.X, okPos.Value.Y);
                         await Task.Delay(30, _cts.Token);
                         LeftClick();
                     }
@@ -1210,7 +1294,7 @@ namespace McStudDesktop.Services
                     {
                         int derivedOkX = cancelPos.Value.X - 85;
                         Debug.WriteLine($"[CCC-Web] Deriving OK from Cancel → ({derivedOkX}, {cancelPos.Value.Y})");
-                        SetCursorPos(derivedOkX, cancelPos.Value.Y);
+                        MoveCursorTo(derivedOkX, cancelPos.Value.Y);
                         await Task.Delay(30, _cts.Token);
                         LeftClick();
                     }
@@ -1272,35 +1356,49 @@ namespace McStudDesktop.Services
                             await Task.Delay(OkDelay, _cts.Token);
                         }
 
-                        // Check that our description text appears on a collapsed row
-                        string[] saveVerifyWords = op.Description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        string saveVerifyWord = saveVerifyWords.Where(w => w.Length >= 3).FirstOrDefault()
-                            ?? (saveVerifyWords.Length > 0 ? saveVerifyWords[0] : "");
-                        if (saveVerifyWord.Length >= 2)
+                        // Pick an OCR-FRIENDLY verify word: the longest purely-alphabetic word in the
+                        // description. Avoids tokens OCR mangles — "R&I" (read as "R&l"), "1x", digits —
+                        // which caused false "not found" and, via the retry, DUPLICATE rows.
+                        var descTokens = op.Description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        string saveVerifyWord =
+                            descTokens.Where(w => w.Length >= 4 && w.All(char.IsLetter))
+                                      .OrderByDescending(w => w.Length).FirstOrDefault()
+                            ?? descTokens.Where(w => w.Length >= 3)
+                                      .OrderByDescending(w => w.Length).FirstOrDefault()
+                            ?? "";
+
+                        // Re-OCR + re-check edit mode after the fallback Enter above.
+                        if (stillEditing)
                         {
-                            if (stillEditing)
-                            {
-                                // Re-OCR after the fallback Enter
-                                saveCheckWords = await OcrFullScreen();
-                                GetWindowRect(targetWindow, out RECT sv2Rect);
-                                saveCheckWords = saveCheckWords.Where(w =>
-                                    w.x + w.w / 2 >= sv2Rect.Left && w.x + w.w / 2 <= sv2Rect.Right &&
-                                    w.y + w.h / 2 >= sv2Rect.Top && w.y + w.h / 2 <= sv2Rect.Bottom).ToList();
-                            }
+                            saveCheckWords = await OcrFullScreen();
+                            GetWindowRect(targetWindow, out RECT sv2Rect);
+                            saveCheckWords = saveCheckWords.Where(w =>
+                                w.x + w.w / 2 >= sv2Rect.Left && w.x + w.w / 2 <= sv2Rect.Right &&
+                                w.y + w.h / 2 >= sv2Rect.Top && w.y + w.h / 2 <= sv2Rect.Bottom).ToList();
+                            stillEditing = saveCheckWords.Any(w => w.text.Equals("Cancel", StringComparison.OrdinalIgnoreCase));
+                        }
 
-                            bool opOnScreen = saveCheckWords.Any(w =>
-                                w.text.IndexOf(saveVerifyWord, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                (w.y + w.h / 2) >= contentMinY && (w.y + w.h / 2) <= contentMaxY);
+                        bool opOnScreen = saveVerifyWord.Length >= 2 && saveCheckWords.Any(w =>
+                            w.text.IndexOf(saveVerifyWord, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                            (w.y + w.h / 2) >= contentMinY && (w.y + w.h / 2) <= contentMaxY);
 
-                            if (!opOnScreen)
-                            {
-                                Debug.WriteLine($"[CCC-Web] Step 10: FAILED — '{saveVerifyWord}' not found on estimate after save");
-                                saveVerified = false;
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"[CCC-Web] Step 10: Verified — '{saveVerifyWord}' found on estimate");
-                            }
+                        if (opOnScreen)
+                        {
+                            Debug.WriteLine($"[CCC-Web] Step 10: Verified — '{saveVerifyWord}' found on estimate");
+                        }
+                        else if (stillEditing)
+                        {
+                            // Edit mode never closed, even after the fallback Enter → the op genuinely
+                            // did NOT save. Retrying is correct here.
+                            Debug.WriteLine($"[CCC-Web] Step 10: FAILED — still in edit mode and '{saveVerifyWord}' not found → save failed, will retry");
+                            saveVerified = false;
+                        }
+                        else
+                        {
+                            // Edit mode DID close (Cancel gone) = CCC accepted the save; the row IS added.
+                            // We just couldn't OCR-confirm the text (OCR-hostile string). Do NOT retry —
+                            // re-adding here is exactly what created the DUPLICATE rows (e.g. R&I x3).
+                            Debug.WriteLine($"[CCC-Web] Step 10: '{saveVerifyWord}' not OCR-confirmed, but edit mode closed → treating as SAVED (not retrying — avoids duplicate)");
                         }
                     }
 
@@ -1313,6 +1411,7 @@ namespace McStudDesktop.Services
                     successCount++;
                     lastEditRowX = fields.Description.Value.X;
                     lastEditRowY = fields.Description.Value.Y;
+                    prevAddedDescription = lastAddedDescription; // capture prior op before overwriting
                     lastAddedDescription = op.Description;
 
                     // OCR-scan to find the collapsed row of the op we just added,
@@ -1334,9 +1433,12 @@ namespace McStudDesktop.Services
                                 w.y + w.h / 2 >= psRect.Top && w.y + w.h / 2 <= psRect.Bottom).ToList();
                         }
 
-                        // Build search words from description (use first 3 usable words)
+                        // Build search words from the description. Use MORE than the first few words so
+                        // prefix-sharing ops ("Color Tint (2-Stage)" vs "Color Tint (2-Stage) Second
+                        // Color ...") score differently and don't tie — the extra words are what tell the
+                        // near-identical refinish lines apart.
                         string[] descWords = op.Description.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                        var searchWords = descWords.Where(w => w.Length >= 2).Take(3).ToArray();
+                        var searchWords = descWords.Where(w => w.Length >= 2).Take(8).ToArray();
                         string primaryWord = searchWords.Length > 0 ? searchWords[0] : "";
                         // Use second word as primary if first is too short (e.g., "RT", "LT")
                         if (primaryWord.Length < 3 && searchWords.Length > 1)
@@ -1394,39 +1496,88 @@ namespace McStudDesktop.Services
                                     matchInfo += $"+OpType({expectedOpType})";
                                 }
 
-                                // Proximity to last edit position (closer = slight bonus)
-                                double distFromEdit = Math.Abs(candY - lastEditRowY);
-
                                 scoredCandidates.Add((score, candY, candX, matchInfo));
-                                Debug.WriteLine($"[CCC-Web] PostSave candidate: Y={candY:F0} score={score} dist={distFromEdit:F0} [{matchInfo}]");
+                                Debug.WriteLine($"[CCC-Web] PostSave candidate: Y={candY:F0} score={score} dist={Math.Abs(candY - lastEditRowY):F0} [{matchInfo}]");
                             }
 
                             if (scoredCandidates.Count > 0)
                             {
-                                // Pick highest score, break ties by closest to lastEditRowY
-                                var best = scoredCandidates
-                                    .OrderByDescending(c => c.score)
-                                    .ThenBy(c => Math.Abs(c.y - lastEditRowY))
-                                    .First();
+                                // Keep only the strongest full-text matches. Because we now match on MORE
+                                // of the description (above), prefix-sharing ops like "Color Tint (2-Stage)"
+                                // vs "Color Tint (2-Stage) Second Color ..." score differently, so the
+                                // winner is usually a single row.
+                                int maxScore = scoredCandidates.Max(c => c.score);
+                                var bestRows = scoredCandidates
+                                    .Where(c => c.score == maxScore)
+                                    .OrderBy(c => c.y)   // top-to-bottom, WITHIN this one screenshot only
+                                    .ToList();
+
+                                // The op we JUST added always stacks BELOW any earlier row with the same
+                                // (visible) text — CCC inserts downward and we add in order. So among tied
+                                // best matches, ours is the BOTTOM-most. This compares Y only within a single
+                                // frame, so scrolling between ops can't scramble the pick, and it handles both
+                                // prefix-sharing/truncated refinish lines AND truly identical descriptions.
+                                var best = bestRows.Last();
 
                                 foundRowY = (int)best.y;
                                 foundRowX = (int)best.x;
-                                Debug.WriteLine($"[CCC-Web] Best match: Y={foundRowY} score={best.score} [{best.matchInfo}] [edit was at Y={lastEditRowY}]");
+                                Debug.WriteLine($"[CCC-Web] Best match: Y={foundRowY} score={best.score} [{best.matchInfo}] [bottom-most of {bestRows.Count} tied @score{maxScore}, candidates={scoredCandidates.Count}, editRowY={lastEditRowY}]");
+
+                                // Remember where THIS op landed so the next op is found below it.
+                                lastAddedRowY = foundRowY;
+
+                                // ===== DIAGNOSTIC: INSERT DIRECTION (same screenshot → scroll-independent) =====
+                                // Find the PREVIOUS op's row in THIS same post-save scan and compare Y.
+                                // this op BELOW prev  → CCC inserts downward;  ABOVE → upward.
+                                // Same frame, so scrolling between ops can't skew the comparison.
+                                if (prevAddedDescription != null)
+                                {
+                                    var pw = prevAddedDescription
+                                        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                        .FirstOrDefault(w => w.Length >= 3);
+                                    if (!string.IsNullOrEmpty(pw))
+                                    {
+                                        var prevMatch = postSaveWords
+                                            .Where(w => w.text.IndexOf(pw, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                                                        w.y + w.h / 2 >= contentMinY && w.y + w.h / 2 <= contentMaxY)
+                                            .OrderBy(w => Math.Abs((w.y + w.h / 2) - foundRowY))
+                                            .FirstOrDefault();
+                                        if (prevMatch.text != null)
+                                        {
+                                            int prevRowY = (int)(prevMatch.y + prevMatch.h / 2);
+                                            string dir = foundRowY > prevRowY + 6 ? "BELOW"
+                                                       : foundRowY < prevRowY - 6 ? "ABOVE" : "SAME-Y";
+                                            Debug.WriteLine($"[CCC-Web] DIRECTION (same frame): this op '{op.Description}' Y={foundRowY}  vs  prev op '{prevAddedDescription}' Y={prevRowY}  → this op is {dir} the previous one");
+                                        }
+                                        else
+                                        {
+                                            Debug.WriteLine($"[CCC-Web] DIRECTION: prev op '{prevAddedDescription}' (word '{pw}') not visible in this frame — can't compare");
+                                        }
+                                    }
+                                }
+                                // Secondary signal: where this op landed vs where we clicked Insert Line for it.
+                                Debug.WriteLine($"[CCC-Web] DIRECTION: clicked Insert Line at Y={lastInsertLineY}, this op landed at Y={foundRowY} (delta={foundRowY - lastInsertLineY})");
                             }
                         }
 
                         if (foundRowY > 0)
                         {
-                            // Find the NEXT distinct operation row below our found row.
-                            // Look for rows that contain op type keywords (Replace, Repair, R&I, etc.)
-                            // which are always visible on collapsed CCC Web rows.
-                            // This avoids matching diagram text, action bar remnants, or headers.
+                            // Find the NEXT operation row just below the one we added. CRITICAL: only look
+                            // a SHORT distance below. When the op we just added is the last one on the list,
+                            // there's no adjacent row — and an unbounded search reaches ~130px+ down into the
+                            // vehicle DIAGRAM and caches that as the next click spot, so it clicks the diagram
+                            // and selects a panel (the cowl!). A real adjacent row is ~one row-height (≈72px)
+                            // away, so cap the search window.
+                            const int MaxNextGap = 110;
+                            int searchFloor = foundRowY + 12;
+                            int searchCeil = Math.Min(contentMaxY, foundRowY + MaxNextGap);
+
                             var opTypeKeywords = new[] { "Replace", "Repair", "R&I", "R&l", "Blend", "Refinish", "Sublet", "PDR", "Align", "Section", "R&i" };
 
-                            // First try: find next row with an op type keyword
+                            // First try: next row with an op type keyword, within reach
                             var nextOpRows = postSaveWords
-                                .Where(w => (w.y + w.h / 2) > foundRowY + 12 &&
-                                            (w.y + w.h / 2) <= contentMaxY &&
+                                .Where(w => (w.y + w.h / 2) > searchFloor &&
+                                            (w.y + w.h / 2) <= searchCeil &&
                                             opTypeKeywords.Any(k => w.text.Equals(k, StringComparison.OrdinalIgnoreCase)))
                                 .OrderBy(w => w.y)
                                 .ToList();
@@ -1434,18 +1585,16 @@ namespace McStudDesktop.Services
                             if (nextOpRows.Count > 0)
                             {
                                 int nextLineY = (int)(nextOpRows[0].y + nextOpRows[0].h / 2);
-                                // Use the X position from that op type word — it's reliably in the op row
-                                // But for clicking, we want the description column X, so keep foundRowX
                                 Debug.WriteLine($"[CCC-Web] Next op row (by op type keyword '{nextOpRows[0].text}') at Y={nextLineY} (gap={nextLineY - foundRowY}px)");
                                 lastEditRowY = nextLineY;
                                 lastEditRowX = foundRowX;
                             }
                             else
                             {
-                                // Fallback: find any distinct row below with text in the description X range
+                                // Fallback: any distinct row below in the description column — still within reach.
                                 var belowWords = postSaveWords
-                                    .Where(w => (w.y + w.h / 2) > foundRowY + 12 &&
-                                                (w.y + w.h / 2) <= contentMaxY &&
+                                    .Where(w => (w.y + w.h / 2) > searchFloor &&
+                                                (w.y + w.h / 2) <= searchCeil &&
                                                 Math.Abs((w.x + w.w / 2) - foundRowX) < 200) // Near the description column
                                     .OrderBy(w => w.y)
                                     .ToList();
@@ -1459,10 +1608,12 @@ namespace McStudDesktop.Services
                                 }
                                 else
                                 {
-                                    // Last resort — estimated offset
-                                    Debug.WriteLine($"[CCC-Web] No line found below Y={foundRowY}, using foundRow + 30");
-                                    lastEditRowY = foundRowY + 30;
+                                    // No adjacent row within reach → the op we just added is the last on the
+                                    // list. Aim one row-height below it — still in the estimate, clear of the
+                                    // diagram — instead of chasing a far match down into the diagram.
+                                    lastEditRowY = foundRowY + 72;
                                     lastEditRowX = foundRowX;
+                                    Debug.WriteLine($"[CCC-Web] No adjacent row within {MaxNextGap}px below Y={foundRowY} — using foundRow + 72 = {lastEditRowY} (stays clear of diagram)");
                                 }
                             }
                         }
@@ -1551,6 +1702,18 @@ namespace McStudDesktop.Services
             {
                 RemoveInputHooks();
                 _isInserting = false;
+
+                if (runLog != null)
+                {
+                    try
+                    {
+                        Debug.WriteLine($"[CCC-Web] ===== Insert run ended: {successCount}/{totalOps} inserted @ {DateTime.Now:HH:mm:ss} =====");
+                        runLog.Flush();
+                        System.Diagnostics.Trace.Listeners.Remove(runLog);
+                        runLog.Dispose();
+                    }
+                    catch { /* logging must never crash the run */ }
+                }
             }
         }
 
@@ -1571,6 +1734,24 @@ namespace McStudDesktop.Services
         private void InstallInputHooks()
         {
             _userInputDetected = false;
+
+            // Baseline the expected cursor position to wherever it is right now, so the very
+            // first real movement is measured against a sane reference (avoids a false stop).
+            if (GetCursorPos(out POINT p)) { _expectedCursorX = p.X; _expectedCursorY = p.Y; }
+
+            // Install the hooks on a DEDICATED thread with its own message pump. This is the fix
+            // for "I clicked and it kept going" — the automation thread constantly blocks (sleeps,
+            // screen-capture, OCR), which starves hooks living on it and makes Windows silently
+            // drop events. A dedicated pump thread is never blocked, so the stop always fires.
+            _hookThread = new Thread(HookThreadProc) { IsBackground = true, Name = "CccWebSafetyHooks" };
+            _hookThread.SetApartmentState(ApartmentState.STA);
+            _hookThread.Start();
+            Debug.WriteLine("[CCC-Web] Safety hook thread starting...");
+        }
+
+        private void HookThreadProc()
+        {
+            _hookThreadId = GetCurrentThreadId();
             var moduleHandle = GetModuleHandle(null);
 
             _mouseProc = MouseHookCallback;
@@ -1578,27 +1759,32 @@ namespace McStudDesktop.Services
 
             _mouseHook = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, moduleHandle, 0);
             _keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, _keyboardProc, moduleHandle, 0);
+            Debug.WriteLine($"[CCC-Web] Safety hooks installed on dedicated thread (mouse={_mouseHook != IntPtr.Zero}, kb={_keyboardHook != IntPtr.Zero})");
 
-            Debug.WriteLine($"[CCC-Web] Safety hooks installed (mouse={_mouseHook != IntPtr.Zero}, kb={_keyboardHook != IntPtr.Zero})");
+            // Tight message pump — does nothing but keep the hooks serviced.
+            while (GetMessage(out MSG msg, IntPtr.Zero, 0, 0) > 0)
+            {
+                TranslateMessage(ref msg);
+                DispatchMessage(ref msg);
+            }
+
+            if (_mouseHook != IntPtr.Zero) { UnhookWindowsHookEx(_mouseHook); _mouseHook = IntPtr.Zero; }
+            if (_keyboardHook != IntPtr.Zero) { UnhookWindowsHookEx(_keyboardHook); _keyboardHook = IntPtr.Zero; }
+            _mouseProc = null;
+            _keyboardProc = null;
+            Debug.WriteLine("[CCC-Web] Safety hook thread exited");
         }
 
         /// <summary>
-        /// Removes the input hooks
+        /// Removes the input hooks by asking the dedicated thread to quit its message pump.
         /// </summary>
         private void RemoveInputHooks()
         {
-            if (_mouseHook != IntPtr.Zero)
-            {
-                UnhookWindowsHookEx(_mouseHook);
-                _mouseHook = IntPtr.Zero;
-            }
-            if (_keyboardHook != IntPtr.Zero)
-            {
-                UnhookWindowsHookEx(_keyboardHook);
-                _keyboardHook = IntPtr.Zero;
-            }
-            _mouseProc = null;
-            _keyboardProc = null;
+            if (_hookThreadId != 0)
+                PostThreadMessage(_hookThreadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
+            try { _hookThread?.Join(1500); } catch { /* ignore */ }
+            _hookThread = null;
+            _hookThreadId = 0;
             Debug.WriteLine($"[CCC-Web] Safety hooks removed");
         }
 
@@ -1619,6 +1805,27 @@ namespace McStudDesktop.Services
                         _cts?.Cancel();
                     }
                 }
+                else if (msg == WM_MOUSEMOVE)
+                {
+                    // Ignore our own injected moves; for a real hardware move, only react if it
+                    // lands meaningfully far from where WE last put the cursor. That distinguishes
+                    // the user's hand from the automation's own SetCursorPos, even if a given
+                    // Windows build doesn't flag SetCursorPos moves as injected.
+                    uint flags = (uint)Marshal.ReadInt32(lParam, 12);
+                    if ((flags & 0x01) == 0)
+                    {
+                        int mx = Marshal.ReadInt32(lParam, 0);
+                        int my = Marshal.ReadInt32(lParam, 4);
+                        long dx = mx - _expectedCursorX;
+                        long dy = my - _expectedCursorY;
+                        if (dx * dx + dy * dy > (long)MoveStopThresholdPx * MoveStopThresholdPx)
+                        {
+                            Debug.WriteLine($"[CCC-Web] SAFETY: User mouse move detected (at {mx},{my} vs expected {_expectedCursorX},{_expectedCursorY}) — stopping");
+                            _userInputDetected = true;
+                            _cts?.Cancel();
+                        }
+                    }
+                }
             }
             return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
         }
@@ -1631,13 +1838,12 @@ namespace McStudDesktop.Services
                 uint flags = (uint)Marshal.ReadInt32(lParam, 8);
                 if ((flags & 0x10) == 0) // NOT injected = real user key
                 {
+                    // ANY real key stops the sequence (the program's own typing is injected, so
+                    // it's filtered out by the check above and never trips this).
                     int vkCode = Marshal.ReadInt32(lParam);
-                    if (vkCode == VK_ESCAPE)
-                    {
-                        Debug.WriteLine($"[CCC-Web] SAFETY: User pressed Escape — stopping");
-                        _userInputDetected = true;
-                        _cts?.Cancel();
-                    }
+                    Debug.WriteLine($"[CCC-Web] SAFETY: User key {vkCode} detected — stopping");
+                    _userInputDetected = true;
+                    _cts?.Cancel();
                 }
             }
             return CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
@@ -1698,53 +1904,32 @@ namespace McStudDesktop.Services
                 {
                     int liveY = (int)(match.y + match.h / 2);
                     int liveX = (int)(match.x + match.w / 2);
-                    if (Math.Abs(liveY - expectedY) <= 15)
+                    int shift = Math.Abs(liveY - expectedY);
+
+                    if (shift <= 15)
+                        return null; // still in place — no action needed
+
+                    // Only accept a small, plausible shift. A match well away from where we expect
+                    // the row is almost always a DECOY, not the row moving — e.g. CCC's autocomplete
+                    // dropdown showing the same description ~50px below the field. Chasing it sends
+                    // every later click to the wrong Y. Ignore it and keep the known position.
+                    if (shift <= 45)
                     {
-                        // Still in place — no action needed
-                        return null;
+                        Debug.WriteLine($"[CCC-Web] EnsureVisible: Edit row shifted from Y={expectedY} to Y={liveY}");
+                        return (liveX, liveY);
                     }
-                    // Moved but still visible — return updated position
-                    Debug.WriteLine($"[CCC-Web] EnsureVisible: Edit row shifted from Y={expectedY} to Y={liveY}");
-                    return (liveX, liveY);
+
+                    Debug.WriteLine($"[CCC-Web] EnsureVisible: ignoring far '{searchWord}' match at Y={liveY} (expected {expectedY}, {shift}px) — likely a dropdown decoy, keeping known position");
+                    return null;
                 }
 
-                // Not visible — scroll to find it
-                Debug.WriteLine($"[CCC-Web] EnsureVisible: Edit row not on screen (expected Y={expectedY}), scrolling...");
-                if (browserWindow == IntPtr.Zero) return null;
-
-                GetWindowRect(browserWindow, out RECT scrollBounds);
-                int scrollX = (scrollBounds.Left + scrollBounds.Right) / 2;
-                int scrollY = (scrollBounds.Top + scrollBounds.Bottom) / 2;
-
-                for (int attempt = 0; attempt < 4; attempt++)
-                {
-                    CheckUserInput();
-                    // Alternate up/down: up first (user likely scrolled down)
-                    int dir = (attempt % 2 == 0) ? -2 : 2;
-                    ScrollDown(scrollX, scrollY, dir);
-                    await Task.Delay(400, _cts!.Token);
-
-                    var scrollWords = await OcrFullScreen();
-                    GetWindowRect(browserWindow, out RECT sRect);
-                    scrollWords = scrollWords.Where(w =>
-                        w.x + w.w / 2 >= sRect.Left && w.x + w.w / 2 <= sRect.Right &&
-                        w.y + w.h / 2 >= sRect.Top && w.y + w.h / 2 <= sRect.Bottom).ToList();
-
-                    var reMatch = scrollWords
-                        .Where(w => w.text.IndexOf(searchWord, StringComparison.OrdinalIgnoreCase) >= 0)
-                        .OrderBy(w => w.y)
-                        .FirstOrDefault();
-
-                    if (reMatch.text != null)
-                    {
-                        int foundY = (int)(reMatch.y + reMatch.h / 2);
-                        int foundX = (int)(reMatch.x + reMatch.w / 2);
-                        Debug.WriteLine($"[CCC-Web] EnsureVisible: Found edit row after scroll at Y={foundY}");
-                        return (foundX, foundY);
-                    }
-                }
-
-                Debug.WriteLine($"[CCC-Web] EnsureVisible: Could not find edit row after scrolling");
+                // Couldn't confirm the row by text. This is common when OCR garbles the typed text
+                // (e.g. "Welding" -> "Weldinq") — but the row has NOT actually moved. Do NOT scroll:
+                // the safety hooks stop the run the instant the user touches anything, so nothing but
+                // our own automation can move the row, and we no longer scroll here. Scrolling to
+                // "find" a row that's already on screen just pushes it around (the up/down dance).
+                // Keep the known position and let the field detection re-OCR from there.
+                Debug.WriteLine($"[CCC-Web] EnsureVisible: could not confirm row by text (expected Y={expectedY}) — keeping known position, not scrolling");
                 return null;
             }
             catch (Exception ex)
@@ -1823,10 +2008,17 @@ namespace McStudDesktop.Services
 
                 if (scored.Count == 0) return null;
 
-                var best = scored.OrderByDescending(c => c.score).First();
+                // For a multi-word description, a lone primary-word hit (score 1) isn't enough —
+                // require the primary PLUS another word or the op type (score >= 3) so a bare
+                // "Cover" can't lock onto diagram text or the wrong row. Fall back only if nothing qualifies.
+                bool multiWord = searchWords.Length > 1;
+                var qualified = multiWord ? scored.Where(c => c.score >= 3).ToList() : scored;
+                if (qualified.Count == 0) qualified = scored;
+
+                var best = qualified.OrderByDescending(c => c.score).First();
                 int foundRowY = (int)best.y;
                 int foundRowX = (int)best.x;
-                Debug.WriteLine($"[CCC-Web] Recovery OCR: Found last op '{primaryWord}' at ({foundRowX}, {foundRowY}), score={best.score}");
+                Debug.WriteLine($"[CCC-Web] Recovery OCR: Found last op '{primaryWord}' at ({foundRowX}, {foundRowY}), score={best.score} (multiWord={multiWord}, qualified={qualified.Count}/{scored.Count})");
 
                 // Find next op row below
                 var opTypeKeywords = new[] { "Replace", "Repair", "R&I", "R&l", "Blend", "Refinish", "Sublet", "PDR", "Align", "Section", "R&i" };
@@ -2716,8 +2908,22 @@ namespace McStudDesktop.Services
             }
         }
 
+        /// <summary>
+        /// Moves the cursor and records where WE put it, so the safety hook can tell our own
+        /// movement apart from the user's. Throws immediately if a stop was requested, so the
+        /// very next action after the user touches anything is blocked (near-instant abort).
+        /// </summary>
+        private void MoveCursorTo(int x, int y)
+        {
+            CheckUserInput();
+            _expectedCursorX = x;
+            _expectedCursorY = y;
+            SetCursorPosNative(x, y);
+        }
+
         private void LeftClick()
         {
+            CheckUserInput();
             _automationClicking = true;
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
             Thread.Sleep(20);
@@ -2730,8 +2936,9 @@ namespace McStudDesktop.Services
         /// </summary>
         private void ScrollDown(int x, int y, int clicks)
         {
+            CheckUserInput();
             _automationClicking = true;
-            SetCursorPos(x, y);
+            MoveCursorTo(x, y);
             // Negative delta = scroll down, 120 per click
             mouse_event(MOUSEEVENTF_WHEEL, 0, 0, (uint)(-120 * clicks), UIntPtr.Zero);
             _automationClicking = false;
@@ -2860,7 +3067,7 @@ namespace McStudDesktop.Services
                     int priceInputX = (int)(popupPrice.x + popupPrice.w / 2);
                     int priceInputY = (int)(popupPrice.y + popupPrice.h + 12); // Below the label
                     Debug.WriteLine($"[CCC-Web] Popup: Found 'Price' label at ({popupPrice.x + popupPrice.w/2:F0}, {popupPrice.y + popupPrice.h/2:F0}), clicking input at ({priceInputX}, {priceInputY})");
-                    SetCursorPos(priceInputX, priceInputY);
+                    MoveCursorTo(priceInputX, priceInputY);
                     await Task.Delay(50, _cts.Token);
                     LeftClick();
                     await Task.Delay(100, _cts.Token);
@@ -2904,7 +3111,7 @@ namespace McStudDesktop.Services
                     int okX = (int)(popupOk.x + popupOk.w / 2);
                     int okY = (int)(popupOk.y + popupOk.h / 2);
                     Debug.WriteLine($"[CCC-Web] Popup: Clicking OK at ({okX}, {okY})");
-                    SetCursorPos(okX, okY);
+                    MoveCursorTo(okX, okY);
                     await Task.Delay(50, _cts.Token);
                     LeftClick();
                 }
@@ -2932,6 +3139,7 @@ namespace McStudDesktop.Services
         /// </summary>
         private void TripleClick()
         {
+            CheckUserInput();
             _automationClicking = true;
             for (int i = 0; i < 3; i++)
             {

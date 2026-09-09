@@ -425,6 +425,7 @@ public class PPFPricingService
             existing.Name = product.Name;
             existing.Description = product.Description;
             existing.PriceMultiplier = product.PriceMultiplier;
+            existing.Price = product.Price;
         }
         else
         {
@@ -835,6 +836,10 @@ public class CustomProduct
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public double PriceMultiplier { get; set; } = 1.0;
+
+    // Absolute per-unit price the shop charges for this product (e.g. a coating brand).
+    // Used as a preset when adding a product line to a quote.
+    public decimal Price { get; set; }
 }
 
 public class PPFQuote

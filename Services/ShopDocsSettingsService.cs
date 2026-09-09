@@ -369,6 +369,13 @@ namespace McStudDesktop.Services
         public string CustomDocsFolder { get; set; } = "";
         public bool UseCustomFolder { get; set; }
         public List<DocumentSource> DocumentSources { get; set; } = new();
+
+        // Optional letterhead — only added to printed documents when ShowLetterhead is true.
+        public bool ShowLetterhead { get; set; } = false;
+        public string ShopAddress { get; set; } = "";
+        public string ShopPhone { get; set; } = "";
+        public string ShopEmail { get; set; } = "";
+        public string ShopLogoPath { get; set; } = "";
     }
 
     public class DocumentSource

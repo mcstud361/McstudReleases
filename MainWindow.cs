@@ -131,6 +131,9 @@ public sealed class MainWindow : Window
         RootGrid.Children.Add(_contentGrid);
         Content = RootGrid;
 
+        // Wire the CCC Web insert safety banner (shows an always-on-top warning during inserts).
+        SafetyBanner.Attach();
+
         // Check for admin mode (hold Shift on launch or command line arg)
         CheckAdminMode();
 

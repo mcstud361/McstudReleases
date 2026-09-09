@@ -70,6 +70,10 @@ public class TemplateFormBuilder : UserControl
     private StackPanel? _formContent;
     private Border? _editModeIndicator;
 
+    // Dedicated checklist-style editor (opened by the Edit button as a full overlay).
+    private Border? _editorOverlay;
+    private TemplateEditorView? _editor;
+
     // Field value storage (fieldId -> value)
     private Dictionary<string, object> _fieldValues = new();
     private Dictionary<string, UIElement> _fieldControls = new();
@@ -156,7 +160,39 @@ public class TemplateFormBuilder : UserControl
         Grid.SetRow(scroll, 1);
         mainGrid.Children.Add(scroll);
 
+        // Dedicated checklist-style editor overlay — covers the header + form while editing,
+        // so customizing a doc feels exactly like customizing a checklist.
+        _editor = new TemplateEditorView();
+        _editor.SaveRequested += (s, e) => CloseEditor();
+        _editor.CloseRequested += (s, e) => CloseEditor();
+
+        _editorOverlay = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(255, 25, 25, 25)),
+            Visibility = Visibility.Collapsed,
+            Child = _editor
+        };
+        Grid.SetRow(_editorOverlay, 0);
+        Grid.SetRowSpan(_editorOverlay, 2);
+        mainGrid.Children.Add(_editorOverlay);
+
         Content = mainGrid;
+    }
+
+    /// <summary>
+    /// Closes the editor overlay and refreshes the fill-in form to reflect any structural
+    /// changes. The editor mutated this same template object in place (auto-saving as it went,
+    /// or restoring the snapshot on Cancel), so we just re-render and update the dropdown label.
+    /// </summary>
+    private void CloseEditor()
+    {
+        if (_editorOverlay != null) _editorOverlay.Visibility = Visibility.Collapsed;
+
+        if (_templateSelector?.SelectedItem is ComboBoxItem item && _currentTemplate != null)
+            item.Content = _currentTemplate.Name;
+
+        RenderForm();
+        if (_currentTemplate != null) TemplateChanged?.Invoke(this, _currentTemplate);
     }
 
     private UIElement BuildHeader()
@@ -1260,13 +1296,10 @@ public class TemplateFormBuilder : UserControl
     {
         if (_currentTemplate == null || _currentTemplate.IsReadOnly) return;
 
-        _isEditMode = true;
-        _editModeIndicator!.Visibility = Visibility.Visible;
-        _editButton!.Visibility = Visibility.Collapsed;
-        _saveButton!.Visibility = Visibility.Visible;
-        _makeCopyButton!.IsEnabled = false;
-
-        RenderForm();
+        // Open the dedicated, checklist-style editor overlay instead of the old inline
+        // edit-mode. The editor edits this same template object and auto-saves as you go.
+        _editor?.LoadTemplate(_currentTemplate);
+        if (_editorOverlay != null) _editorOverlay.Visibility = Visibility.Visible;
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)

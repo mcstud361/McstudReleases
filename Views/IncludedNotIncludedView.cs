@@ -442,13 +442,11 @@ namespace McStudDesktop.Views
                             BorderThickness = new Thickness(0),
                             Padding = new Thickness(0)
                         };
-                        var capturedDeg = deg;
                         degLink.Click += (s, e) =>
                         {
                             try
                             {
-                                var query = Uri.EscapeDataString($"DEG inquiry {capturedDeg}");
-                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = $"https://degweb.org/search?q={query}", UseShellExecute = true });
+                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "https://degweb.org/deg-database/", UseShellExecute = true });
                             }
                             catch { }
                         };

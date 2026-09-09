@@ -118,21 +118,8 @@ public sealed class LaborRatesView : UserControl
 
         var headerContent = new StackPanel { Spacing = 12 };
 
-        headerContent.Children.Add(new TextBlock
-        {
-            Text = "Vendor Information",
-            FontSize = 22,
-            FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-            Foreground = new SolidColorBrush(Colors.White)
-        });
-
-        headerContent.Children.Add(new TextBlock
-        {
-            Text = "Manage vendor contacts, labor rates, and parts information. Search by name, manufacturer, contact, or address.",
-            FontSize = 13,
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
-            TextWrapping = TextWrapping.Wrap
-        });
+        // Blue title-bar card matching the blueprint checklist / other Shop Docs
+        headerContent.Children.Add(ShopDocHeader.Build("Vendor Information"));
 
         var searchRow = new Grid
         {

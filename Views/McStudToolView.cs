@@ -1697,6 +1697,160 @@ namespace McStudDesktop.Views
             };
             shopNameStack.Children.Add(userNameBox);
 
+            // === Optional letterhead (address / phone / email / logo on printed docs) ===
+            var letterheadCheck = new CheckBox
+            {
+                Content = "Add letterhead (address, phone, email, logo) to printed documents",
+                IsChecked = shopDocsSettings.ShowLetterhead,
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 12,
+                Margin = new Thickness(0, 14, 0, 0)
+            };
+            letterheadCheck.Checked += (s, e) =>
+            {
+                var st = ShopDocsSettingsService.Instance.GetSettings();
+                st.ShowLetterhead = true;
+                ShopDocsSettingsService.Instance.SaveSettings(st);
+            };
+            letterheadCheck.Unchecked += (s, e) =>
+            {
+                var st = ShopDocsSettingsService.Instance.GetSettings();
+                st.ShowLetterhead = false;
+                ShopDocsSettingsService.Instance.SaveSettings(st);
+            };
+            shopNameStack.Children.Add(letterheadCheck);
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Only added to invoices and tow bills when the box above is checked.",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150))
+            });
+
+            // Address
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Address",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+            var addressBox = new TextBox
+            {
+                Text = shopDocsSettings.ShopAddress ?? "",
+                PlaceholderText = "123 Main St, City, ST 12345",
+                FontSize = 13,
+                Width = 350,
+                Height = 60,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            addressBox.LostFocus += (s, e) =>
+            {
+                var st = ShopDocsSettingsService.Instance.GetSettings();
+                st.ShopAddress = addressBox.Text?.Trim() ?? "";
+                ShopDocsSettingsService.Instance.SaveSettings(st);
+            };
+            shopNameStack.Children.Add(addressBox);
+
+            // Phone
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Phone",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+            var phoneBox = new TextBox
+            {
+                Text = shopDocsSettings.ShopPhone ?? "",
+                PlaceholderText = "(555) 555-1234",
+                FontSize = 13,
+                Width = 350,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            phoneBox.LostFocus += (s, e) =>
+            {
+                var st = ShopDocsSettingsService.Instance.GetSettings();
+                st.ShopPhone = phoneBox.Text?.Trim() ?? "";
+                ShopDocsSettingsService.Instance.SaveSettings(st);
+            };
+            shopNameStack.Children.Add(phoneBox);
+
+            // Email
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Email",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+            var emailBox = new TextBox
+            {
+                Text = shopDocsSettings.ShopEmail ?? "",
+                PlaceholderText = "shop@email.com",
+                FontSize = 13,
+                Width = 350,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            emailBox.LostFocus += (s, e) =>
+            {
+                var st = ShopDocsSettingsService.Instance.GetSettings();
+                st.ShopEmail = emailBox.Text?.Trim() ?? "";
+                ShopDocsSettingsService.Instance.SaveSettings(st);
+            };
+            shopNameStack.Children.Add(emailBox);
+
+            // Logo
+            shopNameStack.Children.Add(new TextBlock
+            {
+                Text = "Logo",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 200, 200)),
+                Margin = new Thickness(0, 8, 0, 0)
+            });
+            var logoRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            var logoPathText = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(shopDocsSettings.ShopLogoPath)
+                    ? "(none)" : System.IO.Path.GetFileName(shopDocsSettings.ShopLogoPath),
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 150, 150, 150)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var browseLogoBtn = new Button { Content = "Browse…", FontSize = 12 };
+            browseLogoBtn.Click += async (s, e) =>
+            {
+                var picker = new Windows.Storage.Pickers.FileOpenPicker();
+                picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary;
+                picker.FileTypeFilter.Add(".png");
+                picker.FileTypeFilter.Add(".jpg");
+                picker.FileTypeFilter.Add(".jpeg");
+                picker.FileTypeFilter.Add(".bmp");
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(McstudDesktop.App.MainWindow);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+                var file = await picker.PickSingleFileAsync();
+                if (file != null)
+                {
+                    var st = ShopDocsSettingsService.Instance.GetSettings();
+                    st.ShopLogoPath = file.Path;
+                    ShopDocsSettingsService.Instance.SaveSettings(st);
+                    logoPathText.Text = file.Name;
+                }
+            };
+            var clearLogoBtn = new Button { Content = "Clear", FontSize = 12 };
+            clearLogoBtn.Click += (s, e) =>
+            {
+                var st = ShopDocsSettingsService.Instance.GetSettings();
+                st.ShopLogoPath = "";
+                ShopDocsSettingsService.Instance.SaveSettings(st);
+                logoPathText.Text = "(none)";
+            };
+            logoRow.Children.Add(browseLogoBtn);
+            logoRow.Children.Add(clearLogoBtn);
+            logoRow.Children.Add(logoPathText);
+            shopNameStack.Children.Add(logoRow);
+
             shopNameCard.Child = shopNameStack;
             mainStack.Children.Add(shopNameCard);
 

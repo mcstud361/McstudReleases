@@ -119,12 +119,12 @@ public class ProceduresView : UserControl
                     {
                         var item = new ProcedureItem
                         {
-                            Id = proc.GetProperty("id").GetString() ?? "",
-                            Name = proc.GetProperty("name").GetString() ?? "",
-                            Category = proc.GetProperty("category").GetString() ?? "",
-                            Operation = proc.GetProperty("operation").GetString() ?? "",
-                            PPageRef = proc.TryGetProperty("pPageRef", out var ppage) ? ppage.GetString() ?? "" : "",
-                            Description = proc.GetProperty("description").GetString() ?? "",
+                            Id = Str(proc, "id"),
+                            Name = Str(proc, "name"),
+                            Category = Str(proc, "category"),
+                            Operation = Str(proc, "operation"),
+                            PPageRef = Str(proc, "pPageRef"),
+                            Description = Str(proc, "description"),
                             TimeGuideline = GetTimeGuideline(proc),
                             Notes = proc.TryGetProperty("notes", out var notes) ? notes.GetString() ?? "" : ""
                         };
@@ -218,6 +218,11 @@ public class ProceduresView : UserControl
             _resultsPanel.Children.Add(errorText);
         }
     }
+
+    // Safe string reader — returns "" when the property is missing rather than throwing,
+    // so a single malformed procedure entry can't break the whole tab.
+    private static string Str(JsonElement el, string name)
+        => el.TryGetProperty(name, out var v) ? v.GetString() ?? "" : "";
 
     private string GetTimeGuideline(JsonElement proc)
     {

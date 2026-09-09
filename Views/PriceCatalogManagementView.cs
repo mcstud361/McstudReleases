@@ -342,34 +342,8 @@ public class PriceCatalogManagementView : UserControl
 
     private Border CreateHeader()
     {
-        var header = new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(255, 40, 40, 40)),
-            Padding = new Thickness(16),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 60, 60)),
-            BorderThickness = new Thickness(0, 0, 0, 1)
-        };
-
-        var headerContent = new StackPanel { Spacing = 4 };
-
-        headerContent.Children.Add(new TextBlock
-        {
-            Text = "Price Catalogs",
-            FontSize = 22,
-            FontWeight = FontWeights.Bold,
-            Foreground = new SolidColorBrush(Colors.White)
-        });
-
-        headerContent.Children.Add(new TextBlock
-        {
-            Text = "Import supplier price sheets for quick lookup. Search by part number, description, or category across all catalogs.",
-            FontSize = 13,
-            Foreground = new SolidColorBrush(TextMuted),
-            TextWrapping = TextWrapping.Wrap
-        });
-
-        header.Child = headerContent;
-        return header;
+        // Blue title-bar card matching the blueprint checklist / other Shop Docs
+        return ShopDocHeader.Build("Price Catalogs");
     }
 
     private Border CreateFooter()

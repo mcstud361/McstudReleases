@@ -91,6 +91,19 @@ namespace McStudDesktop.Services
         }
 
         /// <summary>
+        /// Resolves the shop name shown on generated documents. The Settings tab value
+        /// is the source of truth; falls back to the checklist's own stored name.
+        /// Keeps generated PDFs in sync with the on-screen preview and window title.
+        /// </summary>
+        private static string ResolveShopName(Checklist checklist)
+        {
+            var settingsName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+            if (!string.IsNullOrWhiteSpace(settingsName))
+                return settingsName;
+            return checklist.ShopName ?? "";
+        }
+
+        /// <summary>
         /// Generate printable HTML for a checklist
         /// </summary>
         public string GeneratePrintableHtml(Checklist checklist, string? roNumber = null)
@@ -198,7 +211,7 @@ namespace McStudDesktop.Services
 </head>
 <body>
     <div class='header'>
-        <h1>{checklist.ShopName ?? "Shop Name"}</h1>
+        <h1>{(string.IsNullOrWhiteSpace(ResolveShopName(checklist)) ? "Shop Name" : ResolveShopName(checklist))}</h1>
         <h2>{checklist.Title}</h2>
         {(string.IsNullOrEmpty(roNumber) ? $"<div class='ro-number'>RO # {new string('_', RoLineLength)}</div>" : $"<div class='ro-number'>RO # {roNumber}</div>")}
     </div>
@@ -321,7 +334,7 @@ namespace McStudDesktop.Services
                     .Background(Colors.Grey.Lighten3).Padding(6).AlignCenter()
                     .Text(text =>
                     {
-                        text.Span(string.IsNullOrEmpty(checklist.ShopName) ? "Quality Control" : $"{checklist.ShopName} Quality Control")
+                        text.Span(string.IsNullOrEmpty(ResolveShopName(checklist)) ? "Quality Control" : $"{ResolveShopName(checklist)} Quality Control")
                             .FontSize(titleFontSize).Bold();
                     });
 
@@ -591,7 +604,7 @@ namespace McStudDesktop.Services
                 {
                     column.Item().Background(Colors.White).Padding(6).Text(text =>
                     {
-                        text.Span(checklist.ShopName ?? "Shop").FontSize(11).Bold().FontColor(Colors.Black);
+                        text.Span(string.IsNullOrWhiteSpace(ResolveShopName(checklist)) ? "Shop" : ResolveShopName(checklist)).FontSize(11).Bold().FontColor(Colors.Black);
                         text.Span("  |  ").FontSize(9).FontColor(Colors.Grey.Medium);
                         text.Span(checklist.Title ?? "Checklist").FontSize(11).Bold().FontColor(Colors.Black);
                     });
@@ -600,7 +613,7 @@ namespace McStudDesktop.Services
                 else
                 {
                     column.Item().Background(Colors.White).PaddingTop(6).PaddingLeft(12).PaddingRight(12)
-                        .Text(checklist.ShopName ?? "Shop Name").FontSize(16).Bold().FontColor(Colors.Black);
+                        .Text(string.IsNullOrWhiteSpace(ResolveShopName(checklist)) ? "Shop Name" : ResolveShopName(checklist)).FontSize(16).Bold().FontColor(Colors.Black);
                     column.Item().Background(Colors.White).BorderBottom(1).BorderColor(Colors.Grey.Medium)
                         .PaddingLeft(12).PaddingRight(12).PaddingBottom(8)
                         .Text(checklist.Title ?? "Checklist").FontSize(14).Bold().FontColor(Colors.Black);
@@ -849,7 +862,7 @@ namespace McStudDesktop.Services
         /// </summary>
         public string GeneratePlainText(Checklist checklist)
         {
-            var text = $"{checklist.ShopName ?? "Shop"}\n";
+            var text = $"{(string.IsNullOrWhiteSpace(ResolveShopName(checklist)) ? "Shop" : ResolveShopName(checklist))}\n";
             text += $"{checklist.Title}\n";
             text += $"RO # {new string('_', RoLineLength)}\n";
             text += new string('=', 50) + "\n\n";
@@ -879,6 +892,8 @@ namespace McStudDesktop.Services
         public string? Description { get; set; }
         public string? Version { get; set; }
         public string? ShopName { get; set; }
+        /// <summary>Display order for custom checklists (lower = higher in the list).</summary>
+        public int SortOrder { get; set; }
         public List<ChecklistSection>? Sections { get; set; }
     }
 

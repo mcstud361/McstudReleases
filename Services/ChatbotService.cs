@@ -26,6 +26,8 @@ public class ChatbotService
     private ChatbotMustHaveData? _mustHaveData;
     private ChatbotCommonlyMissedData? _commonlyMissedData;
     private ChatbotNotIncludedData? _notIncludedData;
+    private ChatbotProceduresData? _proceduresData;
+    private ChatbotDegData? _degData;
     private readonly ExcelKnowledgeService _excelKnowledge;
     private readonly EstimateLearningService _learningService;
     private readonly ScanningKnowledgeService _scanningKnowledge;
@@ -55,6 +57,8 @@ public class ChatbotService
         LoadMustHaves();
         LoadCommonlyMissed();
         LoadNotIncluded();
+        LoadProcedures();
+        LoadDEGInquiries();
     }
 
     private string? ResolveDataPath(string fileName)
@@ -131,6 +135,40 @@ public class ChatbotService
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to load not-included: {ex.Message}");
+        }
+    }
+
+    private void LoadProcedures()
+    {
+        try
+        {
+            var path = ResolveDataPath("Procedures.json");
+            if (path == null) return;
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _proceduresData = JsonSerializer.Deserialize<ChatbotProceduresData>(json, options);
+            System.Diagnostics.Debug.WriteLine($"Loaded {_proceduresData?.Procedures?.Count ?? 0} how-to procedures");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load procedures: {ex.Message}");
+        }
+    }
+
+    private void LoadDEGInquiries()
+    {
+        try
+        {
+            var path = ResolveDataPath("DEGInquiries.json");
+            if (path == null) return;
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            _degData = JsonSerializer.Deserialize<ChatbotDegData>(json, options);
+            System.Diagnostics.Debug.WriteLine($"Loaded {_degData?.Inquiries?.Count ?? 0} DEG inquiries");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load DEG inquiries: {ex.Message}");
         }
     }
 
@@ -4192,6 +4230,194 @@ public class ChatbotService
     }
 
     /// <summary>
+    /// How-To Library procedures (Procedures.json). Answers "how do I do a static calibration",
+    /// "steps for windshield replacement", "walk me through structural sectioning", etc.
+    /// </summary>
+    private ChatResponse? SearchProcedures(string input)
+    {
+        if (_proceduresData?.Procedures == null || _proceduresData.Procedures.Count == 0)
+            return null;
+
+        var inputLower = input.ToLowerInvariant();
+
+        // Require a "how-to" intent so this doesn't hijack definition/operation queries.
+        bool wantsHowTo = inputLower.Contains("how to") || inputLower.Contains("how do i") ||
+                          inputLower.Contains("how do you") || inputLower.Contains("how is") ||
+                          inputLower.Contains("how are") || inputLower.Contains("steps for") ||
+                          inputLower.Contains("steps to") || inputLower.Contains("step by step") ||
+                          inputLower.Contains("procedure for") || inputLower.Contains("procedure to") ||
+                          inputLower.Contains("process for") || inputLower.Contains("walk me through") ||
+                          inputLower.Contains("how-to") || inputLower.Contains("how does");
+        if (!wantsHowTo) return null;
+
+        ChatbotProcedure? best = null;
+        int bestScore = 0;
+
+        foreach (var proc in _proceduresData.Procedures)
+        {
+            int score = 0;
+
+            // Whole-name match is a strong signal.
+            if (!string.IsNullOrEmpty(proc.Name) && inputLower.Contains(proc.Name.ToLowerInvariant()))
+                score += 40;
+
+            // Individual significant name words.
+            if (!string.IsNullOrEmpty(proc.Name))
+                foreach (var w in proc.Name.ToLowerInvariant().Split(new[] { ' ', '/', '-', '(', ')', '&' },
+                             StringSplitOptions.RemoveEmptyEntries))
+                    if (w.Length >= 4 && inputLower.Contains(w)) score += 8;
+
+            if (proc.Tags != null)
+                foreach (var t in proc.Tags)
+                    if (!string.IsNullOrEmpty(t) && inputLower.Contains(t.ToLowerInvariant())) score += 6;
+
+            if (!string.IsNullOrEmpty(proc.Category))
+                foreach (var w in proc.Category.ToLowerInvariant().Split(new[] { ' ', '/', '-' },
+                             StringSplitOptions.RemoveEmptyEntries))
+                    if (w.Length >= 4 && inputLower.Contains(w)) score += 4;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = proc;
+            }
+        }
+
+        if (best == null || bestScore < 8) return null;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"🛠️ **How-To: {best.Name}**");
+        if (!string.IsNullOrEmpty(best.Category)) sb.AppendLine($"_{best.Category}_");
+        sb.AppendLine();
+        if (!string.IsNullOrEmpty(best.Description)) sb.AppendLine(best.Description + "\n");
+
+        if (best.Steps != null && best.Steps.Count > 0)
+        {
+            sb.AppendLine("**Steps:**");
+            int n = 1;
+            foreach (var step in best.Steps) sb.AppendLine($"{n++}. {step}");
+            sb.AppendLine();
+        }
+
+        if (best.Prerequisites != null && best.Prerequisites.Count > 0)
+        {
+            sb.AppendLine("**Prerequisites:** " + string.Join("; ", best.Prerequisites));
+        }
+        if (best.Equipment != null && best.Equipment.Count > 0)
+        {
+            sb.AppendLine("**Equipment:** " + string.Join("; ", best.Equipment));
+        }
+        var reqs = best.Requirements ?? best.SystemsCovered;
+        if (reqs != null && reqs.Count > 0)
+        {
+            sb.AppendLine("**Also covers:** " + string.Join("; ", reqs));
+        }
+        if (!string.IsNullOrEmpty(best.TimeGuideline))
+            sb.AppendLine($"**Time guideline:** {best.TimeGuideline}");
+        if (!string.IsNullOrEmpty(best.Operation))
+            sb.AppendLine($"**Estimate status:** {best.Operation}" +
+                          (string.IsNullOrEmpty(best.PPageRef) ? "" : $" (P-Page {best.PPageRef})"));
+
+        sb.AppendLine("\n_Full details: Reference tab → How-To Library. Always confirm against the OEM procedure for the specific vehicle._");
+
+        return new ChatResponse
+        {
+            Message = sb.ToString().TrimEnd(),
+            Confidence = 0.9,
+            Category = "how-to",
+            RelatedTopics = new List<string>
+            {
+                "What's NOT INCLUDED in labor times?",
+                "OEM position statements",
+                "Pre-scan and post-scan requirements"
+            }
+        };
+    }
+
+    /// <summary>
+    /// DEG inquiries (DEGInquiries.json). Answers "DEG 15393", "deg on seam sealer",
+    /// "what does the DEG say about adhesive curing", etc.
+    /// </summary>
+    private ChatResponse? SearchDEGInquiries(string input)
+    {
+        if (_degData?.Inquiries == null || _degData.Inquiries.Count == 0)
+            return null;
+
+        var inputLower = input.ToLowerInvariant();
+        bool mentionsDeg = inputLower.Contains("deg") || inputLower.Contains("database enhancement") ||
+                           inputLower.Contains("inquiry");
+
+        // Pull any 4-6 digit run that could be an inquiry number.
+        var numberTokens = System.Text.RegularExpressions.Regex.Matches(input, @"\d{4,6}")
+            .Select(m => m.Value).ToList();
+
+        ChatbotDegInquiry? best = null;
+        int bestScore = 0;
+
+        foreach (var inq in _degData.Inquiries)
+        {
+            int score = 0;
+
+            if (!string.IsNullOrEmpty(inq.InquiryNumber) && numberTokens.Contains(inq.InquiryNumber))
+                score += 100; // exact inquiry-number hit
+
+            if (!string.IsNullOrEmpty(inq.Title))
+                foreach (var w in inq.Title.ToLowerInvariant().Split(new[] { ' ', '/', '-', '(', ')', '&', ',' },
+                             StringSplitOptions.RemoveEmptyEntries))
+                    if (w.Length >= 4 && inputLower.Contains(w)) score += 6;
+
+            if (!string.IsNullOrEmpty(inq.Category))
+                foreach (var w in inq.Category.ToLowerInvariant().Split(new[] { ' ', '/', '-' },
+                             StringSplitOptions.RemoveEmptyEntries))
+                    if (w.Length >= 4 && inputLower.Contains(w)) score += 4;
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = inq;
+            }
+        }
+
+        // Only answer if there's an explicit number hit, or a keyword hit alongside a DEG mention.
+        bool strong = bestScore >= 100 || (mentionsDeg && bestScore >= 6);
+        if (best == null || !strong) return null;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"📄 **DEG Inquiry #{best.InquiryNumber} — {best.Title}**");
+        if (!string.IsNullOrEmpty(best.Category)) sb.AppendLine($"_{best.Category}" +
+            (string.IsNullOrEmpty(best.Vehicle) ? "" : $" · {best.Vehicle}") + "_");
+        sb.AppendLine();
+        if (!string.IsNullOrEmpty(best.Response)) sb.AppendLine(best.Response + "\n");
+
+        if (best.KeyPoints != null && best.KeyPoints.Count > 0)
+        {
+            sb.AppendLine("**Key points:**");
+            foreach (var kp in best.KeyPoints) sb.AppendLine($"• {kp}");
+            sb.AppendLine();
+        }
+
+        if (best.Systems != null && best.Systems.Count > 0)
+            sb.AppendLine($"**Applies to:** {string.Join(", ", best.Systems)}");
+        if (!string.IsNullOrEmpty(best.CitedIn))
+            sb.AppendLine($"**Source:** {best.CitedIn}");
+
+        sb.AppendLine("\n_Full inquiry: Reference tab → DEG Inquiries. Verify current wording at degweb.org._");
+
+        return new ChatResponse
+        {
+            Message = sb.ToString().TrimEnd(),
+            Confidence = bestScore >= 100 ? 1.0 : 0.85,
+            Category = "deg-inquiry",
+            RelatedTopics = new List<string>
+            {
+                "What's NOT INCLUDED in labor times?",
+                "Commonly missed supplement items",
+                "OEM position statements"
+            }
+        };
+    }
+
+    /// <summary>
     /// Return the list of must-have operations (MustHaveOperations.json).
     /// Answers queries like "what must-have operations should be on every estimate?"
     /// </summary>
@@ -4453,7 +4679,8 @@ public class ChatbotService
                          "• What's NOT INCLUDED (e.g., 'not included in refinish')\n" +
                          "• Must-have operations (e.g., 'what should be on every estimate?')\n" +
                          "• Commonly missed items (e.g., 'what am I missing on bumper replace?')\n" +
-                         "• DEG inquiries (e.g., 'scans DEG')\n\n" +
+                         "• How-to procedures (e.g., 'how do I do a static calibration?')\n" +
+                         "• DEG inquiries (e.g., 'scans DEG', 'DEG 15393')\n\n" +
                          "📋 **OEM Position Statements**\n" +
                          "• Ask by OEM (e.g., 'Honda scanning', 'Toyota ADAS')\n" +
                          "• Get documentation links for insurance proof\n\n" +
@@ -4519,6 +4746,12 @@ public class ChatbotService
         if (terminologyResponse != null)
             return terminologyResponse;
 
+        // Check DEG inquiries (explicit inquiry numbers / "deg on X") before broader searchers,
+        // so a specific DEG number resolves to its full record.
+        var degResponse = SearchDEGInquiries(input);
+        if (degResponse != null)
+            return degResponse;
+
         // Check included/not-included queries FIRST - these have priority for operation details
         // ("what's included with quarter panel replace", "operations for bumper", "i need operations for fender")
         var includedResponse = SearchIncludedNotIncluded(input);
@@ -4560,6 +4793,11 @@ public class ChatbotService
         var scanningResponse = SearchScanningKnowledge(input);
         if (scanningResponse != null)
             return scanningResponse;
+
+        // Check How-To Library procedures ("how do I do a static calibration", "steps for windshield replacement")
+        var procedureResponse = SearchProcedures(input);
+        if (procedureResponse != null)
+            return procedureResponse;
 
         // Check teardown/disassembly checklist queries
         var teardownResponse = SearchTeardownChecklist(input);
@@ -6140,6 +6378,90 @@ public class ChatbotNotIncludedItem
 
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
+}
+
+public class ChatbotProceduresData
+{
+    [JsonPropertyName("procedures")]
+    public List<ChatbotProcedure>? Procedures { get; set; }
+}
+
+public class ChatbotProcedure
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
+    [JsonPropertyName("operation")]
+    public string? Operation { get; set; }
+
+    [JsonPropertyName("pPageRef")]
+    public string? PPageRef { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("steps")]
+    public List<string>? Steps { get; set; }
+
+    [JsonPropertyName("timeGuideline")]
+    public string? TimeGuideline { get; set; }
+
+    [JsonPropertyName("equipment")]
+    public List<string>? Equipment { get; set; }
+
+    [JsonPropertyName("prerequisites")]
+    public List<string>? Prerequisites { get; set; }
+
+    [JsonPropertyName("requirements")]
+    public List<string>? Requirements { get; set; }
+
+    [JsonPropertyName("systemsCovered")]
+    public List<string>? SystemsCovered { get; set; }
+
+    [JsonPropertyName("tags")]
+    public List<string>? Tags { get; set; }
+}
+
+public class ChatbotDegData
+{
+    [JsonPropertyName("inquiries")]
+    public List<ChatbotDegInquiry>? Inquiries { get; set; }
+}
+
+public class ChatbotDegInquiry
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("inquiryNumber")]
+    public string? InquiryNumber { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
+    [JsonPropertyName("vehicle")]
+    public string? Vehicle { get; set; }
+
+    [JsonPropertyName("response")]
+    public string? Response { get; set; }
+
+    [JsonPropertyName("keyPoints")]
+    public List<string>? KeyPoints { get; set; }
+
+    [JsonPropertyName("systems")]
+    public List<string>? Systems { get; set; }
+
+    [JsonPropertyName("citedIn")]
+    public string? CitedIn { get; set; }
 }
 
 #endregion

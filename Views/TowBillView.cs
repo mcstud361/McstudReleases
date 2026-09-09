@@ -48,16 +48,22 @@ public class TowBillView : UserControl
             Background = new SolidColorBrush(Color.FromArgb(255, 30, 30, 30)),
             RowDefinitions =
             {
+                new RowDefinition { Height = GridLength.Auto }, // Header card
                 new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }, // Form
                 new RowDefinition { Height = GridLength.Auto }, // Calculation panel
                 new RowDefinition { Height = GridLength.Auto }  // Footer totals
             }
         };
 
+        // Header card — styled to match the blueprint checklist's on-screen title bar
+        var headerCard = ShopDocHeader.Build("Tow Bill");
+        Grid.SetRow(headerCard, 0);
+        mainGrid.Children.Add(headerCard);
+
         // Template form builder
         _formBuilder = new TemplateFormBuilder(ShopDocType.TowBill);
         _formBuilder.ExportRequested += OnExportRequested;
-        Grid.SetRow(_formBuilder, 0);
+        Grid.SetRow(_formBuilder, 1);
         mainGrid.Children.Add(_formBuilder);
 
         // Calculation panel — Miles, $/mile, Tax %
@@ -186,7 +192,7 @@ public class TowBillView : UserControl
         calcGrid.Children.Add(inputPanel);
 
         calcBorder.Child = calcGrid;
-        Grid.SetRow(calcBorder, 1);
+        Grid.SetRow(calcBorder, 2);
         mainGrid.Children.Add(calcBorder);
 
         // Footer — totals
@@ -237,7 +243,7 @@ public class TowBillView : UserControl
         _formBuilder.ChargeTotalsChanged += (s, e) => RecalculateTotals();
 
         footer.Child = totalsPanel;
-        Grid.SetRow(footer, 2);
+        Grid.SetRow(footer, 3);
         mainGrid.Children.Add(footer);
 
         // InfoBar for notifications
@@ -248,6 +254,7 @@ public class TowBillView : UserControl
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 60, 0, 0)
         };
+        Grid.SetRow(_infoBar, 1);
         mainGrid.Children.Add(_infoBar);
 
         Content = mainGrid;
@@ -303,9 +310,15 @@ public class TowBillView : UserControl
             var ratePerMile = _ratePerMileBox != null && !double.IsNaN(_ratePerMileBox.Value) ? (decimal)_ratePerMileBox.Value : 0;
             var taxPercent = _taxPercentBox != null && !double.IsNaN(_taxPercentBox.Value) ? (decimal)_taxPercentBox.Value : 0;
 
+            // Shop name from the tow bill form is an optional override; when blank,
+            // fall back to the global Settings shop name (source of truth).
+            var towShopName = GetStringValue(data, "shopName");
+            if (string.IsNullOrWhiteSpace(towShopName))
+                towShopName = ShopDocsSettingsService.Instance.GetSettings().ShopName ?? "";
+
             var billData = new TowBillData
             {
-                ShopName = GetStringValue(data, "shopName"),
+                ShopName = towShopName,
                 RoNumber = GetStringValue(data, "roNumber"),
                 VehicleYMM = GetStringValue(data, "vehicleYMM"),
                 TowDate = data.ContainsKey("towDate") && data["towDate"] is DateTime dt ? dt : DateTime.Today,

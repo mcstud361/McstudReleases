@@ -1152,7 +1152,31 @@ namespace McStudDesktop.Views
             void RebuildUserTemplateButtons()
             {
                 userTemplateRow.Children.Clear();
+
+                // Prominent "PROFILES" label so shops/clients realize these chips are switchable profiles.
+                userTemplateRow.Children.Add(new TextBlock
+                {
+                    Text = "PROFILES:",
+                    FontSize = 11,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(TextMuted),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 4, 0)
+                });
+
                 var templates = GhostConfigService.Instance.GetMustHaveTemplates();
+                if (templates.Count == 0)
+                {
+                    userTemplateRow.Children.Add(new TextBlock
+                    {
+                        Text = "(none yet — set up your must-haves, then Save Template)",
+                        FontSize = 10,
+                        FontStyle = Windows.UI.Text.FontStyle.Italic,
+                        Foreground = new SolidColorBrush(TextDim),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 6, 0)
+                    });
+                }
                 foreach (var tmpl in templates)
                 {
                     var capturedTmpl = tmpl;
@@ -1213,6 +1237,40 @@ namespace McStudDesktop.Views
                         }
                     };
 
+                    // Rename this profile in place
+                    var renameBtn = new Button
+                    {
+                        Content = new TextBlock { Text = "Rename", FontSize = 9 },
+                        Padding = new Thickness(5, 2, 5, 2),
+                        MinWidth = 0, MinHeight = 0,
+                        Background = new SolidColorBrush(Colors.Transparent),
+                        Foreground = new SolidColorBrush(TextMuted),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        CornerRadius = new CornerRadius(8)
+                    };
+                    ToolTipService.SetToolTip(renameBtn, "Rename this profile");
+                    renameBtn.Click += async (s, ev) =>
+                    {
+                        var nameBox = new TextBox { Text = capturedTmpl.Name, FontSize = 13, Width = 280 };
+                        var dlg = new ContentDialog
+                        {
+                            Title = "Rename Profile",
+                            Content = nameBox,
+                            PrimaryButtonText = "Rename",
+                            CloseButtonText = "Cancel",
+                            DefaultButton = ContentDialogButton.Primary,
+                            XamlRoot = xamlRoot,
+                            RequestedTheme = ElementTheme.Dark
+                        };
+                        if (await dlg.ShowAsync() == ContentDialogResult.Primary &&
+                            !string.IsNullOrWhiteSpace(nameBox.Text))
+                        {
+                            GhostConfigService.Instance.RenameMustHaveTemplate(capturedTmpl.Id, nameBox.Text);
+                            RebuildUserTemplateButtons();
+                        }
+                    };
+
+                    btnContent.Children.Add(renameBtn);
                     btnContent.Children.Add(deleteX);
                     userTemplateRow.Children.Add(tmplBtn);
                 }
@@ -1298,6 +1356,51 @@ namespace McStudDesktop.Views
                 };
 
                 userTemplateRow.Children.Add(saveTemplateBtn);
+
+                // "Reset to McStud Standard" — restore the default standard ops (re-enable everything,
+                // clear value/count changes). The shop's OWN custom groups and custom ops are kept.
+                var resetStdBtn = new Button
+                {
+                    Content = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal, Spacing = 4,
+                        Children =
+                        {
+                            new FontIcon { Glyph = "", FontSize = 10 },
+                            new TextBlock { Text = "Reset to McStud Standard", FontSize = 11 }
+                        }
+                    },
+                    FontSize = 11,
+                    Background = new SolidColorBrush(Color.FromArgb(255, 55, 45, 35)),
+                    Foreground = new SolidColorBrush(GoldAccent),
+                    BorderThickness = new Thickness(1),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(80, 200, 160, 80)),
+                    Padding = new Thickness(10, 4, 10, 4),
+                    CornerRadius = new CornerRadius(12)
+                };
+                ToolTipService.SetToolTip(resetStdBtn,
+                    "Re-enable all default McStud standard operations and clear your value/count changes.\n" +
+                    "Your custom groups and custom operations are kept.");
+                resetStdBtn.Click += async (s, ev) =>
+                {
+                    var dlg = new ContentDialog
+                    {
+                        Title = "Reset to McStud Standard",
+                        Content = "Re-enable every default standard operation and clear your value/count changes?\n\n" +
+                                  "Your custom groups and custom operations are kept.",
+                        PrimaryButtonText = "Reset",
+                        CloseButtonText = "Cancel",
+                        XamlRoot = xamlRoot,
+                        RequestedTheme = ElementTheme.Dark
+                    };
+                    if (await dlg.ShowAsync() == ContentDialogResult.Primary)
+                    {
+                        config.ResetToDefaultStandard();
+                        mustHaves = config.GetMustHaves();
+                        rebuildSections?.Invoke();
+                    }
+                };
+                userTemplateRow.Children.Add(resetStdBtn);
             }
 
             RebuildUserTemplateButtons();
@@ -1624,6 +1727,14 @@ namespace McStudDesktop.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             ToolTipService.SetToolTip(fldName, "Operation Name");
+            if (mh.IsLearned)
+            {
+                var rate = mh.LearnedAppearanceRate > 0
+                    ? $" — appears on {(int)Math.Round(mh.LearnedAppearanceRate * 100)}% of your estimates ({mh.LearnedSampleCount} of {mh.LearnedTotalEstimates})"
+                    : "";
+                ToolTipService.SetToolTip(fldName,
+                    $"Auto-learned from your uploaded estimates{rate}. Toggle off to stop including it on ghost estimates.");
+            }
             rowWrapper.Children.Add(fldName);
 
             // Qty

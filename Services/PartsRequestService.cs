@@ -36,6 +36,18 @@ namespace McStudDesktop.Services
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public DateTime ModifiedDate { get; set; } = DateTime.Now;
         public List<PartsRequestItem> Items { get; set; } = new();
+
+        /// <summary>
+        /// Number of write-in lines to print on the PDF. 0 = auto (one full Letter page).
+        /// Adjusted by the +5 / -5 buttons in the Parts Request view.
+        /// </summary>
+        public int PrintLineCount { get; set; } = 0;
+
+        /// <summary>Main title printed at the top of the PDF (blank = "Parts Request").</summary>
+        public string Header { get; set; } = "";
+
+        /// <summary>Optional sub-header line printed just under the title.</summary>
+        public string SubHeader { get; set; } = "";
     }
 
     public class PartsRequestData
@@ -169,7 +181,10 @@ namespace McStudDesktop.Services
                 {
                     row.RelativeItem().Column(left =>
                     {
-                        left.Item().Text("Parts Request").FontSize(16).Bold().FontColor(Colors.Black);
+                        var title = string.IsNullOrWhiteSpace(request.Header) ? "Parts Request" : request.Header;
+                        left.Item().Text(title).FontSize(16).Bold().FontColor(Colors.Black);
+                        if (!string.IsNullOrWhiteSpace(request.SubHeader))
+                            left.Item().Text(request.SubHeader).FontSize(11).FontColor(Colors.Grey.Darken2);
                     });
 
                     row.ConstantItem(180).AlignRight().Column(right =>
@@ -201,7 +216,6 @@ namespace McStudDesktop.Services
                     columns.RelativeColumn(3);     // Description
                     columns.RelativeColumn(1.5f);  // Part Number
                     columns.ConstantColumn(40);    // Qty
-                    columns.ConstantColumn(90);    // Status
                     columns.RelativeColumn(2);     // Notes
                 });
 
@@ -213,36 +227,42 @@ namespace McStudDesktop.Services
                     header.Cell().Background(Colors.Blue.Darken2).Padding(6).Text("Description").Style(style);
                     header.Cell().Background(Colors.Blue.Darken2).Padding(6).Text("Part #").Style(style);
                     header.Cell().Background(Colors.Blue.Darken2).Padding(6).AlignCenter().Text("Qty").Style(style);
-                    header.Cell().Background(Colors.Blue.Darken2).Padding(6).Text("Status").Style(style);
                     header.Cell().Background(Colors.Blue.Darken2).Padding(6).Text("Notes").Style(style);
                 });
 
-                // Rows
-                for (int i = 0; i < request.Items.Count; i++)
+                // Print exactly the rows shown in the app (WYSIWYG — the +5 / -5 buttons add
+                // and remove these rows). Rows with no description/part #/notes print as clean
+                // blank write-in lines (no "Needed" status), so seeded blank rows look right.
+                // If a request somehow has no rows at all, fall back to a full page of blanks.
+                const float rowHeight = 22f;
+                int totalRows = request.Items.Count > 0 ? request.Items.Count : 22;
+
+                for (int i = 0; i < totalRows; i++)
                 {
-                    var item = request.Items[i];
                     var bgColor = i % 2 == 0 ? Colors.White : Colors.Grey.Lighten4;
-                    var statusColor = item.Status switch
+                    var item = i < request.Items.Count ? request.Items[i] : null;
+                    bool isBlank = item == null
+                        || (string.IsNullOrWhiteSpace(item.Description)
+                            && string.IsNullOrWhiteSpace(item.PartNumber)
+                            && string.IsNullOrWhiteSpace(item.Notes));
+
+                    if (!isBlank)
                     {
-                        PartsRequestStatus.Needed => Colors.Red.Darken1,
-                        PartsRequestStatus.Ordered => Colors.Orange.Darken1,
-                        PartsRequestStatus.Backordered => Colors.Orange.Darken3,
-                        PartsRequestStatus.Received => Colors.Green.Darken1,
-                        _ => Colors.Black
-                    };
-
-                    table.Cell().Background(bgColor).Padding(4).Text($"{i + 1}");
-                    table.Cell().Background(bgColor).Padding(4).Text(item.Description);
-                    table.Cell().Background(bgColor).Padding(4).Text(item.PartNumber);
-                    table.Cell().Background(bgColor).Padding(4).AlignCenter().Text($"{item.Quantity}");
-                    table.Cell().Background(bgColor).Padding(4).Text(item.Status.ToString()).FontColor(statusColor).Bold();
-                    table.Cell().Background(bgColor).Padding(4).Text(item.Notes);
-                }
-
-                if (request.Items.Count == 0)
-                {
-                    table.Cell().ColumnSpan(6).Padding(20).AlignCenter()
-                        .Text("No parts listed").FontColor(Colors.Grey.Medium).Italic();
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text($"{i + 1}");
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text(item!.Description);
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text(item.PartNumber);
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).AlignCenter().Text($"{item.Quantity}");
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text(item.Notes);
+                    }
+                    else
+                    {
+                        // Blank write-in row: faint row number, empty cells to fill in by hand.
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text($"{i + 1}").FontColor(Colors.Grey.Lighten1);
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text("");
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text("");
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text("");
+                        table.Cell().Background(bgColor).Padding(4).MinHeight(rowHeight).Text("");
+                    }
                 }
             });
         }

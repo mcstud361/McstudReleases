@@ -11,6 +11,17 @@ namespace McStudDesktop.Services
         {
             return new List<VersionEntry>
             {
+                new VersionEntry("v2.15.4", "September 2026", new[]
+                {
+                    "Ghost Estimate improved",
+                    "CCC Web insert - built-in safety net",
+                    "Shop Docs improved - refreshed layout with color accents and section headers, plus easier document editing",
+                    "Parts Request updated",
+                    "Import → Scrubber UI refresh - vehicle info now shown right at the top",
+                    "Import → Learned: part numbers now sit in their own column instead of trailing the description",
+                    "Expanded the Reference library with new entries",
+                    "Estimate import fixes - Miscellaneous operations no longer misfiled under Vehicle Diagnostics, and part numbers are read correctly off supplement lines"
+                }),
                 new VersionEntry("v1.0.7", "July 2026", new[]
                 {
                     "New McStud Program Guide in the Guide tab - searchable how-to's for the whole app",

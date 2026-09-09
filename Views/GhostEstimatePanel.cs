@@ -163,6 +163,7 @@ namespace McStudDesktop.Views
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var titleContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
             titleContent.Children.Add(new FontIcon
@@ -231,6 +232,28 @@ namespace McStudDesktop.Views
             settingsButton.Click += SettingsButton_Click;
             Grid.SetColumn(settingsButton, 2);
             titleRow.Children.Add(settingsButton);
+
+            // Help (?) — inline in the header, matching the Screen OCR layout.
+            var helpButton = new Button
+            {
+                Content = new FontIcon { Glyph = "", FontSize = 14 },
+                Width = 32,
+                Height = 32,
+                Padding = new Thickness(0),
+                CornerRadius = new CornerRadius(16),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 60)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 170, 170, 180)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            ToolTipService.SetToolTip(helpButton, "About this tool");
+            helpButton.Flyout = new Flyout
+            {
+                Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight,
+                Content = new ContextualHelpPanel("ghost-compare-subtab") { MinWidth = 250, MaxWidth = 300 }
+            };
+            Grid.SetColumn(helpButton, 3);
+            titleRow.Children.Add(helpButton);
 
             panel.Children.Add(titleRow);
 
@@ -1038,6 +1061,67 @@ namespace McStudDesktop.Views
             }
         }
 
+        /// <summary>
+        /// Honest, up-front banner telling the user how tailored this estimate is:
+        /// Baseline (bundled industry data) → Learning (blending) → Trained (shop-tailored).
+        /// </summary>
+        private Border? BuildTrainingModeBanner(GuidanceEstimateResult result)
+        {
+            if (string.IsNullOrWhiteSpace(result.TrainingSummary))
+                return null;
+
+            var (label, accent) = result.TrainingMode switch
+            {
+                GhostTrainingMode.Trained => ("TRAINED", Color.FromArgb(255, 80, 190, 120)),
+                GhostTrainingMode.Learning => ("LEARNING", Color.FromArgb(255, 80, 150, 220)),
+                _ => ("BASELINE", Color.FromArgb(255, 210, 150, 40))
+            };
+
+            var row = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            // Accent "mode" chip
+            row.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(accent),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(8, 3, 8, 3),
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = label,
+                    FontSize = 11,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 20, 22, 26))
+                }
+            });
+
+            row.Children.Add(new TextBlock
+            {
+                Text = result.TrainingSummary,
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 205, 210)),
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center,
+                MaxWidth = 720
+            });
+
+            return new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 30, 34, 40)),
+                BorderBrush = new SolidColorBrush(accent),
+                BorderThickness = new Thickness(0, 0, 0, 2),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 0, 0, 8),
+                Child = row
+            };
+        }
+
         private void DisplayGuidanceResults(GuidanceEstimateResult result)
         {
             _operationCheckboxes.Clear();
@@ -1055,6 +1139,11 @@ namespace McStudDesktop.Views
 
             // Build warnings/tips
             BuildWarningsAndTips(result);
+
+            // Training-mode banner — honest, up-front signal of how tailored this estimate is.
+            var modeBanner = BuildTrainingModeBanner(result);
+            if (modeBanner != null)
+                _resultsPanel?.Children.Add(modeBanner);
 
             // Group operations by CCC section and display
             var grouped = filteredOps
@@ -2102,7 +2191,9 @@ namespace McStudDesktop.Views
             var hasDetails = !string.IsNullOrEmpty(op.Source) ||
                              !string.IsNullOrEmpty(op.Justification) ||
                              !string.IsNullOrEmpty(op.PPageReference) ||
-                             !string.IsNullOrEmpty(op.DEGReference);
+                             !string.IsNullOrEmpty(op.DEGReference) ||
+                             !string.IsNullOrEmpty(op.OemCitation) ||
+                             !string.IsNullOrEmpty(op.MetCitation);
 
             if (hasDetails)
             {
@@ -2121,6 +2212,15 @@ namespace McStudDesktop.Views
                     detailPanel.Children.Add(CreateDetailText($"P-Page: {op.PPageReference}", Color.FromArgb(255, 180, 160, 130)));
                 if (!string.IsNullOrEmpty(op.DEGReference))
                     detailPanel.Children.Add(CreateDetailText($"DEG: {op.DEGReference}", Color.FromArgb(255, 180, 160, 130)));
+                if (!string.IsNullOrEmpty(op.OemCitation))
+                {
+                    var oemLine = string.IsNullOrEmpty(op.OemCitationLink)
+                        ? $"OEM: {op.OemCitation}"
+                        : $"OEM: {op.OemCitation}  ({op.OemCitationLink})";
+                    detailPanel.Children.Add(CreateDetailText(oemLine, Color.FromArgb(255, 120, 190, 140)));
+                }
+                if (!string.IsNullOrEmpty(op.MetCitation))
+                    detailPanel.Children.Add(CreateDetailText($"CCC/MOTOR: {op.MetCitation}", Color.FromArgb(255, 200, 175, 120)));
 
                 mainStack.Children.Add(detailPanel);
 
@@ -2642,6 +2742,11 @@ namespace McStudDesktop.Views
                             sb.AppendLine($"  P-Page: {op.PPageReference}");
                         if (!string.IsNullOrEmpty(op.DEGReference))
                             sb.AppendLine($"  DEG: {op.DEGReference}");
+                        if (!string.IsNullOrEmpty(op.OemCitation))
+                            sb.AppendLine($"  OEM: {op.OemCitation}" +
+                                          (string.IsNullOrEmpty(op.OemCitationLink) ? "" : $" ({op.OemCitationLink})"));
+                        if (!string.IsNullOrEmpty(op.MetCitation))
+                            sb.AppendLine($"  CCC/MOTOR: {op.MetCitation}");
                     }
                 }
 

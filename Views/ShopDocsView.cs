@@ -51,6 +51,12 @@ namespace McStudDesktop.Views
 
         // Checklist toolbar buttons
         private Button? _editButton;
+        private Button? _renameButton;
+        private Button? _deleteButton;
+        private ScrollViewer? _customListScroll;
+        private StackPanel? _customListPanel;
+        private Button? _customListHeaderBtn;
+        private bool _customListExpanded;   // starts collapsed
 
         // Checklist tabs (Templates vs My Checklists)
         private Button? _templatesTabBtn;
@@ -91,7 +97,7 @@ namespace McStudDesktop.Views
             _checklistService = ChecklistService.Instance;
             _customChecklistService = CustomChecklistService.Instance;
             _layoutService = ShopDocsLayoutService.Instance;
-            _customChecklistService.ChecklistsChanged += (s, e) => RefreshChecklistDropdown();
+            _customChecklistService.ChecklistsChanged += (s, e) => { RefreshChecklistDropdown(); RefreshCustomChecklistList(); };
             _layoutService.LayoutChanged += (s, e) =>
             {
                 McstudDesktop.App.MainDispatcherQueue?.TryEnqueue(() => RebuildContent());
@@ -1668,6 +1674,8 @@ namespace McStudDesktop.Views
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Edit
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Copy
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // PDF
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Rename
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Delete
 
             // Checklist dropdown
             _checklistCombo = new ComboBox
@@ -1743,10 +1751,56 @@ namespace McStudDesktop.Views
             Grid.SetColumn(printButton, 5);
             grid.Children.Add(printButton);
 
+            // Rename button \u2014 only shown for custom checklists
+            _renameButton = CreateActionButton("Rename", "\uE8AC", Color.FromArgb(255, 90, 90, 160));
+            _renameButton.Click += OnRenameChecklist;
+            _renameButton.Margin = new Thickness(8, 0, 0, 0);
+            _renameButton.Visibility = Visibility.Collapsed;
+            Grid.SetColumn(_renameButton, 6);
+            grid.Children.Add(_renameButton);
+
+            // Delete button \u2014 only shown for custom checklists
+            _deleteButton = CreateActionButton("Delete", "\uE74D", Color.FromArgb(255, 150, 50, 50));
+            _deleteButton.Click += OnDeleteChecklist;
+            _deleteButton.Margin = new Thickness(8, 0, 0, 0);
+            _deleteButton.Visibility = Visibility.Collapsed;
+            Grid.SetColumn(_deleteButton, 7);
+            grid.Children.Add(_deleteButton);
+
             mainStack.Children.Add(grid);
+
+            // Custom checklist manager — a real list of your custom/duplicated checklists with
+            // per-row Rename / Delete and up/down reordering. Shown only on the My Checklists tab,
+            // and collapsed by default behind a header toggle so it isn't always expanded.
+            _customListHeaderBtn = new Button
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 12,
+                Padding = new Thickness(10, 6, 10, 6),
+                Margin = new Thickness(0, 8, 0, 0),
+                Visibility = Visibility.Collapsed
+            };
+            _customListHeaderBtn.Click += (s, e) => SetCustomListExpanded(!_customListExpanded);
+            mainStack.Children.Add(_customListHeaderBtn);
+
+            _customListScroll = new ScrollViewer
+            {
+                MaxHeight = 300,
+                Margin = new Thickness(0, 4, 0, 0),
+                Visibility = Visibility.Collapsed,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollMode = ScrollMode.Disabled
+            };
+            _customListPanel = new StackPanel { Spacing = 4 };
+            _customListScroll.Content = _customListPanel;
+            mainStack.Children.Add(_customListScroll);
 
             // Populate dropdown with templates
             RefreshChecklistDropdown();
+            RefreshCustomChecklistList();
 
             border.Child = mainStack;
             return border;
@@ -1768,7 +1822,12 @@ namespace McStudDesktop.Views
                     showCustom ? AccentBlue : Color.FromArgb(255, 50, 50, 50));
             }
 
+            if (_customListHeaderBtn != null)
+                _customListHeaderBtn.Visibility = showCustom ? Visibility.Visible : Visibility.Collapsed;
+
             RefreshChecklistDropdown();
+            RefreshCustomChecklistList();
+            SetCustomListExpanded(_customListExpanded); // apply expand/collapse for the (now) active tab
         }
 
         private void RefreshChecklistDropdown()
@@ -1921,6 +1980,197 @@ namespace McStudDesktop.Views
             _checklistEditorContainer!.Visibility = Visibility.Visible;
         }
 
+        // Toolbar buttons operate on the currently-selected custom checklist.
+        private async void OnRenameChecklist(object sender, RoutedEventArgs e)
+        {
+            if (_currentChecklist != null && _isCurrentChecklistCustom)
+                await RenameChecklistAsync(_currentChecklist);
+        }
+
+        private async void OnDeleteChecklist(object sender, RoutedEventArgs e)
+        {
+            if (_currentChecklist != null && _isCurrentChecklistCustom)
+                await DeleteChecklistAsync(_currentChecklist);
+        }
+
+        // Shared rename/delete used by BOTH the toolbar buttons and the per-row list buttons.
+        private async System.Threading.Tasks.Task RenameChecklistAsync(Checklist cl)
+        {
+            var input = new TextBox { Text = cl.Title ?? "", PlaceholderText = "Checklist name" };
+            var dialog = new ContentDialog
+            {
+                Title = "Rename Checklist",
+                Content = input,
+                PrimaryButtonText = "Save",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                var newName = input.Text?.Trim();
+                if (!string.IsNullOrEmpty(newName))
+                {
+                    cl.Title = newName;
+                    _customChecklistService.SaveChecklist(cl); // fires ChecklistsChanged → refreshes dropdown + list
+                    // Re-select the renamed checklist in the dropdown
+                    var id = cl.Id;
+                    for (int i = 0; i < (_checklistCombo?.Items.Count ?? 0); i++)
+                    {
+                        if (_checklistCombo?.Items[i] is ComboBoxItem item && item.Tag?.ToString() == id)
+                        {
+                            _checklistCombo.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        private async System.Threading.Tasks.Task DeleteChecklistAsync(Checklist cl)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "Delete Checklist",
+                Content = $"Delete '{cl.Title}'? This cannot be undone.",
+                PrimaryButtonText = "Delete",
+                CloseButtonText = "Cancel",
+                XamlRoot = this.XamlRoot
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                if (!string.IsNullOrEmpty(cl.Id))
+                    _customChecklistService.DeleteChecklist(cl.Id); // fires ChecklistsChanged → refreshes dropdown + list
+                if ((_checklistCombo?.Items.Count ?? 0) > 0)
+                    _checklistCombo!.SelectedIndex = 0;
+            }
+        }
+
+        /// <summary>
+        /// Rebuild the custom-checklist manager list (rows with Rename/Delete/up/down).
+        /// Only populated when the My Checklists tab is active.
+        /// </summary>
+        private void SetCustomListExpanded(bool expanded)
+        {
+            _customListExpanded = expanded;
+            if (_customListScroll != null)
+                _customListScroll.Visibility = (_showingCustomChecklists && expanded)
+                    ? Visibility.Visible : Visibility.Collapsed;
+            UpdateCustomListHeader();
+        }
+
+        private void UpdateCustomListHeader()
+        {
+            if (_customListHeaderBtn == null) return;
+            int count = _customChecklistService.GetCustomChecklists().Count;
+            _customListHeaderBtn.Content = (_customListExpanded ? "▼  " : "▶  ") + $"My Checklists ({count})";
+        }
+
+        private void RefreshCustomChecklistList()
+        {
+            UpdateCustomListHeader();
+            if (_customListPanel == null) return;
+            _customListPanel.Children.Clear();
+            if (!_showingCustomChecklists) return;
+
+            var customs = _customChecklistService.GetCustomChecklists();
+            if (customs.Count == 0)
+            {
+                _customListPanel.Children.Add(new TextBlock
+                {
+                    Text = "No custom checklists yet. Duplicate a template to create one.",
+                    Foreground = new SolidColorBrush(TextGray),
+                    FontSize = 12,
+                    Margin = new Thickness(4, 6, 4, 6),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                return;
+            }
+
+            for (int i = 0; i < customs.Count; i++)
+                _customListPanel.Children.Add(BuildCustomChecklistRow(customs[i], i, customs.Count));
+        }
+
+        private Border BuildCustomChecklistRow(Checklist cl, int index, int total)
+        {
+            var rowBorder = new Border
+            {
+                Background = new SolidColorBrush(SectionBg),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(8, 4, 8, 4)
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // name
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // up
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // down
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // rename
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // delete
+
+            // Name — click to select/load this checklist
+            var nameBtn = new Button
+            {
+                Content = $"⭐ {cl.Title}",
+                Background = new SolidColorBrush(Colors.Transparent),
+                BorderThickness = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 13,
+                Padding = new Thickness(4, 2, 4, 2)
+            };
+            nameBtn.Click += (s, e) =>
+            {
+                _currentChecklist = cl;
+                _isCurrentChecklistCustom = true;
+                LoadChecklist(cl);
+                for (int i = 0; i < (_checklistCombo?.Items.Count ?? 0); i++)
+                {
+                    if (_checklistCombo?.Items[i] is ComboBoxItem it && it.Tag?.ToString() == cl.Id)
+                    {
+                        _checklistCombo.SelectedIndex = i;
+                        break;
+                    }
+                }
+            };
+            Grid.SetColumn(nameBtn, 0);
+            grid.Children.Add(nameBtn);
+
+            Button MiniBtn(string text, Color color, bool enabled) => new Button
+            {
+                Content = text,
+                FontSize = 12,
+                MinWidth = 34,
+                Margin = new Thickness(4, 0, 0, 0),
+                Padding = new Thickness(6, 2, 6, 2),
+                Background = new SolidColorBrush(color),
+                Foreground = new SolidColorBrush(Colors.White),
+                IsEnabled = enabled
+            };
+
+            var upBtn = MiniBtn("↑", Color.FromArgb(255, 70, 70, 80), index > 0);
+            upBtn.Click += (s, e) => _customChecklistService.MoveChecklist(cl.Id ?? "", up: true);
+            Grid.SetColumn(upBtn, 1);
+            grid.Children.Add(upBtn);
+
+            var downBtn = MiniBtn("↓", Color.FromArgb(255, 70, 70, 80), index < total - 1);
+            downBtn.Click += (s, e) => _customChecklistService.MoveChecklist(cl.Id ?? "", up: false);
+            Grid.SetColumn(downBtn, 2);
+            grid.Children.Add(downBtn);
+
+            var renameBtn = MiniBtn("Rename", Color.FromArgb(255, 90, 90, 160), true);
+            renameBtn.Click += async (s, e) => await RenameChecklistAsync(cl);
+            Grid.SetColumn(renameBtn, 3);
+            grid.Children.Add(renameBtn);
+
+            var delBtn = MiniBtn("Delete", Color.FromArgb(255, 150, 50, 50), true);
+            delBtn.Click += async (s, e) => await DeleteChecklistAsync(cl);
+            Grid.SetColumn(delBtn, 4);
+            grid.Children.Add(delBtn);
+
+            rowBorder.Child = grid;
+            return rowBorder;
+        }
+
         private void OnEditorSave(object? sender, EventArgs e)
         {
             CloseEditor();
@@ -1991,9 +2241,13 @@ namespace McStudDesktop.Views
                 _checkedItems.Clear();
             _checklistContent?.Children.Clear();
 
-            // Show Edit only for custom checklists; built-in templates should be duplicated first
+            // Show Edit/Rename/Delete only for custom checklists; built-in templates must be duplicated first
             if (_editButton != null)
                 _editButton.Visibility = _isCurrentChecklistCustom ? Visibility.Visible : Visibility.Collapsed;
+            if (_renameButton != null)
+                _renameButton.Visibility = _isCurrentChecklistCustom ? Visibility.Visible : Visibility.Collapsed;
+            if (_deleteButton != null)
+                _deleteButton.Visibility = _isCurrentChecklistCustom ? Visibility.Visible : Visibility.Collapsed;
 
             if (_checklistContent == null || checklist.Sections == null) return;
 

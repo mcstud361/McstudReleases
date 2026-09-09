@@ -685,7 +685,10 @@ namespace McStudDesktop.Views
             {
                 try
                 {
-                    var url = DefinitionsView.GetPPageUrl(sectionRef);
+                    // Fall back to the CCC guide root when we don't have a verified
+                    // deep-link for this section, so the button is never dead.
+                    var url = DefinitionsView.GetPPageUrl(sectionRef)
+                        ?? "https://help.cccis.com/webhelp/motor/gte/guide.htm";
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                     {
                         FileName = url,

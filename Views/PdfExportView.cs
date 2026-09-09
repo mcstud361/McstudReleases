@@ -75,7 +75,8 @@ namespace McStudDesktop.Views
                 PPageLocation = queueItem.PPageLocation,
                 DegInquiry = queueItem.DegInquiry,
                 DegResponse = queueItem.DegResponse,
-                Status = queueItem.Status
+                Status = queueItem.Status,
+                Links = queueItem.Links
             };
 
             // Add to selected if not already there

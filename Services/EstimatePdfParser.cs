@@ -365,6 +365,31 @@ namespace McStudDesktop.Services
             return "";
         }
 
+        // Markers for the estimate "tail" — the totals block and the CCC abbreviations
+        // glossary. Nothing after the first of these is a line item; parsing them was
+        // leaking legend terms like "Carbon Fiber" and "PDR" into the operation list.
+        private static readonly string[] EstimateTailMarkers =
+        {
+            "SUBTOTALS", "ESTIMATE TOTALS",
+            "SYMBOLS FOLLOWING", "OTHER SYMBOLS AND ABBREVIATIONS",
+            "THE FOLLOWING IS A LIST OF ABBREVIATIONS",
+            "CCC ONE ESTIMATING", "STATEMENT OF ACTUAL REPAIRS",
+        };
+
+        // The CCC line-item table's column header row, e.g.
+        // "Line  Oper  Description  Part Number  Qty  Extended  Labor  Paint".
+        // Everything before it (shop/customer/vehicle block + the equipment-options
+        // checklist) is not a line item.
+        private static bool IsLineItemTableHeader(string upperLine)
+            => upperLine.Contains("OPER") && upperLine.Contains("DESCRIPTION");
+
+        // A genuine CCC operation row: line number, optional #/* marker, then an op code.
+        // Used as a fallback "start" trigger in case the header row isn't cleanly extracted.
+        // Equipment-grid features (STABILITY CONTROL, AIR BAG, ...) never match this.
+        private static readonly Regex _cccOpLineRegex = new(
+            @"^\d{1,3}\s+[#*]{0,2}\s*(Repl|Rpr|Refn|R&I|R&R|Blnd|Algn|Subl|O/H)\b",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         /// <summary>
         /// SMART line item extraction - handles CCC, Mitchell, Audatex formats
         /// </summary>
@@ -376,6 +401,13 @@ namespace McStudDesktop.Services
             string currentSection = "";
             PdfEstimateLineItem? currentParentPart = null;
             bool skipSection = false; // Mitchell noise section state machine
+
+            // Boundary state. For CCC we don't start collecting until the line-item column
+            // header (or a real op row) appears, so the vehicle block + equipment-options
+            // grid are skipped. Other formats keep their existing "parse from the top"
+            // behaviour. All formats hard-stop at the totals/glossary tail.
+            bool started = !string.Equals(source, "CCC", StringComparison.OrdinalIgnoreCase);
+            bool reachedTail = false;
 
             // Mitchell noise sections whose DATA ROWS should be skipped entirely
             var noiseSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -391,6 +423,38 @@ namespace McStudDesktop.Services
                 var line = rawLine.Trim();
                 if (string.IsNullOrWhiteSpace(line) || line.Length < 3)
                     continue;
+
+                // ── Boundary control ────────────────────────────────────────────────
+                // Once we reach the totals/subtotals or the abbreviations glossary, no
+                // real line items remain — stop for good. (Kills legend bleed: "Carbon
+                // Fiber", "PDR", airbag/glass equipment terms read as fake operations.)
+                var upperLine = line.ToUpperInvariant();
+                if (!reachedTail && EstimateTailMarkers.Any(m => upperLine.Contains(m)))
+                    reachedTail = true;
+                if (reachedTail)
+                    continue;
+
+                // For CCC, don't begin collecting until the line-item table starts. This
+                // skips the shop/customer/vehicle header and the equipment-options grid
+                // (STABILITY CONTROL, AIR BAG, GLASS & MIRRORS, ...) that was being parsed
+                // as operations and then polluting vehicle detection + reference matching.
+                if (!started)
+                {
+                    if (IsLineItemTableHeader(upperLine))
+                    {
+                        started = true;
+                        continue; // consume the header row itself
+                    }
+                    if (_cccOpLineRegex.IsMatch(line))
+                    {
+                        started = true; // real op row — fall through and parse it
+                    }
+                    else
+                    {
+                        continue; // still in the pre-table region
+                    }
+                }
+                // ────────────────────────────────────────────────────────────────────
 
                 // Early continuation detection — runs BEFORE IsHeaderOrFooter so it can't
                 // accidentally filter out wrapped description text.
@@ -526,6 +590,12 @@ namespace McStudDesktop.Services
 
             // Split into tokens (handle multiple spaces/tabs as column separators)
             var tokens = Regex.Split(line, @"\s{2,}|\t").Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+            // Fallback: many CCC PDFs extract with SINGLE spaces between columns (no 2+ space gaps),
+            // which collapses the whole row into one token and would drop the line — sending the whole
+            // import to the crude fallback parser. Re-split on single spaces so these parse here; the
+            // per-token classifier below re-buckets line #, op code, part #, price and hours.
+            if (tokens.Count < 2)
+                tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
             if (tokens.Count < 2) return null;
 
             int idx = 0;
@@ -553,6 +623,15 @@ namespace McStudDesktop.Services
                 item.IsManualMarker = false;
                 idx++;
             }
+
+            if (idx >= tokens.Count) return null;
+
+            // CCC line-source tag: "S01", "S02", … denote the supplement the line originated in
+            // and sit between the #/* marker and the op code. Skip it — otherwise the op-code check
+            // below misses (token is "S01", not "Repl"), the tag then gets grabbed as the part
+            // number, and the REAL op code + part number spill into the description.
+            if (Regex.IsMatch(tokens[idx], @"^S\d{2}$"))
+                idx++;
 
             if (idx >= tokens.Count) return null;
 
@@ -593,8 +672,10 @@ namespace McStudDesktop.Services
                     continue;
                 }
 
-                // Hours detection (small decimal number)
-                if (decimal.TryParse(token, out var hours) && hours > 0 && hours < 100)
+                // Hours detection (small decimal number). MUST contain a decimal point: CCC labor/paint
+                // hours are always shown with one (0.3, 1.8, 5.7), while the quantity column is a bare
+                // integer (1, 10, 14). Requiring the '.' stops a qty like "10" being read as 10 hours.
+                if (token.Contains('.') && decimal.TryParse(token, out var hours) && hours > 0 && hours < 100)
                 {
                     if (item.LaborHours == 0)
                         item.LaborHours = hours;
@@ -651,6 +732,9 @@ namespace McStudDesktop.Services
 
             // Split into tokens
             var tokens = Regex.Split(line, @"\s{2,}|\t").Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
+            // Fallback: single-space column extraction (see ParseCCCLineItem note).
+            if (tokens.Count < 3)
+                tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
             if (tokens.Count < 3) return null;
 
             int idx = 0;
@@ -1238,7 +1322,10 @@ namespace McStudDesktop.Services
             {
                 "COLLISION REPAIR", "COLLISION CENTER", "AUTO BODY", "BODY SHOP",
                 "ULTIMATE COLLISION", "OEM FACTORY REPAIRS", "THE RIGHT WAY",
-                "HIGHWAY", "STREET", "AVENUE", "ROAD", "BLVD", "DRIVE", "LANE", // Address
+                // NOTE: street-suffix address words (HIGHWAY/STREET/AVENUE/ROAD/BLVD/DRIVE/LANE)
+                // are matched below as WHOLE WORDS, not here. As bare substrings they swallowed
+                // real content — "MISCEL(LANE)OUS OPERATIONS" contains "LANE", and "(DRIVE)r
+                // Assistance Camera" contains "DRIVE" — dropping the section header/op line.
                 "PHONE:", "FAX:", "OFFICE:", "BUSINESS", "MOBILE", "EVENING",
                 "WORKFILE ID", "FEDERAL ID", "STATE ID", "RESALE NUMBER",
                 "FEDERAL EPA", "STATE EPA", "LICENSE NUMBER",
@@ -1405,6 +1492,13 @@ namespace McStudDesktop.Services
                 return true;
             // Generic statute citation number like "7:26", "13:1E-99.11" (colon-separated with a dash to a number)
             if (Regex.IsMatch(trimmed, @"\b\d{1,3}:\d{1,3}[A-Za-z]?-\d"))
+                return true;
+
+            // === STREET-SUFFIX ADDRESS WORDS (whole-word) ===
+            // Shop/customer street lines (e.g. "1115 US Highway 1 South", "40 WESTERN ROAD").
+            // Word-bounded so they only match the standalone word — NOT substrings of real
+            // content like "MISCELLANEOUS" (contains "lane") or "Driver" (contains "drive").
+            if (Regex.IsMatch(upper, @"\b(HIGHWAY|STREET|AVENUE|BLVD|BOULEVARD|LANE)\b"))
                 return true;
 
             // === ADDRESS LINES ===
@@ -1758,8 +1852,12 @@ namespace McStudDesktop.Services
             if (string.IsNullOrEmpty(item.PartName) && item.Description.Length < 5)
                 return false;
 
-            // Must have either hours or price
-            if (item.LaborHours == 0 && item.RefinishHours == 0 && item.Price == 0)
+            // Must have hours, price, OR an operation code. Lines priced "Incl." (included in another
+            // part) legitimately have no hours/price — rejecting them made the parser merge them into
+            // the previous line as fake continuation text (garbling it and losing the row). An op code
+            // (Repl/R&I/Refn/…) means it's a real operation row, so keep it.
+            if (item.LaborHours == 0 && item.RefinishHours == 0 && item.Price == 0
+                && string.IsNullOrEmpty(item.OperationType))
                 return false;
 
             return true;
@@ -1823,8 +1921,12 @@ namespace McStudDesktop.Services
 
             // === CCC rate table lines: "Body Labor XX.X hrs @ $ XX.XX /hr X,XXX.XX" ===
             // This captures both the rate AND the dollar amount for each labor category.
+            // NOTE: CCC omits the "XX.X hrs @" for some categories (commonly Body Labor),
+            // printing just "Body Labor  $ 230.00 /hr  616.00". The hours segment is therefore
+            // OPTIONAL — anchoring on "$ <rate> /hr" — otherwise those rates read as 0 and the
+            // scoring falls back to the $55 default.
             var rateLineRx = new Regex(
-                @"(Body|Paint|Refinish|Mechanical|Frame|Structural)\s*(?:Labor)?\s+([\d.]+)\s*hrs?\s*@\s*\$?\s*([\d.]+)\s*/\s*hr\s*([\d,]+\.\d{2})?",
+                @"(Body|Paint|Refinish|Mechanical|Frame|Structural)\s*(?:Labor)?\s+(?:([\d.]+)\s*hrs?\s*@\s*)?\$\s*([\d.]+)\s*/\s*hr\s*([\d,]+\.\d{2})?",
                 RegexOptions.IgnoreCase);
             var searchText = !string.IsNullOrEmpty(totalsBlock) ? totalsBlock : text;
             foreach (Match m in rateLineRx.Matches(searchText))

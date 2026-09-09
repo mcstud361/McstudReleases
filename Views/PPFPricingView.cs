@@ -34,7 +34,22 @@ public class PPFPricingView : UserControl
     private VehicleStyle? _activeVehicleStyle;
     private readonly Dictionary<string, decimal> _panelPrices = new();
     private readonly Dictionary<string, string> _panelDisplayNames = new();
+    private readonly Dictionary<string, decimal> _panelQuantities = new();
+    private readonly List<ManualLine> _manualLines = new();
     private bool _updatingDiagram;
+
+    // A hand-added quote line (product + price + quantity), separate from diagram panels.
+    private sealed class ManualLine
+    {
+        public string Name = "";
+        public decimal Price;
+        public decimal Qty = 1m;
+    }
+
+    private static string FormatQty(decimal qty) => qty.ToString("0.##");
+
+    private decimal QtyOf(string panelId) =>
+        _panelQuantities.TryGetValue(panelId, out var q) ? q : 1m;
 
     // UI references
     private VehicleDiagramControl? _diagram;
@@ -47,6 +62,12 @@ public class PPFPricingView : UserControl
     private readonly Dictionary<string, Button> _serviceButtons = new();
     private ComboBox? _vehicleCombo;
     private InfoBar? _infoBar;
+
+    // Job / vehicle info (populates the PDF header)
+    private TextBox? _customerBox;
+    private TextBox? _vehicleBox;
+    private TextBox? _roBox;
+    private TextBox? _vinBox;
 
     public event EventHandler? CustomizeRequested;
 
@@ -104,11 +125,17 @@ public class PPFPricingView : UserControl
             Background = new SolidColorBrush(DarkBg),
             RowDefinitions =
             {
-                new RowDefinition { Height = GridLength.Auto },
+                new RowDefinition { Height = GridLength.Auto }, // Header card
+                new RowDefinition { Height = GridLength.Auto }, // Top bar (toolbar)
                 new RowDefinition { Height = new GridLength(1, GridUnitType.Star) },
                 new RowDefinition { Height = GridLength.Auto }
             }
         };
+
+        // Header card — matches the blueprint checklist's on-screen title bar
+        var headerCard = ShopDocHeader.Build("Paint Protection Pricing");
+        Grid.SetRow(headerCard, 0);
+        mainGrid.Children.Add(headerCard);
 
         BuildTopBar(mainGrid);
         BuildMainContent(mainGrid);
@@ -121,6 +148,7 @@ public class PPFPricingView : UserControl
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 60, 0, 0)
         };
+        Grid.SetRow(_infoBar, 2);
         mainGrid.Children.Add(_infoBar);
 
         Content = mainGrid;
@@ -199,10 +227,49 @@ public class PPFPricingView : UserControl
         Grid.SetColumn(_vehicleCombo, 3);
         topGrid.Children.Add(_vehicleCombo);
 
-        topBar.Child = topGrid;
-        Grid.SetRow(topBar, 0);
+        // Stack the service/vehicle row above a job-info row (Customer / Vehicle / RO # / VIN)
+        var topStack = new StackPanel { Orientation = Orientation.Vertical, Spacing = 10 };
+        topStack.Children.Add(topGrid);
+        topStack.Children.Add(BuildJobInfoRow());
+
+        topBar.Child = topStack;
+        Grid.SetRow(topBar, 1);
         mainGrid.Children.Add(topBar);
     }
+
+    private StackPanel BuildJobInfoRow()
+    {
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        _customerBox = CreateInfoBox("Customer", 200);
+        _vehicleBox = CreateInfoBox("Vehicle (Year / Make / Model)", 220);
+        _roBox = CreateInfoBox("RO #", 120);
+        _vinBox = CreateInfoBox("VIN", 200);
+
+        row.Children.Add(_customerBox);
+        row.Children.Add(_vehicleBox);
+        row.Children.Add(_roBox);
+        row.Children.Add(_vinBox);
+
+        return row;
+    }
+
+    private static TextBox CreateInfoBox(string placeholder, double width) => new()
+    {
+        PlaceholderText = placeholder,
+        Width = width,
+        FontSize = 13,
+        Padding = new Thickness(10, 6, 10, 6),
+        Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+        Foreground = new SolidColorBrush(Colors.White),
+        BorderBrush = new SolidColorBrush(Color.FromArgb(255, 70, 70, 70)),
+        CornerRadius = new CornerRadius(4)
+    };
 
     private Button CreateServiceToggle(string label, string serviceType, bool isActive)
     {
@@ -311,7 +378,7 @@ public class PPFPricingView : UserControl
         Grid.SetColumn(rightBorder, 1);
         splitGrid.Children.Add(rightBorder);
 
-        Grid.SetRow(splitGrid, 1);
+        Grid.SetRow(splitGrid, 2);
         mainGrid.Children.Add(splitGrid);
     }
 
@@ -443,7 +510,7 @@ public class PPFPricingView : UserControl
         footerGrid.Children.Add(exportBtn);
 
         footer.Child = footerGrid;
-        Grid.SetRow(footer, 2);
+        Grid.SetRow(footer, 3);
         mainGrid.Children.Add(footer);
     }
 
@@ -493,6 +560,7 @@ public class PPFPricingView : UserControl
         {
             _panelPrices.Remove(id);
             _panelDisplayNames.Remove(id);
+            _panelQuantities.Remove(id);
         }
 
         // Add newly selected panels
@@ -504,6 +572,7 @@ public class PPFPricingView : UserControl
                 _panelPrices[id] = GetPriceForDiagramPanel(id);
                 var info = allPanels.FirstOrDefault(p => p.Id == id);
                 _panelDisplayNames[id] = info?.DisplayName ?? id;
+                _panelQuantities[id] = 1m;
             }
         }
 
@@ -515,6 +584,7 @@ public class PPFPricingView : UserControl
     {
         _panelPrices.Remove(diagramPanelId);
         _panelDisplayNames.Remove(diagramPanelId);
+        _panelQuantities.Remove(diagramPanelId);
 
         // Sync diagram
         _updatingDiagram = true;
@@ -546,9 +616,89 @@ public class PPFPricingView : UserControl
         UpdateTotals();
     }
 
+    private void OnQtyEdited(string diagramPanelId, string newText)
+    {
+        if (!decimal.TryParse(newText, out var qty) || qty < 0) return;
+        if (!_panelPrices.ContainsKey(diagramPanelId)) return;
+
+        _panelQuantities[diagramPanelId] = qty;
+        UpdateTotals();
+    }
+
+    // Subtotal across diagram panels (price x qty) and manual product lines.
+    private decimal ComputeSubtotal() =>
+        _panelPrices.Sum(kvp => kvp.Value * QtyOf(kvp.Key))
+        + _manualLines.Sum(l => l.Price * l.Qty);
+
+    private int LineCount() => _panelPrices.Count + _manualLines.Count;
+
+    private async void OnAddLineClick(object sender, RoutedEventArgs e)
+    {
+        var products = _ppfService.GetCustomProducts(_activeServiceType);
+
+        var stack = new StackPanel { Spacing = 8, MinWidth = 280 };
+
+        // Product preset picker (optional) — fills name + price when chosen
+        ComboBox? productCombo = null;
+        if (products.Count > 0)
+        {
+            stack.Children.Add(new TextBlock { Text = "Product (optional):", FontSize = 13 });
+            productCombo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            productCombo.Items.Add(new ComboBoxItem { Content = "— Custom —", Tag = null });
+            foreach (var p in products)
+                productCombo.Items.Add(new ComboBoxItem { Content = $"{p.Name}  (${p.Price:F2})", Tag = p });
+            productCombo.SelectedIndex = 0;
+            stack.Children.Add(productCombo);
+        }
+
+        var nameBox = new TextBox { PlaceholderText = "Line name (e.g., Full Front)" };
+        stack.Children.Add(new TextBlock { Text = "Name:", FontSize = 13, Margin = new Thickness(0, 4, 0, 0) });
+        stack.Children.Add(nameBox);
+
+        var priceBox = new TextBox { PlaceholderText = "Price per unit (e.g., 200)" };
+        stack.Children.Add(new TextBlock { Text = "Price:", FontSize = 13, Margin = new Thickness(0, 4, 0, 0) });
+        stack.Children.Add(priceBox);
+
+        var qtyBox = new TextBox { Text = "1" };
+        stack.Children.Add(new TextBlock { Text = "Quantity (partials allowed):", FontSize = 13, Margin = new Thickness(0, 4, 0, 0) });
+        stack.Children.Add(qtyBox);
+
+        if (productCombo != null)
+        {
+            productCombo.SelectionChanged += (_, _) =>
+            {
+                if (productCombo.SelectedItem is ComboBoxItem ci && ci.Tag is CustomProduct p)
+                {
+                    nameBox.Text = p.Name;
+                    priceBox.Text = p.Price.ToString("F2");
+                }
+            };
+        }
+
+        var dialog = new ContentDialog
+        {
+            Title = "Add Line",
+            Content = stack,
+            PrimaryButtonText = "Add",
+            CloseButtonText = "Cancel",
+            XamlRoot = this.XamlRoot,
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary || string.IsNullOrWhiteSpace(nameBox.Text)) return;
+
+        decimal.TryParse(priceBox.Text.TrimStart('$'), out var price);
+        if (!decimal.TryParse(qtyBox.Text, out var qty) || qty <= 0) qty = 1m;
+
+        _manualLines.Add(new ManualLine { Name = nameBox.Text.Trim(), Price = price, Qty = qty });
+        RebuildPanelList();
+        UpdateTotals();
+    }
+
     private async void OnCopyClick(object sender, RoutedEventArgs e)
     {
-        if (_panelPrices.Count == 0)
+        if (LineCount() == 0)
         {
             ShowNotification("Select at least one panel first", InfoBarSeverity.Warning);
             return;
@@ -563,11 +713,23 @@ public class PPFPricingView : UserControl
         foreach (var kvp in _panelPrices)
         {
             var name = _panelDisplayNames.GetValueOrDefault(kvp.Key, kvp.Key);
-            sb.AppendLine($"{name}: {kvp.Value:C2}");
+            var qty = QtyOf(kvp.Key);
+            var lineTotal = kvp.Value * qty;
+            sb.AppendLine(qty == 1m
+                ? $"{name}: {lineTotal:C2}"
+                : $"{name} (x{FormatQty(qty)} @ {kvp.Value:C2}): {lineTotal:C2}");
         }
 
-        var subtotal = _panelPrices.Values.Sum();
-        var (discountPct, discountAmt) = CalculateDiscount(subtotal, _panelPrices.Count);
+        foreach (var line in _manualLines)
+        {
+            var lineTotal = line.Price * line.Qty;
+            sb.AppendLine(line.Qty == 1m
+                ? $"{line.Name}: {lineTotal:C2}"
+                : $"{line.Name} (x{FormatQty(line.Qty)} @ {line.Price:C2}): {lineTotal:C2}");
+        }
+
+        var subtotal = ComputeSubtotal();
+        var (discountPct, discountAmt) = CalculateDiscount(subtotal, LineCount());
         sb.AppendLine(new string('-', 40));
         sb.AppendLine($"Subtotal: {subtotal:C2}");
         if (discountPct > 0)
@@ -584,14 +746,20 @@ public class PPFPricingView : UserControl
     {
         _panelPrices.Clear();
         _panelDisplayNames.Clear();
+        _panelQuantities.Clear();
+        _manualLines.Clear();
         _diagram?.ClearSelections();
+        if (_customerBox != null) _customerBox.Text = "";
+        if (_vehicleBox != null) _vehicleBox.Text = "";
+        if (_roBox != null) _roBox.Text = "";
+        if (_vinBox != null) _vinBox.Text = "";
         RebuildPanelList();
         UpdateTotals();
     }
 
     private void OnExportClick(object sender, RoutedEventArgs e)
     {
-        if (_panelPrices.Count == 0)
+        if (LineCount() == 0)
         {
             ShowNotification("Select at least one panel first", InfoBarSeverity.Warning);
             return;
@@ -607,16 +775,21 @@ public class PPFPricingView : UserControl
                 _ => "Paint Protection Film"
             };
 
-            var subtotal = _panelPrices.Values.Sum();
-            var (discountPct, discountAmt) = CalculateDiscount(subtotal, _panelPrices.Count);
+            var subtotal = ComputeSubtotal();
+            var (discountPct, discountAmt) = CalculateDiscount(subtotal, LineCount());
 
             var pdfData = new VehicleProtectionPdfData
             {
                 Date = DateTime.Now,
                 ServiceType = _activeServiceType,
                 ServiceTypeName = serviceTypeName,
+                ShopName = ShopDocsSettingsService.Instance.GetSettings().ShopName,
                 VehicleStyle = _activeVehicleStyle?.Name ?? "Unknown",
-                PanelCount = _panelPrices.Count,
+                CustomerName = _customerBox?.Text?.Trim(),
+                VehicleDescription = _vehicleBox?.Text?.Trim(),
+                RoNumber = _roBox?.Text?.Trim(),
+                Vin = _vinBox?.Text?.Trim(),
+                PanelCount = LineCount(),
                 Subtotal = subtotal,
                 DiscountPercent = discountPct,
                 DiscountAmount = discountAmt,
@@ -628,7 +801,18 @@ public class PPFPricingView : UserControl
                 pdfData.Panels.Add(new VehicleProtectionPdfPanel
                 {
                     Name = _panelDisplayNames.GetValueOrDefault(kvp.Key, kvp.Key),
-                    Price = kvp.Value
+                    Price = kvp.Value,
+                    Quantity = QtyOf(kvp.Key)
+                });
+            }
+
+            foreach (var line in _manualLines)
+            {
+                pdfData.Panels.Add(new VehicleProtectionPdfPanel
+                {
+                    Name = line.Name,
+                    Price = line.Price,
+                    Quantity = line.Qty
                 });
             }
 
@@ -684,8 +868,8 @@ public class PPFPricingView : UserControl
 
     private void UpdateTotals()
     {
-        var subtotal = _panelPrices.Values.Sum();
-        var (discountPct, discountAmt) = CalculateDiscount(subtotal, _panelPrices.Count);
+        var subtotal = ComputeSubtotal();
+        var (discountPct, discountAmt) = CalculateDiscount(subtotal, LineCount());
         var total = subtotal - discountAmt;
 
         if (_subtotalText != null) _subtotalText.Text = $"Subtotal: {subtotal:C2}";
@@ -703,101 +887,228 @@ public class PPFPricingView : UserControl
         _panelListContainer.Children.Clear();
 
         if (_panelCountText != null)
-            _panelCountText.Text = $"SELECTED PANELS ({_panelPrices.Count})";
+            _panelCountText.Text = $"LINE ITEMS ({LineCount()})";
 
-        if (_panelPrices.Count == 0)
+        if (LineCount() == 0)
         {
             _panelListContainer.Children.Add(new TextBlock
             {
-                Text = "Click panels on the diagram to add them",
+                Text = "Click panels on the diagram, or add a line below",
                 FontSize = 13,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120)),
-                Margin = new Thickness(0, 20, 0, 0),
+                Margin = new Thickness(0, 20, 0, 12),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
-            return;
         }
-
-        foreach (var kvp in _panelPrices)
+        else
         {
-            var panelId = kvp.Key;
-            var price = kvp.Value;
-            var displayName = _panelDisplayNames.GetValueOrDefault(panelId, panelId);
+            foreach (var kvp in _panelPrices)
+                _panelListContainer.Children.Add(BuildPanelRow(kvp.Key, kvp.Value));
 
-            var row = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(12, 8, 8, 8),
-                Margin = new Thickness(0, 0, 0, 2)
-            };
-
-            var rowGrid = new Grid();
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
-            rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            // Panel name
-            var nameText = new TextBlock
-            {
-                Text = displayName,
-                FontSize = 14,
-                Foreground = new SolidColorBrush(Colors.White),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(nameText, 0);
-            rowGrid.Children.Add(nameText);
-
-            // Dollar sign
-            var dollarSign = new TextBlock
-            {
-                Text = "$",
-                FontSize = 13,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 2, 0)
-            };
-            Grid.SetColumn(dollarSign, 1);
-            rowGrid.Children.Add(dollarSign);
-
-            // Editable price
-            var priceBox = new TextBox
-            {
-                Text = price.ToString("F2"),
-                Width = 100,
-                TextAlignment = TextAlignment.Right,
-                FontSize = 13,
-                Tag = panelId,
-                Padding = new Thickness(6, 4, 6, 4),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            priceBox.LostFocus += (s, _) =>
-            {
-                if (s is TextBox tb && tb.Tag is string id)
-                    OnPriceEdited(id, tb.Text);
-            };
-            Grid.SetColumn(priceBox, 2);
-            rowGrid.Children.Add(priceBox);
-
-            // Remove button
-            var capturedId = panelId;
-            var removeBtn = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE711", FontSize = 12 },
-                Padding = new Thickness(6, 4, 6, 4),
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Margin = new Thickness(4, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            removeBtn.Click += (_, _) => OnRemovePanel(capturedId);
-            Grid.SetColumn(removeBtn, 3);
-            rowGrid.Children.Add(removeBtn);
-
-            row.Child = rowGrid;
-            _panelListContainer.Children.Add(row);
+            foreach (var line in _manualLines)
+                _panelListContainer.Children.Add(BuildManualRow(line));
         }
+
+        _panelListContainer.Children.Add(BuildAddLineButton());
+    }
+
+    // Column layout shared by panel + manual rows: Name(*) | Qty | $ | Price | Remove
+    private static Grid MakeLineGrid()
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        return grid;
+    }
+
+    private static Border MakeLineBorder(Color bg)
+    {
+        return new Border
+        {
+            Background = new SolidColorBrush(bg),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(12, 8, 8, 8),
+            Margin = new Thickness(0, 0, 0, 2)
+        };
+    }
+
+    private static TextBox MakeQtyBox(decimal qty)
+    {
+        var box = new TextBox
+        {
+            Text = FormatQty(qty),
+            Width = 42,
+            TextAlignment = TextAlignment.Center,
+            FontSize = 13,
+            Padding = new Thickness(4, 4, 4, 4),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        ToolTipService.SetToolTip(box, "Quantity (partials allowed)");
+        return box;
+    }
+
+    private static TextBlock MakeDollarSign() => new()
+    {
+        Text = "$",
+        FontSize = 13,
+        Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+        VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(8, 0, 2, 0)
+    };
+
+    private static Button MakeRemoveButton()
+    {
+        return new Button
+        {
+            Content = new FontIcon { Glyph = "\uE711", FontSize = 12 },
+            Padding = new Thickness(6, 4, 6, 4),
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            Margin = new Thickness(4, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+    }
+
+    private FrameworkElement BuildPanelRow(string panelId, decimal price)
+    {
+        var displayName = _panelDisplayNames.GetValueOrDefault(panelId, panelId);
+        var row = MakeLineBorder(Color.FromArgb(255, 45, 45, 45));
+        var grid = MakeLineGrid();
+
+        var nameText = new TextBlock
+        {
+            Text = displayName,
+            FontSize = 14,
+            Foreground = new SolidColorBrush(Colors.White),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(nameText, 0);
+        grid.Children.Add(nameText);
+
+        var qtyBox = MakeQtyBox(QtyOf(panelId));
+        qtyBox.LostFocus += (s, _) => { if (s is TextBox tb) OnQtyEdited(panelId, tb.Text); };
+        Grid.SetColumn(qtyBox, 1);
+        grid.Children.Add(qtyBox);
+
+        var dollarSign = MakeDollarSign();
+        Grid.SetColumn(dollarSign, 2);
+        grid.Children.Add(dollarSign);
+
+        var priceBox = new TextBox
+        {
+            Text = price.ToString("F2"),
+            Width = 82,
+            TextAlignment = TextAlignment.Right,
+            FontSize = 13,
+            Padding = new Thickness(6, 4, 6, 4),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        priceBox.LostFocus += (s, _) => { if (s is TextBox tb) OnPriceEdited(panelId, tb.Text); };
+        Grid.SetColumn(priceBox, 3);
+        grid.Children.Add(priceBox);
+
+        var removeBtn = MakeRemoveButton();
+        removeBtn.Click += (_, _) => OnRemovePanel(panelId);
+        Grid.SetColumn(removeBtn, 4);
+        grid.Children.Add(removeBtn);
+
+        row.Child = grid;
+        return row;
+    }
+
+    private FrameworkElement BuildManualRow(ManualLine line)
+    {
+        // Slightly different background + green accent so manual lines read as distinct.
+        var row = MakeLineBorder(Color.FromArgb(255, 42, 48, 42));
+        row.BorderBrush = new SolidColorBrush(AccentGreen);
+        row.BorderThickness = new Thickness(2, 0, 0, 0);
+        var grid = MakeLineGrid();
+
+        var nameBox = new TextBox
+        {
+            Text = line.Name,
+            FontSize = 14,
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            Foreground = new SolidColorBrush(Colors.White),
+            Padding = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        nameBox.LostFocus += (s, _) => { if (s is TextBox tb && tb.Text.Trim().Length > 0) line.Name = tb.Text.Trim(); };
+        Grid.SetColumn(nameBox, 0);
+        grid.Children.Add(nameBox);
+
+        var qtyBox = MakeQtyBox(line.Qty);
+        qtyBox.LostFocus += (s, _) =>
+        {
+            if (s is TextBox tb && decimal.TryParse(tb.Text, out var q) && q >= 0)
+            {
+                line.Qty = q;
+                tb.Text = FormatQty(q);
+                UpdateTotals();
+            }
+        };
+        Grid.SetColumn(qtyBox, 1);
+        grid.Children.Add(qtyBox);
+
+        var dollarSign = MakeDollarSign();
+        Grid.SetColumn(dollarSign, 2);
+        grid.Children.Add(dollarSign);
+
+        var priceBox = new TextBox
+        {
+            Text = line.Price.ToString("F2"),
+            Width = 82,
+            TextAlignment = TextAlignment.Right,
+            FontSize = 13,
+            Padding = new Thickness(6, 4, 6, 4),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        priceBox.LostFocus += (s, _) =>
+        {
+            if (s is TextBox tb && decimal.TryParse(tb.Text.TrimStart('$'), out var p) && p >= 0)
+            {
+                line.Price = p;
+                tb.Text = p.ToString("F2");
+                UpdateTotals();
+            }
+        };
+        Grid.SetColumn(priceBox, 3);
+        grid.Children.Add(priceBox);
+
+        var removeBtn = MakeRemoveButton();
+        removeBtn.Click += (_, _) =>
+        {
+            _manualLines.Remove(line);
+            RebuildPanelList();
+            UpdateTotals();
+        };
+        Grid.SetColumn(removeBtn, 4);
+        grid.Children.Add(removeBtn);
+
+        row.Child = grid;
+        return row;
+    }
+
+    private Button BuildAddLineButton()
+    {
+        var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        content.Children.Add(new FontIcon { Glyph = "\uE710", FontSize = 12, Foreground = new SolidColorBrush(AccentGreen) });
+        content.Children.Add(new TextBlock { Text = "Add Line", FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
+
+        var btn = new Button
+        {
+            Content = content,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Padding = new Thickness(12, 8, 12, 8),
+            Margin = new Thickness(0, 6, 0, 0),
+            Background = new SolidColorBrush(Color.FromArgb(255, 45, 45, 45))
+        };
+        btn.Click += OnAddLineClick;
+        return btn;
     }
 
     #endregion

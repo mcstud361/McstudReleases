@@ -771,6 +771,21 @@ public sealed class ReferenceView : UserControl
     }
 
     /// <summary>
+    /// Clear the per-estimate context (vehicle / VIN / RO) from the reference export config so it
+    /// doesn't stay stuck on the previous estimate. Shop name is kept — it's a shop setting, not
+    /// vehicle-specific. (SetEstimateContext is non-destructive, so it never clears these itself.)
+    /// </summary>
+    public void ClearEstimateContext()
+    {
+        var config = ReferenceExportConfigService.Instance.Config;
+        bool changed = false;
+        if (!string.IsNullOrEmpty(config.VehicleInfo)) { config.VehicleInfo = ""; changed = true; }
+        if (!string.IsNullOrEmpty(config.VIN)) { config.VIN = ""; changed = true; }
+        if (!string.IsNullOrEmpty(config.RONumber)) { config.RONumber = ""; changed = true; }
+        if (changed) ReferenceExportConfigService.Instance.SaveConfig();
+    }
+
+    /// <summary>
     /// Update vehicle context fields for PDF export. Non-destructive — only overwrites if value is non-empty.
     /// </summary>
     public void SetEstimateContext(string? vehicleInfo, string? vin, string? roNumber, string? shopName)
@@ -1185,7 +1200,8 @@ public sealed class ReferenceView : UserControl
                 PPageLocation = q.PPageLocation,
                 DegInquiry = q.DegInquiry,
                 DegResponse = q.DegResponse,
-                Status = q.Status
+                Status = q.Status,
+                Links = q.Links
             }).ToList();
 
             var outputPath = _pdfService.GeneratePdfFromItems(exportItems);

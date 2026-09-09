@@ -466,6 +466,46 @@ namespace McStudDesktop.Services
                 .ToList();
         }
 
+        /// <summary>
+        /// Operations that appear on nearly every estimate this shop has uploaded — i.e. the shop's
+        /// de-facto standard operations. Used to auto-promote recurring ops to must-haves so the shop
+        /// doesn't have to curate them by hand. Requires a minimum sample size to avoid small-sample noise.
+        /// </summary>
+        public List<RecurringOperation> GetRecurringOperations(double minRate = 0.9, int minEstimates = 15)
+        {
+            var result = new List<RecurringOperation>();
+            var total = _store.Metadata.TotalEstimatesAnalyzed;
+            if (total < minEstimates) return result;
+
+            foreach (var part in _store.Parts.Values)
+            {
+                foreach (var op in part.OperationStats.Values)
+                {
+                    if (op.SampleCount <= 0) continue;
+
+                    // SampleCount is per-observation; a part can appear more than once per estimate,
+                    // so cap the rate at 1.0. The high default threshold keeps this to near-universal ops.
+                    var rate = Math.Min(1.0, (double)op.SampleCount / total);
+                    if (rate < minRate) continue;
+
+                    result.Add(new RecurringOperation
+                    {
+                        PartName = part.CanonicalName,
+                        OperationType = op.OperationType,
+                        Description = op.MostCommonDescription ?? part.CanonicalName,
+                        AppearanceRate = rate,
+                        SampleCount = op.SampleCount,
+                        TotalEstimates = total,
+                        MedianLaborHours = op.MedianLaborHours,
+                        MeanRefinishHours = op.MeanRefinishHours,
+                        MeanPrice = op.MeanPrice
+                    });
+                }
+            }
+
+            return result.OrderByDescending(r => r.AppearanceRate).ToList();
+        }
+
         #endregion
 
         #region Adjacent Panels (for blending)
@@ -875,6 +915,20 @@ namespace McStudDesktop.Services
         public Dictionary<string, VehiclePatterns> VehicleSpecificPatterns { get; set; } = new();
         public Dictionary<string, LearnedOperationProfile> OperationProfiles { get; set; } = new();
         public HashSet<string> AnalyzedEstimateIds { get; set; } = new();
+    }
+
+    /// <summary>An operation that recurs across nearly all of a shop's uploaded estimates.</summary>
+    public class RecurringOperation
+    {
+        public string PartName { get; set; } = "";
+        public string OperationType { get; set; } = "";
+        public string Description { get; set; } = "";
+        public double AppearanceRate { get; set; }
+        public int SampleCount { get; set; }
+        public int TotalEstimates { get; set; }
+        public decimal MedianLaborHours { get; set; }
+        public decimal MeanRefinishHours { get; set; }
+        public decimal MeanPrice { get; set; }
     }
 
     public class KnowledgeMetadata

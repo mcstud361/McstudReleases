@@ -360,7 +360,9 @@ namespace McStudDesktop.Services
                             var hasDetails = !string.IsNullOrEmpty(op.Source) ||
                                              !string.IsNullOrEmpty(op.Justification) ||
                                              !string.IsNullOrEmpty(op.PPageReference) ||
-                                             !string.IsNullOrEmpty(op.DEGReference);
+                                             !string.IsNullOrEmpty(op.DEGReference) ||
+                                             !string.IsNullOrEmpty(op.OemCitation) ||
+                                             !string.IsNullOrEmpty(op.MetCitation);
 
                             if (hasDetails)
                             {
@@ -374,6 +376,12 @@ namespace McStudDesktop.Services
                                         detailCol.Item().Text($"P-Page: {op.PPageReference}").FontSize(7).FontColor(Colors.Orange.Darken2);
                                     if (!string.IsNullOrEmpty(op.DEGReference))
                                         detailCol.Item().Text($"DEG: {op.DEGReference}").FontSize(7).FontColor(Colors.Orange.Darken2);
+                                    if (!string.IsNullOrEmpty(op.OemCitation))
+                                        detailCol.Item().Text($"OEM: {op.OemCitation}" +
+                                            (string.IsNullOrEmpty(op.OemCitationLink) ? "" : $" ({op.OemCitationLink})"))
+                                            .FontSize(7).FontColor(Colors.Green.Darken1);
+                                    if (!string.IsNullOrEmpty(op.MetCitation))
+                                        detailCol.Item().Text($"CCC/MOTOR: {op.MetCitation}").FontSize(7).FontColor(Colors.Orange.Darken2);
                                 });
                             }
                         }

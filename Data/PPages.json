@@ -155,7 +155,7 @@
       "id": "G9",
       "section": "G9",
       "pPageRef": "P-9",
-      "altRefs": ["P9", "P-9", "page 9", "P-21"],
+      "altRefs": ["P9", "P-9", "page 9"],
       "title": "Diagnostic Operations",
       "category": "Diagnostics/Scanning",
       "summary": "Pre and post repair diagnostic scans, DTC retrieval, and system analysis.",
@@ -174,13 +174,13 @@
       ],
       "notes": "Diagnostic scans are recommended by most OEMs for any collision repair. Time should be based on actual shop time.",
       "mitchellRef": "Section 9",
-      "tags": ["scan", "diagnostic", "DTC", "pre-scan", "post-scan", "P-9", "P9", "P-21", "P21"]
+      "tags": ["scan", "diagnostic", "DTC", "pre-scan", "post-scan", "P-9", "P9"]
     },
     {
       "id": "G10",
       "section": "G10",
       "pPageRef": "P-10",
-      "altRefs": ["P10", "P-10", "page 10", "P-22"],
+      "altRefs": ["P10", "P-10", "page 10"],
       "title": "Structural Measuring",
       "category": "Structural",
       "summary": "Measuring and dimensional verification of structural components.",
@@ -197,7 +197,7 @@
       ],
       "notes": "Measuring is essential for quality structural repair and should be documented.",
       "mitchellRef": "Section 10",
-      "tags": ["measuring", "structural", "dimensions", "frame", "P-10", "P10", "P-22", "P22"]
+      "tags": ["measuring", "structural", "dimensions", "frame", "P-10", "P10"]
     },
     {
       "id": "G14",
@@ -559,7 +559,7 @@
       "id": "G33",
       "section": "G33",
       "pPageRef": "P-33",
-      "altRefs": ["P33", "P-33", "page 33", "P-26"],
+      "altRefs": ["P33", "P-33", "page 33"],
       "title": "ADAS Calibration",
       "category": "ADAS/Calibration",
       "summary": "Advanced Driver Assistance System calibration operations.",
@@ -638,7 +638,7 @@
       "id": "G36",
       "section": "G36",
       "pPageRef": "P-36",
-      "altRefs": ["P36", "P-36", "page 36", "P-24"],
+      "altRefs": ["P36", "P-36", "page 36"],
       "title": "Blend Operations",
       "category": "Refinish",
       "summary": "Blending refinish into adjacent panels.",
@@ -656,7 +656,7 @@
       ],
       "notes": "Blend is a partial refinish operation - not full panel refinish time.",
       "mitchellRef": "Section 36",
-      "tags": ["blend", "refinish", "color match", "adjacent panel", "P-36", "P36", "P-24", "P24"]
+      "tags": ["blend", "refinish", "color match", "adjacent panel", "P-36", "P36"]
     },
     {
       "id": "G37",
@@ -701,7 +701,7 @@
         "largeFirstPanelExamples": ["Hood", "Roof", "Trunk lid", "Spoiler"],
         "smallFirstPanel": "Add up to 10% of full base refinish time",
         "smallFirstPanelExamples": ["Fender", "Door", "Quarter panel", "Bumper cover"],
-        "additionalPanels": "Add up to 5% per additional panel"
+        "additionalPanels": "Add up to 10% per additional large panel (hood/roof/trunk/spoiler), 5% per additional small panel"
       },
       "notes": "De-nibbing needs vary based on shop environment and conditions.",
       "mitchellRef": "Section 38",
@@ -766,7 +766,7 @@
         "Pearl/candy coat complexity"
       ],
       "laborGuidelines": {
-        "additionalTime": "Add 20-30% to base refinish time for tri-coat"
+        "additionalTime": "Add 70% to base refinish time for the first tri-coat panel, 40% for each additional panel"
       },
       "notes": "Three-stage finishes include pearl, candy, and other special-effect paints.",
       "mitchellRef": "Section 41",

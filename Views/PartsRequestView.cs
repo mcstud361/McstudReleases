@@ -23,12 +23,16 @@ public class PartsRequestView : UserControl
     private readonly PartsRequestService _service = PartsRequestService.Instance;
     private PartsRequest? _currentRequest;
     private StackPanel? _partsListPanel;
-    private ComboBox? _requestCombo;
     private TextBox? _roBox;
     private TextBlock? _dateText;
     private InfoBar? _infoBar;
     private DispatcherTimer? _saveTimer;
-    private bool _suppressComboChange;
+    private TextBlock? _lineCountText;
+    private TextBox? _headerBox;
+    private TextBox? _subHeaderBox;
+
+    // Default number of write-in rows a fresh/empty request starts with (fills one Letter page).
+    private const int DefaultPdfLines = 22;
 
     public PartsRequestView()
     {
@@ -66,69 +70,6 @@ public class PartsRequestView : UserControl
 
         var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
 
-        // Request selector
-        headerPanel.Children.Add(new TextBlock
-        {
-            Text = "Request:",
-            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
-            VerticalAlignment = VerticalAlignment.Center,
-            FontSize = 13
-        });
-        _requestCombo = new ComboBox
-        {
-            MinWidth = 220,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        _requestCombo.SelectionChanged += OnRequestSelectionChanged;
-        headerPanel.Children.Add(_requestCombo);
-
-        // New request button
-        var newBtn = new Button
-        {
-            Content = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Children =
-                {
-                    new FontIcon { Glyph = "\uE710", FontSize = 12 },
-                    new TextBlock { Text = "New", VerticalAlignment = VerticalAlignment.Center }
-                }
-            },
-            VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(12, 6, 12, 6)
-        };
-        newBtn.Click += OnNewRequest;
-        headerPanel.Children.Add(newBtn);
-
-        // Delete button
-        var deleteBtn = new Button
-        {
-            Content = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 6,
-                Children =
-                {
-                    new FontIcon { Glyph = "\uE74D", FontSize = 12 },
-                    new TextBlock { Text = "Delete", VerticalAlignment = VerticalAlignment.Center }
-                }
-            },
-            VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(12, 6, 12, 6)
-        };
-        deleteBtn.Click += OnDeleteRequest;
-        headerPanel.Children.Add(deleteBtn);
-
-        // Separator
-        headerPanel.Children.Add(new Border
-        {
-            Width = 1,
-            Height = 24,
-            Background = new SolidColorBrush(BorderColor),
-            Margin = new Thickness(4, 0, 4, 0)
-        });
-
         // RO #
         headerPanel.Children.Add(new TextBlock
         {
@@ -155,7 +96,56 @@ public class PartsRequestView : UserControl
         };
         headerPanel.Children.Add(_dateText);
 
-        header.Child = headerPanel;
+        // Second header row: customizable title + sub-header printed on the PDF sheet.
+        var titleRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Margin = new Thickness(0, 10, 0, 0)
+        };
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = "Header:",
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 13
+        });
+        _headerBox = new TextBox
+        {
+            PlaceholderText = "Parts Request",
+            MinWidth = 200,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        _headerBox.TextChanged += (s, e) =>
+        {
+            if (_currentRequest != null) { _currentRequest.Header = _headerBox.Text; DebounceSave(); }
+        };
+        titleRow.Children.Add(_headerBox);
+
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = "Sub-header:",
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 13
+        });
+        _subHeaderBox = new TextBox
+        {
+            PlaceholderText = "Optional line under the title",
+            MinWidth = 260,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        _subHeaderBox.TextChanged += (s, e) =>
+        {
+            if (_currentRequest != null) { _currentRequest.SubHeader = _subHeaderBox.Text; DebounceSave(); }
+        };
+        titleRow.Children.Add(_subHeaderBox);
+
+        var headerStack = new StackPanel { Spacing = 0 };
+        headerStack.Children.Add(headerPanel);
+        headerStack.Children.Add(titleRow);
+
+        header.Child = headerStack;
         Grid.SetRow(header, 0);
         mainGrid.Children.Add(header);
 
@@ -167,6 +157,53 @@ public class PartsRequestView : UserControl
         };
 
         var tableContainer = new StackPanel { Spacing = 0 };
+
+        // Line stepper — sits ABOVE the table. Adds/removes real rows you can see and fill in,
+        // and those are exactly what prints on the PDF.
+        var linesToolbar = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin = new Thickness(0, 0, 0, 10),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        linesToolbar.Children.Add(new TextBlock
+        {
+            Text = "Lines:",
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 180, 180)),
+            FontSize = 13,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        var minusBtn = new Button
+        {
+            Content = "− 5",
+            Padding = new Thickness(12, 4, 12, 4),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        ToolTipService.SetToolTip(minusBtn, "Remove 5 blank lines");
+        minusBtn.Click += OnRemoveLines;
+        linesToolbar.Children.Add(minusBtn);
+        _lineCountText = new TextBlock
+        {
+            Text = "0",
+            MinWidth = 28,
+            TextAlignment = TextAlignment.Center,
+            Foreground = new SolidColorBrush(Colors.White),
+            FontSize = 15,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        linesToolbar.Children.Add(_lineCountText);
+        var plusBtn = new Button
+        {
+            Content = "+ 5",
+            Padding = new Thickness(12, 4, 12, 4),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        ToolTipService.SetToolTip(plusBtn, "Add 5 blank lines");
+        plusBtn.Click += OnAddLines;
+        linesToolbar.Children.Add(plusBtn);
+        tableContainer.Children.Add(linesToolbar);
 
         // Column headers
         var headerRow = CreateColumnHeaderRow();
@@ -213,7 +250,6 @@ public class PartsRequestView : UserControl
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        footerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         // Summary
         var summaryPanel = new StackPanel
@@ -230,6 +266,7 @@ public class PartsRequestView : UserControl
             FontSize = 14,
             VerticalAlignment = VerticalAlignment.Center
         });
+
         Grid.SetColumn(summaryPanel, 0);
         footerGrid.Children.Add(summaryPanel);
 
@@ -249,22 +286,6 @@ public class PartsRequestView : UserControl
         Grid.SetColumn(clearBtn, 1);
         footerGrid.Children.Add(clearBtn);
 
-        // Copy
-        var copyContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        copyContent.Children.Add(new FontIcon { Glyph = "\uE8C8", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) });
-        copyContent.Children.Add(new TextBlock { Text = "Copy", FontSize = 12, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Colors.White) });
-
-        var copyBtn = new Button
-        {
-            Content = copyContent,
-            Padding = new Thickness(12, 6, 12, 6),
-            CornerRadius = new CornerRadius(4),
-            Background = new SolidColorBrush(Color.FromArgb(255, 0, 120, 215)),
-            Margin = new Thickness(0, 0, 8, 0)
-        };
-        copyBtn.Click += OnCopy;
-        Grid.SetColumn(copyBtn, 2);
-        footerGrid.Children.Add(copyBtn);
 
         // Export to PDF
         var exportContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
@@ -279,7 +300,7 @@ public class PartsRequestView : UserControl
             Background = new SolidColorBrush(AccentGreen)
         };
         exportBtn.Click += OnExport;
-        Grid.SetColumn(exportBtn, 3);
+        Grid.SetColumn(exportBtn, 2);
         footerGrid.Children.Add(exportBtn);
 
         footer.Child = footerGrid;
@@ -312,11 +333,10 @@ public class PartsRequestView : UserControl
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });  // Description
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) }); // Part #
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60, GridUnitType.Pixel) }); // Qty
-        headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120, GridUnitType.Pixel) }); // Status
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });  // Notes
         headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36, GridUnitType.Pixel) }); // Delete
 
-        var labels = new[] { "Description", "Part #", "Qty", "Status", "Notes", "" };
+        var labels = new[] { "Description", "Part #", "Qty", "Notes", "" };
         for (int i = 0; i < labels.Length; i++)
         {
             var tb = new TextBlock
@@ -348,7 +368,6 @@ public class PartsRequestView : UserControl
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) });
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60, GridUnitType.Pixel) });
-        rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120, GridUnitType.Pixel) });
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
         rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36, GridUnitType.Pixel) });
 
@@ -393,33 +412,6 @@ public class PartsRequestView : UserControl
         Grid.SetColumn(qtyBox, 2);
         rowGrid.Children.Add(qtyBox);
 
-        // Status
-        var statusCombo = new ComboBox
-        {
-            Margin = new Thickness(2),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Items =
-            {
-                "Needed",
-                "Ordered",
-                "Received",
-                "Backordered"
-            },
-            SelectedIndex = (int)item.Status
-        };
-        SetStatusColor(statusCombo, item.Status);
-        statusCombo.SelectionChanged += (s, e) =>
-        {
-            if (statusCombo.SelectedIndex >= 0)
-            {
-                item.Status = (PartsRequestStatus)statusCombo.SelectedIndex;
-                SetStatusColor(statusCombo, item.Status);
-                DebounceSave();
-            }
-        };
-        Grid.SetColumn(statusCombo, 3);
-        rowGrid.Children.Add(statusCombo);
-
         // Notes
         var notesBox = new TextBox
         {
@@ -429,7 +421,7 @@ public class PartsRequestView : UserControl
             Tag = "notes"
         };
         notesBox.TextChanged += (s, e) => { item.Notes = notesBox.Text; DebounceSave(); };
-        Grid.SetColumn(notesBox, 4);
+        Grid.SetColumn(notesBox, 3);
         rowGrid.Children.Add(notesBox);
 
         // Delete button
@@ -454,64 +446,19 @@ public class PartsRequestView : UserControl
             UpdatePartCount();
             DebounceSave();
         };
-        Grid.SetColumn(delBtn, 5);
+        Grid.SetColumn(delBtn, 4);
         rowGrid.Children.Add(delBtn);
 
         rowBorder.Child = rowGrid;
         return rowBorder;
     }
 
-    private void SetStatusColor(ComboBox combo, PartsRequestStatus status)
-    {
-        var color = status switch
-        {
-            PartsRequestStatus.Needed => Color.FromArgb(255, 220, 60, 60),
-            PartsRequestStatus.Ordered => Color.FromArgb(255, 220, 180, 40),
-            PartsRequestStatus.Received => Color.FromArgb(255, 40, 180, 80),
-            PartsRequestStatus.Backordered => Color.FromArgb(255, 220, 130, 40),
-            _ => Color.FromArgb(255, 180, 180, 180)
-        };
-        combo.BorderBrush = new SolidColorBrush(color);
-        combo.BorderThickness = new Thickness(0, 0, 0, 2);
-    }
-
     private void LoadRequests()
     {
-        RefreshCombo();
+        // Single-sheet model: use the first saved request, or create one if none exist.
         var requests = _service.GetAllRequests();
-        if (requests.Count > 0)
-        {
-            SelectRequest(requests[0]);
-        }
-    }
-
-    private void RefreshCombo()
-    {
-        if (_requestCombo == null) return;
-        _suppressComboChange = true;
-        _requestCombo.Items.Clear();
-
-        foreach (var req in _service.GetAllRequests())
-        {
-            var label = string.IsNullOrWhiteSpace(req.RoNumber)
-                ? $"Request ({req.CreatedDate:MM/dd/yy})"
-                : $"RO# {req.RoNumber} ({req.CreatedDate:MM/dd/yy})";
-            _requestCombo.Items.Add(new ComboBoxItem { Content = label, Tag = req.Id });
-        }
-
-        // Select current
-        if (_currentRequest != null)
-        {
-            for (int i = 0; i < _requestCombo.Items.Count; i++)
-            {
-                if (_requestCombo.Items[i] is ComboBoxItem ci && ci.Tag as string == _currentRequest.Id)
-                {
-                    _requestCombo.SelectedIndex = i;
-                    break;
-                }
-            }
-        }
-        _suppressComboChange = false;
+        var request = requests.Count > 0 ? requests[0] : _service.CreateNew();
+        SelectRequest(request);
     }
 
     private void SelectRequest(PartsRequest request)
@@ -522,8 +469,87 @@ public class PartsRequestView : UserControl
         _roBox.TextChanged += OnRoTextChanged;
         _dateText!.Text = $"Created: {request.CreatedDate:MM/dd/yyyy}";
 
+        // Header / sub-header (detach-free: these boxes only write back when _currentRequest is set,
+        // and we're setting it to the same request, so re-assigning is idempotent).
+        if (_headerBox != null) _headerBox.Text = request.Header ?? "";
+        if (_subHeaderBox != null) _subHeaderBox.Text = request.SubHeader ?? "";
+
+        EnsureMinimumRows();
         RebuildPartsRows();
         UpdatePartCount();
+        UpdateLineCountText();
+    }
+
+    private void UpdateLineCountText()
+    {
+        if (_lineCountText != null)
+            _lineCountText.Text = (_currentRequest?.Items.Count ?? 0).ToString();
+    }
+
+    private void OnAddLines(object sender, RoutedEventArgs e) => AddBlankLines(5);
+    private void OnRemoveLines(object sender, RoutedEventArgs e) => RemoveBlankLines(5);
+
+    /// <summary>Add N blank, editable rows to the list (visible immediately + printed).</summary>
+    private void AddBlankLines(int count)
+    {
+        if (_currentRequest == null)
+        {
+            _currentRequest = _service.CreateNew();
+            SelectRequest(_currentRequest);
+        }
+        for (int i = 0; i < count; i++)
+        {
+            var item = new PartsRequestItem();
+            _currentRequest!.Items.Add(item);
+            _partsListPanel?.Children.Add(CreatePartRow(item));
+        }
+        UpdatePartCount();
+        UpdateLineCountText();
+        DebounceSave();
+    }
+
+    /// <summary>
+    /// Remove up to N trailing BLANK rows. Stops at the first row that has data typed in,
+    /// so this never deletes anything the user filled out.
+    /// </summary>
+    private void RemoveBlankLines(int count)
+    {
+        if (_currentRequest == null) return;
+
+        int removed = 0;
+        for (int i = _currentRequest.Items.Count - 1; i >= 0 && removed < count; i--)
+        {
+            var item = _currentRequest.Items[i];
+            bool isEmpty = string.IsNullOrWhiteSpace(item.Description)
+                        && string.IsNullOrWhiteSpace(item.PartNumber)
+                        && string.IsNullOrWhiteSpace(item.Notes);
+            if (!isEmpty) break; // stop at the first row with data
+            _currentRequest.Items.RemoveAt(i);
+            removed++;
+        }
+
+        if (removed > 0)
+        {
+            RebuildPartsRows();
+            UpdatePartCount();
+            UpdateLineCountText();
+            DebounceSave();
+        }
+        else
+        {
+            ShowNotification("No blank lines to remove — the last rows have data", InfoBarSeverity.Informational);
+        }
+    }
+
+    /// <summary>Seed a full page of blank rows when a request has none, so it never opens empty.</summary>
+    private void EnsureMinimumRows()
+    {
+        if (_currentRequest == null) return;
+        if (_currentRequest.Items.Count == 0)
+        {
+            for (int i = 0; i < DefaultPdfLines; i++)
+                _currentRequest.Items.Add(new PartsRequestItem());
+        }
     }
 
     private void RebuildPartsRows()
@@ -545,65 +571,12 @@ public class PartsRequestView : UserControl
         }
     }
 
-    private void OnRequestSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressComboChange) return;
-        if (_requestCombo?.SelectedItem is ComboBoxItem ci && ci.Tag is string id)
-        {
-            var req = _service.GetRequest(id);
-            if (req != null)
-                SelectRequest(req);
-        }
-    }
-
-    private void OnNewRequest(object sender, RoutedEventArgs e)
-    {
-        var request = _service.CreateNew();
-        RefreshCombo();
-        SelectRequest(request);
-    }
-
-    private async void OnDeleteRequest(object sender, RoutedEventArgs e)
-    {
-        if (_currentRequest == null) return;
-
-        var dialog = new ContentDialog
-        {
-            Title = "Delete Parts Request?",
-            Content = $"This will permanently delete this parts request{(string.IsNullOrWhiteSpace(_currentRequest.RoNumber) ? "" : $" for RO# {_currentRequest.RoNumber}")}.",
-            PrimaryButtonText = "Delete",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = this.XamlRoot
-        };
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            _service.DeleteRequest(_currentRequest.Id);
-            _currentRequest = null;
-            _partsListPanel?.Children.Clear();
-
-            var requests = _service.GetAllRequests();
-            RefreshCombo();
-            if (requests.Count > 0)
-                SelectRequest(requests[0]);
-            else
-            {
-                _roBox!.Text = "";
-                _dateText!.Text = "";
-                UpdatePartCount();
-            }
-            ShowNotification("Parts request deleted", InfoBarSeverity.Informational);
-        }
-    }
-
     private void OnAddPart(object sender, RoutedEventArgs e)
     {
         if (_currentRequest == null)
         {
             // Auto-create a new request
             _currentRequest = _service.CreateNew();
-            RefreshCombo();
             SelectRequest(_currentRequest);
         }
 
@@ -614,30 +587,6 @@ public class PartsRequestView : UserControl
         DebounceSave();
     }
 
-    private void OnCopy(object sender, RoutedEventArgs e)
-    {
-        if (_currentRequest == null || _currentRequest.Items.Count == 0)
-        {
-            ShowNotification("Add at least one part before copying", InfoBarSeverity.Warning);
-            return;
-        }
-
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Parts Request{(string.IsNullOrWhiteSpace(_currentRequest.RoNumber) ? "" : $" — RO# {_currentRequest.RoNumber}")}");
-        sb.AppendLine(new string('-', 50));
-        sb.AppendLine($"{"Description",-30} {"Part #",-15} {"Qty",-5} {"Status",-12}");
-        sb.AppendLine(new string('-', 50));
-        foreach (var item in _currentRequest.Items)
-        {
-            sb.AppendLine($"{item.Description,-30} {item.PartNumber,-15} {item.Quantity,-5} {item.Status,-12}");
-        }
-
-        var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
-        dp.SetText(sb.ToString());
-        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
-        ShowNotification("Copied to clipboard!", InfoBarSeverity.Success);
-    }
-
     private void OnClear(object sender, RoutedEventArgs e)
     {
         if (_currentRequest == null) return;
@@ -646,8 +595,11 @@ public class PartsRequestView : UserControl
         _roBox!.TextChanged -= OnRoTextChanged;
         _roBox.Text = "";
         _roBox.TextChanged += OnRoTextChanged;
-        _partsListPanel?.Children.Clear();
+        // Reseed a fresh page of blank rows so the form doesn't go empty.
+        EnsureMinimumRows();
+        RebuildPartsRows();
         UpdatePartCount();
+        UpdateLineCountText();
         SaveCurrent();
         ShowNotification("Form cleared", InfoBarSeverity.Informational);
     }
@@ -692,7 +644,6 @@ public class PartsRequestView : UserControl
         if (_currentRequest == null) return;
         _currentRequest.RoNumber = _roBox?.Text ?? "";
         _service.SaveRequest(_currentRequest);
-        RefreshCombo();
     }
 
     private void UpdatePartCount()
@@ -713,7 +664,10 @@ public class PartsRequestView : UserControl
                             {
                                 if (sc is TextBlock tb && tb.Tag as string == "partCount")
                                 {
-                                    var count = _currentRequest?.Items.Count ?? 0;
+                                    // Count only filled rows — blank write-in rows aren't "parts".
+                                    var count = _currentRequest?.Items.Count(it =>
+                                        !string.IsNullOrWhiteSpace(it.Description) ||
+                                        !string.IsNullOrWhiteSpace(it.PartNumber)) ?? 0;
                                     tb.Text = $"{count} part{(count == 1 ? "" : "s")}";
                                     return;
                                 }

@@ -38,7 +38,7 @@ public class ShopDocsPdfService
                 page.Margin(40);
                 page.DefaultTextStyle(x => x.FontSize(10));
 
-                page.Header().Element(c => ComposeInvoiceHeader(c, "COLOR TINT INVOICE", data.InvoiceNumber, data.Date));
+                page.Header().Element(c => ComposeInvoiceHeader(c, "Color Tint Invoice", data.InvoiceNumber, data.Date));
 
                 page.Content().Element(content =>
                 {
@@ -158,47 +158,10 @@ public class ShopDocsPdfService
 
     private void ComposeShopStockHeader(IContainer container, ShopStockInvoicePdfData data)
     {
-        container.Column(column =>
+        ComposeDocHeader(container, data.ShopName, "Parts Invoice", new (string, string)[]
         {
-            column.Item().Row(row =>
-            {
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().Text(data.ShopName ?? "Shop Stock Parts")
-                        .FontSize(18)
-                        .Bold()
-                        .FontColor(Colors.Blue.Darken2);
-
-                    if (!string.IsNullOrEmpty(data.ShopAddress))
-                        col.Item().Text(data.ShopAddress).FontSize(9);
-                    if (!string.IsNullOrEmpty(data.ShopCity))
-                        col.Item().Text(data.ShopCity).FontSize(9);
-                    if (!string.IsNullOrEmpty(data.ShopPhone))
-                        col.Item().Text(data.ShopPhone).FontSize(9);
-                });
-
-                row.ConstantItem(180).AlignRight().Column(col =>
-                {
-                    col.Item().Text("PARTS INVOICE")
-                        .FontSize(14)
-                        .Bold()
-                        .FontColor(Colors.Grey.Darken2);
-
-                    col.Item().PaddingTop(5).Row(r =>
-                    {
-                        r.AutoItem().Text("Invoice #: ").Bold();
-                        r.AutoItem().Text(data.InvoiceNumber ?? "");
-                    });
-
-                    col.Item().Row(r =>
-                    {
-                        r.AutoItem().Text("Date: ").Bold();
-                        r.AutoItem().Text(data.Date.ToString("MM/dd/yyyy"));
-                    });
-                });
-            });
-
-            column.Item().PaddingTop(10).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+            ("Invoice #", data.InvoiceNumber ?? ""),
+            ("Date", data.Date.ToString("MM/dd/yyyy"))
         });
     }
 
@@ -295,7 +258,7 @@ public class ShopDocsPdfService
                     });
                 });
 
-                page.Footer().Element(c => ComposeFooter(c, "Vehicle Protection Quote"));
+                // No footer on the customer-facing quote (no page number / app credit line).
             });
         }).GeneratePdf(outputPath);
 
@@ -304,136 +267,166 @@ public class ShopDocsPdfService
 
     private void ComposeVehicleProtectionHeader(IContainer container, VehicleProtectionPdfData data)
     {
-        container.Column(column =>
+        var meta = new List<(string Label, string Value)>
         {
-            column.Item().Row(row =>
-            {
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().Text("VEHICLE PROTECTION QUOTE")
-                        .FontSize(18)
-                        .Bold()
-                        .FontColor(Colors.Blue.Darken2);
+            ("Date", data.Date.ToString("MM/dd/yyyy"))
+        };
+        if (!string.IsNullOrEmpty(data.RoNumber))
+            meta.Add(("RO #", data.RoNumber));
 
-                    col.Item().PaddingTop(5).Text($"Generated: {data.Date:MMMM dd, yyyy}")
-                        .FontSize(9)
-                        .FontColor(Colors.Grey.Darken1);
-                });
-
-                row.ConstantItem(150).AlignRight().Column(col =>
-                {
-                    var serviceColor = data.ServiceType switch
-                    {
-                        "ceramic" => Colors.Orange.Darken2,
-                        "vinyl" => Colors.Purple.Darken2,
-                        _ => Colors.Blue.Darken2
-                    };
-
-                    col.Item().Text(data.ServiceTypeName ?? "PPF")
-                        .FontSize(14)
-                        .Bold()
-                        .FontColor(serviceColor);
-                });
-            });
-
-            column.Item().PaddingTop(10).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
-        });
+        var title = string.IsNullOrWhiteSpace(data.ServiceTypeName) ? "Vehicle Protection" : data.ServiceTypeName!;
+        ComposeDocHeader(container, data.ShopName, title, meta);
     }
 
     private void ComposeVehicleProtectionInfo(IContainer container, VehicleProtectionPdfData data)
     {
-        container.Row(row =>
+        // Left column: customer + vehicle. Right column: RO / VIN / body style.
+        var leftFields = new List<(string Label, string? Value)>
         {
-            row.RelativeItem().Column(col =>
-            {
-                if (!string.IsNullOrEmpty(data.CustomerName))
-                {
-                    col.Item().Row(r =>
-                    {
-                        r.AutoItem().Text("Customer: ").Bold();
-                        r.AutoItem().Text(data.CustomerName);
-                    });
-                }
+            ("Customer", data.CustomerName),
+            ("Vehicle", data.VehicleDescription),
+        };
+        var rightFields = new List<(string Label, string? Value)>
+        {
+            ("VIN", data.Vin),
+            ("Body Style", data.VehicleStyle),
+        };
 
-                if (!string.IsNullOrEmpty(data.VehicleStyle))
-                {
-                    col.Item().Row(r =>
-                    {
-                        r.AutoItem().Text("Vehicle Type: ").Bold();
-                        r.AutoItem().Text(data.VehicleStyle);
-                    });
-                }
-            });
+        // Nothing to show — skip the block entirely.
+        if (leftFields.All(f => string.IsNullOrEmpty(f.Value)) &&
+            rightFields.All(f => string.IsNullOrEmpty(f.Value)))
+            return;
+
+        container.Background(Colors.Grey.Lighten4).Padding(10).Row(row =>
+        {
+            row.RelativeItem().Column(col => ComposeInfoFields(col, leftFields));
+            row.RelativeItem().Column(col => ComposeInfoFields(col, rightFields));
         });
+    }
+
+    private static void ComposeInfoFields(ColumnDescriptor col, List<(string Label, string? Value)> fields)
+    {
+        foreach (var (label, value) in fields)
+        {
+            if (string.IsNullOrEmpty(value)) continue;
+            col.Item().Row(r =>
+            {
+                r.ConstantItem(70).Text($"{label}:").Bold();
+                r.RelativeItem().Text(value);
+            });
+        }
     }
 
     private void ComposeVehicleProtectionPanels(IContainer container, List<VehicleProtectionPdfPanel> panels)
     {
+        // Only show the Qty/Unit-Price breakdown when at least one line has a non-unit quantity.
+        // When every line is qty 1, Price and Line Total are identical, so we collapse to a
+        // single amount column — both to avoid the redundant column and to keep the layout clean.
+        var showQty = panels.Any(p => p.Quantity != 1m);
+
+        // Uses a QuestPDF Table (not a Row) on purpose: in this QuestPDF version a Row's
+        // RelativeItem overruns its sibling ConstantItem/AutoItem columns and pushes the money
+        // values off the right margin. A Table with RelativeColumn + ConstantColumn stays bounded.
+        const float qtyW = 55f;
+        const float moneyW = 110f;
+
         container.Table(table =>
         {
             table.ColumnsDefinition(columns =>
             {
-                columns.RelativeColumn(2);   // Panel Name
-                columns.ConstantColumn(80);  // Category
-                columns.ConstantColumn(80);  // Price
+                columns.RelativeColumn();          // Panel / Product (Location) name
+                if (showQty)
+                {
+                    columns.ConstantColumn(qtyW);   // Qty
+                    columns.ConstantColumn(moneyW); // Unit price
+                }
+                columns.ConstantColumn(moneyW);     // Amount (Total, or Price when qty hidden)
             });
+
+            // Right-aligned numeric cells get extra right padding so the amounts and the white
+            // header labels sit on the colored bar with a gap from the edge (rather than hugging it).
+            const float padR = 28f;
 
             // Header
             table.Header(header =>
             {
-                header.Cell().Background(Colors.Blue.Darken3).Padding(6).Text("Panel").FontColor(Colors.White).Bold();
-                header.Cell().Background(Colors.Blue.Darken3).Padding(6).Text("Category").FontColor(Colors.White).Bold();
-                header.Cell().Background(Colors.Blue.Darken3).Padding(6).AlignRight().Text("Price").FontColor(Colors.White).Bold();
+                header.Cell().Background(Colors.Blue.Darken3).PaddingVertical(6).PaddingLeft(10).Text("Location").FontColor(Colors.White).Bold();
+                if (showQty)
+                {
+                    header.Cell().Background(Colors.Blue.Darken3).PaddingVertical(6).PaddingLeft(6).PaddingRight(padR).AlignRight().Text("Qty").FontColor(Colors.White).Bold();
+                    header.Cell().Background(Colors.Blue.Darken3).PaddingVertical(6).PaddingLeft(6).PaddingRight(padR).AlignRight().Text("Unit Price").FontColor(Colors.White).Bold();
+                }
+                header.Cell().Background(Colors.Blue.Darken3).PaddingVertical(6).PaddingLeft(6).PaddingRight(padR).AlignRight().Text(showQty ? "Total" : "Price").FontColor(Colors.White).Bold();
             });
 
-            // Panels
-            foreach (var panel in panels)
+            // Panel rows
+            for (int i = 0; i < panels.Count; i++)
             {
-                var bgColor = panels.IndexOf(panel) % 2 == 0 ? Colors.Grey.Lighten4 : Colors.White;
+                var panel = panels[i];
+                var bgColor = i % 2 == 0 ? Colors.Grey.Lighten4 : Colors.White;
 
-                table.Cell().Background(bgColor).Padding(5).Text(panel.Name ?? "");
-                table.Cell().Background(bgColor).Padding(5).Text(panel.Category ?? "");
-                table.Cell().Background(bgColor).Padding(5).AlignRight().Text($"${panel.Price:F2}");
+                table.Cell().Background(bgColor).PaddingVertical(5).PaddingLeft(10).Text(panel.Name ?? "");
+                if (showQty)
+                {
+                    table.Cell().Background(bgColor).PaddingVertical(5).PaddingLeft(5).PaddingRight(padR).AlignRight().Text(FormatQty(panel.Quantity));
+                    table.Cell().Background(bgColor).PaddingVertical(5).PaddingLeft(5).PaddingRight(padR).AlignRight().Text($"${panel.Price:F2}");
+                }
+                table.Cell().Background(bgColor).PaddingVertical(5).PaddingLeft(5).PaddingRight(padR).AlignRight().Text($"${panel.LineTotal:F2}");
             }
         });
     }
 
+    // Trim trailing zeros so quantities read "1", "0.5", "1.5" rather than "1.00".
+    private static string FormatQty(decimal qty) =>
+        qty.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
     private void ComposeVehicleProtectionTotals(IContainer container, VehicleProtectionPdfData data)
     {
-        container.AlignRight().Width(250).Column(column =>
+        // Right-align the totals via a Table spacer column instead of AlignRight().Width(),
+        // which — like Row — overruns in this QuestPDF version and dragged the panels table's
+        // amount column past the margin. A left spacer column pushes the box to the right cleanly.
+        container.Table(outer =>
         {
-            column.Item().Background(Colors.Grey.Lighten3).Padding(12).Column(col =>
+            outer.ColumnsDefinition(c =>
             {
-                col.Item().Row(row =>
-                {
-                    row.RelativeItem().Text("Subtotal:");
-                    row.AutoItem().Text($"${data.Subtotal:F2}");
-                });
+                c.RelativeColumn();       // spacer — pushes the box to the right
+                c.ConstantColumn(250);    // the totals box
+            });
 
-                if (data.DiscountPercent > 0)
+            outer.Cell().Text("");
+            outer.Cell().Background(Colors.Grey.Lighten3).Padding(12).Column(col =>
+            {
+                // padR keeps the right-aligned amounts on the box (same QuestPDF quirk as the panels).
+                const float padR = 16f;
+
+                col.Item().Table(t =>
                 {
-                    col.Item().PaddingTop(5).Row(row =>
+                    t.ColumnsDefinition(tc => { tc.RelativeColumn(); tc.ConstantColumn(95); });
+                    t.Cell().Text("Subtotal:");
+                    t.Cell().PaddingRight(padR).AlignRight().Text($"${data.Subtotal:F2}");
+
+                    if (data.DiscountPercent > 0)
                     {
-                        row.RelativeItem().Text($"Volume Discount ({data.DiscountPercent}%):")
-                            .FontColor(Colors.Green.Darken2);
-                        row.AutoItem().Text($"-${data.DiscountAmount:F2}")
-                            .FontColor(Colors.Green.Darken2);
-                    });
-                }
+                        t.Cell().PaddingTop(5).Text($"Volume Discount ({data.DiscountPercent}%):").FontColor(Colors.Green.Darken2);
+                        t.Cell().PaddingTop(5).PaddingRight(padR).AlignRight().Text($"-${data.DiscountAmount:F2}").FontColor(Colors.Green.Darken2);
+                    }
+                });
 
                 col.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
 
-                col.Item().PaddingTop(8).Row(row =>
+                col.Item().PaddingTop(8).Table(t =>
                 {
-                    row.RelativeItem().Text("TOTAL:").Bold().FontSize(14);
-                    row.AutoItem().Text($"${data.Total:F2}").Bold().FontSize(14);
+                    t.ColumnsDefinition(tc => { tc.RelativeColumn(); tc.ConstantColumn(95); });
+                    t.Cell().Text("TOTAL:").Bold().FontSize(14);
+                    t.Cell().PaddingRight(padR).AlignRight().Text($"${data.Total:F2}").Bold().FontSize(14);
                 });
             });
 
-            // Discount notice
+            // Discount notice sits under the box (its own row in the spacer table)
             if (data.DiscountPercent > 0)
             {
-                column.Item().PaddingTop(8).Text($"Multi-panel discount applied: {data.PanelCount} panels selected")
+                outer.Cell().Text("");
+                outer.Cell().PaddingTop(8).Text($"Multi-panel discount applied: {data.PanelCount} panels selected")
                     .FontSize(9)
                     .FontColor(Colors.Grey.Darken1)
                     .AlignCenter();
@@ -445,34 +438,84 @@ public class ShopDocsPdfService
 
     #region Shared Components
 
-    private void ComposeInvoiceHeader(IContainer container, string title, string? invoiceNumber, DateTime date)
+    /// <summary>
+    /// Clean white document header matching the blueprint checklist style:
+    /// shop name on top (16pt bold black), document title below (14pt bold black)
+    /// with a grey underline rule. Optional right-aligned meta lines (e.g. Invoice #, Date).
+    /// </summary>
+    private void ComposeDocHeader(IContainer container, string? shopName, string docTitle,
+        IReadOnlyList<(string Label, string Value)>? meta = null)
     {
+        var lh = ShopDocsSettingsService.Instance.GetSettings();
+
         container.Column(column =>
         {
-            column.Item().Row(row =>
+            if (lh.ShowLetterhead)
             {
-                row.RelativeItem().Text(title)
-                    .FontSize(18)
-                    .Bold()
-                    .FontColor(Colors.Blue.Darken2);
-
-                row.ConstantItem(180).AlignRight().Column(col =>
+                // Optional letterhead: logo (left) + shop name + address + phone/email.
+                column.Item().Row(hr =>
                 {
-                    col.Item().Row(r =>
+                    if (!string.IsNullOrWhiteSpace(lh.ShopLogoPath) && System.IO.File.Exists(lh.ShopLogoPath))
                     {
-                        r.AutoItem().Text("Invoice #: ").Bold();
-                        r.AutoItem().Text(invoiceNumber ?? "");
-                    });
-
-                    col.Item().Row(r =>
+                        try { hr.ConstantItem(80).MaxHeight(55).AlignLeft().AlignMiddle().Image(lh.ShopLogoPath); }
+                        catch { /* bad image — skip */ }
+                        hr.ConstantItem(12);
+                    }
+                    hr.RelativeItem().Column(info =>
                     {
-                        r.AutoItem().Text("Date: ").Bold();
-                        r.AutoItem().Text(date.ToString("MM/dd/yyyy"));
+                        info.Item().Text(string.IsNullOrWhiteSpace(shopName) ? "Shop Name" : shopName)
+                            .FontSize(16).Bold().FontColor(Colors.Black);
+                        if (!string.IsNullOrWhiteSpace(lh.ShopAddress))
+                            info.Item().Text(lh.ShopAddress).FontSize(9).FontColor(Colors.Grey.Darken1);
+                        var contact = lh.ShopPhone ?? "";
+                        if (!string.IsNullOrWhiteSpace(lh.ShopEmail))
+                            contact = string.IsNullOrWhiteSpace(contact) ? lh.ShopEmail : $"{contact}    {lh.ShopEmail}";
+                        if (!string.IsNullOrWhiteSpace(contact))
+                            info.Item().Text(contact).FontSize(9).FontColor(Colors.Grey.Darken1);
                     });
                 });
+                column.Item().PaddingBottom(4);
+            }
+            else
+            {
+                column.Item().PaddingBottom(2)
+                    .Text(string.IsNullOrWhiteSpace(shopName) ? "Shop Name" : shopName)
+                    .FontSize(16).Bold().FontColor(Colors.Black);
+            }
+
+            column.Item().BorderBottom(1).BorderColor(Colors.Grey.Medium).PaddingBottom(8).Row(row =>
+            {
+                row.RelativeItem().AlignBottom()
+                    .Text(docTitle).FontSize(14).Bold().FontColor(Colors.Black);
+
+                if (meta != null && meta.Count > 0)
+                {
+                    row.ConstantItem(200).AlignRight().AlignBottom().Column(col =>
+                    {
+                        foreach (var (label, value) in meta)
+                        {
+                            if (string.IsNullOrEmpty(value)) continue;
+                            col.Item().Text(t =>
+                            {
+                                t.Span($"{label}: ").FontSize(9).Bold().FontColor(Colors.Grey.Darken2);
+                                t.Span(value).FontSize(9).FontColor(Colors.Grey.Darken2);
+                            });
+                        }
+                    });
+                }
             });
 
-            column.Item().PaddingTop(10).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+            column.Item().PaddingTop(10);
+        });
+    }
+
+    private void ComposeInvoiceHeader(IContainer container, string title, string? invoiceNumber, DateTime date)
+    {
+        var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+        ComposeDocHeader(container, shopName, title, new (string, string)[]
+        {
+            ("Invoice #", invoiceNumber ?? ""),
+            ("Date", date.ToString("MM/dd/yyyy"))
         });
     }
 
@@ -630,23 +673,16 @@ public class ShopDocsPdfService
                 page.Margin(0.5f, Unit.Inch);
                 page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
 
-                page.Header().Column(col =>
+                page.Header().Element(h =>
                 {
-                    col.Item().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
-                    {
-                        row.RelativeItem().Text(catalog.Name.ToUpperInvariant())
-                            .FontSize(16).Bold().FontColor(Colors.White);
-                        row.ConstantItem(200).AlignRight().Column(right =>
-                        {
-                            if (!string.IsNullOrEmpty(catalog.Supplier))
-                                right.Item().Text($"Supplier: {catalog.Supplier}")
-                                    .FontSize(9).FontColor(Colors.Grey.Lighten2);
-                            right.Item().Text($"Items: {catalog.Items.Count}")
-                                .FontSize(9).FontColor(Colors.Grey.Lighten2);
-                            right.Item().Text($"Date: {DateTime.Now:MM/dd/yyyy}")
-                                .FontSize(9).FontColor(Colors.Grey.Lighten2);
-                        });
-                    });
+                    var meta = new List<(string Label, string Value)>();
+                    if (!string.IsNullOrEmpty(catalog.Supplier))
+                        meta.Add(("Supplier", catalog.Supplier));
+                    meta.Add(("Items", catalog.Items.Count.ToString()));
+                    meta.Add(("Date", $"{DateTime.Now:MM/dd/yyyy}"));
+
+                    var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+                    ComposeDocHeader(h, shopName, catalog.Name, meta);
                 });
 
                 page.Content().PaddingTop(8).Table(table =>
@@ -712,12 +748,13 @@ public class ShopDocsPdfService
                 page.Margin(0.5f, Unit.Inch);
                 page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
 
-                page.Header().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                page.Header().Element(h =>
                 {
-                    row.RelativeItem().Text("DEALER / LABOR RATES")
-                        .FontSize(16).Bold().FontColor(Colors.White);
-                    row.ConstantItem(150).AlignRight().Text($"Date: {DateTime.Now:MM/dd/yyyy}")
-                        .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                    var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+                    ComposeDocHeader(h, shopName, "Dealer / Labor Rates", new (string, string)[]
+                    {
+                        ("Date", $"{DateTime.Now:MM/dd/yyyy}")
+                    });
                 });
 
                 page.Content().PaddingTop(8).Table(table =>
@@ -778,16 +815,13 @@ public class ShopDocsPdfService
                 page.Margin(0.5f, Unit.Inch);
                 page.DefaultTextStyle(x => x.FontSize(9).FontFamily("Arial"));
 
-                page.Header().Background(Colors.Grey.Darken3).Padding(12).Row(row =>
+                page.Header().Element(h =>
                 {
-                    row.RelativeItem().Text("VENDOR INFORMATION")
-                        .FontSize(16).Bold().FontColor(Colors.White);
-                    row.ConstantItem(200).AlignRight().Column(col =>
+                    var shopName = ShopDocsSettingsService.Instance.GetSettings().ShopName;
+                    ComposeDocHeader(h, shopName, "Vendor Information", new (string, string)[]
                     {
-                        col.Item().Text($"Vendors: {vendors.Count}")
-                            .FontSize(9).FontColor(Colors.Grey.Lighten2);
-                        col.Item().Text($"Date: {DateTime.Now:MM/dd/yyyy}")
-                            .FontSize(9).FontColor(Colors.Grey.Lighten2);
+                        ("Vendors", vendors.Count.ToString()),
+                        ("Date", $"{DateTime.Now:MM/dd/yyyy}")
                     });
                 });
 
@@ -1007,8 +1041,12 @@ public class VehicleProtectionPdfData
     public DateTime Date { get; set; }
     public string? ServiceType { get; set; }
     public string? ServiceTypeName { get; set; }
+    public string? ShopName { get; set; }
     public string? CustomerName { get; set; }
     public string? VehicleStyle { get; set; }
+    public string? VehicleDescription { get; set; }
+    public string? RoNumber { get; set; }
+    public string? Vin { get; set; }
     public string? ProductName { get; set; }
     public List<VehicleProtectionPdfPanel> Panels { get; set; } = new();
     public int PanelCount { get; set; }
@@ -1023,6 +1061,8 @@ public class VehicleProtectionPdfPanel
     public string? Name { get; set; }
     public string? Category { get; set; }
     public decimal Price { get; set; }
+    public decimal Quantity { get; set; } = 1m;
+    public decimal LineTotal => Price * Quantity;
 }
 
 #endregion

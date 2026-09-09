@@ -214,15 +214,28 @@ namespace McStudDesktop.Services
             return GeneratePdfFromItems(allSelected, outputPath);
         }
 
+        /// <summary>
+        /// The Reference export config's own shop name is an optional override.
+        /// When it's blank, fall back to the global Settings shop name so a name
+        /// typed once in Settings appears on Reference PDFs automatically.
+        /// </summary>
+        private static string ResolveShopName(ReferenceExportConfig config)
+        {
+            if (!string.IsNullOrWhiteSpace(config.ShopName))
+                return config.ShopName;
+            return ShopDocsSettingsService.Instance.GetSettings().ShopName ?? "";
+        }
+
         private void ComposeHeader(IContainer container)
         {
             var config = ReferenceExportConfigService.Instance.Config;
+            var shopName = ResolveShopName(config);
             container.Column(col =>
             {
                 // Shop name large at top (if set)
-                if (!string.IsNullOrWhiteSpace(config.ShopName))
+                if (!string.IsNullOrWhiteSpace(shopName))
                 {
-                    col.Item().Text(config.ShopName)
+                    col.Item().Text(shopName)
                         .FontSize(22)
                         .Bold()
                         .FontColor(Colors.Blue.Darken3);
@@ -430,7 +443,8 @@ namespace McStudDesktop.Services
                             {
                                 pPageCol.Item().PaddingTop(6).Text(text =>
                                 {
-                                    text.Hyperlink(cccUrl, "View in CCC MOTOR Guide \u2192")
+                                    // QuestPDF signature is Hyperlink(text, url) \u2014 text first, URL second.
+                                    text.Hyperlink("View in CCC MOTOR Guide \u2192", cccUrl)
                                         .FontSize(9).Bold().FontColor(Colors.Blue.Medium);
                                 });
                             }
@@ -580,6 +594,7 @@ namespace McStudDesktop.Services
         private void ComposeFooter(IContainer container)
         {
             var config = ReferenceExportConfigService.Instance.Config;
+            var shopName = ResolveShopName(config);
             container.AlignCenter().Text(text =>
             {
                 if (config.ShowPageNumbers)
@@ -590,8 +605,8 @@ namespace McStudDesktop.Services
                     text.TotalPages();
 
                     var footerParts = new List<string>();
-                    if (!string.IsNullOrWhiteSpace(config.ShopName))
-                        footerParts.Add(config.ShopName);
+                    if (!string.IsNullOrWhiteSpace(shopName))
+                        footerParts.Add(shopName);
                     if (!string.IsNullOrEmpty(config.FooterText))
                         footerParts.Add(config.FooterText);
 
@@ -605,8 +620,8 @@ namespace McStudDesktop.Services
                 else
                 {
                     var footerParts = new List<string>();
-                    if (!string.IsNullOrWhiteSpace(config.ShopName))
-                        footerParts.Add(config.ShopName);
+                    if (!string.IsNullOrWhiteSpace(shopName))
+                        footerParts.Add(shopName);
                     if (!string.IsNullOrEmpty(config.FooterText))
                         footerParts.Add(config.FooterText);
 

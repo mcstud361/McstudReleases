@@ -19,6 +19,55 @@ public partial class App : Application
     public App()
     {
         this.InitializeComponent();
+
+        // Global safety nets so a single stray exception can't silently kill the app.
+        // Each path logs to crash.log; the UI-thread path keeps the app alive.
+        this.UnhandledException += OnUiUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+    }
+
+    private void OnUiUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
+    {
+        LogCrash("UI thread", e.Exception);
+        // Keep the app running instead of terminating on a non-fatal UI error.
+        e.Handled = true;
+    }
+
+    private void OnDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+    {
+        LogCrash("Background thread", e.ExceptionObject as Exception);
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        LogCrash("Unobserved task", e.Exception);
+        e.SetObserved();
+    }
+
+    /// <summary>
+    /// Appends an error (with timestamp and stack trace) to
+    /// %LocalAppData%\McStudDesktop\crash.log. This file is the diagnostic
+    /// report a user can send in when something goes wrong.
+    /// </summary>
+    public static void LogCrash(string source, Exception? ex)
+    {
+        try
+        {
+            var logPath = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "McStudDesktop",
+                "crash.log");
+
+            var dir = System.IO.Path.GetDirectoryName(logPath);
+            if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
+                System.IO.Directory.CreateDirectory(dir);
+
+            var entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}:\n{ex}\n\n";
+            System.IO.File.AppendAllText(logPath, entry);
+            Debug.WriteLine($"[App] Logged {source} exception: {ex?.Message}");
+        }
+        catch { }
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -69,23 +118,8 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            // Write to a log file for debugging
-            var logPath = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "McStudDesktop",
-                "crash.log");
-
-            try
-            {
-                var dir = System.IO.Path.GetDirectoryName(logPath);
-                if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir))
-                    System.IO.Directory.CreateDirectory(dir);
-
-                System.IO.File.WriteAllText(logPath,
-                    $"Crash at {DateTime.Now}:\n{ex}\n\nStack trace:\n{ex.StackTrace}");
-            }
-            catch { }
-
+            // Startup failures are logged, then rethrown — the app can't run without a window.
+            LogCrash("Startup", ex);
             Debug.WriteLine($"[App] CRASH: {ex}");
             throw;
         }

@@ -450,7 +450,10 @@ namespace McStudDesktop.Services
                 TotalMechLaborDollars = baseEstimate.TotalMechLaborDollars,
                 TotalFrameLaborDollars = baseEstimate.TotalFrameLaborDollars,
                 GrandTotalLaborDollars = baseEstimate.GrandTotalLaborDollars,
-                Notes = baseEstimate.Notes
+                Notes = baseEstimate.Notes,
+                TrainingMode = baseEstimate.TrainingMode,
+                TrainedEstimateCount = baseEstimate.TrainedEstimateCount,
+                TrainingSummary = baseEstimate.TrainingSummary
             };
 
             // Track operations by normalized key for deduplication
@@ -730,10 +733,128 @@ namespace McStudDesktop.Services
                 })
                 .ToList();
 
+            // Auto-learned must-haves — operations this shop bills on nearly every job.
+            AddLearnedMustHaves(result);
+
+            // Attach OEM / CCC-MOTOR citations so each suggestion carries a negotiation-ready receipt.
+            EnrichWithCitations(result, input);
+
             // Copy operations list for backward compat
             result.Operations = result.GuidanceOperations.Cast<GhostOperation>().ToList();
 
             return result;
+        }
+
+        /// <summary>
+        /// Attach negotiation-ready citations to each guidance operation:
+        ///  - OEM position statements for the vehicle's make (scans, ADAS calibration, etc.)
+        ///  - CCC/MOTOR "not included" references proving an op is separately billable.
+        /// Purely additive — never changes hours/prices, only the justification metadata.
+        /// </summary>
+        private void EnrichWithCitations(GuidanceEstimateResult result, GhostEstimateInput input)
+        {
+            // OEM position statements matched to this vehicle's manufacturer.
+            List<OemStatementMatch> oemStatements;
+            try { oemStatements = OemStatementService.Instance.GetForVehicle(input.VehicleInfo); }
+            catch { oemStatements = new List<OemStatementMatch>(); }
+
+            foreach (var op in result.GuidanceOperations)
+            {
+                var desc = (op.Description ?? "").ToLowerInvariant();
+
+                // --- OEM citation (make-specific) ---
+                if (string.IsNullOrEmpty(op.OemCitation) && oemStatements.Count > 0)
+                {
+                    var wantCategory = OemCategoryForOperation(desc);
+                    if (wantCategory != null)
+                    {
+                        var match = oemStatements.FirstOrDefault(s =>
+                            string.Equals(s.Category, wantCategory, StringComparison.OrdinalIgnoreCase));
+                        if (match != null)
+                        {
+                            op.OemCitation = string.IsNullOrWhiteSpace(match.Title)
+                                ? $"{match.Oem} position statement"
+                                : $"{match.Oem}: {match.Title}";
+                            op.OemCitationLink = match.PublicLink ?? "";
+                        }
+                    }
+                }
+
+                // --- CCC/MOTOR "not included" citation (separately billable) ---
+                if (string.IsNullOrEmpty(op.MetCitation))
+                {
+                    var cite = FindNotIncludedCitation(desc);
+                    if (!string.IsNullOrEmpty(cite))
+                        op.MetCitation = cite;
+                }
+            }
+        }
+
+        /// <summary>Map an operation description to the OEM statement category that would back it, or null.</summary>
+        private static string? OemCategoryForOperation(string descLower)
+        {
+            if (descLower.Contains("scan")) return "Scanning";
+            if (descLower.Contains("calibrat") || descLower.Contains("aim ") || descLower.Contains(" adas") ||
+                descLower.Contains("blind spot") || descLower.Contains("lane depart") || descLower.Contains("radar") ||
+                descLower.Contains("front camera") || descLower.Contains("360") || descLower.Contains("park assist"))
+                return "ADAS Calibration";
+            return null;
+        }
+
+        // Cached flattened index of CCC/MOTOR "not included" phrases -> the parent operation they belong to.
+        private List<(string Parent, string PhraseNorm)>? _notIncludedIndex;
+
+        private List<(string Parent, string PhraseNorm)> NotIncludedIndex()
+        {
+            if (_notIncludedIndex != null) return _notIncludedIndex;
+            var list = new List<(string, string)>();
+            if (_operationsData?.Operations != null)
+            {
+                foreach (var def in _operationsData.Operations)
+                {
+                    if (def.NotIncluded == null) continue;
+                    var parent = def.PartName ?? "";
+                    foreach (var phrase in def.NotIncluded)
+                    {
+                        if (string.IsNullOrWhiteSpace(phrase)) continue;
+                        var norm = NormalizeCitationPhrase(phrase);
+                        if (norm.Length < 5) continue; // avoid trivial matches
+                        list.Add((parent, norm));
+                    }
+                }
+            }
+            _notIncludedIndex = list;
+            return list;
+        }
+
+        /// <summary>
+        /// If this operation matches a CCC/MOTOR "not included" line on some parent operation,
+        /// return a citation stating it is separately billable. Null if no confident match.
+        /// </summary>
+        private string? FindNotIncludedCitation(string opDescLower)
+        {
+            var opNorm = NormalizeCitationPhrase(opDescLower);
+            if (opNorm.Length < 4) return null;
+
+            foreach (var (parent, phraseNorm) in NotIncludedIndex())
+            {
+                if (opNorm.Contains(phraseNorm) || phraseNorm.Contains(opNorm))
+                {
+                    return string.IsNullOrWhiteSpace(parent)
+                        ? "Not included in base labor per CCC/MOTOR — separately billable"
+                        : $"Not included in {parent} labor per CCC/MOTOR — separately billable";
+                }
+            }
+            return null;
+        }
+
+        private static string NormalizeCitationPhrase(string s)
+        {
+            s = s.ToLowerInvariant();
+            s = Regex.Replace(s, @"\b(lt|rt|r&i|r ?& ?i|r&r)\b", " ");
+            s = Regex.Replace(s, @"[^a-z0-9 ]", " ");
+            s = Regex.Replace(s, @"\s+", " ").Trim();
+            return s;
         }
 
         /// <summary>
@@ -751,7 +872,10 @@ namespace McStudDesktop.Services
                 .Where(d => d.Length > 0)
                 .ToList();
 
-            foreach (var mh in _ghostConfig.GetMustHavesForContext(insuranceCompany, vehicleFuelType))
+            // Learned must-haves are injected later (after the section filter) by AddLearnedMustHaves,
+            // so exclude them here to avoid the section filter stripping them.
+            foreach (var mh in _ghostConfig.GetMustHavesForContext(insuranceCompany, vehicleFuelType)
+                         .Where(m => !m.IsLearned))
             {
                 // Skip if already present (unified fuzzy match)
                 var mhNorm = GhostConfigService.NormalizeMustHaveDesc(mh.Description);
@@ -775,6 +899,77 @@ namespace McStudDesktop.Services
                     ConfidenceLabel = "High",
                     IsRequired = true
                 });
+            }
+        }
+
+        /// <summary>
+        /// Promote operations that appear on ~every one of the shop's uploaded estimates to must-haves,
+        /// so the shop doesn't have to curate them by hand. Runs after filtering/dedup so these survive,
+        /// and skips anything already present or that looks job-specific (panel repairs/replacements).
+        /// </summary>
+        private void AddLearnedMustHaves(GuidanceEstimateResult result)
+        {
+            var recurring = _knowledgeBase.GetRecurringOperations(minRate: 0.9, minEstimates: 15);
+
+            // Filter out job-specific panel work before it can become a "standard" op —
+            // a recurring panel repair is a workload artifact, not a standard operation.
+            var candidates = recurring.Where(r =>
+            {
+                var partLower = r.PartName.ToLowerInvariant();
+                if (MajorPanels.Any(p => partLower.Contains(p))) return false;
+                var opLower = r.OperationType.ToLowerInvariant();
+                return opLower is not ("replace" or "repl" or "repair" or "rpr");
+            }).ToList();
+
+            // Persist into the shop's must-haves so they surface in the Must-Haves dialog and
+            // stay toggleable. This also preserves any enable/disable the shop already set.
+            _ghostConfig.SyncLearnedMustHaves(candidates);
+
+            // Inject the ENABLED learned must-haves into this estimate (after the section filter,
+            // so they can't be stripped). A disabled one simply won't appear.
+            var enabled = _ghostConfig.GetEnabledLearnedMustHaves();
+            if (enabled.Count == 0) return;
+
+            var presentNorms = result.GuidanceOperations
+                .Select(o => GhostConfigService.NormalizeMustHaveDesc(o.Description ?? ""))
+                .Where(d => d.Length > 0)
+                .ToList();
+
+            foreach (var mh in enabled)
+            {
+                var norm = GhostConfigService.NormalizeMustHaveDesc(mh.Description);
+                if (norm.Length == 0) continue;
+
+                var words = GhostConfigService.ExtractSignificantWords(norm);
+                if (presentNorms.Any(d => GhostConfigService.MatchesMustHave(d, norm, words)))
+                    continue;
+
+                var pct = (int)Math.Round(mh.LearnedAppearanceRate * 100);
+                var section = norm.Contains("scan") ? "VEHICLE DIAGNOSTICS" : "MISCELLANEOUS OPERATIONS";
+
+                result.GuidanceOperations.Add(new GuidanceOperation
+                {
+                    OperationType = string.IsNullOrWhiteSpace(mh.OpType) ? "Body" : mh.OpType,
+                    PartName = mh.Description.ToLowerInvariant(),
+                    Description = mh.Description,
+                    Category = section == "VEHICLE DIAGNOSTICS" ? "Scanning" : "Miscellaneous",
+                    Section = section,
+                    LaborHours = mh.ExpectedHours,
+                    RefinishHours = mh.RefinishHours,
+                    Price = mh.ExpectedPrice,
+                    Confidence = Math.Min(0.95, mh.LearnedAppearanceRate <= 0 ? 0.9 : mh.LearnedAppearanceRate),
+                    Source = pct > 0
+                        ? $"Learned — appears on {pct}% of your estimates ({mh.LearnedSampleCount} of {mh.LearnedTotalEstimates})"
+                        : "Learned — recurring standard operation",
+                    DataSource = "Learned",
+                    Justification = pct > 0
+                        ? $"Your shop includes this on {pct}% of estimates — auto-promoted to a standard operation."
+                        : "Auto-promoted from your recurring operations.",
+                    LearnedFrequency = mh.LearnedSampleCount,
+                    ConfidenceLabel = "High",
+                    IsRequired = true
+                });
+                presentNorms.Add(norm);
             }
         }
 
@@ -2042,18 +2237,29 @@ namespace McStudDesktop.Services
 
             // Show real learning stats
             var totalDataSources = stats.TotalEstimatesLearned + historyCount;
+            result.TrainedEstimateCount = totalDataSources;
 
+            // Frame the data-maturity honestly: even at zero uploads the estimate is grounded in
+            // bundled CCC/MOTOR MET times + the estimating tool — it's a real baseline, not a guess.
             if (totalDataSources < 10)
             {
-                result.Notes.Add($"Low training data ({totalDataSources} estimates, {kbStats.TotalPartsLearned} parts learned). Upload more estimates to improve accuracy.");
+                result.TrainingMode = GhostTrainingMode.Baseline;
+                result.TrainingSummary = totalDataSources == 0
+                    ? "Baseline mode — grounded in bundled CCC/MOTOR MET times and the estimating tool. Upload past estimates to tailor labor times to your shop."
+                    : $"Baseline mode — mostly bundled CCC/MOTOR + estimating-tool data ({totalDataSources} of your estimates learned so far). Upload more to tailor times to your shop.";
+                result.Notes.Add(result.TrainingSummary);
             }
             else if (totalDataSources < 50)
             {
-                result.Notes.Add($"Moderate training ({totalDataSources} estimates, {kbStats.TotalPartsLearned} parts, {kbStats.TotalCoOccurrencePatterns} patterns). Accuracy improves with more data.");
+                result.TrainingMode = GhostTrainingMode.Learning;
+                result.TrainingSummary = $"Learning mode — blending your {totalDataSources} uploaded estimates ({kbStats.TotalPartsLearned} parts, {kbStats.TotalCoOccurrencePatterns} patterns) with the industry baseline. Accuracy climbs as you add more.";
+                result.Notes.Add(result.TrainingSummary);
             }
             else
             {
-                result.Notes.Add($"Well-trained ({totalDataSources} estimates, {kbStats.TotalPartsLearned} parts, {kbStats.TotalCoOccurrencePatterns} patterns). High confidence in labor times.");
+                result.TrainingMode = GhostTrainingMode.Trained;
+                result.TrainingSummary = $"Trained on your shop — {totalDataSources} estimates ({kbStats.TotalPartsLearned} parts, {kbStats.TotalCoOccurrencePatterns} patterns). High confidence in labor times.";
+                result.Notes.Add(result.TrainingSummary);
             }
 
             // Count how many operations used real learned data vs fallback
@@ -3311,6 +3517,23 @@ namespace McStudDesktop.Services
         public decimal? MaxDollarTotal { get; set; }
 
         public List<string> Notes { get; set; } = new();
+
+        // Data-maturity signal so the UI can show an honest "mode" banner instead of burying it
+        // in Notes. Baseline = bundled industry data only; Learning = blending; Trained = shop-tailored.
+        public GhostTrainingMode TrainingMode { get; set; } = GhostTrainingMode.Baseline;
+        public int TrainedEstimateCount { get; set; }
+        public string TrainingSummary { get; set; } = "";
+    }
+
+    /// <summary>How much of the ghost estimate is driven by the shop's own uploaded history.</summary>
+    public enum GhostTrainingMode
+    {
+        /// <summary>Under 10 estimates — grounded in bundled CCC/MOTOR + estimating-tool data.</summary>
+        Baseline,
+        /// <summary>10–49 estimates — blending the shop's history with the industry baseline.</summary>
+        Learning,
+        /// <summary>50+ estimates — labor times are tailored to this shop with high confidence.</summary>
+        Trained
     }
 
     public class GhostOperation
@@ -3399,6 +3622,13 @@ namespace McStudDesktop.Services
         public string Justification { get; set; } = "";
         public string PPageReference { get; set; } = "";
         public string DEGReference { get; set; } = "";
+
+        // Negotiation-ready citations (purely additive metadata; never affect hours/prices).
+        // OemCitation: manufacturer position statement backing this op (make-specific).
+        // MetCitation: CCC/MOTOR "not included" proof that the op is separately billable.
+        public string OemCitation { get; set; } = "";
+        public string OemCitationLink { get; set; } = "";
+        public string MetCitation { get; set; } = "";
         public bool IsRequired { get; set; }
         public int LearnedFrequency { get; set; }
         public string ConfidenceLabel { get; set; } = "Medium"; // "High", "Medium", "Low"

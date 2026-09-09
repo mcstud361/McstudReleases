@@ -83,8 +83,8 @@
           "item": "Tri-Coat/3-Stage Application",
           "description": "Additional steps for 3-stage paint",
           "whyNotIncluded": "Extra application steps",
-          "typicalTime": "50% of refinish time",
-          "notes": "Add 50% to refinish hours for 3-stage paint"
+          "typicalTime": "70% of refinish time (first panel)",
+          "notes": "Add 70% to refinish hours for the first 3-stage panel and 40% for each additional panel (CCC/MOTOR)"
         },
         {
           "item": "Masking for Seam Sealer",

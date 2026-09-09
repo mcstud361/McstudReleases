@@ -643,8 +643,15 @@ namespace McStudDesktop.Views
             return expander;
         }
 
+        // Login/subscription-walled source links are never surfaced as clickable links because
+        // not every user has access. The canonical blocklist lives in OemStatementService so the
+        // scrubber and this view agree on what "requires login" means.
+        internal static bool RequiresLogin(string? url) => Services.OemStatementService.RequiresLogin(url);
+
         private static void AddLinkButton(StackPanel parent, string label, string url, string glyph, Color iconColor)
         {
+            // Skip any link that sits behind a manufacturer login/subscription wall.
+            if (RequiresLogin(url)) return;
             try
             {
                 var link = new HyperlinkButton
@@ -702,7 +709,7 @@ namespace McStudDesktop.Views
                 sb.AppendLine();
             }
 
-            if (!string.IsNullOrEmpty(stmt.Link))
+            if (!string.IsNullOrEmpty(stmt.Link) && !RequiresLogin(stmt.Link))
                 sb.AppendLine($"OEM Portal: {stmt.Link}");
             if (!string.IsNullOrEmpty(stmt.PdfLink))
                 sb.AppendLine($"PDF: {stmt.PdfLink}");
@@ -727,8 +734,13 @@ namespace McStudDesktop.Views
                     sb.AppendLine($"- {kp}");
             }
 
-            if (!string.IsNullOrEmpty(stmt.Link))
-                sb.AppendLine($"\nSource: {stmt.Link}");
+            // Cite a publicly verifiable source (never a login-walled portal) on estimates.
+            var source = (!string.IsNullOrEmpty(stmt.Link) && !RequiresLogin(stmt.Link)) ? stmt.Link
+                : !string.IsNullOrEmpty(stmt.PdfLink) ? stmt.PdfLink
+                : !string.IsNullOrEmpty(stmt.IcarLink) ? stmt.IcarLink
+                : null;
+            if (!string.IsNullOrEmpty(source))
+                sb.AppendLine($"\nSource: {source}");
 
             var dataPackage = new DataPackage();
             dataPackage.SetText(sb.ToString());
@@ -753,8 +765,22 @@ namespace McStudDesktop.Views
                     sb.AppendLine($"  {kp}");
             }
 
-            if (!string.IsNullOrEmpty(stmt.Link))
-                sb.AppendLine($"\nOEM Portal: {stmt.Link}");
+            // Collect public (non-login) links as CLICKABLE PDF links rather than plain text,
+            // so they actually work when clicked in the exported PDF.
+            var links = new Dictionary<string, string>();
+            void AddIfPublic(string label, string? url)
+            {
+                if (!string.IsNullOrEmpty(url) && !RequiresLogin(url) && !links.ContainsValue(url))
+                    links[label] = url!;
+            }
+            AddIfPublic("OEM Portal", stmt.Link);
+            AddIfPublic("Position Statement PDF", stmt.PdfLink);
+            AddIfPublic("I-CAR RTS", stmt.IcarLink);
+            AddIfPublic("Collision Info", stmt.CollisionLink);
+            AddIfPublic("ADAS Info", stmt.AdasLink);
+            AddIfPublic("Calibration Guide", stmt.CalibrationLink);
+            AddIfPublic("ADAS Job Aid", stmt.AdasJobAid);
+            AddIfPublic("Free Resources", stmt.FreeResources);
 
             var item = new PdfQueueItem
             {
@@ -763,7 +789,8 @@ namespace McStudDesktop.Views
                 Category = "OEM Position Statement",
                 Definition = stmt.Summary ?? "",
                 Details = sb.ToString(),
-                Status = stmt.Category ?? "Position Statement"
+                Status = stmt.Category ?? "Position Statement",
+                Links = links.Count > 0 ? links : null
             };
 
             if (DefinitionsView.PdfQueue.Any(q => q.Id == item.Id))

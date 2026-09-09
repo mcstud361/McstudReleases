@@ -31,6 +31,7 @@ public class PPFCustomizationView : UserControl
     private List<ServiceTypeConfig> _workingServiceTypes = new();
     private HashSet<string> _workingHiddenPanels = new();
     private Dictionary<string, List<CustomPanelItem>> _workingCustomItems = new();
+    private Dictionary<string, List<CustomProduct>> _workingProducts = new();
 
     // Selected service type
     private string? _selectedServiceTypeId;
@@ -41,6 +42,8 @@ public class PPFCustomizationView : UserControl
     private TextBlock? _itemsHeaderText;
     private StackPanel? _hiddenItemsPanel;
     private Border? _hiddenSection;
+    private StackPanel? _productsPanel;
+    private TextBlock? _productsHeaderText;
 
     public event EventHandler? SaveRequested;
     public event EventHandler? CloseRequested;
@@ -80,8 +83,24 @@ public class PPFCustomizationView : UserControl
                 }).ToList();
         }
 
+        _workingProducts = new Dictionary<string, List<CustomProduct>>();
+        foreach (var st in _workingServiceTypes)
+        {
+            var products = _ppfService.GetCustomProducts(st.Id);
+            if (products.Count > 0)
+                _workingProducts[st.Id] = products.Select(p => new CustomProduct
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Description = p.Description,
+                    PriceMultiplier = p.PriceMultiplier,
+                    Price = p.Price
+                }).ToList();
+        }
+
         _selectedServiceTypeId = _workingServiceTypes.FirstOrDefault(s => !s.IsHidden)?.Id;
         RefreshServiceTypesList();
+        RefreshProductsList();
         RefreshPanelsList();
     }
 
@@ -128,32 +147,8 @@ public class PPFCustomizationView : UserControl
 
     private FrameworkElement BuildHeader()
     {
-        var border = new Border
-        {
-            Background = new SolidColorBrush(MedBg),
-            Padding = new Thickness(20, 15, 20, 15),
-            BorderBrush = new SolidColorBrush(BorderClr),
-            BorderThickness = new Thickness(0, 0, 0, 1)
-        };
-
-        var stack = new StackPanel { Spacing = 4 };
-        stack.Children.Add(new TextBlock
-        {
-            Text = "Customize Vehicle Protection",
-            FontSize = 18,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Colors.White)
-        });
-        stack.Children.Add(new TextBlock
-        {
-            Text = "Add or remove service categories and items. Custom items are added to the quote directly.",
-            FontSize = 13,
-            Foreground = new SolidColorBrush(DimText),
-            TextWrapping = TextWrapping.Wrap
-        });
-
-        border.Child = stack;
-        return border;
+        // Blue title-bar card matching the blueprint checklist / other Shop Docs
+        return ShopDocHeader.Build("Customize Vehicle Protection");
     }
 
     private FrameworkElement BuildLeftColumn()
@@ -211,6 +206,47 @@ public class PPFCustomizationView : UserControl
         };
 
         var outerStack = new StackPanel { Spacing = 12 };
+
+        // ── Products (named coatings/films with their own price) ──
+        _productsHeaderText = new TextBlock
+        {
+            Text = "PRODUCTS",
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(DimText)
+        };
+        outerStack.Children.Add(_productsHeaderText);
+
+        outerStack.Children.Add(new TextBlock
+        {
+            Text = "Named products (e.g. \"Ceramic Pro 9H\") with a set price. Available as presets when adding lines to a quote.",
+            FontSize = 11,
+            Foreground = new SolidColorBrush(DimText),
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        _productsPanel = new StackPanel { Spacing = 4 };
+        outerStack.Children.Add(_productsPanel);
+
+        var addProductBtn = new Button
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(12, 8, 12, 8),
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        var addProductContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        addProductContent.Children.Add(new FontIcon { Glyph = "", FontSize = 14, Foreground = new SolidColorBrush(AccentGreen) });
+        addProductContent.Children.Add(new TextBlock { Text = "Add Product", VerticalAlignment = VerticalAlignment.Center });
+        addProductBtn.Content = addProductContent;
+        addProductBtn.Click += OnAddProduct;
+        outerStack.Children.Add(addProductBtn);
+
+        outerStack.Children.Add(new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush(BorderClr),
+            Margin = new Thickness(0, 4, 0, 4)
+        });
 
         _itemsHeaderText = new TextBlock
         {
@@ -429,6 +465,7 @@ public class PPFCustomizationView : UserControl
                 {
                     _selectedServiceTypeId = capturedId;
                     RefreshServiceTypesList();
+                    RefreshProductsList();
                     RefreshPanelsList();
                 };
                 btnStack.Children.Add(selectBtn);
@@ -464,6 +501,7 @@ public class PPFCustomizationView : UserControl
                     _selectedServiceTypeId = _workingServiceTypes.FirstOrDefault(x => !x.IsHidden)?.Id;
 
                 RefreshServiceTypesList();
+                RefreshProductsList();
                 RefreshPanelsList();
             };
             btnStack.Children.Add(removeBtn);
@@ -481,11 +519,153 @@ public class PPFCustomizationView : UserControl
             {
                 _selectedServiceTypeId = config.Id;
                 RefreshServiceTypesList();
+                RefreshProductsList();
                 RefreshPanelsList();
             }
         };
 
         return card;
+    }
+
+    private void RefreshProductsList()
+    {
+        if (_productsPanel == null) return;
+        _productsPanel.Children.Clear();
+
+        var st = _workingServiceTypes.FirstOrDefault(s => s.Id == _selectedServiceTypeId);
+        if (_productsHeaderText != null)
+            _productsHeaderText.Text = $"PRODUCTS FOR {st?.Name?.ToUpperInvariant() ?? "SERVICE"}";
+
+        if (_selectedServiceTypeId == null) return;
+
+        if (!_workingProducts.TryGetValue(_selectedServiceTypeId, out var products) || products.Count == 0)
+        {
+            _productsPanel.Children.Add(new TextBlock
+            {
+                Text = "No products yet.",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120))
+            });
+            return;
+        }
+
+        foreach (var product in products)
+            _productsPanel.Children.Add(BuildProductRow(product));
+    }
+
+    private FrameworkElement BuildProductRow(CustomProduct product)
+    {
+        var row = new Border
+        {
+            Background = new SolidColorBrush(CardBg),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(10, 6, 8, 6)
+        };
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        // Editable name
+        var nameBox = new TextBox
+        {
+            Text = product.Name,
+            FontSize = 13,
+            Background = new SolidColorBrush(Colors.Transparent),
+            BorderThickness = new Thickness(0),
+            Foreground = new SolidColorBrush(Colors.White),
+            Padding = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        nameBox.LostFocus += (s, _) =>
+        {
+            if (s is TextBox tb && tb.Text.Trim().Length > 0)
+                product.Name = tb.Text.Trim();
+        };
+        Grid.SetColumn(nameBox, 0);
+        grid.Children.Add(nameBox);
+
+        // Editable price
+        var priceBox = new TextBox
+        {
+            Text = product.Price.ToString("F2"),
+            FontSize = 13,
+            TextAlignment = TextAlignment.Right,
+            Padding = new Thickness(6, 2, 6, 2),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        ToolTipService.SetToolTip(priceBox, "Price per unit");
+        priceBox.LostFocus += (s, _) =>
+        {
+            if (s is TextBox tb && decimal.TryParse(tb.Text.TrimStart('$'), out var p) && p >= 0)
+            {
+                product.Price = p;
+                tb.Text = p.ToString("F2");
+            }
+        };
+        Grid.SetColumn(priceBox, 1);
+        grid.Children.Add(priceBox);
+
+        // Delete
+        var deleteBtn = CreateSmallButton("", "Delete");
+        var capturedId = product.Id;
+        deleteBtn.Click += (_, _) =>
+        {
+            if (_selectedServiceTypeId != null && _workingProducts.TryGetValue(_selectedServiceTypeId, out var list))
+                list.RemoveAll(p => p.Id == capturedId);
+            RefreshProductsList();
+        };
+        Grid.SetColumn(deleteBtn, 2);
+        grid.Children.Add(deleteBtn);
+
+        row.Child = grid;
+        return row;
+    }
+
+    private async void OnAddProduct(object sender, RoutedEventArgs e)
+    {
+        if (_selectedServiceTypeId == null)
+        {
+            return;
+        }
+
+        var stack = new StackPanel { Spacing = 8 };
+        var nameBox = new TextBox { PlaceholderText = "Product name (e.g., Ceramic Pro 9H)" };
+        stack.Children.Add(new TextBlock { Text = "Name:", FontSize = 13 });
+        stack.Children.Add(nameBox);
+        var priceBox = new TextBox { PlaceholderText = "Price per unit (e.g., 200)" };
+        stack.Children.Add(new TextBlock { Text = "Price:", FontSize = 13, Margin = new Thickness(0, 4, 0, 0) });
+        stack.Children.Add(priceBox);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Add Product",
+            Content = stack,
+            PrimaryButtonText = "Add",
+            CloseButtonText = "Cancel",
+            XamlRoot = this.XamlRoot,
+            DefaultButton = ContentDialogButton.Primary
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary || string.IsNullOrWhiteSpace(nameBox.Text)) return;
+
+        decimal price = 0;
+        if (!string.IsNullOrWhiteSpace(priceBox.Text))
+            decimal.TryParse(priceBox.Text.TrimStart('$'), out price);
+
+        if (!_workingProducts.ContainsKey(_selectedServiceTypeId))
+            _workingProducts[_selectedServiceTypeId] = new List<CustomProduct>();
+
+        _workingProducts[_selectedServiceTypeId].Add(new CustomProduct
+        {
+            Id = $"prod_{Guid.NewGuid():N}"[..20],
+            Name = nameBox.Text.Trim(),
+            Price = price
+        });
+
+        RefreshProductsList();
     }
 
     private void RefreshPanelsList()
@@ -763,6 +943,12 @@ public class PPFCustomizationView : UserControl
 
         // Save custom panel items
         settings.CustomPanelItems = _workingCustomItems.Count > 0 ? _workingCustomItems : null;
+
+        // Save custom products (drop empty lists so settings stay tidy)
+        var products = _workingProducts
+            .Where(kvp => kvp.Value.Count > 0)
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        settings.CustomProducts = products.Count > 0 ? products : null;
 
         _ppfService.UpdateUserSettings(settings);
         SaveRequested?.Invoke(this, EventArgs.Empty);

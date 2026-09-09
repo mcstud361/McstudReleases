@@ -40,6 +40,56 @@ namespace McStudDesktop.Views
             "miscellaneous", "totals", "summary", "subtotal", "additional"
         };
 
+        // Section headers and metadata labels that are NEVER real parts. Using one of these as a
+        // learned-suggestion trigger dumps its entire learned op pile into the report — this is what
+        // made "State: NJ" suggest every NJ part ever learned, and "RESTRAINT SYSTEMS" / "LT R&I trim"
+        // pull unrelated grab-bags. Any PartName matching here is skipped as a trigger.
+        private static readonly HashSet<string> _nonPartTriggerExact = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "restraint systems", "restraints", "radiator support", "information labels",
+            "front bumper", "rear bumper", "front bumper & grille", "rear bumper & grille",
+            "front lamps", "rear lamps", "lamps", "fender", "hood", "front door", "rear door",
+            "quarter panel", "pillars, rocker & floor", "roof", "trunk", "decklid", "glass",
+            "frame", "electrical", "instrument panel", "vehicle diagnostics", "mechanical",
+            "miscellaneous operations", "front inner structure", "rear inner structure",
+        };
+
+        // Metadata field labels (the "Label: value" header block). Matched as a whole word prefix.
+        private static readonly string[] _nonPartTriggerPrefixes =
+        {
+            "state", "vin", "policy", "claim", "insurance", "insured", "owner", "customer",
+            "job", "written by", "mileage", "date of loss", "type of loss", "point of impact",
+            "inspection location", "inspection", "calibration", "workfile", "federal", "resale",
+            "license", "production date", "condition", "days to repair",
+        };
+
+        /// <summary>
+        /// True when a parsed PartName is actually a section header or metadata label rather than a
+        /// real repairable part — so it must NOT be used as a learned-suggestion trigger.
+        /// </summary>
+        private static bool IsNonPartTrigger(string? partName)
+        {
+            if (string.IsNullOrWhiteSpace(partName)) return true;
+            var p = partName.Trim();
+
+            // "Label: value" metadata rows and compound "Inspection:/Calibration:" pseudo-ops.
+            // Real part names never contain a colon.
+            if (p.Contains(':')) return true;
+
+            var lower = p.ToLowerInvariant();
+            if (_nonPartTriggerExact.Contains(lower)) return true;
+            if (_nonPartTriggerPrefixes.Any(pre =>
+                    lower == pre || lower.StartsWith(pre + " ", StringComparison.Ordinal)))
+                return true;
+
+            // All-caps header rows with no digits (e.g. "RESTRAINT SYSTEMS", "PILLARS, ROCKER & FLOOR").
+            if (p.Length >= 4 && p == p.ToUpperInvariant() && !p.Any(char.IsDigit) &&
+                p.All(c => char.IsLetter(c) || char.IsWhiteSpace(c) || c is '&' or '/' or ',' or '-'))
+                return true;
+
+            return false;
+        }
+
         // Header
         private TextBlock? _statsText;
 
@@ -1513,6 +1563,7 @@ namespace McStudDesktop.Views
             string? vehicleInfo = null;
             string? vin = null;
             EstimateTotals? totals = null;
+            var unreadableFiles = new List<string>();
 
             foreach (var file in files)
             {
@@ -1565,6 +1616,13 @@ namespace McStudDesktop.Views
                                 if (ctx == ParseContext.Learning)
                                     await PersistWithDuplicateCheckAsync(fallbackEstimate);
                             }
+                            else
+                            {
+                                // No structured line items AND no selectable text — almost always a
+                                // scanned/image-based or secured PDF. Warn instead of silently skipping.
+                                System.Diagnostics.Debug.WriteLine($"[Import] {file.Name}: no line items and no extractable text — likely scanned/encrypted PDF");
+                                unreadableFiles.Add(file.Name);
+                            }
                         }
                     }
                     else
@@ -1608,7 +1666,17 @@ namespace McStudDesktop.Views
             var sourceInfo = !string.IsNullOrEmpty(detectedSource) ? $" ({detectedSource})" : "";
             resultsTitle.Text = $"Parsed: {totalParts} parts, {totalManualLines} additional ops{sourceInfo}";
 
-            ShowStatusForContext($"Processed {files.Count} file(s): {totalParts} parts, {totalManualLines} additional operations", ctx);
+            if (unreadableFiles.Count > 0)
+            {
+                var names = string.Join(", ", unreadableFiles);
+                ShowStatusForContext(
+                    $"Couldn't read {unreadableFiles.Count} file(s): {names}. These look like scanned or secured PDFs with no selectable text — export a text-based PDF from the estimating system and try again.",
+                    ctx, isError: true);
+            }
+            else
+            {
+                ShowStatusForContext($"Processed {files.Count} file(s): {totalParts} parts, {totalManualLines} additional operations", ctx);
+            }
 
             // Auto-scrub only in Scrubber tab
             if (ctx == ParseContext.Scrubber)
@@ -1858,6 +1926,7 @@ namespace McStudDesktop.Views
                 Description = item.Description,
                 OriginalDescription = item.OriginalDescription,
                 PartName = item.PartName,
+                PartNumber = item.PartNumber,
                 OperationType = item.OperationType,
                 Category = item.Section,
                 LaborHours = item.LaborHours,
@@ -2111,6 +2180,7 @@ namespace McStudDesktop.Views
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(45) }); // Badge/indicator
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) }); // Operation
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) }); // Part number
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) }); // Price
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) }); // Labor
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) }); // Paint
@@ -2215,7 +2285,26 @@ namespace McStudDesktop.Views
             Grid.SetColumn(descText, 2);
             grid.Children.Add(descText);
 
-            // Price (column 3 — matches real estimate layout: price before labor)
+            // Part number — its own column, kept out of the description
+            if (!string.IsNullOrEmpty(line.PartNumber))
+            {
+                var partNumText = new TextBlock
+                {
+                    Text = line.PartNumber,
+                    FontSize = 10,
+                    FontFamily = new FontFamily("Consolas"),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 190, 140)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    TextWrapping = TextWrapping.NoWrap,
+                    IsTextSelectionEnabled = true
+                };
+                ToolTipService.SetToolTip(partNumText, $"Part #: {line.PartNumber}");
+                Grid.SetColumn(partNumText, 3);
+                grid.Children.Add(partNumText);
+            }
+
+            // Price (column 4 — matches real estimate layout: price before labor)
             if (line.Price > 0)
             {
                 var priceText = new TextBlock
@@ -2226,7 +2315,7 @@ namespace McStudDesktop.Views
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Right
                 };
-                Grid.SetColumn(priceText, 3);
+                Grid.SetColumn(priceText, 4);
                 grid.Children.Add(priceText);
             }
 
@@ -2250,7 +2339,7 @@ namespace McStudDesktop.Views
                     HorizontalAlignment = HorizontalAlignment.Right
                 };
                 ToolTipService.SetToolTip(laborText, !string.IsNullOrEmpty(line.LaborType) ? $"{line.LaborType} Labor" : "Labor Hours");
-                Grid.SetColumn(laborText, 4);
+                Grid.SetColumn(laborText, 5);
                 grid.Children.Add(laborText);
             }
 
@@ -2266,7 +2355,7 @@ namespace McStudDesktop.Views
                     HorizontalAlignment = HorizontalAlignment.Right
                 };
                 ToolTipService.SetToolTip(paintText, "Refinish Hours");
-                Grid.SetColumn(paintText, 5);
+                Grid.SetColumn(paintText, 6);
                 grid.Children.Add(paintText);
             }
 
@@ -2613,6 +2702,7 @@ namespace McStudDesktop.Views
                 _scoringPanel.Visibility = Visibility.Collapsed;
                 if (_refMatchBanner != null) _refMatchBanner.Visibility = Visibility.Collapsed;
                 ReferenceView.Instance?.ClearStaging();
+                ReferenceView.Instance?.ClearEstimateContext();
                 ShowProgress(false, ParseContext.Scrubber);
                 ShowStatusForContext("Cleared. Drop a new estimate to start over.", ParseContext.Scrubber);
             }
@@ -3786,17 +3876,12 @@ namespace McStudDesktop.Views
 
                     // Run estimate completeness scoring
                     EstimateScoringResult? sr = null;
-                    string? vehicleInfo = null;
+                    // Use the vehicle extracted by the PDF parser during import — NOT a scrape of the
+                    // parsed line items. The old line-item scrape matched any PartName containing
+                    // "vehicle", which grabbed equipment-grid junk like "Vehicle Stability Control".
+                    string? vehicleInfo = _scrubVehicleInfo;
                     try
                     {
-                        var vehicleLine = linesSnapshot.FirstOrDefault(l =>
-                            !string.IsNullOrEmpty(l.PartName) &&
-                            (l.PartName.ToLowerInvariant().Contains("vehicle") ||
-                             l.PartName.Contains(" VIN") ||
-                             System.Text.RegularExpressions.Regex.IsMatch(l.PartName, @"\d{4}\s+\w+")));
-                        if (vehicleLine != null)
-                            vehicleInfo = vehicleLine.PartName;
-
                         sw.Restart();
                         sr = _scoringService.ScoreEstimate(linesSnapshot, vehicleInfo, bodyRate, paintRate, mechRate,
                             insuranceCompany: null, estimateGrandTotal: _parsedGrandTotal);
@@ -3855,6 +3940,12 @@ namespace McStudDesktop.Views
                             if (_broadSectionNames.Contains(partTrimmed))
                                 continue;
 
+                            // Skip section headers and metadata labels ("State: NJ", "RESTRAINT SYSTEMS",
+                            // "Inspection: Seatbelt", etc.) — using these as triggers dumps their whole
+                            // learned op pile into the report.
+                            if (IsNonPartTrigger(partTrimmed))
+                                continue;
+
                             // Skip truncated/garbage part names from PDF parsing (e.g., "for Clear", "Clean and", "Cover for")
                             if (partTrimmed.Length < 5 ||
                                 partTrimmed.StartsWith("for ", StringComparison.OrdinalIgnoreCase) ||
@@ -3866,8 +3957,19 @@ namespace McStudDesktop.Views
                             if (ops.Count > 0 || manualPattern != null)
                             {
                                 var converted = EstimateScoringService.ConvertFromLearnedOperations(ops, manualPattern, line.PartName);
+
+                                // Cap how many learned items ONE line may contribute. A real part's
+                                // not-included ops are few; a big pile means the key accumulated
+                                // unrelated ops during learning (e.g. "LT R&I trim" pulling radar +
+                                // welding). Capping limits the blast radius until the learned data is
+                                // cleaned. Most-used first so the strongest suggestions survive the cap.
+                                const int MaxLearnedPerTrigger = 6;
+                                int addedForThisLine = 0;
+
                                 foreach (var issue in converted)
                                 {
+                                    if (addedForThisLine >= MaxLearnedPerTrigger) break;
+
                                     var desc = issue.Title?.ToLowerInvariant() ?? "";
                                     if (desc.Length < 3) continue;
 
@@ -3903,7 +4005,10 @@ namespace McStudDesktop.Views
                                     }
 
                                     if (!found)
+                                    {
                                         learnedIssues.Add(issue);
+                                        addedForThisLine++;
+                                    }
                                 }
                             }
                         }
@@ -3996,6 +4101,16 @@ namespace McStudDesktop.Views
         }
 
         /// <summary>
+        /// The set of significant words behind a title — used for subset-aware dedup so that
+        /// "Check and Adjust Tire Pressure for ADAS" and "…for ADAS Calibrations" collapse to one.
+        /// </summary>
+        private static HashSet<string> DedupWordSet(string title)
+        {
+            var key = NormalizeDedupKey(title);
+            return new HashSet<string>(key.Split('|', StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        /// <summary>
         /// Merge smart-sourced issues into the scoring result, deduplicating by normalized title.
         /// Category is ignored for dedup since different sources may categorize the same item differently.
         /// Scoring issues win on collision (they have full-weight point deductions).
@@ -4005,15 +4120,28 @@ namespace McStudDesktop.Views
             // Use title-only dedup (ignore category) to catch cross-category duplicates
             var existingKeys = new HashSet<string>(
                 result.Issues.Select(i => NormalizeDedupKey(i.Title)));
+            // Subset-aware: also keep each existing item's word-set so a longer variant of an
+            // already-listed item (e.g. "…for ADAS" vs "…for ADAS Calibrations") is treated as a dup.
+            var existingWordSets = result.Issues.Select(i => DedupWordSet(i.Title))
+                .Where(s => s.Count >= 2).ToList();
 
             foreach (var smart in smartIssues)
             {
                 var key = NormalizeDedupKey(smart.Title);
-                if (!existingKeys.Contains(key))
-                {
-                    result.Issues.Add(smart);
-                    existingKeys.Add(key);
-                }
+                if (existingKeys.Contains(key))
+                    continue;
+
+                // Subset/superset collision: skip if one word-set fully contains the other
+                // (min 2 words on the smaller side so tiny generic titles don't over-collapse).
+                var ws = DedupWordSet(smart.Title);
+                if (ws.Count >= 2 && existingWordSets.Any(es =>
+                        (ws.Count <= es.Count && ws.IsSubsetOf(es)) ||
+                        (es.Count <= ws.Count && es.IsSubsetOf(ws))))
+                    continue;
+
+                result.Issues.Add(smart);
+                existingKeys.Add(key);
+                if (ws.Count >= 2) existingWordSets.Add(ws);
             }
 
             // Safety cap after merge
@@ -4034,6 +4162,9 @@ namespace McStudDesktop.Views
         /// </summary>
         private async Task RunReferenceMatchingAsync()
         {
+            // Start each estimate's reference matching fresh — ShowStagedItems only appends, so without
+            // this the previous estimate's matches (and vehicle context) stay "stuck" on the new one.
+            ReferenceView.Instance?.ClearStaging();
             if (_parsedLines.Count == 0) return;
 
             try

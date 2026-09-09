@@ -112,6 +112,11 @@ namespace McStudDesktop.Views
         private TextBlock? _benchmarkDiffText;
         private TextBlock? _benchmarkDetailText;
 
+        // === OEM position statements section (matched to the vehicle's manufacturer) ===
+        private Border? _oemStatementsSection;
+        private TextBlock? _oemStatementsTitle;
+        private StackPanel? _oemStatementsContent;
+
         // === Action buttons ===
         private Button? _addAllCriticalButton;
         private Button? _copyToClipboardButton;
@@ -147,6 +152,9 @@ namespace McStudDesktop.Views
 
             // === BENCHMARK COMPARISON ===
             mainStack.Children.Add(BuildBenchmarkSection());
+
+            // === OEM POSITION STATEMENTS (by manufacturer) ===
+            mainStack.Children.Add(BuildOemStatementsSection());
 
             // === ACTION-BASED ISSUE GROUPS ===
             _issuesSection = new Border
@@ -495,6 +503,156 @@ namespace McStudDesktop.Views
 
             _benchmarkTitle!.Text = severityLabel;
             _benchmarkSection!.Visibility = Visibility.Visible;
+        }
+
+        #endregion
+
+        #region OEM Position Statements Section
+
+        private Border BuildOemStatementsSection()
+        {
+            _oemStatementsSection = new Border
+            {
+                Background = new SolidColorBrush(BgMedium),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(0),
+                Visibility = Visibility.Collapsed
+            };
+
+            var outerGrid = new Grid();
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            outerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var accent = new Border
+            {
+                Width = 4,
+                CornerRadius = new CornerRadius(6, 0, 0, 6),
+                Background = new SolidColorBrush(PPageGold)
+            };
+            Grid.SetColumn(accent, 0);
+            outerGrid.Children.Add(accent);
+
+            var contentStack = new StackPanel { Spacing = 6, Padding = new Thickness(12, 10, 12, 10) };
+
+            var titleRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            titleRow.Children.Add(new FontIcon
+            {
+                Glyph = "", // lock/official statements
+                FontSize = 14,
+                Foreground = new SolidColorBrush(PPageGold)
+            });
+            _oemStatementsTitle = new TextBlock
+            {
+                Text = "OEM Position Statements",
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(TextBright),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            titleRow.Children.Add(_oemStatementsTitle);
+            contentStack.Children.Add(titleRow);
+
+            _oemStatementsContent = new StackPanel { Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+            contentStack.Children.Add(_oemStatementsContent);
+
+            // Footer link to the full Reference tab
+            var openRef = new HyperlinkButton
+            {
+                Content = new TextBlock { Text = "Open OEM Statements in Reference tab →", FontSize = 11 },
+                Padding = new Thickness(0),
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            openRef.Click += (s, e) => OnNavigateToReference?.Invoke(this, EventArgs.Empty);
+            contentStack.Children.Add(openRef);
+
+            Grid.SetColumn(contentStack, 1);
+            outerGrid.Children.Add(contentStack);
+
+            _oemStatementsSection.Child = outerGrid;
+            return _oemStatementsSection;
+        }
+
+        private void UpdateOemStatementsSection(List<OemStatementMatch> statements, string? vehicleInfo)
+        {
+            if (_oemStatementsSection == null || _oemStatementsContent == null) return;
+
+            if (statements == null || statements.Count == 0)
+            {
+                _oemStatementsSection.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var make = OemStatementService.Instance.ExtractMake(vehicleInfo);
+            _oemStatementsTitle!.Text = string.IsNullOrEmpty(make)
+                ? $"OEM Position Statements ({statements.Count})"
+                : $"{make} Position Statements ({statements.Count})";
+
+            _oemStatementsContent.Children.Clear();
+
+            foreach (var stmt in statements)
+            {
+                var card = new StackPanel { Spacing = 2 };
+
+                // Title + category chip
+                var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                headerRow.Children.Add(new TextBlock
+                {
+                    Text = stmt.Title,
+                    FontSize = 11,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(TextWhite),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                if (!string.IsNullOrEmpty(stmt.Category))
+                {
+                    headerRow.Children.Add(new Border
+                    {
+                        Background = new SolidColorBrush(BgCard),
+                        CornerRadius = new CornerRadius(3),
+                        Padding = new Thickness(5, 1, 5, 1),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Child = new TextBlock
+                        {
+                            Text = stmt.Category,
+                            FontSize = 9,
+                            Foreground = new SolidColorBrush(TextMuted)
+                        }
+                    });
+                }
+                card.Children.Add(headerRow);
+
+                if (!string.IsNullOrEmpty(stmt.Summary))
+                {
+                    card.Children.Add(new TextBlock
+                    {
+                        Text = stmt.Summary,
+                        FontSize = 10,
+                        Foreground = new SolidColorBrush(TextLight),
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                }
+
+                // Public (non-login) source link only
+                if (!string.IsNullOrEmpty(stmt.PublicLink))
+                {
+                    try
+                    {
+                        var link = new HyperlinkButton
+                        {
+                            Content = new TextBlock { Text = "View source", FontSize = 10 },
+                            NavigateUri = new Uri(stmt.PublicLink),
+                            Padding = new Thickness(0)
+                        };
+                        ToolTipService.SetToolTip(link, stmt.PublicLink);
+                        card.Children.Add(link);
+                    }
+                    catch { /* invalid URI — skip link */ }
+                }
+
+                _oemStatementsContent.Children.Add(card);
+            }
+
+            _oemStatementsSection.Visibility = Visibility.Visible;
         }
 
         #endregion
@@ -1062,6 +1220,9 @@ namespace McStudDesktop.Views
 
             // Update benchmark comparison
             UpdateBenchmarkSection(result.Benchmark);
+
+            // Update OEM position statements for this vehicle's manufacturer
+            UpdateOemStatementsSection(result.OemStatements, result.VehicleInfo);
         }
 
         private void UpdateIssueGroups(List<ScoringIssue> issues)
