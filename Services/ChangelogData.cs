@@ -11,6 +11,12 @@ namespace McStudDesktop.Services
         {
             return new List<VersionEntry>
             {
+                new VersionEntry("v2.15.5", "November 2026", new[]
+                {
+                    "Scrubber accuracy overhaul - far fewer false matches, plus a list of items you can add and a list of what's already on your estimate",
+                    "Statistics improved - dollars and labor hours are now kept separate, so hours are never counted as dollar amounts",
+                    "Statistics now break labor hours out by department (Body, Frame, Mechanical, Structural, Glass, Electrical) plus refinish"
+                }),
                 new VersionEntry("v2.15.4", "September 2026", new[]
                 {
                     "Ghost Estimate improved",

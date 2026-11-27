@@ -1716,11 +1716,14 @@ namespace McStudDesktop.Services
 
             var lower = line.ToLowerInvariant();
 
-            // Find the longest matching part
+            // Find the longest matching part. Match on WHOLE WORDS only — a plain substring search
+            // produced false part names from letters buried inside other words: "se(cure)" → "ecu",
+            // "t(rim)" → "rim", "(spring)"/"(hub)" etc. Those bogus names then leaked into the
+            // reference matcher as search terms. \b anchors each keyword to word boundaries.
             string? bestMatch = null;
             foreach (var part in partKeywords)
             {
-                if (lower.Contains(part))
+                if (Regex.IsMatch(lower, $@"\b{Regex.Escape(part)}\b"))
                 {
                     if (bestMatch == null || part.Length > bestMatch.Length)
                         bestMatch = part;

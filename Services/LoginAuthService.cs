@@ -19,8 +19,14 @@ public class LoginAuthService
 
     private static readonly HttpClient _httpClient = new HttpClient()
     {
-        Timeout = TimeSpan.FromSeconds(15)
+        // Google Apps Script web apps can take 10-30s on a cold start, so 15s was too
+        // tight and tripped on warm-ups that would otherwise have succeeded.
+        Timeout = TimeSpan.FromSeconds(30)
     };
+
+    // How many times to attempt the license request. The first (timed-out) request
+    // warms up the Apps Script instance, so a retry usually returns quickly.
+    private const int MaxLoginAttempts = 2;
 
     private static readonly string SessionDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -57,25 +63,37 @@ public class LoginAuthService
                 $"&osVersion={Uri.EscapeDataString(osVersion)}" +
                 $"&ip={Uri.EscapeDataString(ip)}";
 
-            var response = await _httpClient.GetAsync(url);
-            var responseBody = (await response.Content.ReadAsStringAsync()).Trim();
-
-            System.Diagnostics.Debug.WriteLine($"[LoginAuth] Response: {responseBody}");
-
-            // Parse JSON response from Apps Script
-            var doc = JsonDocument.Parse(responseBody);
-            var status = doc.RootElement.GetProperty("status").GetString() ?? "";
-            var message = doc.RootElement.GetProperty("message").GetString() ?? "";
-            var tier = doc.RootElement.TryGetProperty("tier", out var tierProp)
-                ? tierProp.GetString() ?? "standard"
-                : "standard";
-
-            return new LoginResult
+            // Retry only on timeout: the first (timed-out) request warms up the Apps
+            // Script instance, so a follow-up attempt usually succeeds quickly.
+            for (var attempt = 1; ; attempt++)
             {
-                Success = status.Equals("VALID", StringComparison.OrdinalIgnoreCase),
-                Message = message,
-                Tier = tier
-            };
+                try
+                {
+                    var response = await _httpClient.GetAsync(url);
+                    var responseBody = (await response.Content.ReadAsStringAsync()).Trim();
+
+                    System.Diagnostics.Debug.WriteLine($"[LoginAuth] Response (attempt {attempt}): {responseBody}");
+
+                    // Parse JSON response from Apps Script
+                    var doc = JsonDocument.Parse(responseBody);
+                    var status = doc.RootElement.GetProperty("status").GetString() ?? "";
+                    var message = doc.RootElement.GetProperty("message").GetString() ?? "";
+                    var tier = doc.RootElement.TryGetProperty("tier", out var tierProp)
+                        ? tierProp.GetString() ?? "standard"
+                        : "standard";
+
+                    return new LoginResult
+                    {
+                        Success = status.Equals("VALID", StringComparison.OrdinalIgnoreCase),
+                        Message = message,
+                        Tier = tier
+                    };
+                }
+                catch (TaskCanceledException) when (attempt < MaxLoginAttempts)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[LoginAuth] Timeout on attempt {attempt}, retrying…");
+                }
+            }
         }
         catch (TaskCanceledException)
         {

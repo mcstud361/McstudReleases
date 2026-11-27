@@ -51,7 +51,8 @@ namespace McStudDesktop.Services
                         Description = o.Description,
                         Price = ParseDecimal(o.Price),
                         Labor = ParseDecimal(o.Labor),
-                        Paint = ParseDecimal(o.Paint)
+                        Paint = ParseDecimal(o.Paint),
+                        Category = o.Category
                     }).ToList()
                 };
 
@@ -83,7 +84,8 @@ namespace McStudDesktop.Services
                         Description = o.Description,
                         Price = ParseDecimal(o.Price),
                         Labor = ParseDecimal(o.Labor),
-                        Paint = ParseDecimal(o.Paint)
+                        Paint = ParseDecimal(o.Paint),
+                        Category = o.Category
                     }).ToList()
                 };
 
@@ -1229,51 +1231,64 @@ namespace McStudDesktop.Services
 
             var allOperations = transactions.SelectMany(t => t.Operations).ToList();
 
-            decimal laborDollars = 0;
-            decimal refinishDollars = 0;
-            decimal materialsDollars = 0;
-            decimal otherDollars = 0;
+            var b = new CategoryBreakdown();
 
             foreach (var op in allOperations)
             {
-                var opType = op.Type.ToUpperInvariant();
-                var desc = op.Description.ToUpperInvariant();
+                // === HOURS stay hours (never converted to $) ===
+                // Refinish hours come from their own column.
+                // Per-op 50h cap guards against legacy records where a $ amount
+                // was mis-parsed into an hours field.
+                if (op.Paint > 0) b.RefinishHours += Math.Min(op.Paint, 50m);
 
-                // Categorize based on operation type and description
-                // Note: "Rpr" = Repair, "R&I"/"R+I" = Remove & Install
-                if (opType.Contains("REFIN") || opType.Contains("PAINT") || opType.Contains("BLEND") ||
-                    desc.Contains("REFINISH") || desc.Contains("PAINT") || desc.Contains("BLEND"))
+                // Labor hours come from the Labor column, routed to a department
+                // by the CCC category letter ("" = Body, F/M/S/G/E otherwise).
+                if (op.Labor > 0)
                 {
-                    refinishDollars += op.Price > 0 ? op.Price : op.Paint; // Refinish often has hours, not price
+                    var hrs = Math.Min(op.Labor, 50m);
+                    switch (NormalizeCategory(op.Category))
+                    {
+                        case "F": b.FrameHours += hrs; break;
+                        case "M": b.MechanicalHours += hrs; break;
+                        case "S": b.StructuralHours += hrs; break;
+                        case "G": b.GlassHours += hrs; break;
+                        case "E": b.ElectricalHours += hrs; break;
+                        case "": b.BodyHours += hrs; break;   // 0 / blank = Body
+                        default: b.OtherHours += hrs; break;  // unknown letter
+                    }
                 }
-                else if (opType.Contains("MATERIAL") || opType.Contains("MAT") || opType == "SUBLET" ||
-                         desc.Contains("MATERIAL") || desc.Contains("ADHESIVE") ||
-                         desc.Contains("SEALER") || desc.Contains("PRIMER") || desc.Contains("SUBLET"))
+
+                // === DOLLARS stay dollars (Price column only) ===
+                if (op.Price > 0)
                 {
-                    materialsDollars += op.Price;
-                }
-                else if (opType.Contains("LABOR") || opType.Contains("BODY") ||
-                         opType.Contains("REPLACE") || opType.Contains("RPR") || opType.Contains("REPAIR") ||
-                         opType.Contains("R&I") || opType.Contains("R/I") || opType.Contains("R+I") ||
-                         opType.Contains("ALIGN") || opType.Contains("MECH"))
-                {
-                    laborDollars += op.Price > 0 ? op.Price : op.Labor; // Body labor may have hours instead of price
-                }
-                else
-                {
-                    // Default: use price if available, otherwise check hours
-                    otherDollars += op.Price > 0 ? op.Price : (op.Labor + op.Paint);
+                    if (IsMaterialOperation(op)) b.MaterialsDollars += op.Price;
+                    else b.PartsDollars += op.Price;
                 }
             }
 
-            return new CategoryBreakdown
-            {
-                LaborDollars = laborDollars,
-                RefinishDollars = refinishDollars,
-                MaterialsDollars = materialsDollars,
-                OtherDollars = otherDollars,
-                TotalDollars = laborDollars + refinishDollars + materialsDollars + otherDollars
-            };
+            return b;
+        }
+
+        /// <summary>
+        /// Normalize a CCC category letter: trims/uppercases and treats "0" or blank as Body ("").
+        /// </summary>
+        private static string NormalizeCategory(string? cat)
+        {
+            if (string.IsNullOrWhiteSpace(cat)) return "";
+            cat = cat.Trim().ToUpperInvariant();
+            return cat == "0" ? "" : cat;
+        }
+
+        /// <summary>
+        /// True when a priced operation is materials/sublet rather than a part.
+        /// </summary>
+        private static bool IsMaterialOperation(OperationRecord op)
+        {
+            var t = op.Type.ToUpperInvariant();
+            var d = op.Description.ToUpperInvariant();
+            return t.Contains("MAT") || t == "SUBLET" ||
+                   d.Contains("MATERIAL") || d.Contains("ADHESIVE") ||
+                   d.Contains("SEALER") || d.Contains("PRIMER") || d.Contains("SUBLET");
         }
 
         /// <summary>
@@ -1940,6 +1955,9 @@ namespace McStudDesktop.Services
         public decimal Price { get; set; }
         public decimal Labor { get; set; }
         public decimal Paint { get; set; }
+        // CCC labor department: "" = Body, F = Frame, M = Mechanical,
+        // S = Structural, G = Glass, E = Electrical. Empty on legacy records.
+        public string Category { get; set; } = "";
     }
 
     public class PeriodStats
@@ -2280,22 +2298,65 @@ namespace McStudDesktop.Services
     /// <summary>
     /// Category breakdown (Labor vs Refinish vs Materials)
     /// </summary>
+    /// <summary>
+    /// Split of an export period, keeping DOLLARS and HOURS in strictly separate lanes.
+    /// Dollars come only from the Price column; hours come only from the Labor/Refinish
+    /// columns. Hours are never converted to dollars (labor rate varies per estimate).
+    /// </summary>
     public class CategoryBreakdown
     {
-        public decimal LaborDollars { get; set; }
-        public decimal RefinishDollars { get; set; }
+        // === Dollars (Price column only) ===
+        public decimal PartsDollars { get; set; }
         public decimal MaterialsDollars { get; set; }
-        public decimal OtherDollars { get; set; }
-        public decimal TotalDollars { get; set; }
+        public decimal TotalDollars => PartsDollars + MaterialsDollars;
 
-        public double LaborPercent => TotalDollars > 0 ? (double)(LaborDollars / TotalDollars * 100) : 0;
-        public double RefinishPercent => TotalDollars > 0 ? (double)(RefinishDollars / TotalDollars * 100) : 0;
-        public double MaterialsPercent => TotalDollars > 0 ? (double)(MaterialsDollars / TotalDollars * 100) : 0;
-        public double OtherPercent => TotalDollars > 0 ? (double)(OtherDollars / TotalDollars * 100) : 0;
+        // === Labor hours by department (Labor column, split by category letter) ===
+        public decimal BodyHours { get; set; }
+        public decimal FrameHours { get; set; }
+        public decimal MechanicalHours { get; set; }
+        public decimal StructuralHours { get; set; }
+        public decimal GlassHours { get; set; }
+        public decimal ElectricalHours { get; set; }
+        public decimal OtherHours { get; set; }
 
-        public string FormattedLabor => LaborDollars.ToString("C0");
-        public string FormattedRefinish => RefinishDollars.ToString("C0");
-        public string FormattedMaterials => MaterialsDollars.ToString("C0");
+        // === Refinish hours (Refinish column) ===
+        public decimal RefinishHours { get; set; }
+
+        public decimal TotalLaborHours =>
+            BodyHours + FrameHours + MechanicalHours + StructuralHours +
+            GlassHours + ElectricalHours + OtherHours;
+
+        public decimal TotalHours => TotalLaborHours + RefinishHours;
+
+        /// <summary>Non-zero hour slices in display order (name, hours, % of total hours).</summary>
+        public List<(string Name, decimal Hours, double Percent)> HourSlices()
+        {
+            var all = new (string Name, decimal Hours)[]
+            {
+                ("Body", BodyHours), ("Frame", FrameHours), ("Mechanical", MechanicalHours),
+                ("Structural", StructuralHours), ("Glass", GlassHours), ("Electrical", ElectricalHours),
+                ("Refinish", RefinishHours), ("Other", OtherHours)
+            };
+            var total = TotalHours;
+            var list = new List<(string, decimal, double)>();
+            foreach (var (name, hours) in all)
+                if (hours > 0) list.Add((name, hours, total > 0 ? (double)(hours / total * 100) : 0));
+            return list;
+        }
+
+        /// <summary>Non-zero dollar slices (name, dollars, % of total $).</summary>
+        public List<(string Name, decimal Dollars, double Percent)> DollarSlices()
+        {
+            var all = new (string Name, decimal Dollars)[]
+            {
+                ("Parts", PartsDollars), ("Materials", MaterialsDollars)
+            };
+            var total = TotalDollars;
+            var list = new List<(string, decimal, double)>();
+            foreach (var (name, dollars) in all)
+                if (dollars > 0) list.Add((name, dollars, total > 0 ? (double)(dollars / total * 100) : 0));
+            return list;
+        }
     }
 
     /// <summary>

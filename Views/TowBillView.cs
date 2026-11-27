@@ -321,7 +321,11 @@ public class TowBillView : UserControl
                 ShopName = towShopName,
                 RoNumber = GetStringValue(data, "roNumber"),
                 VehicleYMM = GetStringValue(data, "vehicleYMM"),
-                TowDate = data.ContainsKey("towDate") && data["towDate"] is DateTime dt ? dt : DateTime.Today,
+                TowDate = data.TryGetValue("towDate", out var towDateVal)
+                    ? (towDateVal is DateTime dt
+                        ? dt
+                        : (DateTime.TryParse(towDateVal?.ToString(), out var parsedTowDate) ? parsedTowDate : DateTime.Today))
+                    : DateTime.Today,
                 Notes = GetStringValue(data, "notes"),
                 Miles = miles,
                 RatePerMile = ratePerMile,

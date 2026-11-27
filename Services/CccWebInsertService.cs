@@ -85,6 +85,11 @@ namespace McStudDesktop.Services
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+        // Returns the DPI of the monitor the window is on (process is PerMonitorV2 aware, so this
+        // is the TRUE monitor DPI: 96=100%, 120=125%, 144=150%). Windows 10 1607+.
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hWnd);
+
         [DllImport("user32.dll")]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelProc lpfn, IntPtr hMod, uint dwThreadId);
 
@@ -241,6 +246,30 @@ namespace McStudDesktop.Services
         private volatile int _expectedCursorX;
         private volatile int _expectedCursorY;
         private const int MoveStopThresholdPx = 20; // ignore tiny jitter / sub-pixel settling
+
+        // === DPI scaling ===
+        // Every pixel offset/tolerance in this service was measured on a primary monitor running
+        // at 150% Windows scale (144 DPI). On a machine at a different scale (e.g. a 100% work
+        // monitor) Chrome's toolbar, estimate rows, and field spacing are all a DIFFERENT physical
+        // pixel size, so those hard-coded offsets land in the wrong place and the row/fields can't
+        // be found. _dpiScale = actualDpi / 144 rescales them. At 144 DPI it is exactly 1.0, so
+        // Px() is the identity and behavior on the calibration machine is unchanged.
+        private const double CalibrationDpi = 144.0;
+        private double _dpiScale = 1.0;
+
+        /// <summary>Scale a pixel offset/tolerance from the 144-DPI calibration baseline to the
+        /// current monitor's DPI. Identity when the monitor runs at 150%.</summary>
+        private int Px(double calibrated150Px) => (int)Math.Round(calibrated150Px * _dpiScale);
+
+        // === Screenshot capture region ===
+        // OCR captures the MONITOR the CCC browser is on — NOT a hard-coded primary monitor — so the
+        // automation works when CCC lives on a secondary/docked screen. _captureBounds is that
+        // monitor's rectangle in VIRTUAL-SCREEN coords; its top-left (X,Y) is the origin added to
+        // every OCR word so coordinates come back in ABSOLUTE screen space, matching SetCursorPos and
+        // GetWindowRect. On a single/primary-monitor setup the origin is (0,0), so this is a no-op.
+        // Set at run start and refreshed per-op (handles the browser being dragged mid-run). All OCR
+        // flows through OcrFullScreen(), which is the single place this translation is applied.
+        private System.Drawing.Rectangle _captureBounds = System.Drawing.Rectangle.Empty;
 
         // OCR engine (reused)
         private OcrEngine? _ocrEngine;
@@ -424,10 +453,22 @@ namespace McStudDesktop.Services
                 GetWindowRect(targetWindow, out RECT browserRect);
                 Debug.WriteLine($"[CCC-Web] Browser window rect: L={browserRect.Left} T={browserRect.Top} R={browserRect.Right} B={browserRect.Bottom}");
 
+                // Determine the DPI of the monitor the browser is on so every hard-coded pixel
+                // offset below rescales from the 150% calibration baseline to this machine's scale.
+                uint browserDpi = GetDpiForWindow(targetWindow);
+                _dpiScale = browserDpi > 0 ? browserDpi / CalibrationDpi : 1.0;
+                Debug.WriteLine($"[CCC-Web] Monitor DPI={browserDpi} ({Math.Round(browserDpi / 96.0 * 100)}% scale), offset scale factor={_dpiScale:F3} (1.0 = calibration 150%)");
+
+                // Capture the monitor the browser is actually on (handles CCC being on a secondary/
+                // docked screen). Fall back to the primary monitor if the handle can't be resolved.
+                try { _captureBounds = System.Windows.Forms.Screen.FromHandle(targetWindow).Bounds; }
+                catch { _captureBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds; }
+                Debug.WriteLine($"[CCC-Web] Capture monitor: {_captureBounds.Width}x{_captureBounds.Height} @ virtual origin ({_captureBounds.X},{_captureBounds.Y})");
+
                 // Browser CONTENT area bounds — everything above contentMinY is Chrome's
                 // address bar, tabs, and bookmarks bar. Clicking there triggers Gemini search.
-                int contentMinY = browserRect.Top + 130;
-                int contentMaxY = browserRect.Bottom - 30;
+                int contentMinY = browserRect.Top + Px(130);
+                int contentMaxY = browserRect.Bottom - Px(30);
                 Debug.WriteLine($"[CCC-Web] Content area Y bounds: {contentMinY} to {contentMaxY}");
 
                 // Check if user interrupted during Alt+Tab
@@ -452,10 +493,31 @@ namespace McStudDesktop.Services
                     if (_cts.Token.IsCancellationRequested) break;
                     CheckUserInput();
 
-                    // Refresh browser rect every op — handles window moves mid-sequence
+                    // Refresh browser rect every op — handles window moves mid-sequence.
+                    // Re-read DPI too: if the user dragged the browser onto a different-scale
+                    // monitor mid-run, the offset scale is now different. Must happen BEFORE the
+                    // Px() calls below, or they'd rescale with the stale factor.
                     GetWindowRect(targetWindow, out browserRect);
-                    contentMinY = browserRect.Top + 130;
-                    contentMaxY = browserRect.Bottom - 30;
+                    uint opDpi = GetDpiForWindow(targetWindow);
+                    double opScale = opDpi > 0 ? opDpi / CalibrationDpi : _dpiScale;
+                    if (Math.Abs(opScale - _dpiScale) > 0.001)
+                    {
+                        Debug.WriteLine($"[CCC-Web] Monitor DPI changed mid-run: scale {_dpiScale:F3} → {opScale:F3} (now {Math.Round(opDpi / 96.0 * 100)}%) — browser moved to a different-scale monitor");
+                        _dpiScale = opScale;
+                    }
+                    // Follow the browser onto a different monitor mid-run so OCR captures the right screen.
+                    try
+                    {
+                        var opBounds = System.Windows.Forms.Screen.FromHandle(targetWindow).Bounds;
+                        if (opBounds != _captureBounds)
+                        {
+                            Debug.WriteLine($"[CCC-Web] Capture monitor changed mid-run → {opBounds.Width}x{opBounds.Height} @ ({opBounds.X},{opBounds.Y})");
+                            _captureBounds = opBounds;
+                        }
+                    }
+                    catch { }
+                    contentMinY = browserRect.Top + Px(130);
+                    contentMaxY = browserRect.Bottom - Px(30);
 
                     // Verify browser is still foreground, bring it back if not
                     if (GetForegroundWindow() != targetWindow)
@@ -498,7 +560,7 @@ namespace McStudDesktop.Services
                             {
                                 var recoveryPos = await RecoverPositionFromEstimate(
                                     lastAddedDescription, successCount > 0 ? ops[successCount - 1].OperationType : null,
-                                    contentMinY, contentMaxY);
+                                    contentMinY, contentMaxY, lastEditRowX);
                                 if (recoveryPos != null)
                                 {
                                     Debug.WriteLine($"[CCC-Web] Recovery: Found last op at ({recoveryPos.Value.nextX}, {recoveryPos.Value.nextY})");
@@ -515,7 +577,7 @@ namespace McStudDesktop.Services
                                     // Try recovery again after scroll
                                     recoveryPos = await RecoverPositionFromEstimate(
                                         lastAddedDescription, successCount > 0 ? ops[successCount - 1].OperationType : null,
-                                        contentMinY, contentMaxY);
+                                        contentMinY, contentMaxY, lastEditRowX);
                                     if (recoveryPos != null)
                                     {
                                         Debug.WriteLine($"[CCC-Web] Recovery after scroll: Found at ({recoveryPos.Value.nextX}, {recoveryPos.Value.nextY})");
@@ -662,7 +724,7 @@ namespace McStudDesktop.Services
                             string prevOpType = (i > 0 && successCount > 0) ? ops[successCount - 1].OperationType : null;
 
                             var freshPos = await RecoverPositionFromEstimate(
-                                lastAddedDescription, prevOpType, contentMinY, contentMaxY);
+                                lastAddedDescription, prevOpType, contentMinY, contentMaxY, lastEditRowX);
 
                             // If not found on screen, scroll to find it
                             if (freshPos == null)
@@ -678,7 +740,7 @@ namespace McStudDesktop.Services
                                     await Task.Delay(400, _cts.Token);
 
                                     freshPos = await RecoverPositionFromEstimate(
-                                        lastAddedDescription, prevOpType, contentMinY, contentMaxY);
+                                        lastAddedDescription, prevOpType, contentMinY, contentMaxY, lastEditRowX);
                                     if (freshPos != null)
                                     {
                                         Debug.WriteLine($"[CCC-Web] Found last op after scroll attempt {scrollAttempt + 1}");
@@ -701,7 +763,7 @@ namespace McStudDesktop.Services
                                 {
                                     CheckUserInput();
                                     int tryY = Math.Max(contentMinY, Math.Min(contentMaxY,
-                                        useY + fineOffsets[tryIdx]));
+                                        useY + Px(fineOffsets[tryIdx])));
                                     Debug.WriteLine($"[CCC-Web] Recovery try {tryIdx + 1}: Click at ({useX}, {tryY})");
                                     MoveCursorTo(useX, tryY);
                                     await Task.Delay(30, _cts.Token);
@@ -785,7 +847,7 @@ namespace McStudDesktop.Services
                             {
                                 CheckUserInput();
                                 int tryY = Math.Max(contentMinY, Math.Min(contentMaxY,
-                                    useY + lastOffsets[tryIdx]));
+                                    useY + Px(lastOffsets[tryIdx])));
                                 MoveCursorTo(useX, tryY);
                                 await Task.Delay(30, _cts.Token);
                                 LeftClick();
@@ -903,7 +965,7 @@ namespace McStudDesktop.Services
                     // - OCR searches full screen and can click false matches (column headers, existing ops)
                     // - OCR misreads "&" and "I" in "R&I" frequently
                     // - Typeahead directly filters the dropdown to the correct option
-                    int opTypeX = fields.OpType?.X ?? (fields.Description.Value.X - 150);
+                    int opTypeX = fields.OpType?.X ?? (fields.Description.Value.X - Px(150));
                     int opTypeY = fields.OpType?.Y ?? fields.Description.Value.Y;
                     Debug.WriteLine($"[CCC-Web] Step 4: Click Op Type at ({opTypeX}, {opTypeY})");
                     MoveCursorTo(opTypeX, opTypeY);
@@ -955,7 +1017,7 @@ namespace McStudDesktop.Services
 
                             bool descFound = verifyOcr.Any(w =>
                                 w.text.IndexOf(verifyWord, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                Math.Abs((w.y + w.h / 2) - editRowY) < 40);
+                                Math.Abs((w.y + w.h / 2) - editRowY) < Px(40));
 
                             if (!descFound)
                             {
@@ -964,7 +1026,7 @@ namespace McStudDesktop.Services
                                 // dropdown / shifted row), missing entirely (typing failed), or is
                                 // editRowY itself wrong (landed on the wrong row)?
                                 var nearRow = verifyOcr
-                                    .Where(w => Math.Abs((w.y + w.h / 2) - editRowY) < 60)
+                                    .Where(w => Math.Abs((w.y + w.h / 2) - editRowY) < Px(60))
                                     .OrderBy(w => w.x)
                                     .Select(w => $"'{w.text}'@{(int)(w.x + w.w / 2)},{(int)(w.y + w.h / 2)}");
                                 var anyMatch = verifyOcr
@@ -1057,11 +1119,11 @@ namespace McStudDesktop.Services
                     // Y tolerance of ±20px ensures we only get zeros on THIS edit row.
                     var zeroFields = freshWords
                         .Where(w => (w.text == "0" || w.text == "O" || w.text == "o") &&
-                            Math.Abs((w.y + w.h / 2) - editRowY) < 20 &&
-                            (w.x + w.w / 2) > fields.Description.Value.X + 100) // Must be right of description
+                            Math.Abs((w.y + w.h / 2) - editRowY) < Px(20) &&
+                            (w.x + w.w / 2) > fields.Description.Value.X + Px(100)) // Must be right of description
                         .OrderBy(w => w.x) // Left to right
                         .ToList();
-                    Debug.WriteLine($"[CCC-Web] Found {zeroFields.Count} zero-fields on edit row (Y={editRowY}±20, X>{fields.Description.Value.X + 100})");
+                    Debug.WriteLine($"[CCC-Web] Found {zeroFields.Count} zero-fields on edit row (Y={editRowY}±{Px(20)}, X>{fields.Description.Value.X + Px(100)})");
                     foreach (var zf in zeroFields)
                         Debug.WriteLine($"[CCC-Web]   '0' at X={zf.x + zf.w / 2:F0}, Y={zf.y + zf.h / 2:F0}");
 
@@ -1080,7 +1142,7 @@ namespace McStudDesktop.Services
                         var singleZero = zeroFields[0];
                         double zx = singleZero.x + singleZero.w / 2;
                         fields.Paint = new System.Drawing.Point((int)zx, editRowY);
-                        fields.Labor = new System.Drawing.Point((int)(zx - 85), editRowY);
+                        fields.Labor = new System.Drawing.Point((int)(zx - Px(85)), editRowY);
                         Debug.WriteLine($"[CCC-Web] Single zero → Refinish X={fields.Paint.Value.X}, Labor X={fields.Labor.Value.X}");
                     }
 
@@ -1096,17 +1158,17 @@ namespace McStudDesktop.Services
                         {
                             double fwx = fw.x + fw.w / 2;
                             double fwy = fw.y + fw.h / 2;
-                            if (fwy < editRowY + 40 || fwy > editRowY + 150) continue;
+                            if (fwy < editRowY + Px(40) || fwy > editRowY + Px(150)) continue;
 
                             if (fw.text.Equals("Cancel", StringComparison.OrdinalIgnoreCase))
                             {
-                                double dist = Math.Abs(fwy - (editRowY + 95));
+                                double dist = Math.Abs(fwy - (editRowY + Px(95)));
                                 if (dist < bestCancelDist)
                                 { bestCancelDist = dist; actionBarCancel = new System.Drawing.Point((int)fwx, (int)fwy); }
                             }
                             else if (fw.text.Equals("OK", StringComparison.OrdinalIgnoreCase) && fwx > fields.Description.Value.X)
                             {
-                                double dist = Math.Abs(fwy - (editRowY + 95));
+                                double dist = Math.Abs(fwy - (editRowY + Px(95)));
                                 if (dist < bestOkDist)
                                 { bestOkDist = dist; actionBarOk = new System.Drawing.Point((int)fwx, (int)fwy); }
                             }
@@ -1115,19 +1177,19 @@ namespace McStudDesktop.Services
                         if (actionBarCancel != null)
                         {
                             fields.Paint = fields.Paint ?? new System.Drawing.Point(actionBarCancel.Value.X, editRowY);
-                            fields.Labor = fields.Labor ?? new System.Drawing.Point(actionBarCancel.Value.X - 85, editRowY);
+                            fields.Labor = fields.Labor ?? new System.Drawing.Point(actionBarCancel.Value.X - Px(85), editRowY);
                             Debug.WriteLine($"[CCC-Web] Cancel fallback → Labor X={fields.Labor.Value.X}, Refinish X={fields.Paint.Value.X}");
                         }
                         else if (actionBarOk != null)
                         {
                             fields.Labor = fields.Labor ?? new System.Drawing.Point(actionBarOk.Value.X, editRowY);
-                            fields.Paint = fields.Paint ?? new System.Drawing.Point(actionBarOk.Value.X + 85, editRowY);
+                            fields.Paint = fields.Paint ?? new System.Drawing.Point(actionBarOk.Value.X + Px(85), editRowY);
                             Debug.WriteLine($"[CCC-Web] OK fallback → Labor X={fields.Labor.Value.X}, Refinish X={fields.Paint.Value.X}");
                         }
                         else if (freshPrice != null)
                         {
-                            fields.Labor = fields.Labor ?? new System.Drawing.Point(freshPrice.Value.X + 120, editRowY);
-                            fields.Paint = fields.Paint ?? new System.Drawing.Point(freshPrice.Value.X + 200, editRowY);
+                            fields.Labor = fields.Labor ?? new System.Drawing.Point(freshPrice.Value.X + Px(120), editRowY);
+                            fields.Paint = fields.Paint ?? new System.Drawing.Point(freshPrice.Value.X + Px(200), editRowY);
                             Debug.WriteLine($"[CCC-Web] Price fallback → Labor X={fields.Labor.Value.X}, Refinish X={fields.Paint.Value.X}");
                         }
                     }
@@ -1140,7 +1202,7 @@ namespace McStudDesktop.Services
                         var step6Pos = await EnsureEditRowVisible(op.Description, editRowY, targetWindow);
                         if (step6Pos != null) { editRowY = step6Pos.Value.liveY; fields.Description = new System.Drawing.Point(step6Pos.Value.liveX, editRowY); }
 
-                        int qtyX = fields.Qty?.X ?? (fields.Description.Value.X + QtyXFromDescription);
+                        int qtyX = fields.Qty?.X ?? (fields.Description.Value.X + Px(QtyXFromDescription));
                         int qtyY = fields.Qty?.Y ?? editRowY;
                         Debug.WriteLine($"[CCC-Web] Step 6: Click Qty at ({qtyX}, {qtyY}) → open popup");
                         MoveCursorTo(qtyX, qtyY);
@@ -1175,7 +1237,7 @@ namespace McStudDesktop.Services
                         var step7Pos = await EnsureEditRowVisible(op.Description, editRowY, targetWindow);
                         if (step7Pos != null) { editRowY = step7Pos.Value.liveY; fields.Description = new System.Drawing.Point(step7Pos.Value.liveX, editRowY); }
 
-                        int laborX = fields.Labor?.X ?? (fields.Description.Value.X + LaborXFromDescription);
+                        int laborX = fields.Labor?.X ?? (fields.Description.Value.X + Px(LaborXFromDescription));
                         int laborY = editRowY; // Always use live Y, not stale fields.Labor.Y
                         Debug.WriteLine($"[CCC-Web] Step 7: Click Labor at ({laborX}, {laborY}), type '{op.LaborHours}'");
                         MoveCursorTo(laborX, laborY);
@@ -1193,7 +1255,7 @@ namespace McStudDesktop.Services
                         var step8Pos = await EnsureEditRowVisible(op.Description, editRowY, targetWindow);
                         if (step8Pos != null) { editRowY = step8Pos.Value.liveY; fields.Description = new System.Drawing.Point(step8Pos.Value.liveX, editRowY); }
 
-                        int paintX = fields.Paint?.X ?? (fields.Description.Value.X + PaintXFromDescription);
+                        int paintX = fields.Paint?.X ?? (fields.Description.Value.X + Px(PaintXFromDescription));
                         int paintY = editRowY; // Always use live Y
                         Debug.WriteLine($"[CCC-Web] Step 8: Click Refinish at ({paintX}, {paintY}), type '{op.RefinishHours}'");
                         MoveCursorTo(paintX, paintY);
@@ -1265,7 +1327,7 @@ namespace McStudDesktop.Services
                         w.y + w.h / 2 >= okBrowserRect.Top && w.y + w.h / 2 <= okBrowserRect.Bottom).ToList();
 
                     // Pass 1: Search near expected Y range (action bar is 40-150px below edit row)
-                    SearchForOkCancel(step9Words, editRowY + 40, editRowY + 150);
+                    SearchForOkCancel(step9Words, editRowY + Px(40), editRowY + Px(150));
 
                     if (okPos != null)
                         Debug.WriteLine($"[CCC-Web] Step 9: Found OK at ({okPos.Value.X}, {okPos.Value.Y}) [near expected Y]");
@@ -1292,7 +1354,7 @@ namespace McStudDesktop.Services
                     }
                     else if (cancelPos != null)
                     {
-                        int derivedOkX = cancelPos.Value.X - 85;
+                        int derivedOkX = cancelPos.Value.X - Px(85);
                         Debug.WriteLine($"[CCC-Web] Deriving OK from Cancel → ({derivedOkX}, {cancelPos.Value.Y})");
                         MoveCursorTo(derivedOkX, cancelPos.Value.Y);
                         await Task.Delay(30, _cts.Token);
@@ -1476,8 +1538,8 @@ namespace McStudDesktop.Services
                                 {
                                     bool hasWord = postSaveWords.Any(w =>
                                         w.text.IndexOf(searchWords[sw], StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                        Math.Abs((w.y + w.h / 2) - candY) < 15 &&
-                                        (w.x + w.w / 2) > candX - 50); // Allow slightly left
+                                        Math.Abs((w.y + w.h / 2) - candY) < Px(15) &&
+                                        (w.x + w.w / 2) > candX - Px(50)); // Allow slightly left
                                     if (hasWord)
                                     {
                                         score += 2; // 2 points for each additional word
@@ -1488,7 +1550,7 @@ namespace McStudDesktop.Services
                                 // Check for op type on the same row, to the LEFT of the description
                                 bool hasOpType = postSaveWords.Any(w =>
                                     w.text.IndexOf(expectedOpType, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                                    Math.Abs((w.y + w.h / 2) - candY) < 15 &&
+                                    Math.Abs((w.y + w.h / 2) - candY) < Px(15) &&
                                     (w.x + w.w / 2) < candX); // Must be LEFT of description
                                 if (hasOpType)
                                 {
@@ -1568,8 +1630,8 @@ namespace McStudDesktop.Services
                             // vehicle DIAGRAM and caches that as the next click spot, so it clicks the diagram
                             // and selects a panel (the cowl!). A real adjacent row is ~one row-height (≈72px)
                             // away, so cap the search window.
-                            const int MaxNextGap = 110;
-                            int searchFloor = foundRowY + 12;
+                            int MaxNextGap = Px(110);
+                            int searchFloor = foundRowY + Px(12);
                             int searchCeil = Math.Min(contentMaxY, foundRowY + MaxNextGap);
 
                             var opTypeKeywords = new[] { "Replace", "Repair", "R&I", "R&l", "Blend", "Refinish", "Sublet", "PDR", "Align", "Section", "R&i" };
@@ -1595,7 +1657,7 @@ namespace McStudDesktop.Services
                                 var belowWords = postSaveWords
                                     .Where(w => (w.y + w.h / 2) > searchFloor &&
                                                 (w.y + w.h / 2) <= searchCeil &&
-                                                Math.Abs((w.x + w.w / 2) - foundRowX) < 200) // Near the description column
+                                                Math.Abs((w.x + w.w / 2) - foundRowX) < Px(200)) // Near the description column
                                     .OrderBy(w => w.y)
                                     .ToList();
 
@@ -1608,12 +1670,15 @@ namespace McStudDesktop.Services
                                 }
                                 else
                                 {
-                                    // No adjacent row within reach → the op we just added is the last on the
-                                    // list. Aim one row-height below it — still in the estimate, clear of the
-                                    // diagram — instead of chasing a far match down into the diagram.
-                                    lastEditRowY = foundRowY + 72;
+                                    // No adjacent row within reach → the op we just added is the LAST on the
+                                    // list. Do NOT guess a position below it (foundRow + one row-height): that
+                                    // lands in empty space / the diagram, and the next op clicks nothing, can't
+                                    // find Insert Line, and the recovery scan wanders. Anchor on the last-added
+                                    // row ITSELF — a real, clickable row. Clicking it reveals its Insert Line,
+                                    // and the next op inserts directly below it (correct order).
+                                    lastEditRowY = foundRowY;
                                     lastEditRowX = foundRowX;
-                                    Debug.WriteLine($"[CCC-Web] No adjacent row within {MaxNextGap}px below Y={foundRowY} — using foundRow + 72 = {lastEditRowY} (stays clear of diagram)");
+                                    Debug.WriteLine($"[CCC-Web] No adjacent row within {MaxNextGap}px below Y={foundRowY} — anchoring on the last-added row itself at Y={foundRowY} (real row, avoids empty-space/diagram click)");
                                 }
                             }
                         }
@@ -1647,7 +1712,7 @@ namespace McStudDesktop.Services
                                 await Task.Delay(300, _cts.Token);
                                 var recoveryPos = await RecoverPositionFromEstimate(
                                     lastAddedDescription, ops[successCount - 1].OperationType,
-                                    contentMinY, contentMaxY);
+                                    contentMinY, contentMaxY, lastEditRowX);
                                 if (recoveryPos != null)
                                 {
                                     lastEditRowX = recoveryPos.Value.nextX;
@@ -1906,14 +1971,14 @@ namespace McStudDesktop.Services
                     int liveX = (int)(match.x + match.w / 2);
                     int shift = Math.Abs(liveY - expectedY);
 
-                    if (shift <= 15)
+                    if (shift <= Px(15))
                         return null; // still in place — no action needed
 
                     // Only accept a small, plausible shift. A match well away from where we expect
                     // the row is almost always a DECOY, not the row moving — e.g. CCC's autocomplete
                     // dropdown showing the same description ~50px below the field. Chasing it sends
                     // every later click to the wrong Y. Ignore it and keep the known position.
-                    if (shift <= 45)
+                    if (shift <= Px(45))
                     {
                         Debug.WriteLine($"[CCC-Web] EnsureVisible: Edit row shifted from Y={expectedY} to Y={liveY}");
                         return (liveX, liveY);
@@ -1945,7 +2010,7 @@ namespace McStudDesktop.Services
         /// the next Insert Line). Used for retry recovery and post-failure recovery.
         /// </summary>
         private async Task<(int nextX, int nextY)?> RecoverPositionFromEstimate(
-            string lastDescription, string? lastOpType, int contentMinY, int contentMaxY)
+            string lastDescription, string? lastOpType, int contentMinY, int contentMaxY, int knownDescriptionX = 0)
         {
             try
             {
@@ -1972,11 +2037,23 @@ namespace McStudDesktop.Services
 
                 string expectedOpType = lastOpType != null ? GetCccWebOpName(lastOpType) : "";
 
-                // Find candidates matching the primary word in content area
+                // Find candidates matching the primary word in content area.
+                // CRITICAL: constrain to the DESCRIPTION COLUMN. The vehicle diagram's panel list
+                // runs down the far LEFT of the page ("FRONT BUMPER & GRILLE", "REAR BUMPER", ...)
+                // and will match description words like "Bumper". Without this filter the recovery
+                // locks onto a diagram label (e.g. X=273 vs the estimate's X≈925), clicks the
+                // diagram, and the run wanders. knownDescriptionX is the last row's description X.
                 var candidates = words
                     .Where(w => w.text.IndexOf(primaryWord, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                        w.y + w.h / 2 >= contentMinY && w.y + w.h / 2 <= contentMaxY)
+                        w.y + w.h / 2 >= contentMinY && w.y + w.h / 2 <= contentMaxY &&
+                        (knownDescriptionX <= 0 || Math.Abs((w.x + w.w / 2) - knownDescriptionX) <= Px(400)))
                     .ToList();
+
+                if (candidates.Count == 0)
+                {
+                    Debug.WriteLine($"[CCC-Web] Recovery OCR: no '{primaryWord}' candidates in description column (knownX={knownDescriptionX}±{Px(400)}) — not guessing, returning null");
+                    return null;
+                }
 
                 // Score candidates
                 var scored = new List<(int score, double y, double x)>();
@@ -1990,7 +2067,7 @@ namespace McStudDesktop.Services
                     {
                         bool hasWord = words.Any(w =>
                             w.text.IndexOf(searchWords[sw], StringComparison.OrdinalIgnoreCase) >= 0 &&
-                            Math.Abs((w.y + w.h / 2) - candY) < 15);
+                            Math.Abs((w.y + w.h / 2) - candY) < Px(15));
                         if (hasWord) score += 2;
                     }
 
@@ -1998,7 +2075,7 @@ namespace McStudDesktop.Services
                     {
                         bool hasOpType = words.Any(w =>
                             w.text.IndexOf(expectedOpType, StringComparison.OrdinalIgnoreCase) >= 0 &&
-                            Math.Abs((w.y + w.h / 2) - candY) < 15 &&
+                            Math.Abs((w.y + w.h / 2) - candY) < Px(15) &&
                             (w.x + w.w / 2) < candX);
                         if (hasOpType) score += 5;
                     }
@@ -2023,7 +2100,7 @@ namespace McStudDesktop.Services
                 // Find next op row below
                 var opTypeKeywords = new[] { "Replace", "Repair", "R&I", "R&l", "Blend", "Refinish", "Sublet", "PDR", "Align", "Section", "R&i" };
                 var nextOpRows = words
-                    .Where(w => (w.y + w.h / 2) > foundRowY + 12 &&
+                    .Where(w => (w.y + w.h / 2) > foundRowY + Px(12) &&
                                 (w.y + w.h / 2) <= contentMaxY &&
                                 opTypeKeywords.Any(k => w.text.Equals(k, StringComparison.OrdinalIgnoreCase)))
                     .OrderBy(w => w.y)
@@ -2038,9 +2115,9 @@ namespace McStudDesktop.Services
 
                 // Fallback: any text below in the description column area
                 var belowWords = words
-                    .Where(w => (w.y + w.h / 2) > foundRowY + 12 &&
+                    .Where(w => (w.y + w.h / 2) > foundRowY + Px(12) &&
                                 (w.y + w.h / 2) <= contentMaxY &&
-                                Math.Abs((w.x + w.w / 2) - foundRowX) < 200)
+                                Math.Abs((w.x + w.w / 2) - foundRowX) < Px(200))
                     .OrderBy(w => w.y)
                     .ToList();
 
@@ -2051,7 +2128,7 @@ namespace McStudDesktop.Services
                 }
 
                 // Last resort: estimated offset
-                return (foundRowX, foundRowY + 30);
+                return (foundRowX, foundRowY + Px(30));
             }
             catch (Exception ex)
             {
@@ -2081,33 +2158,21 @@ namespace McStudDesktop.Services
         {
             try
             {
-                var screenBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
-                using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height);
-                using (var graphics = Graphics.FromImage(bitmap))
-                {
-                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(screenBounds.Width, screenBounds.Height));
-                }
-
-                var softwareBitmap = await ConvertToSoftwareBitmapAsync(bitmap);
-                if (softwareBitmap == null) return null;
-
-                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
+                // OcrFullScreen already returns words in absolute screen coords for the right monitor.
+                var allWords = await OcrFullScreen();
 
                 // Search ALL words but only match near the action bar Y (±40px tolerance)
-                foreach (var line in ocrResult.Lines)
+                foreach (var w in allWords)
                 {
-                    foreach (var word in line.Words)
+                    double wordCenterY = w.y + w.h / 2;
+                    if (Math.Abs(wordCenterY - actionBarY) <= Px(40) &&
+                        w.text.Equals(text, StringComparison.OrdinalIgnoreCase))
                     {
-                        double wordCenterY = word.BoundingRect.Y + word.BoundingRect.Height / 2;
-                        if (Math.Abs(wordCenterY - actionBarY) <= 40 &&
-                            word.Text.Equals(text, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var pt = new System.Drawing.Point(
-                                (int)(word.BoundingRect.X + word.BoundingRect.Width / 2),
-                                (int)(word.BoundingRect.Y + word.BoundingRect.Height / 2));
-                            Debug.WriteLine($"[CCC-Web] Found '{text}' on action bar at ({pt.X}, {pt.Y})");
-                            return pt;
-                        }
+                        var pt = new System.Drawing.Point(
+                            (int)(w.x + w.w / 2),
+                            (int)wordCenterY);
+                        Debug.WriteLine($"[CCC-Web] Found '{text}' on action bar at ({pt.X}, {pt.Y})");
+                        return pt;
                     }
                 }
 
@@ -2167,7 +2232,7 @@ namespace McStudDesktop.Services
                         foreach (var w2 in allWords)
                         {
                             if (w2.text.Contains(searchWords[1], StringComparison.OrdinalIgnoreCase) &&
-                                Math.Abs((w2.y + w2.h / 2) - wordY) < 15 && // Same row
+                                Math.Abs((w2.y + w2.h / 2) - wordY) < Px(15) && // Same row
                                 (w2.x + w2.w / 2) > wordX) // To the right
                             {
                                 hasSecondWord = true;
@@ -2208,17 +2273,8 @@ namespace McStudDesktop.Services
 
             try
             {
-                var screenBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
-                using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height);
-                using (var graphics = Graphics.FromImage(bitmap))
-                {
-                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(screenBounds.Width, screenBounds.Height));
-                }
-
-                var softwareBitmap = await ConvertToSoftwareBitmapAsync(bitmap);
-                if (softwareBitmap == null) return null;
-
-                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
+                // OcrFullScreen already returns words in absolute screen coords for the right monitor.
+                var allWords = await OcrFullScreen();
 
                 // Use first word of description for matching
                 string searchText = text.Length > 20 ? text.Substring(0, 20) : text;
@@ -2229,27 +2285,21 @@ namespace McStudDesktop.Services
                 System.Drawing.Point? bestMatch = null;
                 double bestDist = double.MaxValue;
 
-                foreach (var line in ocrResult.Lines)
+                foreach (var w in allWords)
                 {
-                    if (!line.Text.Contains(firstWord, StringComparison.OrdinalIgnoreCase))
+                    if (!w.text.Contains(firstWord, StringComparison.OrdinalIgnoreCase))
                         continue;
 
-                    foreach (var word in line.Words)
+                    double wordY = w.y + w.h / 2;
+                    double dist = Math.Abs(wordY - referenceY);
+
+                    // Only match within Y tolerance
+                    if (dist <= yTolerance && dist < bestDist)
                     {
-                        if (!word.Text.Contains(firstWord, StringComparison.OrdinalIgnoreCase))
-                            continue;
-
-                        double wordY = word.BoundingRect.Y + word.BoundingRect.Height / 2;
-                        double dist = Math.Abs(wordY - referenceY);
-
-                        // Only match within Y tolerance
-                        if (dist <= yTolerance && dist < bestDist)
-                        {
-                            bestDist = dist;
-                            bestMatch = new System.Drawing.Point(
-                                (int)(word.BoundingRect.X + word.BoundingRect.Width / 2),
-                                (int)wordY);
-                        }
+                        bestDist = dist;
+                        bestMatch = new System.Drawing.Point(
+                            (int)(w.x + w.w / 2),
+                            (int)wordY);
                     }
                 }
 
@@ -2280,17 +2330,8 @@ namespace McStudDesktop.Services
 
             try
             {
-                var screenBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
-                using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height);
-                using (var graphics = Graphics.FromImage(bitmap))
-                {
-                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(screenBounds.Width, screenBounds.Height));
-                }
-
-                var softwareBitmap = await ConvertToSoftwareBitmapAsync(bitmap);
-                if (softwareBitmap == null) return null;
-
-                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
+                // OcrFullScreen already returns words in absolute screen coords for the right monitor.
+                var allWords = await OcrFullScreen();
 
                 // Search for the text — use first few words for matching (descriptions can be long/truncated)
                 string searchText = text.Length > 20 ? text.Substring(0, 20) : text;
@@ -2299,29 +2340,16 @@ namespace McStudDesktop.Services
 
                 string firstWord = searchWords[0];
 
-                foreach (var line in ocrResult.Lines)
+                // Flat word list preserves reading order, so the first match is the topmost/leftmost.
+                foreach (var w in allWords)
                 {
-                    // Check if this line contains our text
-                    if (line.Text.Contains(firstWord, StringComparison.OrdinalIgnoreCase))
+                    if (w.text.Contains(firstWord, StringComparison.OrdinalIgnoreCase))
                     {
-                        // Use the center of the line as the position
-                        var words = line.Words.ToList();
-                        if (words.Count > 0)
-                        {
-                            // Find the matching word
-                            foreach (var word in words)
-                            {
-                                if (word.Text.Contains(firstWord, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    var rect = word.BoundingRect;
-                                    var pt = new System.Drawing.Point(
-                                        (int)(rect.X + rect.Width / 2),
-                                        (int)(rect.Y + rect.Height / 2));
-                                    Debug.WriteLine($"[CCC-Web] Found text '{firstWord}' at ({pt.X}, {pt.Y})");
-                                    return pt;
-                                }
-                            }
-                        }
+                        var pt = new System.Drawing.Point(
+                            (int)(w.x + w.w / 2),
+                            (int)(w.y + w.h / 2));
+                        Debug.WriteLine($"[CCC-Web] Found text '{firstWord}' at ({pt.X}, {pt.Y})");
+                        return pt;
                     }
                 }
 
@@ -2342,31 +2370,18 @@ namespace McStudDesktop.Services
         {
             try
             {
-                var screenBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
-                using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height);
-                using (var graphics = Graphics.FromImage(bitmap))
+                // OcrFullScreen already returns words in absolute screen coords for the right monitor.
+                var allWords = await OcrFullScreen();
+
+                foreach (var w in allWords)
                 {
-                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(screenBounds.Width, screenBounds.Height));
-                }
-
-                var softwareBitmap = await ConvertToSoftwareBitmapAsync(bitmap);
-                if (softwareBitmap == null) return null;
-
-                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
-
-                foreach (var line in ocrResult.Lines)
-                {
-                    foreach (var word in line.Words)
+                    if (w.text.Equals("Description", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (word.Text.Equals("Description", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var rect = word.BoundingRect;
-                            var pt = new System.Drawing.Point(
-                                (int)(rect.X + rect.Width / 2),
-                                (int)(rect.Y + rect.Height / 2));
-                            Debug.WriteLine($"[CCC-Web] Found Description at ({pt.X}, {pt.Y})");
-                            return pt;
-                        }
+                        var pt = new System.Drawing.Point(
+                            (int)(w.x + w.w / 2),
+                            (int)(w.y + w.h / 2));
+                        Debug.WriteLine($"[CCC-Web] Found Description at ({pt.X}, {pt.Y})");
+                        return pt;
                     }
                 }
 
@@ -2394,29 +2409,10 @@ namespace McStudDesktop.Services
         {
             try
             {
-                var screenBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
-                using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height);
-                using (var graphics = Graphics.FromImage(bitmap))
-                {
-                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(screenBounds.Width, screenBounds.Height));
-                }
-
-                var softwareBitmap = await ConvertToSoftwareBitmapAsync(bitmap);
-                if (softwareBitmap == null) return null;
-
-                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
-                Debug.WriteLine($"[CCC-Web] EditRow OCR text: {ocrResult.Text}");
-
-                // Step 1: Collect ALL words with their positions
-                var allWords = new List<(string text, double x, double y, double w, double h)>();
-                foreach (var line in ocrResult.Lines)
-                {
-                    foreach (var word in line.Words)
-                    {
-                        allWords.Add((word.Text, word.BoundingRect.X, word.BoundingRect.Y,
-                            word.BoundingRect.Width, word.BoundingRect.Height));
-                    }
-                }
+                // OcrFullScreen already returns ALL words in absolute screen coords for the right
+                // monitor — same tuple shape this method used to build by hand.
+                var allWords = await OcrFullScreen();
+                Debug.WriteLine($"[CCC-Web] EditRow OCR: {allWords.Count} words");
 
                 // Step 2: Find "Description" anchor — pick the one CLOSEST to referenceY
                 // (avoids column header at top vs actual edit row placeholder)
@@ -2450,7 +2446,7 @@ namespace McStudDesktop.Services
                 }
 
                 // Step 3: Collect all words near the same Y (within 40px) — these are on the edit row
-                double yTolerance = 40;
+                double yTolerance = Px(40);
                 var rowWords = new List<(string text, double x, double y, double w, double h)>();
                 foreach (var w in allWords)
                 {
@@ -2527,9 +2523,9 @@ namespace McStudDesktop.Services
                 if (fields.Price != null)
                 {
                     // Body Labor is ~120px right of Price center
-                    fields.Labor = new System.Drawing.Point(fields.Price.Value.X + 120, (int)descY);
+                    fields.Labor = new System.Drawing.Point(fields.Price.Value.X + Px(120), (int)descY);
                     // Refinish Labor is ~200px right of Price center
-                    fields.Paint = new System.Drawing.Point(fields.Price.Value.X + 200, (int)descY);
+                    fields.Paint = new System.Drawing.Point(fields.Price.Value.X + Px(200), (int)descY);
                     Debug.WriteLine($"[CCC-Web] Calculated from Price: Labor at X={fields.Labor.Value.X}, Refinish at X={fields.Paint.Value.X}");
                 }
 
@@ -2537,7 +2533,7 @@ namespace McStudDesktop.Services
                 if (fields.Qty == null && fields.Price != null)
                 {
                     // Qty is always ~115px left of Price
-                    fields.Qty = new System.Drawing.Point(fields.Price.Value.X - 115, (int)descY);
+                    fields.Qty = new System.Drawing.Point(fields.Price.Value.X - Px(115), (int)descY);
                     Debug.WriteLine($"[CCC-Web] Qty not found, calculated from Price: ({fields.Qty.Value.X}, {fields.Qty.Value.Y})");
                 }
                 if (fields.Labor != null) Debug.WriteLine($"[CCC-Web] Labor at ({fields.Labor.Value.X}, {fields.Labor.Value.Y})");
@@ -2633,62 +2629,39 @@ namespace McStudDesktop.Services
         {
             try
             {
-                var screenBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
-                using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height);
-                using (var graphics = Graphics.FromImage(bitmap))
-                {
-                    graphics.CopyFromScreen(0, 0, 0, 0, new Size(screenBounds.Width, screenBounds.Height));
-                }
-
-                var softwareBitmap = await ConvertToSoftwareBitmapAsync(bitmap);
-                if (softwareBitmap == null) return null;
-
-                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
+                // OcrFullScreen already returns words in absolute screen coords for the right monitor,
+                // in reading order — so consecutive indices reconstruct multi-word buttons ("Insert Line").
+                var allWords = await OcrFullScreen();
+                string[] buttonWords = buttonText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
                 System.Drawing.Point? bestMatch = null;
                 double bestDist = double.MaxValue;
 
-                foreach (var line in ocrResult.Lines)
+                for (int i = 0; i < allWords.Count; i++)
                 {
-                    if (!line.Text.Contains(buttonText, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    var words = line.Words.ToList();
-                    for (int w = 0; w < words.Count; w++)
+                    bool match = true;
+                    for (int bw = 0; bw < buttonWords.Length; bw++)
                     {
-                        System.Drawing.Point? candidatePoint = null;
+                        if (i + bw >= allWords.Count ||
+                            !allWords[i + bw].text.Equals(buttonWords[bw], StringComparison.OrdinalIgnoreCase))
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (!match) continue;
 
-                        // Single word match
-                        if (words[w].Text.Equals(buttonText, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var rect = words[w].BoundingRect;
-                            candidatePoint = new System.Drawing.Point(
-                                (int)(rect.X + rect.Width / 2),
-                                (int)(rect.Y + rect.Height / 2));
-                        }
-                        // Multi-word match (e.g., "Insert Line")
-                        else if (buttonText.Contains(' ') && w + 1 < words.Count)
-                        {
-                            string combined = words[w].Text + " " + words[w + 1].Text;
-                            if (combined.Equals(buttonText, StringComparison.OrdinalIgnoreCase))
-                            {
-                                var rect1 = words[w].BoundingRect;
-                                var rect2 = words[w + 1].BoundingRect;
-                                candidatePoint = new System.Drawing.Point(
-                                    (int)((rect1.X + rect2.X + rect2.Width) / 2),
-                                    (int)(rect1.Y + rect1.Height / 2));
-                            }
-                        }
+                    var first = allWords[i];
+                    var last = allWords[i + buttonWords.Length - 1];
+                    var candidatePoint = new System.Drawing.Point(
+                        (int)((first.x + last.x + last.w) / 2),
+                        (int)(first.y + first.h / 2));
 
-                        if (candidatePoint != null)
-                        {
-                            double dist = Math.Abs(candidatePoint.Value.Y - referenceY);
-                            if (dist <= maxYDist && dist < bestDist)
-                            {
-                                bestDist = dist;
-                                bestMatch = candidatePoint;
-                            }
-                        }
+                    double dist = Math.Abs(candidatePoint.Y - referenceY);
+                    if (dist <= maxYDist && dist < bestDist)
+                    {
+                        bestDist = dist;
+                        bestMatch = candidatePoint;
                     }
                 }
 
@@ -2951,11 +2924,22 @@ namespace McStudDesktop.Services
         private async Task<List<(string text, double x, double y, double w, double h)>> OcrFullScreen()
         {
             var result = new List<(string text, double x, double y, double w, double h)>();
-            var screenBounds = System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
-            using var bitmap = new Bitmap(screenBounds.Width, screenBounds.Height);
+
+            // Capture the MONITOR the CCC browser is on (see _captureBounds). Its top-left is the
+            // origin we add to every OCR word so coordinates come back in ABSOLUTE virtual-screen
+            // space — the same space SetCursorPos clicks in and GetWindowRect reports. This is the
+            // ONE place capture + translation happens; every OCR consumer goes through here, so they
+            // all speak one coordinate system. On a primary-monitor setup origin is (0,0) → no-op.
+            var bounds = _captureBounds.Width > 0
+                ? _captureBounds
+                : System.Windows.Forms.Screen.PrimaryScreen!.Bounds;
+            double originX = bounds.X;
+            double originY = bounds.Y;
+
+            using var bitmap = new Bitmap(bounds.Width, bounds.Height);
             using (var g = Graphics.FromImage(bitmap))
             {
-                g.CopyFromScreen(0, 0, 0, 0, new Size(screenBounds.Width, screenBounds.Height));
+                g.CopyFromScreen(0, 0, bounds.X, bounds.Y, new Size(bounds.Width, bounds.Height));
             }
 
             var softwareBitmap = await ConvertToSoftwareBitmapAsync(bitmap);
@@ -2966,7 +2950,10 @@ namespace McStudDesktop.Services
             {
                 foreach (var word in line.Words)
                 {
-                    result.Add((word.Text, word.BoundingRect.X, word.BoundingRect.Y,
+                    // Only the X/Y get the origin — width/height are sizes, not positions.
+                    result.Add((word.Text,
+                        originX + word.BoundingRect.X,
+                        originY + word.BoundingRect.Y,
                         word.BoundingRect.Width, word.BoundingRect.Height));
                 }
             }
@@ -2989,7 +2976,7 @@ namespace McStudDesktop.Services
                 foreach (var word in allWords)
                 {
                     if (word.text.Equals("Extended", StringComparison.OrdinalIgnoreCase) &&
-                        (word.y + word.h / 2) > editRowY + 30)
+                        (word.y + word.h / 2) > editRowY + Px(30))
                     {
                         extendedWord = word;
                         break;
@@ -3019,7 +3006,7 @@ namespace McStudDesktop.Services
                     if (word.text.Equals("Price", StringComparison.OrdinalIgnoreCase))
                     {
                         double wy = word.y + word.h / 2;
-                        if (wy > editRowY + 30)
+                        if (wy > editRowY + Px(30))
                         {
                             allPriceBelow.Add(word);
                             Debug.WriteLine($"[CCC-Web] Popup: 'Price' candidate at X={word.x:F0}, Y={wy:F0}");
@@ -3040,7 +3027,7 @@ namespace McStudDesktop.Services
                             double ewCenterY = ew.y + ew.h / 2;
                             double ewRightEdge = ew.x + ew.w;
                             // "Extended" must be: same Y (±20px), immediately left of "Price" (within 150px gap)
-                            if (Math.Abs(ewCenterY - pwCenterY) < 20 && pw.x > ewRightEdge && (pw.x - ewRightEdge) < 150)
+                            if (Math.Abs(ewCenterY - pwCenterY) < Px(20) && pw.x > ewRightEdge && (pw.x - ewRightEdge) < Px(150))
                             {
                                 hasExtendedBefore = true;
                                 Debug.WriteLine($"[CCC-Web] Popup: Skipping 'Price' at X={pw.x:F0} — part of 'Extended Price'");
@@ -3065,7 +3052,7 @@ namespace McStudDesktop.Services
                 {
                     // Click the Price input field — it's below or right of the "Price" label
                     int priceInputX = (int)(popupPrice.x + popupPrice.w / 2);
-                    int priceInputY = (int)(popupPrice.y + popupPrice.h + 12); // Below the label
+                    int priceInputY = (int)(popupPrice.y + popupPrice.h + Px(12)); // Below the label
                     Debug.WriteLine($"[CCC-Web] Popup: Found 'Price' label at ({popupPrice.x + popupPrice.w/2:F0}, {popupPrice.y + popupPrice.h/2:F0}), clicking input at ({priceInputX}, {priceInputY})");
                     MoveCursorTo(priceInputX, priceInputY);
                     await Task.Delay(50, _cts.Token);
@@ -3096,7 +3083,7 @@ namespace McStudDesktop.Services
                     {
                         double wy = word.y + word.h / 2;
                         // Must be below the popup fields area (below the title + some offset)
-                        if (wy > popupTitleY + 40)
+                        if (wy > popupTitleY + Px(40))
                         {
                             if (popupOk == default || wy < (popupOk.y + popupOk.h / 2))
                             {

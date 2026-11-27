@@ -584,6 +584,34 @@ public sealed class ReferenceView : UserControl
         });
     }
 
+    /// <summary>
+    /// Import Scrubber (Requirement 1): auto-populate the PDF export queue with the reference
+    /// matches for the current estimate. Previous auto-matched items are cleared first (the user's
+    /// manually-added items are preserved), so each scrubbed estimate starts fresh. Unlike
+    /// ShowStagedItems, this does not require the user to review + add — the matches go straight in.
+    /// </summary>
+    public void AutoAddMatchesToPdf(List<StagedReferenceItem> items)
+    {
+        DispatcherQueue?.TryEnqueue(() =>
+        {
+            // Drop the previous estimate's auto-matched items; keep anything the user added by hand.
+            DefinitionsView.PdfQueue.RemoveAll(q => q.AutoMatched);
+
+            if (items != null)
+            {
+                foreach (var item in items)
+                {
+                    if (DefinitionsView.PdfQueue.Any(q => q.Id == item.QueueItem.Id)) continue;
+                    item.QueueItem.AutoMatched = true;
+                    DefinitionsView.PdfQueue.Add(item.QueueItem);
+                }
+            }
+
+            DefinitionsView.RaisePdfQueueChanged();
+            RefreshPdfPanel();
+        });
+    }
+
     private void RefreshStagingPanel()
     {
         if (_stagingItemsPanel == null || _stagingCountText == null) return;

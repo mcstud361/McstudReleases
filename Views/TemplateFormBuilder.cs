@@ -976,7 +976,11 @@ public class TemplateFormBuilder : UserControl
 
         // Store reference and track changes
         _fieldControls[field.Id] = control;
-        _fieldValues[field.Id] = field.DefaultValue ?? "";
+        // Date fields carry the "TODAY" token as their default — resolve it to an
+        // actual date string up front so the exported doc shows a real date, not the token.
+        _fieldValues[field.Id] = field.FieldType == FieldType.Date
+            ? (field.DefaultValue == "TODAY" ? DateTime.Now.ToString("MM/dd/yyyy") : "")
+            : field.DefaultValue ?? "";
 
         // Wire up value change tracking
         if (control is TextBox tb)
@@ -989,7 +993,7 @@ public class TemplateFormBuilder : UserControl
         }
         else if (control is CalendarDatePicker cdp)
         {
-            cdp.DateChanged += (s, e) => _fieldValues[field.Id] = cdp.Date?.DateTime ?? DateTime.Now;
+            cdp.DateChanged += (s, e) => _fieldValues[field.Id] = (cdp.Date?.DateTime ?? DateTime.Now).ToString("MM/dd/yyyy");
         }
         else if (control is CheckBox cb)
         {

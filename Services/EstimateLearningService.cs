@@ -4579,6 +4579,10 @@ namespace McStudDesktop.Services
         public string PartNumber { get; set; } = "";
         public string OperationType { get; set; } = "";
         public string Category { get; set; } = "";
+
+        /// <summary>Original line number from the estimate (the CCC "Line" column), preserved so the
+        /// scrubber and reference suggestions can point back to the exact line on the estimate.</summary>
+        public int LineNumber { get; set; }
         public string Position { get; set; } = "";
         public string Side { get; set; } = "";
         public decimal LaborHours { get; set; }

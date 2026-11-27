@@ -912,5 +912,7 @@ namespace McStudDesktop.Views
         public string? Status { get; set; }
         /// <summary>Optional clickable reference links (label → URL) carried into the exported PDF.</summary>
         public Dictionary<string, string>? Links { get; set; }
+        /// <summary>True when auto-added by the Import Scrubber's reference scan (vs. manually added by the user). Auto-added items are cleared and refreshed on each new scrub.</summary>
+        public bool AutoMatched { get; set; }
     }
 }

@@ -34,7 +34,6 @@ namespace McStudDesktop.Views
         private StackPanel? _resultsPanel;
         private TextBlock? _statusText;
         private TextBlock? _selectionCountText;
-        private Button? _insertButton;
         private ScrollViewer? _resultsScroller;
 
         // Stats card refs
@@ -2318,44 +2317,6 @@ namespace McStudDesktop.Views
             clearBtn.Click += ClearAll_Click;
             btnPanel.Children.Add(clearBtn);
 
-            // Export dropdown: primary action = Insert CCC, flyout has the rest
-            var exportFlyout = new MenuFlyout();
-            var copyItem = new MenuFlyoutItem { Text = "Copy to Clipboard" };
-            copyItem.Click += CopyButton_Click;
-            exportFlyout.Items.Add(copyItem);
-            var clipItem = new MenuFlyoutItem { Text = "Clip It" };
-            clipItem.Click += ClipIt_Click;
-            exportFlyout.Items.Add(clipItem);
-            var typeItem = new MenuFlyoutItem { Text = "Type It" };
-            typeItem.Click += TypeIt_Click;
-            exportFlyout.Items.Add(typeItem);
-            exportFlyout.Items.Add(new MenuFlyoutSeparator());
-            var sendItem = new MenuFlyoutItem { Text = "Send to Chat" };
-            sendItem.Click += SendToChat_Click;
-            exportFlyout.Items.Add(sendItem);
-
-            _insertButton = new DropDownButton
-            {
-                Padding = new Thickness(14, 8, 14, 8),
-                Background = new SolidColorBrush(AccentGreen),
-                Foreground = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(8),
-                IsEnabled = false,
-                Flyout = exportFlyout,
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 6,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE768", FontSize = 14 },
-                        new TextBlock { Text = "Insert CCC", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }
-                    }
-                }
-            };
-            _insertButton.Click += InsertButton_Click;
-            btnPanel.Children.Add(_insertButton);
-
             Grid.SetColumn(btnPanel, 1);
             grid.Children.Add(btnPanel);
             border.Child = grid;
@@ -3423,31 +3384,6 @@ namespace McStudDesktop.Views
             if (sender is Button btn) { var original = btn.Content; var cc = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 }; cc.Children.Add(new FontIcon { Glyph = "\uE73E", FontSize = 14 }); cc.Children.Add(new TextBlock { Text = "Copied!", FontSize = 12 }); btn.Content = cc; await System.Threading.Tasks.Task.Delay(1500); btn.Content = original; }
         }
 
-        private async void InsertButton_Click(object sender, RoutedEventArgs e)
-        {
-            var rows = new List<string[]>();
-            foreach (var op in _selectedOperations) { var desc = op.ManualLineType.Length > 0 ? op.ManualLineType : op.Description; var hours = op.LaborUnits > 0 ? op.LaborUnits : op.RefinishUnits; var laborType = ResolveCCCLaborType(op.LaborType, op.RefinishUnits > 0); var row = op.AvgPrice > 0 ? new[] { "#", laborType, desc, hours.ToString("N1"), $"${op.AvgPrice:N0}" } : new[] { "#", laborType, desc, hours.ToString("N1") }; rows.Add(row); }
-            foreach (var op in _selectedOpResults) { var desc = op.OperationName.Length > 0 ? op.OperationName : op.Description; var hours = op.LaborHours > 0 ? op.LaborHours : op.RefinishHours; var laborType = ResolveCCCLaborType(op.LaborType, op.RefinishHours > 0); var row = op.AvgPrice > 0 ? new[] { "#", laborType, desc, hours.ToString("N1"), $"${op.AvgPrice:N0}" } : new[] { "#", laborType, desc, hours.ToString("N1") }; rows.Add(row); }
-            foreach (var line in _estimateLines) { var val = line.LaborHours > 0 ? line.LaborHours : line.RefinishHours; var laborType = ResolveCCCLaborType(line.LaborType, line.RefinishHours > 0); var row = line.Price > 0 ? new[] { "#", laborType, line.PartName, val.ToString("N1"), $"${line.Price:N0}" } : new[] { "#", laborType, line.PartName, val.ToString("N1") }; rows.Add(row); }
-            if (rows.Count == 0) return;
-            if (sender is Button btn)
-            {
-                var aimContent = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 }; aimContent.Children.Add(new FontIcon { Glyph = "\uE7B3", FontSize = 14 }); aimContent.Children.Add(new TextBlock { Text = "Click in CCC, press ENTER...", FontSize = 12 }); btn.Content = aimContent; btn.IsEnabled = false;
-                try
-                {
-                    _statusText!.Text = $"Position cursor in CCC, press ENTER to paste {rows.Count} lines. ESC to cancel."; _statusText.Foreground = new SolidColorBrush(AccentBlue);
-                    var result = await _typeItService.AimAndTypeAsync(rows.ToArray());
-                    if (result.Completed) { _statusText.Text = $"Inserted {result.RowsCompleted} lines into CCC!"; _statusText.Foreground = new SolidColorBrush(AccentGreen); }
-                    else if (result.WasCancelled) { _statusText.Text = "Insert cancelled."; _statusText.Foreground = new SolidColorBrush(AccentOrange); }
-                    else { _statusText.Text = $"Insert incomplete: {result.RowsCompleted}/{result.TotalRows} lines."; _statusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 100, 100)); }
-                }
-                catch (Exception ex) { _statusText!.Text = $"Error: {ex.Message}"; _statusText.Foreground = new SolidColorBrush(Color.FromArgb(255, 200, 100, 100)); }
-                finally
-                {
-                    var ic = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 }; ic.Children.Add(new FontIcon { Glyph = "\uE768", FontSize = 14 }); ic.Children.Add(new TextBlock { Text = "Insert CCC", FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold }); btn.Content = ic; btn.IsEnabled = true;
-                }
-            }
-        }
 
         // ═══════════════════════════════════════════
         //  STATE MANAGEMENT
@@ -3477,7 +3413,6 @@ namespace McStudDesktop.Views
         {
             var totalSelected = _selectedOperations.Count + _selectedOpResults.Count + _estimateLines.Count;
             var hasSelection = totalSelected > 0;
-            if (_insertButton != null) _insertButton.IsEnabled = hasSelection;
             if (_selectionCountText != null) { _selectionCountText.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed; _selectionCountText.Text = $"{totalSelected} selected"; }
         }
 

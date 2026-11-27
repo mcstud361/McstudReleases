@@ -36,6 +36,11 @@ namespace McStudDesktop.Services
 
         public void SetMode(LearningMode mode)
         {
+            // Personal learning mode has been retired — the app always runs on the
+            // Standard (Shop) knowledge base. Any request to enter Personal is coerced
+            // to Shop so a stray caller can't strand the user in a mode with no UI.
+            if (mode == LearningMode.Personal) mode = LearningMode.Shop;
+
             if (_state.Mode == mode) return;
 
             _state.Mode = mode;
@@ -71,6 +76,9 @@ namespace McStudDesktop.Services
                     });
                     if (state != null)
                     {
+                        // Migrate retired Personal mode to Standard (Shop).
+                        if (state.Mode == LearningMode.Personal)
+                            state.Mode = LearningMode.Shop;
                         System.Diagnostics.Debug.WriteLine($"[LearningMode] State loaded: {state.Mode}");
                         return state;
                     }

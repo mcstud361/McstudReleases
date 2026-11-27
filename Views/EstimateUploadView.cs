@@ -114,10 +114,12 @@ namespace McStudDesktop.Views
         private bool _isSideBySideLayout = true;
         private TextBlock? _scrubResultsTitle;
         private ListView? _scrubParsedItemsList;
+        private TextBox? _scrubSearchBox;
+        private string _scrubSearchText = "";
+        private int _scrubSearchScope; // 0 = Both, 1 = Estimate only, 2 = Results only
         private ProgressRing? _scrubProgressRing;
         private Button? _scrubClearButton;
         private Button? _scrubCopyButton;
-        private Button? _scrubCCCExportButton;
         private Button? _scrubExportPdfButton;
         private Button? _scrubMustHavesButton;
         private TextBlock? _scrubStatusText;
@@ -147,6 +149,13 @@ namespace McStudDesktop.Views
         private StackPanel? _drpComplianceContent;
         private Border? _refMatchBanner;
         private Button? _refMatchButton;
+        private StackPanel? _refSuggestionsPanel;
+        private Border? _refSuggestionsCard;
+        private List<SuggestedMissingItem> _lastSuggestions = new();
+        private StackPanel? _refPresentPanel;
+        private Border? _refPresentCard;
+        private List<SuggestedMissingItem> _lastPresent = new();
+        private Button? _refCopyAllButton;
 
         // Smart analysis (data only — UI merged into scoring panel)
         private readonly SmartEstimateAnalyzerService _analyzerService;
@@ -193,6 +202,7 @@ namespace McStudDesktop.Views
         // Current estimate context for Reference PDF auto-populate
         private string? _scrubVehicleInfo;
         private string? _scrubVin;
+        private string? _scrubEstimateSource; // "CCC" / "Mitchell" / "Audatex" — gates source-specific suggestions
 
         // Parse context
         private enum ParseContext { Scrubber, Learning }
@@ -483,7 +493,7 @@ namespace McStudDesktop.Views
 
             var descText = new TextBlock
             {
-                Text = "Scrub an estimate for missing operations. Parse a PDF or pasted text \u2014 quality + scoring appear automatically.",
+                Text = "Scan an estimate for reference info. Parse a PDF or pasted text \u2014 matching P-Pages, DEG, definitions & procedures are auto-added to the PDF export queue, with suggested additions surfaced below.",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Color.FromArgb(255, 140, 165, 200)),
                 TextWrapping = TextWrapping.Wrap,
@@ -507,7 +517,10 @@ namespace McStudDesktop.Views
                 Background = new SolidColorBrush(Color.FromArgb(255, 60, 60, 90)),
                 Foreground = new SolidColorBrush(Colors.White),
                 Padding = new Thickness(16, 10, 16, 10),
-                CornerRadius = new CornerRadius(6)
+                CornerRadius = new CornerRadius(6),
+                // Hidden: the scrubber no longer checks shop-defined "must-have" operations — it
+                // strictly scans for reference-library info. (Config still reachable elsewhere.)
+                Visibility = Visibility.Collapsed
             };
             _scrubMustHavesButton.Click += MustHavesButton_Click;
             ToolTipService.SetToolTip(_scrubMustHavesButton,
@@ -584,29 +597,6 @@ namespace McStudDesktop.Views
                 "Copy all missing items to clipboard.\n" +
                 "Includes must-haves, commonly missed, and learned pattern suggestions.");
             scrubActions.Children.Add(_scrubCopyButton);
-
-            _scrubCCCExportButton = new Button
-            {
-                Content = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 8,
-                    Children =
-                    {
-                        new FontIcon { Glyph = "\uE710", FontSize = 14 },
-                        new TextBlock { Text = "+ Export", FontSize = 12 }
-                    }
-                },
-                Background = new SolidColorBrush(Color.FromArgb(255, 40, 120, 60)),
-                Foreground = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(16, 8, 16, 8),
-                Margin = new Thickness(8, 0, 0, 0)
-            };
-            _scrubCCCExportButton.Click += AddToExport_Click;
-            ToolTipService.SetToolTip(_scrubCCCExportButton,
-                "Stage missing items to the Export tab.\n" +
-                "Then use CCC Desktop, CCC Web, or Mitchell to export.");
-            scrubActions.Children.Add(_scrubCCCExportButton);
 
             _scrubExportPdfButton = new Button
             {
@@ -733,6 +723,10 @@ namespace McStudDesktop.Views
             leftStack.Children.Add(resultsHeader);
             leftStack.Children.Add(BuildLegendPanel());
 
+            // Sticky column header — mirrors the estimate's "Line / Oper / Description / Part # / Price /
+            // Labor / Paint" header row and stays pinned above the scrolling list so it's always visible.
+            leftStack.Children.Add(BuildParsedLinesHeaderRow());
+
             _scrubParsedItemsList = new ListView
             {
                 MaxHeight = 550,
@@ -740,6 +734,13 @@ namespace McStudDesktop.Views
                 SelectionMode = ListViewSelectionMode.None,
                 Padding = new Thickness(4)
             };
+            // Zero out the default ListViewItem padding/min-height and stretch content so each row's
+            // columns line up under the sticky header above.
+            var rowStyle = new Style(typeof(ListViewItem));
+            rowStyle.Setters.Add(new Setter(ListViewItem.PaddingProperty, new Thickness(0)));
+            rowStyle.Setters.Add(new Setter(ListViewItem.MinHeightProperty, 0.0));
+            rowStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+            _scrubParsedItemsList.ItemContainerStyle = rowStyle;
             leftStack.Children.Add(_scrubParsedItemsList);
 
             _scrubLeftPanel.Child = leftStack;
@@ -808,6 +809,61 @@ namespace McStudDesktop.Views
             _refMatchBanner.Child = refRow;
             rightStack.Children.Add(_refMatchBanner);
 
+            // Single "Copy list" button for BOTH reference lists below. Copies the already-on-estimate
+            // and the can-add lists together, keeping them as separate labelled sections in the text.
+            var refCopyRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            refCopyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            refCopyRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _refCopyAllButton = new Button
+            {
+                Content = "Copy list",
+                FontSize = 11,
+                Padding = new Thickness(10, 3, 10, 3),
+                Background = new SolidColorBrush(Color.FromArgb(255, 55, 55, 55)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 220, 220, 220)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Visibility = Visibility.Collapsed
+            };
+            _refCopyAllButton.Click += CopyAllReference_Click;
+            Grid.SetColumn(_refCopyAllButton, 1);
+            refCopyRow.Children.Add(_refCopyAllButton);
+            rightStack.Children.Add(refCopyRow);
+
+            // Suggested additions (Requirement 2): operations the reference data says are NOT
+            // included in a matched operation and are NOT already on the estimate. Styled as a
+            // card so it reads as the right-side "items you can add to the estimate" list.
+            _refSuggestionsPanel = new StackPanel { Spacing = 4 };
+            _refSuggestionsCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 40, 34, 24)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 10, 12, 10),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 120, 90, 50)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 0, 4),
+                Visibility = Visibility.Collapsed,
+                Child = _refSuggestionsPanel
+            };
+            rightStack.Children.Add(_refSuggestionsCard);
+
+            // "Already on your estimate" — relevant reference-tab items the estimate already has
+            // (confirmation that they're covered + auto-referenced to the PDF). Green-tinted card.
+            _refPresentPanel = new StackPanel { Spacing = 4 };
+            _refPresentCard = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 24, 38, 28)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 10, 12, 10),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 60, 110, 70)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 0, 0, 4),
+                Visibility = Visibility.Collapsed,
+                Child = _refPresentPanel
+            };
+            rightStack.Children.Add(_refPresentCard);
+
             // Loading indicator for scoring analysis
             _scrubLoadingPanel = new StackPanel
             {
@@ -872,6 +928,7 @@ namespace McStudDesktop.Views
             Grid.SetColumn(_scrubRightScroll, 1);
             _scrubSideBySideGrid.Children.Add(_scrubRightScroll);
 
+            content.Children.Add(BuildScrubSearchBar());
             content.Children.Add(_scrubSideBySideGrid);
 
             // Status text
@@ -1683,6 +1740,7 @@ namespace McStudDesktop.Views
             {
                 _scrubVehicleInfo = vehicleInfo;
                 _scrubVin = vin;
+                _scrubEstimateSource = detectedSource;
                 await RunSmartAnalysisAsync();
             }
         }
@@ -1929,6 +1987,7 @@ namespace McStudDesktop.Views
                 PartNumber = item.PartNumber,
                 OperationType = item.OperationType,
                 Category = item.Section,
+                LineNumber = item.LineNumber,
                 LaborHours = item.LaborHours,
                 RepairHours = item.LaborHours,
                 RefinishHours = item.RefinishHours,
@@ -1963,14 +2022,97 @@ namespace McStudDesktop.Views
                 System.Diagnostics.Debug.WriteLine($"[Rates] Detected from estimate: Body=${_estimateBodyRate} Paint=${_estimatePaintRate} Mech=${_estimateMechRate}");
         }
 
+        /// <summary>Search row above the scrubber: filter the estimate lines, the reference results, or both.</summary>
+        private Border BuildScrubSearchBar()
+        {
+            var grid = new Grid { ColumnSpacing = 8 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            _scrubSearchBox = new TextBox
+            {
+                PlaceholderText = "Search estimate lines or results… (e.g. fender, wheel, line 86)",
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _scrubSearchBox.TextChanged += (s, e) =>
+            {
+                _scrubSearchText = _scrubSearchBox.Text ?? "";
+                ReapplyScrubSearch();
+            };
+            Grid.SetColumn(_scrubSearchBox, 0);
+            grid.Children.Add(_scrubSearchBox);
+
+            var scope = new ComboBox
+            {
+                FontSize = 12,
+                MinWidth = 110,
+                VerticalAlignment = VerticalAlignment.Center,
+                SelectedIndex = 0
+            };
+            scope.Items.Add("Both");
+            scope.Items.Add("Estimate");
+            scope.Items.Add("Results");
+            ToolTipService.SetToolTip(scope, "What to search: the estimate (left), the reference results (right), or both.");
+            scope.SelectionChanged += (s, e) =>
+            {
+                _scrubSearchScope = scope.SelectedIndex < 0 ? 0 : scope.SelectedIndex;
+                ReapplyScrubSearch();
+            };
+            Grid.SetColumn(scope, 1);
+            grid.Children.Add(scope);
+
+            return new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 28, 32, 40)),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 8, 10, 8),
+                Margin = new Thickness(0, 4, 0, 8),
+                Child = grid
+            };
+        }
+
+        private bool EstimateSearchActive => !string.IsNullOrWhiteSpace(_scrubSearchText) && _scrubSearchScope != 2;
+        private bool ResultsSearchActive => !string.IsNullOrWhiteSpace(_scrubSearchText) && _scrubSearchScope != 1;
+
+        private bool LineMatchesSearch(ParsedEstimateLine line)
+        {
+            if (!EstimateSearchActive) return true;
+            var q = _scrubSearchText.Trim();
+            return (line.Description ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (line.PartName ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (line.OperationType ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || line.LineNumber.ToString().Contains(q.Replace("line", "", StringComparison.OrdinalIgnoreCase).Trim());
+        }
+
+        private List<SuggestedMissingItem> FilterResults(List<SuggestedMissingItem> items)
+        {
+            if (!ResultsSearchActive) return items;
+            var q = _scrubSearchText.Trim();
+            return items.Where(s => (s.Item ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (s.SourceOperation ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        /// <summary>Re-render the estimate list and the reference cards with the current search applied.</summary>
+        private void ReapplyScrubSearch()
+        {
+            if (_scrubParsedItemsList != null) DisplayParsedLines(_scrubParsedItemsList);
+            ShowReferenceSuggestions(_lastSuggestions);
+            ShowReferencePresent(_lastPresent);
+        }
+
         private void DisplayParsedLines(ListView targetList)
         {
             targetList.Items.Clear();
 
             string? currentSection = null;
 
-            foreach (var line in _parsedLines.Take(100)) // Limit display
+            const int MaxDisplayLines = 1000; // show the whole estimate (ListView virtualizes, so this is cheap)
+            foreach (var line in _parsedLines.Take(MaxDisplayLines))
             {
+                // Search filter (when active): show only matching estimate lines.
+                if (!LineMatchesSearch(line)) continue;
+
                 // Category-based section headers — insert when category changes
                 if (!string.IsNullOrEmpty(line.Category) && line.Category != currentSection)
                 {
@@ -2020,11 +2162,11 @@ namespace McStudDesktop.Views
                 targetList.Items.Add(item);
             }
 
-            if (_parsedLines.Count > 100)
+            if (_parsedLines.Count > MaxDisplayLines)
             {
                 targetList.Items.Add(new TextBlock
                 {
-                    Text = $"... and {_parsedLines.Count - 100} more lines",
+                    Text = $"... and {_parsedLines.Count - MaxDisplayLines} more lines",
                     FontStyle = Windows.UI.Text.FontStyle.Italic,
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
                     Margin = new Thickness(8)
@@ -2160,6 +2302,52 @@ namespace McStudDesktop.Views
             };
         }
 
+        /// <summary>Pinned column-header row for the parsed-lines list. Column widths mirror
+        /// CreateParsedLineItem so the headers line up over the data rows.</summary>
+        private Border BuildParsedLinesHeaderRow()
+        {
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });  // Line
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(45) });  // Badge
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Oper
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) }); // Part #
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });  // Price
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Labor
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });  // Paint
+
+            void Hdr(string text, int col, HorizontalAlignment align)
+            {
+                var tb = new TextBlock
+                {
+                    Text = text,
+                    FontSize = 10,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 180, 200, 225)),
+                    HorizontalAlignment = align,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(tb, col);
+                grid.Children.Add(tb);
+            }
+            Hdr("Line", 0, HorizontalAlignment.Left);
+            Hdr("Oper", 2, HorizontalAlignment.Left);
+            Hdr("Description", 3, HorizontalAlignment.Left);
+            Hdr("Part #", 4, HorizontalAlignment.Left);
+            Hdr("Price", 5, HorizontalAlignment.Right);
+            Hdr("Labor", 6, HorizontalAlignment.Right);
+            Hdr("Paint", 7, HorizontalAlignment.Right);
+
+            return new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(255, 45, 55, 68)),
+                Padding = new Thickness(8, 6, 8, 6),
+                Margin = new Thickness(4, 4, 4, 0),
+                CornerRadius = new CornerRadius(3),
+                Child = grid
+            };
+        }
+
         private Border CreateParsedLineItem(ParsedEstimateLine line)
         {
             bool isSuspect = IsSuspectLine(line);
@@ -2177,6 +2365,7 @@ namespace McStudDesktop.Views
             };
 
             var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) }); // Line # (from estimate)
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(45) }); // Badge/indicator
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) }); // Operation
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Description
@@ -2184,6 +2373,22 @@ namespace McStudDesktop.Views
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) }); // Price
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) }); // Labor
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) }); // Paint
+
+            // Line number — the original estimate "Line" column, so the scrubber lines up 1:1 with the estimate.
+            if (line.LineNumber > 0)
+            {
+                var lineNumText = new TextBlock
+                {
+                    Text = line.LineNumber.ToString(),
+                    FontSize = 10,
+                    FontFamily = new FontFamily("Consolas"),
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 140)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+                Grid.SetColumn(lineNumText, 0);
+                grid.Children.Add(lineNumText);
+            }
 
             // Badge indicator
             if (line.IsManualLine)
@@ -2204,7 +2409,7 @@ namespace McStudDesktop.Views
                     Foreground = new SolidColorBrush(Colors.White)
                 };
                 ToolTipService.SetToolTip(hashBadge, $"Additional operation{(string.IsNullOrEmpty(line.ParentPartName) ? "" : $" for: {line.ParentPartName}")}");
-                Grid.SetColumn(hashBadge, 0);
+                Grid.SetColumn(hashBadge, 1);
                 grid.Children.Add(hashBadge);
             }
             else if (!string.IsNullOrEmpty(line.PartName))
@@ -2225,7 +2430,7 @@ namespace McStudDesktop.Views
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                     Foreground = new SolidColorBrush(Colors.White)
                 };
-                Grid.SetColumn(partBadge, 0);
+                Grid.SetColumn(partBadge, 1);
                 grid.Children.Add(partBadge);
             }
             else if (isSuspect)
@@ -2246,7 +2451,7 @@ namespace McStudDesktop.Views
                     Foreground = new SolidColorBrush(Colors.White)
                 };
                 ToolTipService.SetToolTip(warnBadge, GetSuspectReason(line));
-                Grid.SetColumn(warnBadge, 0);
+                Grid.SetColumn(warnBadge, 1);
                 grid.Children.Add(warnBadge);
             }
 
@@ -2260,15 +2465,15 @@ namespace McStudDesktop.Views
                     Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 180, 255)),
                     VerticalAlignment = VerticalAlignment.Center
                 };
-                Grid.SetColumn(opText, 1);
+                Grid.SetColumn(opText, 2);
                 grid.Children.Add(opText);
             }
 
-            // Description — show original estimate wording to match the estimate format
+            // Description — show original estimate wording to match the estimate format. Wraps to the
+            // full line (no truncation) so long operations are fully readable without hovering.
             var desc = !string.IsNullOrEmpty(line.OriginalDescription) ? line.OriginalDescription :
                        !string.IsNullOrEmpty(line.Description) ? line.Description :
                        !string.IsNullOrEmpty(line.PartName) ? line.PartName : line.RawLine;
-            if (desc.Length > 48) desc = desc.Substring(0, 48) + "...";
 
             var descText = new TextBlock
             {
@@ -2278,11 +2483,11 @@ namespace McStudDesktop.Views
                     ? Color.FromArgb(255, 180, 220, 180)  // Light green for additional ops
                     : Colors.White),
                 VerticalAlignment = VerticalAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                TextWrapping = TextWrapping.NoWrap
+                TextWrapping = TextWrapping.Wrap,
+                IsTextSelectionEnabled = true
             };
             ToolTipService.SetToolTip(descText, line.RawLine);  // Show full raw line on hover
-            Grid.SetColumn(descText, 2);
+            Grid.SetColumn(descText, 3);
             grid.Children.Add(descText);
 
             // Part number — its own column, kept out of the description
@@ -2300,7 +2505,7 @@ namespace McStudDesktop.Views
                     IsTextSelectionEnabled = true
                 };
                 ToolTipService.SetToolTip(partNumText, $"Part #: {line.PartNumber}");
-                Grid.SetColumn(partNumText, 3);
+                Grid.SetColumn(partNumText, 4);
                 grid.Children.Add(partNumText);
             }
 
@@ -2315,7 +2520,7 @@ namespace McStudDesktop.Views
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Right
                 };
-                Grid.SetColumn(priceText, 4);
+                Grid.SetColumn(priceText, 5);
                 grid.Children.Add(priceText);
             }
 
@@ -2339,7 +2544,7 @@ namespace McStudDesktop.Views
                     HorizontalAlignment = HorizontalAlignment.Right
                 };
                 ToolTipService.SetToolTip(laborText, !string.IsNullOrEmpty(line.LaborType) ? $"{line.LaborType} Labor" : "Labor Hours");
-                Grid.SetColumn(laborText, 5);
+                Grid.SetColumn(laborText, 6);
                 grid.Children.Add(laborText);
             }
 
@@ -2355,7 +2560,7 @@ namespace McStudDesktop.Views
                     HorizontalAlignment = HorizontalAlignment.Right
                 };
                 ToolTipService.SetToolTip(paintText, "Refinish Hours");
-                Grid.SetColumn(paintText, 6);
+                Grid.SetColumn(paintText, 7);
                 grid.Children.Add(paintText);
             }
 
@@ -2386,8 +2591,7 @@ namespace McStudDesktop.Views
                         foreach (var issue in result.Issues)
                             issue.Source ??= "Scoring";
                         _scoringPanel?.UpdateScore(result);
-                        if (_scoringPanel != null)
-                            _scoringPanel.Visibility = Visibility.Visible;
+                        // Panel stays hidden — scoring result is used only to build the export, not shown.
                     }
                 }
                 catch (Exception ex)
@@ -2532,113 +2736,6 @@ namespace McStudDesktop.Views
             }
         }
 
-        /// <summary>
-        /// Stage scoring results (missing items) to the Virtual Clipboard for the Export tab.
-        /// The Export tab then formats per target system (CCC Desktop, CCC Web, Mitchell).
-        /// Falls back to parsed estimate lines if no scoring results available.
-        /// </summary>
-        private void AddToExport_Click(object sender, RoutedEventArgs e)
-        {
-            if (_parsedLines.Count == 0)
-            {
-                ShowStatus("No data — upload or paste an estimate first", isError: true);
-                return;
-            }
-
-            try
-            {
-                var result = _scoringPanel?.CurrentResult;
-
-                // Try on-demand scoring if needed
-                if (result == null && _parsedLines.Count > 0)
-                {
-                    try
-                    {
-                        result = RunEstimateScoringAndReturn();
-                        if (result != null)
-                        {
-                            foreach (var issue in result.Issues)
-                                issue.Source ??= "Scoring";
-                            _scoringPanel?.UpdateScore(result);
-                        }
-                    }
-                    catch { }
-                }
-
-                var exportOps = new List<SmartExportOp>();
-
-                if (result != null && result.Issues.Count > 0)
-                {
-                    // Convert scoring issues (missing items) to export ops
-                    foreach (var issue in result.Issues)
-                    {
-                        if (issue.SuggestedFix == null) continue;
-                        var fix = issue.SuggestedFix;
-                        string desc = !string.IsNullOrEmpty(fix.Description) ? fix.Description : issue.Title ?? "";
-                        if (string.IsNullOrEmpty(desc)) continue;
-
-                        string opType = fix.OperationType;
-                        if (string.IsNullOrEmpty(opType)) opType = "Add";
-                        if (opType == "Refn") opType = "Refinish";
-
-                        bool isPriceBased = opType.Equals("Sublet", StringComparison.OrdinalIgnoreCase) ||
-                                            opType.Equals("Replace", StringComparison.OrdinalIgnoreCase);
-
-                        exportOps.Add(new SmartExportOp
-                        {
-                            OperationType = opType,
-                            Description = desc,
-                            Quantity = 1,
-                            Price = isPriceBased ? fix.EstimatedCost : 0,
-                            LaborHours = fix.LaborCategory == "Paint" ? 0 : fix.LaborHours,
-                            RefinishHours = fix.LaborCategory == "Paint" ? fix.LaborHours : 0,
-                            Category = issue.SourceDetail ?? ""
-                        });
-                    }
-                }
-                else
-                {
-                    // Fallback: convert parsed estimate lines to export ops
-                    foreach (var pl in _parsedLines)
-                    {
-                        if (string.IsNullOrEmpty(pl.Description)) continue;
-
-                        string opType = pl.OperationType;
-                        if (string.IsNullOrEmpty(opType)) opType = "Add";
-                        if (opType.Equals("Repair", StringComparison.OrdinalIgnoreCase)) opType = "Rpr";
-
-                        exportOps.Add(new SmartExportOp
-                        {
-                            OperationType = opType,
-                            Description = pl.Description,
-                            Quantity = pl.Quantity > 0 ? pl.Quantity : 1,
-                            Price = pl.Price,
-                            LaborHours = pl.LaborHours,
-                            RefinishHours = pl.RefinishHours,
-                            Category = pl.Category ?? ""
-                        });
-                    }
-                }
-
-                if (exportOps.Count == 0)
-                {
-                    ShowStatus("No exportable operations found", isError: true);
-                    return;
-                }
-
-                VirtualClipboardService.Instance.SetOperations(exportOps, "Import Scrubber");
-
-                ShowStatus($"{exportOps.Count} items staged for export", isSuccess: true);
-
-                // Navigate to Export tab so user can pick target system
-                OnNavigateToExport?.Invoke(this, EventArgs.Empty);
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Error staging for export: {ex.Message}", isError: true);
-            }
-        }
-
         private void ExportPdf_Click(object sender, RoutedEventArgs e)
         {
             if (_parsedLines.Count == 0)
@@ -2660,8 +2757,7 @@ namespace McStudDesktop.Views
                         foreach (var issue in result.Issues)
                             issue.Source ??= "Scoring";
                         _scoringPanel?.UpdateScore(result);
-                        if (_scoringPanel != null)
-                            _scoringPanel.Visibility = Visibility.Visible;
+                        // Panel stays hidden — scoring result is used only to build the export, not shown.
                     }
                 }
                 catch (Exception ex)
@@ -2701,6 +2797,15 @@ namespace McStudDesktop.Views
                 _scoringPanel!.Reset();
                 _scoringPanel.Visibility = Visibility.Collapsed;
                 if (_refMatchBanner != null) _refMatchBanner.Visibility = Visibility.Collapsed;
+                _refSuggestionsPanel?.Children.Clear();
+                if (_refSuggestionsCard != null)
+                    _refSuggestionsCard.Visibility = Visibility.Collapsed;
+                _refPresentPanel?.Children.Clear();
+                if (_refPresentCard != null)
+                    _refPresentCard.Visibility = Visibility.Collapsed;
+                _lastSuggestions = new List<SuggestedMissingItem>();
+                _lastPresent = new List<SuggestedMissingItem>();
+                UpdateRefCopyButton();
                 ReferenceView.Instance?.ClearStaging();
                 ReferenceView.Instance?.ClearEstimateContext();
                 ShowProgress(false, ParseContext.Scrubber);
@@ -4046,14 +4151,16 @@ namespace McStudDesktop.Views
 
                 if (scoringResult != null)
                 {
+                    // Scoring still runs (its result feeds exports), but the missing-operations panel
+                    // stays hidden — the scrubber now strictly surfaces reference-library info.
                     _scoringPanel!.UpdateScore(scoringResult);
-                    _scoringPanel.Visibility = Visibility.Visible;
-                    ShowStatusForContext($"Scrubber: {scoringResult.OverallScore}% score, {scoringResult.Issues.Count} items found", ParseContext.Scrubber, isSuccess: scoringResult.Issues.Count > 0);
+                    _scoringPanel.Visibility = Visibility.Collapsed;
+                    ShowStatusForContext("Scrubber: scanning estimate for reference info…", ParseContext.Scrubber, isSuccess: true);
                     System.Diagnostics.Debug.WriteLine($"[Scoring] Unified score: {scoringResult.OverallScore}%, Issues: {scoringResult.Issues.Count}");
                 }
                 else
                 {
-                    ShowStatusForContext("Scrubber: scoring returned no results", ParseContext.Scrubber);
+                    ShowStatusForContext("Scrubber: scanning estimate for reference info…", ParseContext.Scrubber);
                 }
 
                 // DRP compliance check
@@ -4169,14 +4276,30 @@ namespace McStudDesktop.Views
 
             try
             {
-                var matchResult = await _referenceMatcher.MatchEstimateLinesAsync(_parsedLines);
-                if (matchResult.Items.Count > 0)
-                {
-                    ReferenceView.Instance?.ShowStagedItems(matchResult.Items);
+                var matchResult = await _referenceMatcher.MatchEstimateLinesAsync(_parsedLines, _scrubEstimateSource);
 
-                    if (_refMatchStatusText != null)
+                // Requirement 1: auto-populate the PDF export queue with the references found for
+                // the operations on this estimate (no manual "review + add" step).
+                ReferenceView.Instance?.AutoAddMatchesToPdf(matchResult.Items);
+
+                // Requirement 2: surface operations that are NOT included in the matched labor and
+                // are NOT already on the estimate; plus the relevant items that ARE already present.
+                ShowReferenceSuggestions(matchResult.Suggestions);
+                ShowReferencePresent(matchResult.Present);
+
+                if (_refMatchStatusText != null)
+                {
+                    var parts = new List<string>();
+                    if (matchResult.Items.Count > 0)
+                        parts.Add($"{matchResult.Items.Count} reference(s) auto-added to the PDF export queue");
+                    if (matchResult.Suggestions.Count > 0)
+                        parts.Add($"{matchResult.Suggestions.Count} suggested addition(s) below");
+                    if (matchResult.Present.Count > 0)
+                        parts.Add($"{matchResult.Present.Count} already present");
+
+                    if (parts.Count > 0)
                     {
-                        _refMatchStatusText.Text = $"Found {matchResult.Items.Count} reference matches — review in Reference tab";
+                        _refMatchStatusText.Text = string.Join(" · ", parts);
                         if (_refMatchBanner != null) _refMatchBanner.Visibility = Visibility.Visible;
                     }
                 }
@@ -4204,6 +4327,180 @@ namespace McStudDesktop.Views
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[EstimateUpload] Reference matching error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Render the "items you can add" list (Requirement 2) on the right side of the scrubber.
+        /// Each row is an operation the reference data flags as not-included and not on the estimate.
+        /// Shows an empty state when the scan found no gaps, so the list area is always meaningful.
+        /// </summary>
+        private void ShowReferenceSuggestions(List<SuggestedMissingItem> suggestions)
+        {
+            _lastSuggestions = suggestions ?? new List<SuggestedMissingItem>();
+            PopulateReferenceCard(
+                _refSuggestionsPanel, _refSuggestionsCard, FilterResults(_lastSuggestions),
+                "Items you can add to the estimate",
+                Color.FromArgb(255, 255, 200, 130),
+                Color.FromArgb(255, 235, 175, 95),
+                "+",
+                "No additions suggested - the reference items relevant to this estimate are already on it.",
+                groupByOperation: true);
+            UpdateRefCopyButton();
+        }
+
+        /// <summary>
+        /// Render the "already on your estimate" list — relevant reference-tab items the estimate
+        /// already has (confirmation; these are also auto-referenced into the PDF export queue).
+        /// </summary>
+        private void ShowReferencePresent(List<SuggestedMissingItem> present)
+        {
+            _lastPresent = present ?? new List<SuggestedMissingItem>();
+            PopulateReferenceCard(
+                _refPresentPanel, _refPresentCard, FilterResults(_lastPresent),
+                "Already on your estimate",
+                Color.FromArgb(255, 150, 220, 160),
+                Color.FromArgb(255, 110, 200, 130),
+                "✓",
+                "No reference-tab operations detected on this estimate yet.");
+            UpdateRefCopyButton();
+        }
+
+        /// <summary>Shared renderer for the two right-side reference cards (suggestions + already-present).
+        /// When <paramref name="groupByOperation"/> is set, items are grouped under the estimate operation
+        /// they attach to (SourceOperation), so it's clear what each suggestion goes with.</summary>
+        private void PopulateReferenceCard(StackPanel? panel, Border? card, List<SuggestedMissingItem> items,
+            string title, Color titleColor, Color bulletColor, string bullet, string emptyText,
+            bool groupByOperation = false)
+        {
+            if (panel == null || card == null) return;
+            panel.Children.Clear();
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = items.Count > 0 ? $"{title} ({items.Count})" : title,
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(titleColor),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+
+            if (items.Count == 0)
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = emptyText,
+                    FontSize = 11,
+                    FontStyle = Windows.UI.Text.FontStyle.Italic,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 160, 160, 160)),
+                    TextWrapping = TextWrapping.Wrap
+                });
+                card.Visibility = Visibility.Visible;
+                return;
+            }
+
+            if (groupByOperation)
+            {
+                // Group the suggestions under the operation they attach to, so the estimator can see
+                // exactly what each one goes with (e.g. everything under "Bumper Cover (Replace)").
+                foreach (var grp in items.GroupBy(i => string.IsNullOrWhiteSpace(i.SourceOperation) ? "Other" : i.SourceOperation))
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = $"▸ {grp.Key}",
+                        FontSize = 12,
+                        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = new SolidColorBrush(titleColor),
+                        Margin = new Thickness(0, 6, 0, 2),
+                        TextWrapping = TextWrapping.Wrap,
+                        IsTextSelectionEnabled = true
+                    });
+                    foreach (var s in grp)
+                    {
+                        panel.Children.Add(new TextBlock
+                        {
+                            Text = $"{bullet}  {s.Item}",
+                            FontSize = 12,
+                            Foreground = new SolidColorBrush(Color.FromArgb(255, 225, 225, 225)),
+                            Margin = new Thickness(14, 1, 0, 1),
+                            TextWrapping = TextWrapping.Wrap,
+                            IsTextSelectionEnabled = true
+                        });
+                    }
+                }
+                card.Visibility = Visibility.Visible;
+                return;
+            }
+
+            foreach (var s in items)
+            {
+                var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(2, 1, 0, 1) };
+                row.Children.Add(new TextBlock
+                {
+                    Text = bullet,
+                    FontSize = 13,
+                    FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(bulletColor),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                row.Children.Add(new TextBlock
+                {
+                    Text = s.Item,
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromArgb(255, 230, 230, 230)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsTextSelectionEnabled = true
+                });
+                panel.Children.Add(row);
+            }
+
+            card.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>Show/enable the single Copy button only when at least one reference list has items.</summary>
+        private void UpdateRefCopyButton()
+        {
+            if (_refCopyAllButton == null) return;
+            bool any = _lastSuggestions.Count > 0 || _lastPresent.Count > 0;
+            _refCopyAllButton.Visibility = any ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>Copy BOTH reference lists to the clipboard as two separate labelled sections.</summary>
+        private void CopyAllReference_Click(object sender, RoutedEventArgs e)
+        {
+            if (_lastPresent.Count == 0 && _lastSuggestions.Count == 0) return;
+
+            var sb = new System.Text.StringBuilder();
+
+            sb.AppendLine($"Already on your estimate ({_lastPresent.Count}):");
+            foreach (var s in _lastPresent)
+                sb.AppendLine($"- {s.Item}");
+
+            sb.AppendLine();
+            sb.AppendLine($"Items you can add to the estimate ({_lastSuggestions.Count}):");
+            foreach (var s in _lastSuggestions)
+                sb.AppendLine($"- {s.Item}  [{s.Reason}]");
+
+
+            try
+            {
+                var dp = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                dp.SetText(sb.ToString());
+                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dp);
+
+                if (sender is Button btn)
+                {
+                    var original = btn.Content;
+                    btn.Content = "Copied!";
+                    _ = System.Threading.Tasks.Task.Delay(1500).ContinueWith(_ =>
+                        DispatcherQueue?.TryEnqueue(() => btn.Content = original));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[EstimateUpload] Copy reference list error: {ex.Message}");
             }
         }
 

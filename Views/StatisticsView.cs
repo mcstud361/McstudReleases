@@ -44,6 +44,8 @@ namespace McStudDesktop.Views
         private static readonly Color AccentOrange = Color.FromArgb(255, 255, 150, 0);
         private static readonly Color AccentRed = Color.FromArgb(255, 220, 80, 80);
         private static readonly Color AccentCyan = Color.FromArgb(255, 0, 180, 200);
+        private static readonly Color AccentGold = Color.FromArgb(255, 235, 200, 80);
+        private static readonly Color NeutralGray = Color.FromArgb(255, 120, 120, 120);
         private static readonly Color DarkBg = Color.FromArgb(255, 18, 18, 18);
         private static readonly Color CardBg = Color.FromArgb(255, 28, 28, 28);
         private static readonly Color SectionBg = Color.FromArgb(255, 35, 35, 35);
@@ -1145,9 +1147,6 @@ namespace McStudDesktop.Views
             // Shop Documents & Invoices section
             stack.Children.Add(CreateShopDocsStatsSection(period));
 
-            // Learning mode stats section
-            stack.Children.Add(CreateLearningModeStatsSection());
-
             // Version footer
             stack.Children.Add(new TextBlock
             {
@@ -1249,181 +1248,6 @@ namespace McStudDesktop.Views
                     mainStack.Children.Add(CreateShopDocUsageBar(doc.Name, doc.UsageCount, maxUsage));
                 }
             }
-
-            border.Child = mainStack;
-            return border;
-        }
-
-        private Border CreateLearningModeStatsSection()
-        {
-            var currentMode = LearningModeService.Instance.CurrentMode;
-            var activePatterns = EstimateLearningService.Instance.CurrentDatabase.Patterns.Count;
-            var activeExamples = EstimateLearningService.Instance.CurrentDatabase.TrainingExamples.Count;
-
-            var border = new Border
-            {
-                Background = new SolidColorBrush(CardBg),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(16),
-                Margin = new Thickness(0, 8, 0, 0)
-            };
-
-            var mainStack = new StackPanel { Spacing = 12 };
-
-            // Header
-            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            header.Children.Add(new FontIcon
-            {
-                Glyph = "\uE7BE",
-                FontSize = 14,
-                Foreground = new SolidColorBrush(AccentCyan)
-            });
-            header.Children.Add(new TextBlock
-            {
-                Text = "Learning Mode",
-                FontSize = 14,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White)
-            });
-
-            // Active mode badge
-            var modeBadge = new Border
-            {
-                Background = new SolidColorBrush(currentMode == LearningMode.Shop
-                    ? Color.FromArgb(255, 0, 100, 180)
-                    : Color.FromArgb(255, 140, 80, 200)),
-                CornerRadius = new CornerRadius(4),
-                Padding = new Thickness(8, 2, 8, 2)
-            };
-            modeBadge.Child = new TextBlock
-            {
-                Text = currentMode == LearningMode.Shop ? "Standard" : "Personal",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            header.Children.Add(modeBadge);
-            mainStack.Children.Add(header);
-
-            // Stats row
-            var statsRow = new Grid();
-            statsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            statsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            // Standard stats
-            var standardStack = new StackPanel { Spacing = 4 };
-            var standardLabel = new TextBlock
-            {
-                Text = "STANDARD",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-            };
-            standardStack.Children.Add(standardLabel);
-
-            int standardPatterns = 0;
-            int standardExamples = 0;
-            try
-            {
-                var baseKnowledgePath = EstimateLearningService.Instance.BaseKnowledgePath;
-                if (System.IO.File.Exists(baseKnowledgePath))
-                {
-                    var json = System.IO.File.ReadAllText(baseKnowledgePath);
-                    var baseDb = System.Text.Json.JsonSerializer.Deserialize<LearnedPatternDatabase>(json);
-                    if (baseDb != null)
-                    {
-                        standardPatterns = baseDb.Patterns.Count;
-                        standardExamples = baseDb.TrainingExamples.Count;
-                    }
-                }
-            }
-            catch { }
-
-            standardStack.Children.Add(new TextBlock
-            {
-                Text = standardPatterns.ToString(),
-                FontSize = 20,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(currentMode == LearningMode.Shop ? AccentBlue : Color.FromArgb(255, 100, 100, 100))
-            });
-            standardStack.Children.Add(new TextBlock
-            {
-                Text = $"patterns • {standardExamples} examples",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120))
-            });
-            if (currentMode == LearningMode.Shop)
-            {
-                standardStack.Children.Add(new TextBlock
-                {
-                    Text = "Active",
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(AccentGreen),
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-                });
-            }
-            Grid.SetColumn(standardStack, 0);
-            statsRow.Children.Add(standardStack);
-
-            // Personal stats
-            var personalStack = new StackPanel { Spacing = 4 };
-            personalStack.Children.Add(new TextBlock
-            {
-                Text = "PERSONAL",
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 100, 100, 100)),
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-            });
-
-            int personalPatterns = 0;
-            int personalExamples = 0;
-            try
-            {
-                var userKnowledgePath = System.IO.Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "McStudDesktop", "learned_patterns.json");
-                if (System.IO.File.Exists(userKnowledgePath))
-                {
-                    var json = System.IO.File.ReadAllText(userKnowledgePath);
-                    if (!string.IsNullOrWhiteSpace(json) && json.Trim() != "null")
-                    {
-                        var userDb = System.Text.Json.JsonSerializer.Deserialize<LearnedPatternDatabase>(json);
-                        if (userDb != null)
-                        {
-                            personalPatterns = userDb.Patterns.Count;
-                            personalExamples = userDb.TrainingExamples.Count;
-                        }
-                    }
-                }
-            }
-            catch { }
-
-            personalStack.Children.Add(new TextBlock
-            {
-                Text = personalPatterns.ToString(),
-                FontSize = 20,
-                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(currentMode == LearningMode.Personal ? Color.FromArgb(255, 180, 120, 255) : Color.FromArgb(255, 100, 100, 100))
-            });
-            personalStack.Children.Add(new TextBlock
-            {
-                Text = $"patterns • {personalExamples} examples",
-                FontSize = 11,
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 120, 120, 120))
-            });
-            if (currentMode == LearningMode.Personal)
-            {
-                personalStack.Children.Add(new TextBlock
-                {
-                    Text = "Active",
-                    FontSize = 10,
-                    Foreground = new SolidColorBrush(AccentGreen),
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-                });
-            }
-            Grid.SetColumn(personalStack, 1);
-            statsRow.Children.Add(personalStack);
-
-            mainStack.Children.Add(statsRow);
 
             border.Child = mainStack;
             return border;
@@ -2022,7 +1846,7 @@ namespace McStudDesktop.Views
             });
             stack.Children.Add(header);
 
-            if (breakdown.TotalDollars == 0)
+            if (breakdown.TotalHours == 0 && breakdown.TotalDollars == 0)
             {
                 stack.Children.Add(new TextBlock
                 {
@@ -2034,73 +1858,100 @@ namespace McStudDesktop.Views
             }
             else
             {
-                // Visual bar chart
-                var categories = new[]
+                // DOLLARS stay dollars (parts & materials from the Price column)
+                if (breakdown.TotalDollars > 0)
                 {
-                    ("Labor", breakdown.LaborDollars, breakdown.LaborPercent, AccentBlue),
-                    ("Refinish", breakdown.RefinishDollars, breakdown.RefinishPercent, AccentPurple),
-                    ("Materials", breakdown.MaterialsDollars, breakdown.MaterialsPercent, AccentOrange),
-                    ("Other", breakdown.OtherDollars, breakdown.OtherPercent, Color.FromArgb(255, 100, 100, 100))
-                };
+                    stack.Children.Add(CreateBreakdownSubheader("DOLLARS"));
+                    foreach (var (name, dollars, percent) in breakdown.DollarSlices())
+                        stack.Children.Add(CreateBreakdownRow(name, $"{dollars:C0} ({percent:F0}%)", percent, DeptColor(name)));
+                }
 
-                foreach (var (name, value, percent, color) in categories)
+                // HOURS stay hours (labor by department + refinish, never converted to $)
+                if (breakdown.TotalHours > 0)
                 {
-                    if (value <= 0) continue;
-
-                    var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-                    // Name
-                    row.Children.Add(new TextBlock
-                    {
-                        Text = name,
-                        FontSize = 11,
-                        Foreground = new SolidColorBrush(Colors.White),
-                        VerticalAlignment = VerticalAlignment.Center
-                    });
-
-                    // Bar
-                    var barContainer = new Border
-                    {
-                        Height = 10,
-                        CornerRadius = new CornerRadius(5),
-                        Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
-                        Margin = new Thickness(8, 0, 8, 0),
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
-                    var barFill = new Border
-                    {
-                        Height = 10,
-                        CornerRadius = new CornerRadius(5),
-                        Background = new SolidColorBrush(color),
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                        Width = Math.Max(4, percent * 2) // Scale bar
-                    };
-                    barContainer.Child = barFill;
-                    Grid.SetColumn(barContainer, 1);
-                    row.Children.Add(barContainer);
-
-                    // Value and percent
-                    var valueText = new TextBlock
-                    {
-                        Text = $"{value:C0} ({percent:F0}%)",
-                        FontSize = 10,
-                        Foreground = new SolidColorBrush(color),
-                        VerticalAlignment = VerticalAlignment.Center,
-                        MinWidth = 90,
-                        TextAlignment = TextAlignment.Right
-                    };
-                    Grid.SetColumn(valueText, 2);
-                    row.Children.Add(valueText);
-
-                    stack.Children.Add(row);
+                    stack.Children.Add(CreateBreakdownSubheader("HOURS"));
+                    foreach (var (name, hours, percent) in breakdown.HourSlices())
+                        stack.Children.Add(CreateBreakdownRow(name, $"{hours:0.#} hrs ({percent:F0}%)", percent, DeptColor(name)));
                 }
             }
 
             border.Child = stack;
             return border;
+        }
+
+        /// <summary>Color for a dollar/labor-department slice name (used across breakdown views).</summary>
+        private Color DeptColor(string name) => name switch
+        {
+            "Body" => AccentBlue,
+            "Frame" => AccentOrange,
+            "Mechanical" => AccentGreen,
+            "Structural" => AccentRed,
+            "Glass" => AccentCyan,
+            "Electrical" => AccentGold,
+            "Refinish" => AccentPurple,
+            "Parts" => AccentGreen,
+            "Materials" => AccentOrange,
+            _ => NeutralGray
+        };
+
+        private TextBlock CreateBreakdownSubheader(string text) => new TextBlock
+        {
+            Text = text,
+            FontSize = 9,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromArgb(255, 130, 130, 130)),
+            CharacterSpacing = 60,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+
+        private Grid CreateBreakdownRow(string name, string valueText, double percent, Color color)
+        {
+            var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            row.Children.Add(new TextBlock
+            {
+                Text = name,
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            var barContainer = new Border
+            {
+                Height = 10,
+                CornerRadius = new CornerRadius(5),
+                Background = new SolidColorBrush(Color.FromArgb(255, 50, 50, 50)),
+                Margin = new Thickness(8, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var barFill = new Border
+            {
+                Height = 10,
+                CornerRadius = new CornerRadius(5),
+                Background = new SolidColorBrush(color),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Width = Math.Max(4, percent * 2) // Scale bar
+            };
+            barContainer.Child = barFill;
+            Grid.SetColumn(barContainer, 1);
+            row.Children.Add(barContainer);
+
+            var value = new TextBlock
+            {
+                Text = valueText,
+                FontSize = 10,
+                Foreground = new SolidColorBrush(color),
+                VerticalAlignment = VerticalAlignment.Center,
+                MinWidth = 100,
+                TextAlignment = TextAlignment.Right
+            };
+            Grid.SetColumn(value, 2);
+            row.Children.Add(value);
+
+            return row;
         }
 
         private Border CreateTopAddedOperationsSection()
@@ -4155,7 +4006,7 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Colors.White)
             });
 
-            if (breakdown.TotalDollars == 0)
+            if (breakdown.TotalHours == 0)
             {
                 mainStack.Children.Add(CreateNoDataMessage());
             }
@@ -4165,15 +4016,11 @@ namespace McStudDesktop.Views
                 chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300) });
                 chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-                // Pie chart canvas
+                // Pie chart canvas — labor hours by department (+ refinish)
                 var pieCanvas = new Canvas { Width = 260, Height = 260 };
-                var categories = new[]
-                {
-                    (breakdown.LaborPercent, AccentBlue, "Labor", breakdown.LaborDollars),
-                    (breakdown.RefinishPercent, AccentPurple, "Refinish", breakdown.RefinishDollars),
-                    (breakdown.MaterialsPercent, AccentOrange, "Materials", breakdown.MaterialsDollars),
-                    (breakdown.OtherPercent, Color.FromArgb(255, 100, 100, 100), "Other", breakdown.OtherDollars)
-                };
+                var categories = breakdown.HourSlices()
+                    .Select(s => (Percent: s.Percent, Color: DeptColor(s.Name), Name: s.Name, Value: s.Hours))
+                    .ToList();
 
                 double startAngle = -90; // Start from top
                 foreach (var (percent, color, name, value) in categories)
@@ -4206,7 +4053,7 @@ namespace McStudDesktop.Views
                 });
                 totalStack.Children.Add(new TextBlock
                 {
-                    Text = breakdown.TotalDollars.ToString("C0"),
+                    Text = $"{breakdown.TotalHours:0.#} hrs",
                     FontSize = 16,
                     FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                     Foreground = new SolidColorBrush(Colors.White),
@@ -4255,7 +4102,7 @@ namespace McStudDesktop.Views
                     var valueStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Right };
                     valueStack.Children.Add(new TextBlock
                     {
-                        Text = value.ToString("C0"),
+                        Text = $"{value:0.#} hrs",
                         FontSize = 12,
                         FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                         Foreground = new SolidColorBrush(color),
@@ -5079,7 +4926,7 @@ namespace McStudDesktop.Views
                 Foreground = new SolidColorBrush(Colors.White)
             });
 
-            if (breakdown.TotalDollars == 0)
+            if (breakdown.TotalHours == 0)
             {
                 mainStack.Children.Add(CreateNoDataMessage());
             }
@@ -5089,15 +4936,11 @@ namespace McStudDesktop.Views
                 chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(300) });
                 chartGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-                // Pie chart visual (using concentric circles to simulate pie)
+                // Pie chart visual — labor hours by department (+ refinish)
                 var pieCanvas = new Canvas { Width = 260, Height = 260 };
-                var categories = new[]
-                {
-                    (breakdown.LaborPercent, AccentBlue, "Labor"),
-                    (breakdown.RefinishPercent, AccentPurple, "Refinish"),
-                    (breakdown.MaterialsPercent, AccentOrange, "Materials"),
-                    (breakdown.OtherPercent, Color.FromArgb(255, 100, 100, 100), "Other")
-                };
+                var categories = breakdown.HourSlices()
+                    .Select(s => (Percent: s.Percent, Color: DeptColor(s.Name), Name: s.Name))
+                    .ToList();
 
                 double startAngle = 0;
                 foreach (var (percent, color, name) in categories)
@@ -5121,7 +4964,7 @@ namespace McStudDesktop.Views
                 // Total in center
                 var totalText = new TextBlock
                 {
-                    Text = breakdown.TotalDollars.ToString("C0"),
+                    Text = $"{breakdown.TotalHours:0.#} hrs",
                     FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                     Foreground = new SolidColorBrush(Colors.White)
                 };
@@ -7244,15 +7087,14 @@ namespace McStudDesktop.Views
             catHeader.Children.Add(new FontIcon { Glyph = "\uE9D9", FontSize = 14, Foreground = new SolidColorBrush(AccentOrange) });
             catHeader.Children.Add(new TextBlock
             {
-                Text = "Value by Category",
+                Text = "Hours by Category",
                 FontSize = 14,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White)
             });
             catStack.Children.Add(catHeader);
 
-            var catTotal = categoryBreakdown.LaborDollars + categoryBreakdown.RefinishDollars +
-                          categoryBreakdown.MaterialsDollars + categoryBreakdown.OtherDollars;
+            var catTotal = categoryBreakdown.TotalHours;
 
             if (catTotal == 0)
             {
@@ -7260,15 +7102,9 @@ namespace McStudDesktop.Views
             }
             else
             {
-                // Labor
-                catStack.Children.Add(BuildCategoryRow("Labor", categoryBreakdown.LaborDollars, catTotal, AccentBlue));
-                // Refinish
-                catStack.Children.Add(BuildCategoryRow("Refinish", categoryBreakdown.RefinishDollars, catTotal, AccentPurple));
-                // Materials
-                catStack.Children.Add(BuildCategoryRow("Materials", categoryBreakdown.MaterialsDollars, catTotal, AccentOrange));
-                // Other
-                if (categoryBreakdown.OtherDollars > 0)
-                    catStack.Children.Add(BuildCategoryRow("Other", categoryBreakdown.OtherDollars, catTotal, AccentCyan));
+                // Labor hours by department (+ refinish)
+                foreach (var (name, hours, percent) in categoryBreakdown.HourSlices())
+                    catStack.Children.Add(BuildCategoryRow(name, hours, catTotal, DeptColor(name)));
 
                 // Pie chart visualization
                 catStack.Children.Add(BuildCategoryPieChart(categoryBreakdown, catTotal));
@@ -7537,7 +7373,7 @@ namespace McStudDesktop.Views
 
             var valueLabel = new TextBlock
             {
-                Text = value.ToString("C0"),
+                Text = $"{value:0.#} hrs",
                 FontSize = 12,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(color),
@@ -7575,19 +7411,15 @@ namespace McStudDesktop.Views
             };
 
             double startAngle = 0;
-            var categories = new[]
-            {
-                (breakdown.LaborDollars, AccentBlue, "Labor"),
-                (breakdown.RefinishDollars, AccentPurple, "Refinish"),
-                (breakdown.MaterialsDollars, AccentOrange, "Materials"),
-                (breakdown.OtherDollars, AccentCyan, "Other")
-            };
+            var categories = breakdown.HourSlices()
+                .Select(s => (Value: s.Hours, Color: DeptColor(s.Name), Name: s.Name))
+                .ToList();
 
             foreach (var (value, color, name) in categories)
             {
                 if (value <= 0) continue;
 
-                var percent = (double)(value / total);
+                var percent = total > 0 ? (double)(value / total) : 0;
                 var sweepAngle = percent * 360;
 
                 var path = CreatePieSlice(60, 60, 50, startAngle, sweepAngle, color);
@@ -7610,7 +7442,7 @@ namespace McStudDesktop.Views
             // Center text
             var centerText = new TextBlock
             {
-                Text = total.ToString("C0"),
+                Text = $"{total:0.#}h",
                 FontSize = 11,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White)
